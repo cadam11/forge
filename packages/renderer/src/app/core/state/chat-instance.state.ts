@@ -10,6 +10,7 @@ import type { ChatMessage, ChatStreamChunk, Conversation, ToolCallResult } from 
 import { IpcService } from '../services/ipc.service';
 import { ConnectionStateService } from './connection.state';
 import { TabStateService } from './tab.state';
+import { CapabilitiesStore } from './capabilities.state';
 import { firstValueFrom } from 'rxjs';
 
 export class ChatInstanceState {
@@ -42,6 +43,7 @@ export class ChatInstanceState {
     private readonly ipc: IpcService,
     private readonly connectionState: ConnectionStateService,
     private readonly tabState: TabStateService,
+    private readonly capabilitiesStore: CapabilitiesStore,
     initialConversationId?: string
   ) {
     this.setupStreamListener();
@@ -242,6 +244,9 @@ export class ChatInstanceState {
           databaseEngine:
             this.connectionState.profileFor(this.connectionState.focusedConnectionId())?.engine ||
             undefined,
+          engineVariant: this.capabilitiesStore.variantFor(
+            this.connectionState.focusedConnectionId() || undefined
+          ),
           activeEditorContent: activeEditorContent || undefined,
           vendorId: vendorId || undefined,
           modelApiName: modelApiName || undefined,

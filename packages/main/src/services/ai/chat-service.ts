@@ -799,6 +799,19 @@ Guidelines:
 - When the user asks you to run or show a query interactively, use open_query_tab with autoExecute=true so it opens in the editor AND runs immediately
 - After calling tools, always summarize the results in natural language — don't just show raw data`;
 
+    if (request.engineVariant === 'dsql') {
+      prompt += `
+
+This server is an Amazon Aurora DSQL cluster (PostgreSQL 16-compatible) with hard restrictions you MUST respect:
+- The cluster hosts a single database named "postgres" — never CREATE, DROP, or RENAME databases.
+- No foreign keys, triggers, PL/pgSQL, temporary tables, TRUNCATE, or extensions. Use LANGUAGE SQL for functions.
+- CREATE INDEX must be CREATE INDEX ASYNC (monitor with SELECT * FROM sys.jobs).
+- DDL and DML cannot share a transaction; at most one DDL statement per transaction.
+- A single transaction can modify at most 3,000 rows — batch large writes.
+- Isolation is fixed at REPEATABLE READ; write conflicts surface as serialization errors, so retry idempotently.
+- pg_proc, pg_database, pg_stat_* and pg_stat_activity are unavailable; prefer pg_class.reltuples over COUNT(*) for row counts.`;
+    }
+
     if (request.databaseName) {
       prompt += `\n\nCurrent database: ${request.databaseName}`;
       prompt += `\nAll tool calls (execute_query, execute_ddl, etc.) automatically run against this database — you do not need to add USE statements.`;

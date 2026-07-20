@@ -15,6 +15,7 @@ import type {
 import { IpcService } from '../services/ipc.service';
 import { ConnectionStateService } from './connection.state';
 import { TabStateService } from './tab.state';
+import { CapabilitiesStore } from './capabilities.state';
 import { firstValueFrom } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
@@ -22,6 +23,7 @@ export class ChatStateService implements OnDestroy {
   private readonly ipc = inject(IpcService);
   private readonly connectionState = inject(ConnectionStateService);
   private readonly tabState = inject(TabStateService);
+  private readonly capabilitiesStore = inject(CapabilitiesStore);
 
   // State signals
   private readonly _conversations = signal<Conversation[]>([]);
@@ -265,6 +267,9 @@ export class ChatStateService implements OnDestroy {
           databaseEngine:
             this.connectionState.profileFor(this.connectionState.focusedConnectionId())?.engine ||
             undefined,
+          engineVariant: this.capabilitiesStore.variantFor(
+            this.connectionState.focusedConnectionId() || undefined
+          ),
           activeEditorContent: activeEditorContent || undefined,
           vendorId: vendorId || undefined,
           modelApiName: modelApiName || undefined,

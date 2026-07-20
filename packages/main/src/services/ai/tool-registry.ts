@@ -289,8 +289,11 @@ export class ToolRegistry extends BaseSingleton {
         const engine = this.getEngine(connectionId);
 
         if (engine === 'postgresql') {
-          const sql = `SELECT version() AS version, current_database() AS database,
-                       current_user AS user, inet_server_addr()::text AS server_address`;
+          const isDsql = ConnectionPoolManager.getInstance().isDsqlCached(connectionId);
+          const sql = isDsql
+            ? `SELECT version() AS version, current_database() AS database, current_user AS user`
+            : `SELECT version() AS version, current_database() AS database,
+               current_user AS user, inet_server_addr()::text AS server_address`;
           const rows = await this.queryAny(connectionId, sql);
           return rows[0] || {};
         }
@@ -344,8 +347,13 @@ export class ToolRegistry extends BaseSingleton {
           sql = `SELECT TABLE_ROWS AS row_count FROM information_schema.TABLES
                  WHERE TABLE_SCHEMA = '${safeSchema}' AND TABLE_NAME = '${safeTable}'`;
         } else if (engine === 'postgresql') {
-          sql = `SELECT COALESCE(n_live_tup, 0) AS row_count FROM pg_stat_user_tables
-                 WHERE schemaname = '${safeSchema}' AND relname = '${safeTable}'`;
+          // pg_class.reltuples works on both standard PostgreSQL and Aurora
+          // DSQL (which lacks pg_stat_user_tables), and is the AWS-recommended
+          // way to approximate row counts without a full scan.
+          sql = `SELECT COALESCE(c.reltuples, 0)::bigint AS row_count
+                 FROM pg_class c
+                 JOIN pg_namespace n ON c.relnamespace = n.oid
+                 WHERE n.nspname = '${safeSchema}' AND c.relname = '${safeTable}' AND c.relkind = 'r'`;
         } else {
           sql = `SELECT SUM(p.rows) AS row_count FROM sys.partitions p
                  JOIN sys.tables t ON p.object_id = t.object_id

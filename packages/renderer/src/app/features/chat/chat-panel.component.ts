@@ -26,6 +26,7 @@ import { ChatInstanceState } from '../../core/state/chat-instance.state';
 import { ConnectionStateService } from '../../core/state/connection.state';
 import { AIStateService } from '../../core/state/ai.state';
 import { TabStateService } from '../../core/state/tab.state';
+import { CapabilitiesStore } from '../../core/state/capabilities.state';
 import { IpcService } from '../../core/services/ipc.service';
 import { firstValueFrom } from 'rxjs';
 import type { ToolCallResult } from '@mj-forge/shared';
@@ -1103,6 +1104,7 @@ export class ChatPanelComponent implements OnInit, OnDestroy, AfterViewChecked {
   private readonly tabState = inject(TabStateService);
   private readonly ipc = inject(IpcService);
   private readonly dialog = inject(MatDialog);
+  private readonly capabilitiesStore = inject(CapabilitiesStore);
 
   /** When true, renders in tab mode (no side panel chrome) */
   @Input() isTabMode = false;
@@ -1204,6 +1206,7 @@ export class ChatPanelComponent implements OnInit, OnDestroy, AfterViewChecked {
         this.ipc,
         this.connectionState,
         this.tabState,
+        this.capabilitiesStore,
         this.conversationId
       );
       this.instanceState.initialize();
