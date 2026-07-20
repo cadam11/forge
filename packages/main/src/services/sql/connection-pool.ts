@@ -115,6 +115,8 @@ export class ConnectionPoolManager extends BaseSingleton {
   private mysqlPools: Map<string, MySQLPoolEntry> = new Map();
   // Cache: profileId → isAzureSQL. Cleared on disconnect.
   private azureCache: Map<string, boolean> = new Map();
+  // Cache: profileId → is Aurora DSQL (postgresql variant). Cleared on disconnect.
+  private dsqlCache: Map<string, boolean> = new Map();
   private cleanupInterval: NodeJS.Timeout | null = null;
   private profileStore: ConnectionProfilesStore;
   private sshTunnelManager: SshTunnelManager;
@@ -226,7 +228,8 @@ export class ConnectionPoolManager extends BaseSingleton {
    */
   getDialectForProfile(profileId: string): SQLDialect {
     const profile = this.profileStore.getById(profileId);
-    return getDialect(profile?.engine || 'mssql');
+    const engine = profile?.engine || 'mssql';
+    return getDialect(engine, this.isDsqlCached(profileId) ? 'dsql' : undefined);
   }
 
   /**
@@ -272,6 +275,61 @@ export class ConnectionPoolManager extends BaseSingleton {
     this.azureCache.set(profileId, isAzure);
     log.info(`Engine edition for ${profileId}: ${edition} (isAzure=${isAzure})`);
     return isAzure;
+  }
+
+  /**
+   * Probe whether a postgresql profile is an Aurora DSQL cluster.
+   * sys.dsql_major_version() exists only on DSQL; on vanilla PostgreSQL the
+   * call errors, which we interpret as "not DSQL". Result is cached per
+   * profile and cleared on disconnect. Mirrors the isAzureSQL pattern.
+   */
+  async detectDsql(profileId: string): Promise<boolean> {
+    const cached = this.dsqlCache.get(profileId);
+    if (cached !== undefined) return cached;
+
+    if (this.getEngineForProfile(profileId) !== 'postgresql') {
+      this.dsqlCache.set(profileId, false);
+      return false;
+    }
+
+    const pool = await this.getPgPool(profileId);
+    let isDsql = false;
+    try {
+      await pool.query('SELECT * FROM sys.dsql_major_version()');
+      isDsql = true;
+    } catch (err) {
+      // Expected on standard PostgreSQL — the probe function doesn't exist.
+      log.debug(`DSQL probe negative for ${profileId}: ${this.errMessage(err)}`);
+    }
+    this.dsqlCache.set(profileId, isDsql);
+    log.info(`DSQL detection for ${profileId}: ${isDsql}`);
+    return isDsql;
+  }
+
+  /** Synchronous read of the cached DSQL detection (false until detectDsql ran). */
+  isDsqlCached(profileId: string): boolean {
+    return this.dsqlCache.get(profileId) === true;
+  }
+
+  /**
+   * Cheap liveness check: SELECT 1 on the profile's pool. Used by the
+   * renderer heartbeat via CONNECTION.PING. Throws on failure — the IPC
+   * layer surfaces the rejection and the renderer treats it as "unhealthy".
+   */
+  async pingConnection(profileId: string): Promise<boolean> {
+    const engine = this.getEngineForProfile(profileId);
+    if (engine === 'postgresql') {
+      const pool = await this.getPgPool(profileId);
+      await pool.query('SELECT 1');
+      return true;
+    }
+    if (engine === 'mysql') {
+      const pool = await this.getMySQLPool(profileId);
+      await pool.query('SELECT 1');
+      return true;
+    }
+    await this.query(profileId, 'SELECT 1');
+    return true;
   }
 
   /**
@@ -832,6 +890,7 @@ export class ConnectionPoolManager extends BaseSingleton {
     // timer would crash the Electron main process under Node 20's
     // unhandled-rejection default if any step here propagated a rejection.
     this.azureCache.delete(profileId);
+    this.dsqlCache.delete(profileId);
 
     // MSSQL pools may be keyed as "profileId" (on-prem, single pool) or
     // "profileId:dbName" (Entra/Azure SQL per-database pools). Iterate so
