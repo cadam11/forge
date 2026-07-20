@@ -50,45 +50,47 @@ PostgreSQL 16-compatible serverless database (standard wire protocol; `psql`/`pg
 
 ### File map
 
-| File | Action | Responsibility |
-| --- | --- | --- |
-| `packages/shared/src/types/connection.types.ts` | Modify | `EngineVariant`, `EngineCapabilities`, `FULL_CAPABILITIES`, extend `ActiveConnection` |
-| `packages/shared/src/constants/ipc-channels.ts` | Modify | Add `CONNECTION.PING` |
-| `packages/shared/src/types/chat.types.ts` | Modify | Add `engineVariant` to `ChatRequest` |
-| `packages/main/src/services/sql/dialect/sql-dialect.ts` | Modify | Defaulted capability getters + `variant` |
-| `packages/main/src/services/sql/dialect/pg-dialect.ts` | Modify | Widen `label` type annotation |
-| `packages/main/src/services/sql/dialect/pg-dsql-dialect.ts` | Create | DSQL SQL overrides + capability overrides |
-| `packages/main/src/services/sql/dialect/index.ts` | Modify | Variant-aware factory + `capabilitiesForDialect` |
-| `packages/main/src/services/sql/dialect/dialect.spec.ts` | Modify | Tests for all of the above |
-| `packages/main/src/services/sql/connection-pool.ts` | Modify | `dsqlCache`, `detectDsql`, `isDsqlCached`, `pingConnection`, dialect routing |
-| `packages/main/src/ipc/connection.ipc.ts` | Modify | Probe on connect, capabilities in result, PING handler |
-| `packages/main/src/services/ai/tool-registry.ts` | Modify | DSQL-safe row count + server info |
-| `packages/main/src/services/ai/chat-service.ts` | Modify | DSQL block in system prompt |
-| `packages/preload/src/index.ts` | Modify | `connection.ping`, fix `connect` return type |
-| `packages/renderer/src/app/core/services/ipc.service.ts` | Modify | `pingConnection`, `connect` typing |
-| `packages/renderer/src/app/core/state/capabilities.state.ts` | Create | Signal store for per-connection capabilities |
-| `packages/renderer/src/app/core/state/capabilities.state.spec.ts` | Create | Store tests |
-| `packages/renderer/src/app/core/state/connection.state.ts` | Modify | Store capabilities on connect, ping heartbeat, cleanup |
-| `packages/renderer/src/app/core/state/explorer-folders.ts` | Create | Pure folder-list helpers |
-| `packages/renderer/src/app/core/state/explorer-folders.spec.ts` | Create | Helper tests |
-| `packages/renderer/src/app/core/state/explorer.state.ts` | Modify | Use folder helpers with capabilities |
-| `packages/renderer/src/app/layout/sidebar/sidebar.component.ts` | Modify | Guards for backup/restore/create-database |
-| `packages/renderer/src/app/layout/shell/shell.component.ts` | Modify | Guard native-menu New Database |
-| `packages/renderer/src/app/features/query/query.component.ts` | Modify | Capability-aware autocomplete prefetch |
-| `packages/renderer/src/app/core/state/chat.state.ts` | Modify | Thread `engineVariant` into chat requests |
-| `packages/renderer/src/app/core/state/chat-instance.state.ts` | Modify | Same |
+| File                                                              | Action | Responsibility                                                                        |
+| ----------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------- |
+| `packages/shared/src/types/connection.types.ts`                   | Modify | `EngineVariant`, `EngineCapabilities`, `FULL_CAPABILITIES`, extend `ActiveConnection` |
+| `packages/shared/src/constants/ipc-channels.ts`                   | Modify | Add `CONNECTION.PING`                                                                 |
+| `packages/shared/src/types/chat.types.ts`                         | Modify | Add `engineVariant` to `ChatRequest`                                                  |
+| `packages/main/src/services/sql/dialect/sql-dialect.ts`           | Modify | Defaulted capability getters + `variant`                                              |
+| `packages/main/src/services/sql/dialect/pg-dialect.ts`            | Modify | Widen `label` type annotation                                                         |
+| `packages/main/src/services/sql/dialect/pg-dsql-dialect.ts`       | Create | DSQL SQL overrides + capability overrides                                             |
+| `packages/main/src/services/sql/dialect/index.ts`                 | Modify | Variant-aware factory + `capabilitiesForDialect`                                      |
+| `packages/main/src/services/sql/dialect/dialect.spec.ts`          | Modify | Tests for all of the above                                                            |
+| `packages/main/src/services/sql/connection-pool.ts`               | Modify | `dsqlCache`, `detectDsql`, `isDsqlCached`, `pingConnection`, dialect routing          |
+| `packages/main/src/ipc/connection.ipc.ts`                         | Modify | Probe on connect, capabilities in result, PING handler                                |
+| `packages/main/src/services/ai/tool-registry.ts`                  | Modify | DSQL-safe row count + server info                                                     |
+| `packages/main/src/services/ai/chat-service.ts`                   | Modify | DSQL block in system prompt                                                           |
+| `packages/preload/src/index.ts`                                   | Modify | `connection.ping`, fix `connect` return type                                          |
+| `packages/renderer/src/app/core/services/ipc.service.ts`          | Modify | `pingConnection`, `connect` typing                                                    |
+| `packages/renderer/src/app/core/state/capabilities.state.ts`      | Create | Signal store for per-connection capabilities                                          |
+| `packages/renderer/src/app/core/state/capabilities.state.spec.ts` | Create | Store tests                                                                           |
+| `packages/renderer/src/app/core/state/connection.state.ts`        | Modify | Store capabilities on connect, ping heartbeat, cleanup                                |
+| `packages/renderer/src/app/core/state/explorer-folders.ts`        | Create | Pure folder-list helpers                                                              |
+| `packages/renderer/src/app/core/state/explorer-folders.spec.ts`   | Create | Helper tests                                                                          |
+| `packages/renderer/src/app/core/state/explorer.state.ts`          | Modify | Use folder helpers with capabilities                                                  |
+| `packages/renderer/src/app/layout/sidebar/sidebar.component.ts`   | Modify | Guards for backup/restore/create-database                                             |
+| `packages/renderer/src/app/layout/shell/shell.component.ts`       | Modify | Guard native-menu New Database                                                        |
+| `packages/renderer/src/app/features/query/query.component.ts`     | Modify | Capability-aware autocomplete prefetch                                                |
+| `packages/renderer/src/app/core/state/chat.state.ts`              | Modify | Thread `engineVariant` into chat requests                                             |
+| `packages/renderer/src/app/core/state/chat-instance.state.ts`     | Modify | Same                                                                                  |
 
 ---
 
 ### Task 1: Shared types and IPC channel
 
 **Files:**
+
 - Modify: `packages/shared/src/types/connection.types.ts`
 - Modify: `packages/shared/src/constants/ipc-channels.ts`
 - Modify: `packages/shared/src/types/chat.types.ts`
 - Test: `packages/shared/src/types/connection.types.spec.ts`
 
 **Interfaces:**
+
 - Consumes: nothing (leaf task).
 - Produces: `EngineVariant` (`'dsql'`), `EngineCapabilities` (5 booleans), `FULL_CAPABILITIES: EngineCapabilities`, `ActiveConnection.capabilities?: EngineCapabilities`, `ActiveConnection.engineVariant?: EngineVariant`, `IPC_CHANNELS.CONNECTION.PING = 'connection:ping'`, `ChatRequest.engineVariant?: 'dsql'`. Every later task imports these from `@mj-forge/shared`.
 
@@ -194,6 +196,7 @@ Expected: PASS.
 ### Task 2: `PgDsqlDialect`, capability getters, variant-aware factory
 
 **Files:**
+
 - Modify: `packages/main/src/services/sql/dialect/sql-dialect.ts`
 - Modify: `packages/main/src/services/sql/dialect/pg-dialect.ts:17`
 - Create: `packages/main/src/services/sql/dialect/pg-dsql-dialect.ts`
@@ -201,6 +204,7 @@ Expected: PASS.
 - Test: `packages/main/src/services/sql/dialect/dialect.spec.ts`
 
 **Interfaces:**
+
 - Consumes: `EngineVariant`, `EngineCapabilities` from Task 1.
 - Produces: `SQLDialect` getters `variant` (`EngineVariant | undefined`), `supportsMultipleDatabases`, `supportsDatabaseManagement`, `supportsStoredProcedures`, `supportsTriggers`, `supportsBackupTooling` (all `boolean`, default `true`); `class PgDsqlDialect extends PgDialect`; `getDialect(engine: DatabaseEngine, variant?: EngineVariant): SQLDialect`; `capabilitiesForDialect(dialect: SQLDialect): EngineCapabilities`.
 
@@ -447,7 +451,9 @@ export class PgDsqlDialect extends PgDialect {
   // ── Database DDL: a DSQL cluster hosts exactly one database ──
 
   override createDatabaseSQL(_options: CreateDatabaseOptions): string {
-    throw new Error('Aurora DSQL clusters host a single database; CREATE DATABASE is not supported.');
+    throw new Error(
+      'Aurora DSQL clusters host a single database; CREATE DATABASE is not supported.'
+    );
   }
 
   override renameDatabaseSQL(_options: RenameDatabaseOptions): string {
@@ -584,10 +590,12 @@ Expected: PASS (all pre-existing dialect tests must also still pass).
 ### Task 3: DSQL detection and ping in `ConnectionPoolManager` + connect handler
 
 **Files:**
+
 - Modify: `packages/main/src/services/sql/connection-pool.ts` (fields at ~:117, `getDialectForProfile` at :227, `closePool` at :834)
 - Modify: `packages/main/src/ipc/connection.ipc.ts` (CONNECT handler at :77; new PING handler)
 
 **Interfaces:**
+
 - Consumes: `getDialect(engine, variant)`, `capabilitiesForDialect` (Task 2); `IPC_CHANNELS.CONNECTION.PING`, `ActiveConnection.capabilities/engineVariant` (Task 1).
 - Produces: `ConnectionPoolManager.detectDsql(profileId: string): Promise<boolean>`, `ConnectionPoolManager.isDsqlCached(profileId: string): boolean`, `ConnectionPoolManager.pingConnection(profileId: string): Promise<boolean>`. The `connection:connect` result now carries `capabilities` and `engineVariant`. The `connection:ping` channel answers `boolean`.
 
@@ -682,7 +690,7 @@ Replace `getDialectForProfile` (line 227):
 In `closePool` (line 834), next to `this.azureCache.delete(profileId);`, add:
 
 ```typescript
-    this.dsqlCache.delete(profileId);
+this.dsqlCache.delete(profileId);
 ```
 
 - [ ] **Step 5: Probe on connect and return capabilities**
@@ -705,16 +713,16 @@ In the CONNECT handler (line 77), change the postgresql branch:
 and change the return statement to:
 
 ```typescript
-      const dialect = poolManager.getDialectForProfile(id);
-      return {
-        id,
-        profile,
-        status: 'connected',
-        connectedAt: new Date().toISOString(),
-        currentDatabase: defaultDb,
-        engineVariant: dialect.variant,
-        capabilities: capabilitiesForDialect(dialect),
-      };
+const dialect = poolManager.getDialectForProfile(id);
+return {
+  id,
+  profile,
+  status: 'connected',
+  connectedAt: new Date().toISOString(),
+  currentDatabase: defaultDb,
+  engineVariant: dialect.variant,
+  capabilities: capabilitiesForDialect(dialect),
+};
 ```
 
 - [ ] **Step 6: Register the PING handler**
@@ -722,10 +730,10 @@ and change the return statement to:
 After the DISCONNECT handler (line 115), add:
 
 ```typescript
-  // Cheap liveness ping used by the renderer heartbeat (SELECT 1)
-  safeHandle(IPC_CHANNELS.CONNECTION.PING, async (_event, id: string): Promise<boolean> => {
-    return poolManager.pingConnection(id);
-  });
+// Cheap liveness ping used by the renderer heartbeat (SELECT 1)
+safeHandle(IPC_CHANNELS.CONNECTION.PING, async (_event, id: string): Promise<boolean> => {
+  return poolManager.pingConnection(id);
+});
 ```
 
 - [ ] **Step 7: Verify**
@@ -738,10 +746,12 @@ Expected: clean typecheck; all main-process unit tests pass.
 ### Task 4: Preload + `IpcService` plumbing
 
 **Files:**
+
 - Modify: `packages/preload/src/index.ts` (type at :107, impl at :591)
 - Modify: `packages/renderer/src/app/core/services/ipc.service.ts` (`connect` at :559)
 
 **Interfaces:**
+
 - Consumes: `CONNECTION.PING`, `ActiveConnection` (Task 1); PING handler (Task 3).
 - Produces: `window.forge.connection.connect(profileId): Promise<ActiveConnection>`, `window.forge.connection.ping(profileId): Promise<boolean>`, `IpcService.connect(profileId): Observable<ActiveConnection>`, `IpcService.pingConnection(connectionId): Observable<boolean>`.
 
@@ -750,9 +760,9 @@ Expected: clean typecheck; all main-process unit tests pass.
 In `packages/preload/src/index.ts`, ensure `ActiveConnection` is in the type imports from `@mj-forge/shared`. Change line 107 and add ping:
 
 ```typescript
-    connect: (profileId: string) => Promise<ActiveConnection>;
-    disconnect: (profileId: string) => Promise<void>;
-    ping: (profileId: string) => Promise<boolean>;
+connect: (profileId: string) => Promise<ActiveConnection>;
+disconnect: (profileId: string) => Promise<void>;
+ping: (profileId: string) => Promise<boolean>;
 ```
 
 In the implementation object (line 591):
@@ -787,11 +797,13 @@ Expected: clean. (`connect`'s previous `Observable<void>` consumers ignore the e
 ### Task 5: Renderer `CapabilitiesStore` + connect/heartbeat wiring
 
 **Files:**
+
 - Create: `packages/renderer/src/app/core/state/capabilities.state.ts`
 - Create: `packages/renderer/src/app/core/state/capabilities.state.spec.ts`
 - Modify: `packages/renderer/src/app/core/state/connection.state.ts` (`connect` at :219, `pingConnection` at :422, `cleanupConnectionState` — find the method invoked at :258)
 
 **Interfaces:**
+
 - Consumes: `EngineCapabilities`, `EngineVariant`, `FULL_CAPABILITIES`, `ActiveConnection` (Task 1); `IpcService.pingConnection` (Task 4).
 - Produces: `CapabilitiesStore` with `set(connectionId: string, entry: { capabilities: EngineCapabilities; variant?: EngineVariant }): void`, `clear(connectionId: string): void`, `for(connectionId: string | undefined): EngineCapabilities`, `variantFor(connectionId: string | undefined): EngineVariant | undefined`. Tasks 6–9 read from this store.
 
@@ -908,27 +920,27 @@ In `packages/renderer/src/app/core/state/connection.state.ts`:
 2. In `connect()` (line 228), capture the connect result:
 
 ```typescript
-      const active = await firstValueFrom(this.ipc.connect(profileId));
-      this.capabilitiesStore.set(profileId, {
-        capabilities: active?.capabilities ?? FULL_CAPABILITIES,
-        variant: active?.engineVariant,
-      });
+const active = await firstValueFrom(this.ipc.connect(profileId));
+this.capabilitiesStore.set(profileId, {
+  capabilities: active?.capabilities ?? FULL_CAPABILITIES,
+  variant: active?.engineVariant,
+});
 ```
 
 3. In `pingConnection()` (line 422), replace the `listDatabases` call:
 
 ```typescript
-      await this.withTimeout(
-        firstValueFrom(this.ipc.pingConnection(connectionId)),
-        ConnectionStateService.HEARTBEAT_TICK_TIMEOUT_MS,
-        `heartbeat ping for ${connectionId}`
-      );
+await this.withTimeout(
+  firstValueFrom(this.ipc.pingConnection(connectionId)),
+  ConnectionStateService.HEARTBEAT_TICK_TIMEOUT_MS,
+  `heartbeat ping for ${connectionId}`
+);
 ```
 
 4. In `cleanupConnectionState(connectionId)` (the private method called at line 258), add:
 
 ```typescript
-    this.capabilitiesStore.clear(connectionId);
+this.capabilitiesStore.clear(connectionId);
 ```
 
 - [ ] **Step 6: Verify**
@@ -941,11 +953,13 @@ Expected: clean typecheck; renderer unit tests pass.
 ### Task 6: Explorer tree gating (folders the engine can't serve)
 
 **Files:**
+
 - Create: `packages/renderer/src/app/core/state/explorer-folders.ts`
 - Create: `packages/renderer/src/app/core/state/explorer-folders.spec.ts`
 - Modify: `packages/renderer/src/app/core/state/explorer.state.ts` (`getSchemaFolders` at :672, `getTableSubFolders` at :438)
 
 **Interfaces:**
+
 - Consumes: `EngineCapabilities` (Task 1), `CapabilitiesStore` (Task 5).
 - Produces: `schemaFolderDefs(caps: EngineCapabilities): { name: string; type: string; icon: string }[]` and `tableSubFolderDefs(caps: EngineCapabilities): { name: string; type: string }[]` — pure functions consumed only by `explorer.state.ts`.
 
@@ -1098,10 +1112,10 @@ import { schemaFolderDefs, tableSubFolderDefs } from './explorer-folders';
 3. In `getTableSubFolders` (line 438), replace the hardcoded `folders` array with:
 
 ```typescript
-    const folders = tableSubFolderDefs(this.capabilitiesStore.for(node.connectionId)).map(f => ({
-      name: f.name,
-      type: f.type as NodeType,
-    }));
+const folders = tableSubFolderDefs(this.capabilitiesStore.for(node.connectionId)).map(f => ({
+  name: f.name,
+  type: f.type as NodeType,
+}));
 ```
 
 keeping the rest of the method unchanged. (Check how the existing array is consumed — if it uses `{ name, type }` object literals directly, this drop-in works; adjust the cast to match the file's `NodeType` import.)
@@ -1116,10 +1130,12 @@ Expected: clean.
 ### Task 7: Guard backup/restore and database management UI
 
 **Files:**
+
 - Modify: `packages/renderer/src/app/layout/sidebar/sidebar.component.ts` (`engineSupports` at :895, `openBackup` at :903, `openRestore` at :942, `_openCreateDatabaseDialog` at :1952)
 - Modify: `packages/renderer/src/app/layout/shell/shell.component.ts` (New Database dialog open at :360)
 
 **Interfaces:**
+
 - Consumes: `CapabilitiesStore` (Task 5).
 - Produces: user-visible guards only; no new exports.
 
@@ -1147,10 +1163,10 @@ Behavior note: this changes `engineSupports('backupRestore')` for plain PostgreS
 In `openBackup` (line 903), after the `if (!connectionId) { ... return; }` block, add:
 
 ```typescript
-    if (!this.capabilitiesStore.for(connectionId).supportsBackupRestore) {
-      this.notification.info('Backup is not supported on this server (Aurora DSQL).');
-      return;
-    }
+if (!this.capabilitiesStore.for(connectionId).supportsBackupRestore) {
+  this.notification.info('Backup is not supported on this server (Aurora DSQL).');
+  return;
+}
 ```
 
 Add the mirror-image guard in `openRestore` (line 942) with the message `'Restore is not supported on this server (Aurora DSQL).'`.
@@ -1160,12 +1176,12 @@ Add the mirror-image guard in `openRestore` (line 942) with the message `'Restor
 In `_openCreateDatabaseDialog` (line 1952), at the top of the method body, add:
 
 ```typescript
-    if (!this.capabilitiesStore.for(connectionId).supportsDatabaseManagement) {
-      this.notification.info(
-        'This server hosts a single fixed database — creating databases is not supported.'
-      );
-      return;
-    }
+if (!this.capabilitiesStore.for(connectionId).supportsDatabaseManagement) {
+  this.notification.info(
+    'This server hosts a single fixed database — creating databases is not supported.'
+  );
+  return;
+}
 ```
 
 In `packages/renderer/src/app/layout/shell/shell.component.ts`, the native-menu New Database handler opens the dialog at line 360. Inject `CapabilitiesStore` and add the same guard before `this.dialog.open(mod.CreateDatabaseDialogComponent, ...)`, using the shell's focused/most-recent connection id (whatever identifier that handler already resolves for dialog data — read the surrounding ~15 lines and reuse it).
@@ -1182,9 +1198,11 @@ Expected: clean.
 ### Task 8: Autocomplete prefetch hardening
 
 **Files:**
+
 - Modify: `packages/renderer/src/app/features/query/query.component.ts` (`loadAutoCompleteObjects` at :1472)
 
 **Interfaces:**
+
 - Consumes: `CapabilitiesStore` (Task 5).
 - Produces: none.
 
@@ -1193,18 +1211,18 @@ Expected: clean.
 The current `Promise.all` (line 1478) is all-or-nothing: one failed fetch (e.g. procedures) discards tables and views too. Inject `CapabilitiesStore` and replace the fetch block:
 
 ```typescript
-    const caps = this.capabilitiesStore.for(connectionId);
-    const fetchChildren = (kind: string) =>
-      firstValueFrom(this.ipc.getExplorerChildren(connectionId, database, kind)).catch(err => {
-        console.warn(`Autocomplete prefetch for ${kind} failed:`, err);
-        return [];
-      });
+const caps = this.capabilitiesStore.for(connectionId);
+const fetchChildren = (kind: string) =>
+  firstValueFrom(this.ipc.getExplorerChildren(connectionId, database, kind)).catch(err => {
+    console.warn(`Autocomplete prefetch for ${kind} failed:`, err);
+    return [];
+  });
 
-    const [tables, views, procs] = await Promise.all([
-      fetchChildren('tables'),
-      fetchChildren('views'),
-      caps.supportsStoredProcedures ? fetchChildren('procedures') : Promise.resolve([]),
-    ]);
+const [tables, views, procs] = await Promise.all([
+  fetchChildren('tables'),
+  fetchChildren('views'),
+  caps.supportsStoredProcedures ? fetchChildren('procedures') : Promise.resolve([]),
+]);
 ```
 
 Keep the rest of the method (the `objects` mapping at :1484 and `autoCompleteObjects.set`) unchanged, and keep the outer try/catch. TypeScript: `fetchChildren`'s return type should be inferred from `getExplorerChildren`'s element type; if the `[]` literal degrades it to `never[]`, annotate the catch return with the same array type the surrounding code uses.
@@ -1219,11 +1237,13 @@ Expected: clean.
 ### Task 9: AI awareness (tools + system prompt)
 
 **Files:**
+
 - Modify: `packages/main/src/services/ai/tool-registry.ts` (`get_server_info` at :287, `get_table_row_count` at :346)
 - Modify: `packages/main/src/services/ai/chat-service.ts` (`buildSystemPrompt` at :774)
 - Modify: `packages/renderer/src/app/core/state/chat.state.ts` (:265) and `packages/renderer/src/app/core/state/chat-instance.state.ts` (:242)
 
 **Interfaces:**
+
 - Consumes: `isDsqlCached` (Task 3), `ChatRequest.engineVariant` (Task 1), `CapabilitiesStore.variantFor` (Task 5).
 - Produces: none (behavioral only).
 
@@ -1248,15 +1268,15 @@ In `tool-registry.ts` (line 346), replace the postgresql branch of `get_table_ro
 In the `get_server_info` handler's postgresql branch (line 291), replace with:
 
 ```typescript
-        if (engine === 'postgresql') {
-          const isDsql = ConnectionPoolManager.getInstance().isDsqlCached(connectionId);
-          const sql = isDsql
-            ? `SELECT version() AS version, current_database() AS database, current_user AS user`
-            : `SELECT version() AS version, current_database() AS database,
+if (engine === 'postgresql') {
+  const isDsql = ConnectionPoolManager.getInstance().isDsqlCached(connectionId);
+  const sql = isDsql
+    ? `SELECT version() AS version, current_database() AS database, current_user AS user`
+    : `SELECT version() AS version, current_database() AS database,
                current_user AS user, inet_server_addr()::text AS server_address`;
-          const rows = await this.queryAny(connectionId, sql);
-          return rows[0] || {};
-        }
+  const rows = await this.queryAny(connectionId, sql);
+  return rows[0] || {};
+}
 ```
 
 (`ConnectionPoolManager` is already imported — it is used at line 232.)
@@ -1268,8 +1288,8 @@ No changes needed for `list_databases` / `list_stored_procedures` / `create_data
 In `chat-service.ts` `buildSystemPrompt` (line 774), after the initial `let prompt = ...` template (ends line 800), add:
 
 ```typescript
-    if (request.engineVariant === 'dsql') {
-      prompt += `
+if (request.engineVariant === 'dsql') {
+  prompt += `
 
 This server is an Amazon Aurora DSQL cluster (PostgreSQL 16-compatible) with hard restrictions you MUST respect:
 - The cluster hosts a single database named "postgres" — never CREATE, DROP, or RENAME databases.
@@ -1279,7 +1299,7 @@ This server is an Amazon Aurora DSQL cluster (PostgreSQL 16-compatible) with har
 - A single transaction can modify at most 3,000 rows — batch large writes.
 - Isolation is fixed at REPEATABLE READ; write conflicts surface as serialization errors, so retry idempotently.
 - pg_proc, pg_database, pg_stat_* and pg_stat_activity are unavailable; prefer pg_class.reltuples over COUNT(*) for row counts.`;
-    }
+}
 ```
 
 - [ ] **Step 4: Thread `engineVariant` from the renderer**
@@ -1333,6 +1353,7 @@ git push -u origin feature/aurora-dsql-support
 - [ ] **Step 4: Open the PR**
 
 `gh pr create` against `main`. The description MUST call out, per Craig's review conventions:
+
 1. **Behavior change for ALL engines:** the connection heartbeat now runs `SELECT 1` via `connection:ping` instead of `listDatabases` every 30s (cheaper; also stops implicitly refreshing the database-list cache — the list is still loaded on connect and on explicit refresh).
 2. **Dead-code rewrite:** sidebar `engineSupports('backupRestore')` previously returned `false` for PostgreSQL; it now returns `true` (capability-driven). It had no call sites, but reviewers should confirm.
 3. **`get_table_row_count` for standard PostgreSQL** switched from `pg_stat_user_tables.n_live_tup` to `pg_class.reltuples` (both approximate; values can differ slightly).
@@ -1349,6 +1370,7 @@ Connect a saved profile to a real DSQL cluster (host `<cluster>.dsql.<region>.on
 5. "Show Execution Plan" on a simple SELECT — records whether `EXPLAIN (FORMAT JSON)` works on DSQL (unverified assumption; if it fails, file a follow-up — do not fix in this PR).
 6. AI chat: ask for a table row count and to "create an index" — verify reltuples-based count and `CREATE INDEX ASYNC` in the generated SQL.
 7. Backup and Create Database entry points show the explanatory toast.
+8. Open Table Properties on a DSQL table — row count populates from reltuples, size fields show empty/N-A, no error state (exercises the metadata.ts DSQL branch).
 
 Anything that fails goes back to Craig with the observed output, not a workaround.
 

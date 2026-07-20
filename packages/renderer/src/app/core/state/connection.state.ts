@@ -445,6 +445,8 @@ export class ConnectionStateService implements OnDestroy {
   private async attemptReconnect(connectionId: string): Promise<void> {
     this._reconnectingByConnection.add(connectionId);
     try {
+      // Capabilities are deliberately not re-synced here: they're set on the
+      // initial connect() and stable per profile, and are only cleared on disconnect.
       await this.withTimeout(
         firstValueFrom(this.ipc.connect(connectionId)),
         ConnectionStateService.HEARTBEAT_TICK_TIMEOUT_MS,
