@@ -10,6 +10,7 @@ export const IPC_CHANNELS = {
     LIST: 'connection:list',
     CONNECT: 'connection:connect',
     DISCONNECT: 'connection:disconnect',
+    PING: 'connection:ping',
   },
 
   // Docker Detection

@@ -20,6 +20,33 @@ export const ENGINE_LABELS: Record<DatabaseEngine, string> = {
   mysql: 'MySQL',
 };
 
+/** Engine sub-variant detected at connect time (e.g. Aurora DSQL for postgresql) */
+export type EngineVariant = 'dsql';
+
+/**
+ * App-level feature support for a live connection. Computed main-side from
+ * the resolved dialect and shipped to the renderer on ActiveConnection.
+ * Absence of capabilities means "assume everything is supported".
+ */
+export interface EngineCapabilities {
+  /** Server hosts multiple user databases that can be enumerated/switched */
+  supportsMultipleDatabases: boolean;
+  /** CREATE/RENAME/DROP DATABASE are meaningful on this server */
+  supportsDatabaseManagement: boolean;
+  supportsStoredProcedures: boolean;
+  supportsTriggers: boolean;
+  /** Backup/restore is available via SQL or CLI tooling */
+  supportsBackupRestore: boolean;
+}
+
+export const FULL_CAPABILITIES: EngineCapabilities = {
+  supportsMultipleDatabases: true,
+  supportsDatabaseManagement: true,
+  supportsStoredProcedures: true,
+  supportsTriggers: true,
+  supportsBackupRestore: true,
+};
+
 export interface VolumeMapping {
   hostPath: string;
   containerPath: string;
@@ -85,6 +112,10 @@ export interface ActiveConnection {
   status: ConnectionStatus;
   connectedAt?: string;
   currentDatabase?: string;
+  /** Present when the engine has a detected sub-variant (e.g. Aurora DSQL) */
+  engineVariant?: EngineVariant;
+  /** App-level feature support; absent means all features supported */
+  capabilities?: EngineCapabilities;
 }
 
 // Legacy aliases for backward compatibility
