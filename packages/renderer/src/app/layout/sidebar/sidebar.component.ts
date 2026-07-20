@@ -1993,6 +1993,13 @@ ORDER BY __mj_CreatedAt DESC`;
   }
 
   private openRenameDatabaseDialog(connectionId: string, databaseName: string): void {
+    if (!this.capabilitiesStore.for(connectionId).supportsDatabaseManagement) {
+      this.notification.info(
+        'This server hosts a single fixed database — renaming databases is not supported.'
+      );
+      return;
+    }
+
     const dialogData: RenameDatabaseDialogData = {
       connectionId,
       databaseName,
@@ -2017,6 +2024,13 @@ ORDER BY __mj_CreatedAt DESC`;
   }
 
   private openDeleteDialog(connectionId: string, databaseName: string): void {
+    if (!this.capabilitiesStore.for(connectionId).supportsDatabaseManagement) {
+      this.notification.info(
+        'This server hosts a single fixed database — deleting databases is not supported.'
+      );
+      return;
+    }
+
     this.pendingDeleteConnectionId = connectionId;
     this.pendingDeleteDatabase = databaseName;
 
