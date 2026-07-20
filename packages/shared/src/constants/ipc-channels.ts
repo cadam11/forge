@@ -139,6 +139,18 @@ export const IPC_CHANNELS = {
     READ_INFO: 'restore:read-info',
   },
 
+  // Diagnostics / logging
+  LOG: {
+    // Renderer pulls the recent in-memory log buffer (e.g. on panel open).
+    GET_RECENT: 'log:get-recent',
+    // Renderer pushes a renderer-side log entry into the shared buffer.
+    APPEND: 'log:append',
+    // Main broadcasts each new log entry to renderer windows (stream).
+    ENTRY: 'log:entry',
+    // Reveal the on-disk log file in the OS file manager.
+    REVEAL_FILE: 'log:reveal-file',
+  },
+
   // Settings
   SETTINGS: {
     GET: 'settings:get',

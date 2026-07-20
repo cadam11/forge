@@ -1998,9 +1998,33 @@ ORDER BY __mj_CreatedAt DESC`;
   private openDeleteDialog(connectionId: string, databaseName: string): void {
     this.pendingDeleteConnectionId = connectionId;
     this.pendingDeleteDatabase = databaseName;
+
+    let message =
+      `Are you sure you want to delete the database "${databaseName}"? ` +
+      `This action cannot be undone and all data will be permanently lost.`;
+
+    // Warn about active use that would otherwise block the drop and offer to
+    // clear it as part of the delete — so the user doesn't have to hunt down
+    // windows or restart the app.
+    const openTabs = this.tabState.tabsUsingDatabase(connectionId, databaseName);
+    const expanded = this.explorerState.expandedNodeIds().has(`db-${connectionId}-${databaseName}`);
+    if (openTabs.length > 0 || expanded) {
+      const parts: string[] = [];
+      if (openTabs.length > 0) {
+        parts.push(`${openTabs.length} open ${openTabs.length === 1 ? 'window' : 'windows'}`);
+      }
+      if (expanded) {
+        parts.push('an expanded explorer node');
+      }
+      message +=
+        `\n\nThis database is currently in use (${parts.join(' and ')}). ` +
+        `Deleting will close ${openTabs.length > 0 ? 'those windows and ' : ''}` +
+        `release the connection — no app restart needed.`;
+    }
+
     this.deleteDialog.open({
       title: 'Delete Database',
-      message: `Are you sure you want to delete the database "${databaseName}"? This action cannot be undone and all data will be permanently lost.`,
+      message,
       confirmText: 'Delete',
       cancelText: 'Cancel',
       type: 'danger',
@@ -2065,6 +2089,12 @@ ORDER BY __mj_CreatedAt DESC`;
       this.notification.error('No active connection');
       return;
     }
+
+    // Clear active use up-front so the drop can take exclusive access: close
+    // any windows bound to this database and collapse its explorer node. The
+    // main process also releases its own pool, so this needs no app restart.
+    this.tabState.closeTabsForDatabase(connectionId, databaseName);
+    this.explorerState.collapseNode(`db-${connectionId}-${databaseName}`);
 
     try {
       const result = await firstValueFrom(

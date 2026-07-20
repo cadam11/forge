@@ -21,6 +21,7 @@ import { IPC_CHANNELS } from '@mj-forge/shared';
 import { BaseSingleton } from '../../utils/singleton';
 import { createLogger } from '../../utils/logger';
 import { ConnectionProfilesStore } from '../config/connection-profiles';
+import { buildMysqlRestorePrelude, resolveReplaceExisting } from './backup-args';
 
 const log = createLogger('MySQLBackup');
 
@@ -202,7 +203,8 @@ export class MySQLBackupService extends BaseSingleton {
       args,
       env,
       operation,
-      verifyConfig
+      verifyConfig,
+      resolveReplaceExisting(request)
     );
 
     return operationId;
@@ -254,19 +256,21 @@ export class MySQLBackupService extends BaseSingleton {
       port: number;
       user: string;
       password?: string;
-    }
+    },
+    replace: boolean
   ): void {
     const proc = spawn('mysql', args, { env, stdio: ['pipe', 'pipe', 'pipe'] });
     operation.pid = proc.pid;
 
     let stderr = '';
 
-    // Prepend a CREATE DATABASE IF NOT EXISTS + USE so the dump runs against
-    // a guaranteed-to-exist target. targetDb has been validated by
-    // startRestore to match /^[A-Za-z0-9_]+$/, so backtick-quoting alone is
-    // safe here. Writing this synchronously to stdin before piping the dump
-    // ensures the prelude reaches mysql first.
-    proc.stdin.write(`CREATE DATABASE IF NOT EXISTS \`${targetDb}\`;\nUSE \`${targetDb}\`;\n`);
+    // Prepend a prelude so the dump runs against a guaranteed-to-exist target.
+    // When replacing, the existing database is dropped first so the dump lands
+    // in a clean schema. targetDb has been validated by startRestore to match
+    // /^[A-Za-z0-9_]+$/, so backtick-quoting alone is safe here. Writing this
+    // synchronously to stdin before piping the dump ensures the prelude
+    // reaches mysql first.
+    proc.stdin.write(buildMysqlRestorePrelude(targetDb, replace));
 
     // Pipe the SQL file through a filter that strips SUPER-privilege statements
     const fileStream = createReadStream(backupPath);

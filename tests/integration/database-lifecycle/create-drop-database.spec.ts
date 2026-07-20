@@ -240,6 +240,31 @@ describe('database CREATE / DROP through ConnectionPoolManager.executeDDL', () =
       await pool.executeDDL(connectionId, dropSql);
       expect(await pgHasDb(dbName)).toBe(false);
     });
+
+    // Regression for "can't delete a DB that's expanded in the explorer or has
+    // a query window open": those affordances keep a live per-database pool,
+    // and PG refuses a plain DROP DATABASE while any session is connected.
+    // closePoolForDatabase must release Forge's own pool so the drop succeeds
+    // without an app restart.
+    it('releases its own pool so an in-use database can be dropped', async () => {
+      const pool = ConnectionPoolManager.getInstance();
+      await pool.executeDDL(connectionId, dialect.createDatabaseSQL({ name: dbName }));
+      expect(await pgHasDb(dbName)).toBe(true);
+
+      // Simulate an open query window / expanded node: a live backend on the
+      // target database held by Forge's own per-DB pool.
+      const dbPool = await pool.getPgPool(connectionId, dbName);
+      await dbPool.query('SELECT 1');
+
+      // Without eviction this plain DROP would fail with
+      // "database is being accessed by other users".
+      await pool.closePoolForDatabase(connectionId, dbName);
+      await pool.executeDDL(
+        connectionId,
+        dialect.dropDatabaseSQL({ name: dbName, closeConnections: false })
+      );
+      expect(await pgHasDb(dbName)).toBe(false);
+    });
   });
 
   describe('mysql', () => {

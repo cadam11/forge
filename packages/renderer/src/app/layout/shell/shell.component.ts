@@ -7,6 +7,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { SidebarComponent } from '../sidebar/sidebar.component';
 import { GoldenLayoutContainerComponent } from '../golden-layout-container/golden-layout-container.component';
 import { StatusBarComponent } from '../status-bar/status-bar.component';
+import { OutputPanelComponent } from '../output-panel/output-panel.component';
 import { ChatPanelComponent } from '../../features/chat/chat-panel.component';
 import { TourOverlayComponent } from '../../shared/components/tour-overlay/tour-overlay.component';
 import { ConnectionStateService } from '../../core/state/connection.state';
@@ -16,6 +17,7 @@ import { MenuService } from '../../core/services/menu.service';
 import { QueryHistoryService } from '../../core/services/query-history.service';
 import { IpcService } from '../../core/services/ipc.service';
 import { NotificationService } from '../../core/services/notification.service';
+import { LogService } from '../../core/services/log.service';
 
 const SIDEBAR_MIN_WIDTH = 180;
 const SIDEBAR_MAX_WIDTH = 500;
@@ -32,6 +34,7 @@ const SIDEBAR_DEFAULT_WIDTH = 280;
     SidebarComponent,
     GoldenLayoutContainerComponent,
     StatusBarComponent,
+    OutputPanelComponent,
     ChatPanelComponent,
     TourOverlayComponent,
   ],
@@ -60,6 +63,9 @@ const SIDEBAR_DEFAULT_WIDTH = 280;
           }
         </div>
         <app-golden-layout-container class="content-area" />
+        @if (logService.isOpen()) {
+          <app-output-panel class="output-panel" />
+        }
         <app-status-bar class="status-bar" />
       </div>
       <app-chat-panel />
@@ -170,6 +176,13 @@ const SIDEBAR_DEFAULT_WIDTH = 280;
         border-top: 1px solid var(--border-primary);
         background-color: var(--bg-tertiary);
       }
+
+      .output-panel {
+        flex-shrink: 0;
+        height: 220px;
+        border-top: 1px solid var(--border-primary);
+        overflow: hidden;
+      }
     `,
   ],
 })
@@ -182,6 +195,7 @@ export class ShellComponent implements OnInit, OnDestroy {
   private readonly ipc = inject(IpcService);
   private readonly notification = inject(NotificationService);
   private readonly dialog = inject(MatDialog);
+  readonly logService = inject(LogService);
 
   readonly sidebarHidden = signal(false);
   readonly sidebarWidth = signal(SIDEBAR_DEFAULT_WIDTH);
@@ -191,6 +205,9 @@ export class ShellComponent implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
 
   ngOnInit(): void {
+    // Start mirroring the main-process log stream into the Output panel.
+    void this.logService.init();
+
     // Load saved sidebar preferences
     this.loadSidebarPreferences();
 
@@ -372,6 +389,17 @@ export class ShellComponent implements OnInit, OnDestroy {
       Math.min(SIDEBAR_MAX_WIDTH, this.resizeStartWidth + delta)
     );
     this.sidebarWidth.set(newWidth);
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  onKeyDown(event: KeyboardEvent): void {
+    // ⌘J / Ctrl+J toggles the Output panel, matching common editor conventions.
+    if ((event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey) {
+      if (event.key === 'j' || event.key === 'J') {
+        event.preventDefault();
+        this.logService.toggle();
+      }
+    }
   }
 
   @HostListener('document:mouseup')

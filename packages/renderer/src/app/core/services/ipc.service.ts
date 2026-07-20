@@ -25,6 +25,7 @@ import type {
   RestoreRequest,
   BackupProgress,
   RestoreProgress,
+  LogEntry,
   BackupFileInfo,
   BackupHistoryEntry,
   CliDepsResult,
@@ -352,6 +353,12 @@ interface ForgeAPI {
     ) => Promise<{ logicalName: string; physicalName: string; type: string }[]>;
     getBackupInfo: (connectionId: string, backupPath: string) => Promise<BackupFileInfo>;
     onProgress: (callback: (progress: RestoreProgress) => void) => () => void;
+  };
+  logs: {
+    getRecent: (limit?: number) => Promise<LogEntry[]>;
+    append: (entry: LogEntry) => Promise<void>;
+    onEntry: (callback: (entry: LogEntry) => void) => () => void;
+    revealFile: () => Promise<string>;
   };
   app: {
     getVersion: () => Promise<string>;
@@ -827,6 +834,29 @@ export class IpcService {
 
   getBackupProgress(): Observable<BackupProgress> {
     return this.backupProgress$.asObservable();
+  }
+
+  // Diagnostics / log stream methods. These are best-effort: when the bridge
+  // isn't available (e.g. browser-only dev), they degrade to no-ops so the
+  // Output panel and error capture don't crash the app.
+  getRecentLogs(limit?: number): Promise<LogEntry[]> {
+    if (!this._isAvailable) return Promise.resolve([]);
+    return this.api.logs.getRecent(limit);
+  }
+
+  appendLog(entry: LogEntry): Promise<void> {
+    if (!this._isAvailable) return Promise.resolve();
+    return this.api.logs.append(entry);
+  }
+
+  onLogEntry(callback: (entry: LogEntry) => void): () => void {
+    if (!this._isAvailable) return () => undefined;
+    return this.api.logs.onEntry(callback);
+  }
+
+  revealLogFile(): Promise<string> {
+    if (!this._isAvailable) return Promise.resolve('');
+    return this.api.logs.revealFile();
   }
 
   // Restore methods

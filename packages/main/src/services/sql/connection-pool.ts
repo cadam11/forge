@@ -882,6 +882,76 @@ export class ConnectionPoolManager extends BaseSingleton {
   }
 
   /**
+   * Release Forge's own pooled connections to a single database on a profile,
+   * without tearing down the rest of the profile's pools or its SSH tunnel.
+   *
+   * This is the missing piece behind "can't delete/restore a database that's
+   * expanded in the explorer or has query windows open": those affordances
+   * keep a live pool to the target database, and DROP DATABASE / RESTORE WITH
+   * REPLACE both require exclusive access. The drop/restore SQL kicks
+   * *external* sessions, but not Forge's own pool — so we must let go here
+   * first. Every pool reconnects lazily on next use, so this is non-destructive
+   * from the user's perspective (no app restart needed).
+   *
+   * Never rejects — each close is wrapped so callers can fire it inline before
+   * the DDL without risking an unhandled rejection.
+   */
+  async closePoolForDatabase(profileId: string, database: string): Promise<void> {
+    if (database === '__base__' || !database) return;
+
+    const engine = this.getEngineForProfile(profileId);
+
+    if (engine === 'postgresql') {
+      const key = `${profileId}:${database}`;
+      const entry = this.pgPools.get(key);
+      if (entry) {
+        try {
+          await entry.pool.end();
+        } catch (err) {
+          log.warn(`Failed to close pg pool ${key} for database release: ${this.errMessage(err)}`);
+        }
+        this.pgPools.delete(key);
+      }
+      return;
+    }
+
+    if (engine === 'mysql') {
+      const key = `${profileId}:${database}`;
+      const entry = this.mysqlPools.get(key);
+      if (entry) {
+        try {
+          await entry.pool.end();
+        } catch (err) {
+          log.warn(
+            `Failed to close mysql pool ${key} for database release: ${this.errMessage(err)}`
+          );
+        }
+        this.mysqlPools.delete(key);
+      }
+      return;
+    }
+
+    // MSSQL. Azure uses a per-database pool (profileId:db); on-prem shares a
+    // single pool (profileId) across databases with USE-switching, so there's
+    // no way to release one database's connections selectively — close the
+    // shared pool, which reconnects lazily on the next query. Close whichever
+    // key shape is present.
+    for (const key of [`${profileId}:${database}`, profileId]) {
+      const entry = this.pools.get(key);
+      if (entry) {
+        try {
+          await entry.pool.close();
+        } catch (err) {
+          log.warn(
+            `Failed to close mssql pool ${key} for database release: ${this.errMessage(err)}`
+          );
+        }
+        this.pools.delete(key);
+      }
+    }
+  }
+
+  /**
    * Close all connection pools (SQL Server + PostgreSQL)
    */
   async closeAll(): Promise<void> {

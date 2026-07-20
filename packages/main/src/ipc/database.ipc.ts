@@ -104,6 +104,11 @@ export function registerDatabaseHandlers(): void {
       log.debug(`delete database SQL: ${sql}`);
 
       try {
+        // Forge's own pool may be holding the target database open (an
+        // expanded explorer node or open query window keeps a live pool),
+        // which blocks DROP DATABASE even after the SQL kicks external
+        // sessions. Release our grip first. Reconnects lazily, so no restart.
+        await poolManager.closePoolForDatabase(connectionId, options.name);
         await poolManager.executeDDL(connectionId, sql);
         metadataService.invalidateDatabases(connectionId);
         return { success: true, tsql: sql };

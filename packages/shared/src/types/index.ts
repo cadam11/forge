@@ -30,3 +30,6 @@ export * from './chat.types';
 
 // CLI deps types
 export * from './cli-deps.types';
+
+// Diagnostics / logging types
+export * from './log.types';

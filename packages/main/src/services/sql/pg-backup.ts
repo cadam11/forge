@@ -19,6 +19,7 @@ import { IPC_CHANNELS } from '@mj-forge/shared';
 import { BaseSingleton } from '../../utils/singleton';
 import { createLogger } from '../../utils/logger';
 import { ConnectionProfilesStore } from '../config/connection-profiles';
+import { buildPgRestoreArgs } from './backup-args';
 
 const log = createLogger('PgBackup');
 
@@ -95,22 +96,11 @@ export class PgBackupService extends BaseSingleton {
 
     const targetDb = request.targetDatabase || 'restored_db';
 
-    const args = [
-      '-h',
-      profile.server,
-      '-p',
-      String(profile.port),
-      '-U',
-      profile.username || 'postgres',
-      '-d',
-      targetDb,
-      '-v', // verbose
-      request.backupPath,
-    ];
-
-    if (request.replaceExisting) {
-      args.splice(args.length - 1, 0, '--clean', '--if-exists');
-    }
+    const args = buildPgRestoreArgs(
+      { server: profile.server, port: profile.port, username: profile.username },
+      request,
+      targetDb
+    );
 
     log.info(`Starting pg_restore for ${request.backupPath} → ${targetDb}`);
 

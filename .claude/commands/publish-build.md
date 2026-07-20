@@ -16,19 +16,33 @@ Ask the user:
 - Confirm all packages build successfully: `npm run build`
 - Check the current version in `package.json` and the latest git tag
 
+### 1a. Run the full regression harness — REQUIRED RELEASE GATE
+
+**This is mandatory for every release. No release proceeds on a red or skipped harness.** Invoke the **forge-regression-harness** skill and run the complete 4-tier pipeline:
+
+- The harness needs the Docker daemon running (it brings up the test Docker Compose stack). If Docker is down, start it and wait for the daemon before running.
+- Run `npm run test:full` — it brings the harness up, runs unit/integration/e2e/visual, writes structured JSON to `tests/reports/.cache/`, and **exits non-zero on any failure**.
+- **Gate:** the run must exit 0 (all tiers green). If anything fails, STOP — do not bump, tag, or push. Surface the failures (read `tests/reports/.cache/{tier}.summary.md`), fix or get the user's call, and re-run until green.
+- Only after a green harness do you continue to the version bump.
+
 ### 2. Bump version
 
 - Update `version` in root `package.json` to the new version number
 
-### 3. Commit and push
+### 3. Commit and open a bump PR — do NOT push to `main` directly
 
-- Stage `package.json`
+The project hard rule is **never push directly to `main`** (see root CLAUDE.md). The release convention is a dedicated bump branch merged via PR (see PRs #26 / #28 / #38) — the tag is then placed on the merge commit. Direct-to-main pushes are blocked by the permission classifier anyway.
+
+- Create branch `chore/bump-v{VERSION}`
+- Stage `package.json` **only** (don't sweep in unrelated working-tree changes)
 - Commit: `chore: bump version to v{VERSION}`
-- Push to `origin main`
+- Push the branch and open a PR into `main` via `gh pr create` (summarize the release + confirm the harness gate is green in the body)
+- Merge with `gh pr merge --merge --delete-branch` (a real merge commit, so the tag can point at it)
+- Sync local main: `git checkout main && git pull origin main`
 
 ### 4. Tag and push tag
 
-- Create annotated tag: `git tag v{VERSION}`
+- Create an annotated tag at the merge commit: `git tag -a v{VERSION} -m "Release v{VERSION}"`
 - Push tag: `git push origin v{VERSION}`
 - This triggers the GitHub Actions CI workflow (`.github/workflows/build-release.yml`) which builds:
   - macOS: DMG + ZIP for both arm64 and x64

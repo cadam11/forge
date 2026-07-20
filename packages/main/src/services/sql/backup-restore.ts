@@ -21,6 +21,7 @@ import { TsqlBuilder } from '../../utils/tsql-builder';
 import { createLogger } from '../../utils/logger';
 import { ConnectionPoolManager } from './connection-pool';
 import { MetadataService } from './metadata';
+import { resolveReplaceExisting } from './backup-args';
 
 const log = createLogger('BackupRestore');
 
@@ -266,7 +267,7 @@ export class BackupRestoreService extends BaseSingleton {
     const tsql = TsqlBuilder.restore({
       sourcePath: request.backupPath,
       targetDatabaseName: targetDbName,
-      overwriteExisting: request.replaceExisting ?? request.withReplace ?? false,
+      overwriteExisting: resolveReplaceExisting(request),
       fileMoves,
       recoveryState: (request.recoveryState?.toLowerCase() ||
         (request.withNoRecovery ? 'norecovery' : 'recovery')) as
@@ -296,6 +297,15 @@ export class BackupRestoreService extends BaseSingleton {
     if (!operation) return;
 
     try {
+      // RESTORE … WITH REPLACE needs exclusive access to the target database.
+      // If Forge has it open (explorer node expanded or a query window on it),
+      // our own pool holds connections that make SQL Server refuse with
+      // "Exclusive access could not be obtained because the database is in
+      // use." Release our grip first; the pool reconnects lazily afterward.
+      if (resolveReplaceExisting(request) && request.targetDatabase) {
+        await this.poolManager.closePoolForDatabase(request.connectionId, request.targetDatabase);
+      }
+
       await this.poolManager.batch(request.connectionId, tsql);
 
       // Invalidate database cache

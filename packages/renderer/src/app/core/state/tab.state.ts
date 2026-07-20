@@ -391,6 +391,30 @@ export class TabStateService {
   }
 
   /**
+   * Tabs that are actively bound to a specific database (query / object / ERD
+   * windows). These hold the database "in use" from the user's perspective and
+   * block drop/restore until closed.
+   */
+  tabsUsingDatabase(connectionId: string, databaseName: string): Tab[] {
+    return this._tabs().filter(
+      t =>
+        (t.type === 'query' || t.type === 'object' || t.type === 'erd') &&
+        t.connectionId === connectionId &&
+        t.databaseName === databaseName
+    );
+  }
+
+  /**
+   * Close every tab bound to a database. Used when the user opts to delete a
+   * database that still has windows open against it.
+   */
+  closeTabsForDatabase(connectionId: string, databaseName: string): void {
+    for (const tab of this.tabsUsingDatabase(connectionId, databaseName)) {
+      this.closeTab(tab.id);
+    }
+  }
+
+  /**
    * Show the Welcome tab. Re-adds it if user previously dismissed it.
    */
   showWelcome(): void {

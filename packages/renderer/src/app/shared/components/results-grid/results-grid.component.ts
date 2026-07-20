@@ -1162,7 +1162,12 @@ export class ResultsGridComponent implements OnChanges, OnDestroy {
   @Input() tableName: string = 'result';
   @Input() connectionId: string | null = null;
   @Input() database: string | null = null;
-  @Output() cellSelected = new EventEmitter<{ row: number; column: string; value: unknown }>();
+  @Output() cellSelected = new EventEmitter<{
+    row: number;
+    column: string;
+    value: unknown;
+    data: Record<string, unknown>;
+  }>();
   @Output() exportRequested = new EventEmitter<'csv' | 'json' | 'sql'>();
   @Output() openQueryRequested = new EventEmitter<{ sql: string; title: string }>();
 
@@ -1413,11 +1418,18 @@ export class ResultsGridComponent implements OnChanges, OnDestroy {
     const field = event.colDef.field ?? '';
     const column = this.resultSet?.columns.find(c => c.name === field);
 
-    this.cellSelected.emit({
-      row: event.rowIndex ?? 0,
-      column: field,
-      value: event.value,
-    });
+    // event.rowIndex is the DISPLAYED index (post-sort/filter), so it cannot
+    // be used to look up the row in the original result set — event.data is
+    // the actual clicked row regardless of sort/filter state.
+    const rowData = event.data as Record<string, unknown> | undefined;
+    if (rowData) {
+      this.cellSelected.emit({
+        row: event.rowIndex ?? 0,
+        column: field,
+        value: event.value,
+        data: rowData,
+      });
+    }
 
     // Update selected cell for preview panel (only for long values)
     if (field && column) {
@@ -1437,6 +1449,20 @@ export class ResultsGridComponent implements OnChanges, OnDestroy {
 
     const selectedRows = this.gridApi.getSelectedRows();
     this.selectedCount.set(selectedRows.length);
+  }
+
+  /** Row data at a displayed (post-sort/filter) index, or null when out of range. */
+  getDisplayedRowAt(index: number): Record<string, unknown> | null {
+    if (!this.gridApi || index < 0) return null;
+    const data = this.gridApi.getDisplayedRowAtIndex(index)?.data as
+      | Record<string, unknown>
+      | undefined;
+    return data ?? null;
+  }
+
+  /** Number of rows currently displayed (after sort/filter). */
+  getDisplayedRowCount(): number {
+    return this.gridApi?.getDisplayedRowCount() ?? 0;
   }
 
   autoSizeAllColumns(): void {

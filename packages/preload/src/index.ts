@@ -82,6 +82,7 @@ import type {
   MJErrorLog,
   MJUserRecordLog,
   MJEntityRelationship,
+  LogEntry,
 } from '@mj-forge/shared';
 
 /**
@@ -345,6 +346,13 @@ export interface ForgeAPI {
     ) => Promise<{ logicalName: string; physicalName: string; type: string }[]>;
     getBackupInfo: (connectionId: string, backupPath: string) => Promise<BackupFileInfo>;
     onProgress: (callback: (progress: RestoreProgress) => void) => () => void;
+  };
+
+  logs: {
+    getRecent: (limit?: number) => Promise<LogEntry[]>;
+    append: (entry: LogEntry) => Promise<void>;
+    onEntry: (callback: (entry: LogEntry) => void) => () => void;
+    revealFile: () => Promise<string>;
   };
 
   app: {
@@ -814,6 +822,13 @@ const forgeAPI: ForgeAPI = {
     getBackupInfo: (connectionId, backupPath) =>
       ipcRenderer.invoke(IPC_CHANNELS.RESTORE.GET_BACKUP_INFO, connectionId, backupPath),
     onProgress: callback => createEventListener(IPC_CHANNELS.RESTORE.PROGRESS, callback),
+  },
+
+  logs: {
+    getRecent: limit => ipcRenderer.invoke(IPC_CHANNELS.LOG.GET_RECENT, limit),
+    append: entry => ipcRenderer.invoke(IPC_CHANNELS.LOG.APPEND, entry),
+    onEntry: callback => createEventListener(IPC_CHANNELS.LOG.ENTRY, callback),
+    revealFile: () => ipcRenderer.invoke(IPC_CHANNELS.LOG.REVEAL_FILE),
   },
 
   app: {

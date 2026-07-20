@@ -16,8 +16,10 @@ import { registerThemeHandlers } from './theme.ipc';
 import { registerWorkspaceHandlers } from './workspace.ipc';
 import { registerSettingsHandlers } from './settings.ipc';
 import { registerChatHandlers } from './chat.ipc';
+import { registerLogHandlers } from './log.ipc';
 
 export function registerAllHandlers(): void {
+  registerLogHandlers();
   registerConnectionHandlers();
   registerDockerHandlers();
   registerDatabaseHandlers();

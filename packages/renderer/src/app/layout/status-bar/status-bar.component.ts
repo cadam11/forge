@@ -12,6 +12,7 @@ import { SettingsService } from '../../core/services/settings.service';
 import { firstValueFrom } from 'rxjs';
 import { IpcService } from '../../core/services/ipc.service';
 import { QueryExecutionService } from '../../core/services/query-execution.service';
+import { LogService } from '../../core/services/log.service';
 import { DockerPanelComponent } from '../../shared/components/docker-panel/docker-panel.component';
 import type { DockerStatus, DockerContainer } from '@mj-forge/shared';
 
@@ -96,6 +97,20 @@ import type { DockerStatus, DockerContainer } from '@mj-forge/shared';
           <mat-icon>tab</mat-icon>
           <span>{{ tabState.tabCount() }}</span>
         </div>
+
+        <!-- Output / Console toggle with unseen-error badge -->
+        <button
+          class="output-toggle"
+          (click)="logService.toggle()"
+          [matTooltip]="'Output / Console (⌘J)'"
+          [class.active]="logService.isOpen()"
+          [class.has-errors]="logService.unseenErrors() > 0"
+        >
+          <mat-icon>terminal</mat-icon>
+          @if (logService.unseenErrors() > 0) {
+            <span class="output-badge">{{ logService.unseenErrors() }}</span>
+          }
+        </button>
 
         <!-- Docker Status -->
         <button
@@ -298,6 +313,56 @@ import type { DockerStatus, DockerContainer } from '@mj-forge/shared';
         }
       }
 
+      .output-toggle {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition: background-color var(--transition-fast);
+        border: none;
+        background: transparent;
+        color: var(--text-secondary);
+
+        &:hover {
+          background-color: var(--bg-hover);
+          color: var(--accent);
+        }
+
+        &.active {
+          color: var(--accent);
+        }
+
+        &.has-errors {
+          color: var(--accent-error, #e5534b);
+        }
+
+        mat-icon {
+          font-size: 14px;
+          width: 14px;
+          height: 14px;
+        }
+
+        .output-badge {
+          position: absolute;
+          top: -2px;
+          right: -2px;
+          min-width: 13px;
+          height: 13px;
+          padding: 0 3px;
+          border-radius: 7px;
+          background: var(--accent-error, #e5534b);
+          color: #fff;
+          font-size: 9px;
+          line-height: 13px;
+          text-align: center;
+          font-weight: 700;
+        }
+      }
+
       .theme-toggle {
         display: flex;
         align-items: center;
@@ -384,6 +449,7 @@ export class StatusBarComponent implements OnInit, OnDestroy {
   readonly chatState = inject(ChatStateService);
   readonly settings = inject(SettingsService);
   readonly queryExecution = inject(QueryExecutionService);
+  readonly logService = inject(LogService);
   private readonly ipc = inject(IpcService);
 
   // Docker state
