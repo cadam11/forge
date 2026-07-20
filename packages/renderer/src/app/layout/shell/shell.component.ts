@@ -18,6 +18,7 @@ import { QueryHistoryService } from '../../core/services/query-history.service';
 import { IpcService } from '../../core/services/ipc.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { LogService } from '../../core/services/log.service';
+import { CapabilitiesStore } from '../../core/state/capabilities.state';
 
 const SIDEBAR_MIN_WIDTH = 180;
 const SIDEBAR_MAX_WIDTH = 500;
@@ -196,6 +197,7 @@ export class ShellComponent implements OnInit, OnDestroy {
   private readonly notification = inject(NotificationService);
   private readonly dialog = inject(MatDialog);
   readonly logService = inject(LogService);
+  private readonly capabilitiesStore = inject(CapabilitiesStore);
 
   readonly sidebarHidden = signal(false);
   readonly sidebarWidth = signal(SIDEBAR_DEFAULT_WIDTH);
@@ -352,6 +354,12 @@ export class ShellComponent implements OnInit, OnDestroy {
     const connectionId = this.connectionState.focusedConnectionId();
     if (!connectionId) {
       this.notification.warning('No active connection');
+      return;
+    }
+    if (!this.capabilitiesStore.for(connectionId).supportsDatabaseManagement) {
+      this.notification.info(
+        'This server hosts a single fixed database — creating databases is not supported.'
+      );
       return;
     }
     // Import and open the create database dialog dynamically
