@@ -1,5 +1,4 @@
 import {
-  ChangeDetectorRef,
   Component,
   ElementRef,
   Injector,
@@ -534,7 +533,7 @@ declare const monaco: {
       <!-- Row Detail Panel -->
       <app-row-detail-panel
         [inputData]="rowDetailData()"
-        [totalRows]="activeResultSet()?.rows?.length ?? 0"
+        [totalRows]="rowDetailTotalRows()"
         [connectionId]="tabConnectionId()"
         [database]="selectedDatabase"
         (closed)="closeRowDetail()"
@@ -944,6 +943,10 @@ export class QueryComponent implements OnInit, OnDestroy {
   @ViewChild('editorContainer', { static: true })
   editorContainer!: ElementRef<HTMLDivElement>;
 
+  // Source of truth for displayed (post-sort/filter) row order in the drawer.
+  @ViewChild(ResultsGridComponent)
+  resultsGrid?: ResultsGridComponent;
+
   private readonly ipc = inject(IpcService);
   readonly connectionState = inject(ConnectionStateService);
   readonly tabState = inject(TabStateService);
@@ -953,7 +956,6 @@ export class QueryComponent implements OnInit, OnDestroy {
   readonly aiState = inject(AIStateService);
   private readonly queryExecution = inject(QueryExecutionService);
   private readonly settings = inject(SettingsService);
-  private readonly cdr = inject(ChangeDetectorRef);
   private readonly menuService = inject(MenuService);
   private readonly intellisense = inject(SqlIntellisenseService);
   private readonly injector = inject(Injector);
@@ -993,6 +995,9 @@ export class QueryComponent implements OnInit, OnDestroy {
   // Row detail panel state
   rowDetailData = signal<RowDetailData | null>(null);
   showRowDetail = signal(false);
+  // Displayed row count captured when the drawer opens/navigates, so the
+  // panel's Next/Previous bounds match the sorted/filtered view.
+  rowDetailTotalRows = signal(0);
 
   // Execution plan state
   planData = signal<unknown>(null);
@@ -2182,16 +2187,26 @@ export class QueryComponent implements OnInit, OnDestroy {
     this.editorReadyTimer = setTimeout(checkAndExecute, 50);
   }
 
-  // Row detail panel methods
-  onCellSelected(event: { row: number; column: string; value: unknown }): void {
+  // Row detail panel methods.
+  // The grid emits the clicked row's data and its DISPLAYED index — after
+  // sorting/filtering, displayed index N no longer maps to resultSet.rows[N],
+  // so the drawer and Next/Previous navigation go through the grid's
+  // displayed-order API instead of the original rows array.
+  onCellSelected(event: {
+    row: number;
+    column: string;
+    value: unknown;
+    data: Record<string, unknown>;
+  }): void {
     const resultSet = this.activeResultSet();
     if (!resultSet) return;
 
     this.rowDetailData.set({
       rowIndex: event.row,
-      row: resultSet.rows[event.row],
+      row: event.data,
       columns: resultSet.columns,
     });
+    this.rowDetailTotalRows.set(this.resultsGrid?.getDisplayedRowCount() ?? resultSet.rows.length);
     this.showRowDetail.set(true);
   }
 
@@ -2201,19 +2216,20 @@ export class QueryComponent implements OnInit, OnDestroy {
   }
 
   navigateRowDetail(direction: 'next' | 'previous'): void {
-    const resultSet = this.activeResultSet();
     const currentData = this.rowDetailData();
-    if (!resultSet || !currentData) return;
+    const grid = this.resultsGrid;
+    if (!currentData || !grid) return;
 
     const newIndex = direction === 'next' ? currentData.rowIndex + 1 : currentData.rowIndex - 1;
+    const row = grid.getDisplayedRowAt(newIndex);
+    if (!row) return;
 
-    if (newIndex >= 0 && newIndex < resultSet.rows.length) {
-      this.rowDetailData.set({
-        rowIndex: newIndex,
-        row: resultSet.rows[newIndex],
-        columns: resultSet.columns,
-      });
-    }
+    this.rowDetailData.set({
+      rowIndex: newIndex,
+      row,
+      columns: currentData.columns,
+    });
+    this.rowDetailTotalRows.set(grid.getDisplayedRowCount());
   }
 
   /**
