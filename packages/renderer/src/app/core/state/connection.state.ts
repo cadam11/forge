@@ -194,14 +194,21 @@ export class ConnectionStateService implements OnDestroy {
     }
   }
 
+  /**
+   * Always resolves with a full TestConnectionResult (incl. error code +
+   * guidance) so callers can render details inline; an IPC-level throw is
+   * folded into a synthesized failure rather than a separate null shape.
+   * Callers that render failures themselves pass notifyErrors: false to
+   * suppress the error toast (the success toast always fires).
+   */
   async testConnection(
     profile: ConnectionProfile,
     password?: string,
     sshPassword?: string,
-    sshPassphrase?: string
-    // Returns the full result (incl. error code + guidance) so callers can
-    // render details inline; null only if the IPC call itself threw.
-  ): Promise<TestConnectionResult | null> {
+    sshPassphrase?: string,
+    opts: { notifyErrors?: boolean } = {}
+  ): Promise<TestConnectionResult> {
+    const notifyErrors = opts.notifyErrors ?? true;
     try {
       this._connecting.set(true);
       const result = await firstValueFrom(
@@ -209,14 +216,16 @@ export class ConnectionStateService implements OnDestroy {
       );
       if (result.success) {
         this.notification.success(`Connected to ${result.serverVersion || 'SQL Server'}`);
-      } else {
+      } else if (notifyErrors) {
         this.notification.error(result.error || 'Connection failed');
       }
       return result;
     } catch (error) {
-      this.notification.error('Connection test failed');
+      if (notifyErrors) {
+        this.notification.error('Connection test failed');
+      }
       console.error('Connection test failed:', error);
-      return null;
+      return { success: false, error: 'Connection test failed' };
     } finally {
       this._connecting.set(false);
     }

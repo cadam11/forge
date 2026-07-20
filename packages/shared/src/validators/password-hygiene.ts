@@ -38,7 +38,7 @@ export interface PasswordHygiene {
   /** True if any advisory issue was detected. */
   hasIssues: boolean;
   issues: PasswordHygieneIssue[];
-  /** Character count of the password (useful for spotting truncation/extra chars). */
+  /** Character count of the password in Unicode code points (astral chars count once). */
   length: number;
 }
 
@@ -47,15 +47,18 @@ export interface PasswordHygiene {
 // editing intact. Smart single quotes (U+2018-201B), prime (U+2032), smart double
 // quotes (U+201C-201F), double prime (U+2033).
 const SMART_QUOTES = /[\u2018-\u201b\u2032\u201c-\u201f\u2033]/;
-// En dash, em dash, and the Unicode minus sign masquerading as a hyphen-minus.
-const DASHES = /[\u2013\u2014\u2212]/;
+// Soft hyphen (U+00AD), non-breaking hyphen (U+2011), en dash, em dash, and the
+// Unicode minus sign - all masquerading as a hyphen-minus.
+const DASHES = /[\u00ad\u2011\u2013\u2014\u2212]/;
 // Non-breaking space (U+00A0), the U+2000-200A space block, zero-width space
-// (U+200B), narrow/medium math spaces (U+202F, U+205F), ideographic space
-// (U+3000), and the BOM / zero-width no-break space (U+FEFF).
-const NBSP_AND_UNICODE_SPACES = /[\u00a0\u2000-\u200b\u202f\u205f\u3000\ufeff]/;
-// Control characters (newline, tab, CR, etc.) anywhere in the value.
+// non-joiner / joiner (U+200B-200D), narrow/medium math spaces (U+202F, U+205F),
+// ideographic space (U+3000), and the BOM / zero-width no-break space (U+FEFF).
+const NBSP_AND_UNICODE_SPACES = /[\u00a0\u2000-\u200d\u202f\u205f\u3000\ufeff]/;
+// Control and line-break characters: C0 controls + DEL, plus the Unicode line
+// breaks (NEL U+0085, LINE/PARAGRAPH SEPARATOR U+2028/U+2029) that JS \s and
+// the whitespace checks do not fully cover.
 // eslint-disable-next-line no-control-regex
-const CONTROL_CHARS = /[\u0000-\u001f\u007f]/;
+const CONTROL_CHARS = /[\u0000-\u001f\u007f\u0085\u2028\u2029]/;
 
 const MESSAGES: Record<PasswordHygieneIssueType, string> = {
   'leading-whitespace':
@@ -63,11 +66,11 @@ const MESSAGES: Record<PasswordHygieneIssueType, string> = {
   'trailing-whitespace':
     'The password ends with a space or whitespace character — often an accidental paste artifact.',
   'control-char':
-    'The password contains a tab or line-break character — usually pasted in by accident.',
+    'The password contains a control or line-break character (tab, newline, etc.) — usually pasted in by accident.',
   'smart-quotes':
     'The password contains “smart” curly quotes (’ ” ‘ “) instead of straight quotes — common when copying from documents or chat apps.',
-  dash: 'The password contains an en/em dash (– or —) instead of a regular hyphen-minus (-).',
-  nbsp: 'The password contains a non-breaking or special Unicode space instead of a regular space.',
+  dash: 'The password contains a dash look-alike (en/em dash, non-breaking or soft hyphen) instead of a regular hyphen-minus (-).',
+  nbsp: 'The password contains a non-breaking, zero-width, or other invisible Unicode space instead of a regular space.',
   'non-ascii':
     'The password contains non-standard Unicode characters that may differ from what you intended.',
 };
@@ -91,7 +94,11 @@ export function analyzePasswordHygiene(password: string): PasswordHygiene {
   if (/^\s/.test(password)) add('leading-whitespace');
   if (/\s$/.test(password)) add('trailing-whitespace');
 
-  if (CONTROL_CHARS.test(password)) add('control-char');
+  // Checked on the trimmed value so a lone trailing newline/tab reports once
+  // (as trailing whitespace) and 'control-char' means genuinely embedded.
+  // trim() does not strip NEL (not JS whitespace), which is what still catches
+  // a trailing U+0085 that the \s checks above cannot see.
+  if (CONTROL_CHARS.test(password.trim())) add('control-char');
 
   if (SMART_QUOTES.test(password)) add('smart-quotes');
   if (DASHES.test(password)) add('dash');
@@ -99,25 +106,41 @@ export function analyzePasswordHygiene(password: string): PasswordHygiene {
 
   // Any remaining non-ASCII codepoint that isn't already explained by a more
   // specific check above. Avoids double-reporting a labeled look-alike.
+  // > 0x7f: DEL is ASCII and already reported as a control character.
   for (const ch of password) {
     const code = ch.codePointAt(0) ?? 0;
-    if (code > 0x7e) {
-      if (SMART_QUOTES.test(ch) || DASHES.test(ch) || NBSP_AND_UNICODE_SPACES.test(ch)) continue;
+    if (code > 0x7f) {
+      if (
+        SMART_QUOTES.test(ch) ||
+        DASHES.test(ch) ||
+        NBSP_AND_UNICODE_SPACES.test(ch) ||
+        CONTROL_CHARS.test(ch)
+      ) {
+        continue;
+      }
       add('non-ascii');
       break;
     }
   }
 
-  return { hasIssues: issues.length > 0, issues, length: password.length };
+  return { hasIssues: issues.length > 0, issues, length: [...password].length };
 }
 
 export interface DescribeOptions {
   /**
-   * Prepend a line stating the password's character count. Used by the
-   * post-login-failure diagnostic (#3) so a truncated or padded password is
-   * obvious; omitted by the live form warning (#2).
+   * Prepend a line stating the password's character count so extra or missing
+   * characters are visible alongside the artifact findings. Used by the
+   * post-login-failure diagnostic (#3); omitted by the live form warning (#2).
+   * Only emitted when artifact issues are present — a clean password produces
+   * no lines at all, so a routine auth failure never discloses the length.
    */
   includeLength?: boolean;
+  /**
+   * Issue types to leave out. The live form warning omits 'non-ascii' so a
+   * typed international password (ö, é, …) is not branded a paste artifact;
+   * the post-failure diagnostic keeps it.
+   */
+  omit?: PasswordHygieneIssueType[];
 }
 
 /**
@@ -125,13 +148,14 @@ export interface DescribeOptions {
  * when the password is clean. Never includes the raw password text.
  */
 export function describePasswordHygiene(password: string, opts: DescribeOptions = {}): string[] {
-  const { issues, length } = analyzePasswordHygiene(password);
+  const analysis = analyzePasswordHygiene(password);
+  const issues = analysis.issues.filter(i => !opts.omit?.includes(i.type));
   if (issues.length === 0) return [];
 
   const lines: string[] = [];
   if (opts.includeLength) {
     lines.push(
-      `The password Forge has stored is ${length} character${length === 1 ? '' : 's'} long — confirm that matches what you expect.`
+      `The password being tested is ${analysis.length} character${analysis.length === 1 ? '' : 's'} long — check that matches what you expect.`
     );
   }
   lines.push(...issues.map(i => i.message));

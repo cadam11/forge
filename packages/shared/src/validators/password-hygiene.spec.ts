@@ -68,6 +68,39 @@ describe('analyzePasswordHygiene', () => {
     expect(types).not.toContain('non-ascii');
   });
 
+  it('reports a trailing newline once — as trailing whitespace, not also control-char', () => {
+    expect(typesOf('secret\n')).toEqual(['trailing-whitespace']);
+    expect(typesOf('secret\t')).toEqual(['trailing-whitespace']);
+    expect(typesOf(' secret')).toEqual(['leading-whitespace']);
+  });
+
+  it('does not double-report DEL as non-ascii (it is an ASCII control character)', () => {
+    expect(typesOf('pass\u007Fword')).toEqual(['control-char']);
+  });
+
+  it('labels Unicode line separators as line breaks, not generic non-ascii', () => {
+    expect(typesOf('sec\u2028ret')).toEqual(['control-char']); // LINE SEPARATOR
+    expect(typesOf('sec\u2029ret')).toEqual(['control-char']); // PARAGRAPH SEPARATOR
+    expect(typesOf('sec\u0085ret')).toEqual(['control-char']); // NEL
+    // JS \s does not match NEL, so the whitespace checks miss a trailing one —
+    // the control-char check must still catch it.
+    expect(typesOf('secret\u0085')).toEqual(['control-char']);
+  });
+
+  it('labels non-breaking and soft hyphens as dash look-alikes', () => {
+    expect(typesOf('pass\u2011word')).toEqual(['dash']); // NON-BREAKING HYPHEN
+    expect(typesOf('pass\u00ADword')).toEqual(['dash']); // SOFT HYPHEN
+  });
+
+  it('labels zero-width joiners as invisible space characters', () => {
+    expect(typesOf('pass\u200Cword')).toEqual(['nbsp']); // ZWNJ
+    expect(typesOf('pass\u200Dword')).toEqual(['nbsp']); // ZWJ
+  });
+
+  it('counts characters as code points, not UTF-16 units', () => {
+    expect(analyzePasswordHygiene('pass\u{1F4A5} ').length).toBe(6); // pass💥␠
+  });
+
   it('each issue carries a human-readable message that does not echo the password', () => {
     const result = analyzePasswordHygiene('topsecret ');
     expect(result.hasIssues).toBe(true);
@@ -98,5 +131,29 @@ describe('describePasswordHygiene', () => {
   it('never includes the raw password text', () => {
     const lines = describePasswordHygiene('hunter2 ’', { includeLength: true });
     expect(lines.join(' ')).not.toContain('hunter2');
+  });
+
+  it('describes the length of the tested password — never claims storage', () => {
+    // The analyzed value is whatever the test actually used (form-entered, or
+    // keychain-resolved for a saved profile with a blank field), so the copy
+    // must neither claim storage nor claim the user typed it.
+    const lines = describePasswordHygiene('pass\u{1F4A5} ', { includeLength: true });
+    expect(lines[0]).toMatch(/being tested is 6 characters/);
+    expect(lines.join(' ')).not.toMatch(/stored/);
+  });
+
+  it('omits requested issue types (live banner drops the generic non-ascii bucket)', () => {
+    // A typed international password (ö, é, …) is not a paste artifact; the live
+    // warning suppresses 'non-ascii' while the post-failure diagnostic keeps it.
+    expect(describePasswordHygiene('passwörd', { omit: ['non-ascii'] })).toEqual([]);
+    const lines = describePasswordHygiene('passwörd ', { omit: ['non-ascii'] });
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatch(/ends with a space/);
+  });
+
+  it('emits no length line when every issue is omitted', () => {
+    expect(
+      describePasswordHygiene('passwörd', { omit: ['non-ascii'], includeLength: true })
+    ).toEqual([]);
   });
 });

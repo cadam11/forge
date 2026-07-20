@@ -76,4 +76,22 @@ test.describe('Forge — connection dialog variants', () => {
       await expect(dialog).toHaveScreenshot('ssh-tunnel-section-expanded.png');
     });
   });
+
+  test('password paste-artifact warning banner', async () => {
+    await withForge(async ({ window }) => {
+      const dialog = await openConnectionDialog(window);
+      // Trailing space + smart quote — two advisory bullets in the banner.
+      await dialog
+        .locator('mat-form-field')
+        .filter({ has: window.locator('mat-label:text-is("Password")') })
+        .first()
+        .locator('input')
+        .fill('secret’ ');
+      const banner = dialog.locator('app-password-hygiene-warning .password-warning');
+      await expect(banner).toBeVisible({ timeout: 5000 });
+      // Settle Material's floating-label animation on the password field.
+      await window.waitForTimeout(400);
+      await expect(dialog).toHaveScreenshot('password-hygiene-warning.png');
+    });
+  });
 });
