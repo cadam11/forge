@@ -33,7 +33,13 @@ vi.mock('@angular/core/rxjs-interop', () => ({
   toObservable: () => EMPTY,
   toSignal: (source: unknown) => source,
 }));
-import type { ConnectionProfile, DatabaseInfo } from '@mj-forge/shared';
+import type {
+  ActiveConnection,
+  ConnectionProfile,
+  DatabaseInfo,
+  EngineCapabilities,
+} from '@mj-forge/shared';
+import { FULL_CAPABILITIES } from '@mj-forge/shared';
 import { ConnectionStateService } from './connection.state';
 import { ExplorerStateService, type TreeNode } from './explorer.state';
 import { IpcService } from '../services/ipc.service';
@@ -58,6 +64,11 @@ interface IpcStubOpts {
   // Mark `isAvailable` true so persistence-related code paths run; defaults false
   // (existing behaviour) so heartbeat / disconnect specs don't trigger saveState IPC.
   available?: boolean;
+  // Optional ActiveConnection-shaped value `ipc.connect()` resolves with. Left
+  // unset, `connect` resolves `of(undefined)` — the pre-existing default every
+  // other test in this file relies on, which pins `connect()`'s
+  // `active?.capabilities ?? FULL_CAPABILITIES` fallback branch.
+  connectResult?: ActiveConnection;
 }
 
 // Minimal IPC stub — methods return synchronous Observables so connect /
@@ -67,7 +78,7 @@ interface IpcStubOpts {
 function makeIpcStub(opts: IpcStubOpts = {}): IpcHarness {
   const databasesByProfile = opts.databasesByProfile ?? {};
   const listDatabases = vi.fn((id: string) => of(databasesByProfile[id] ?? []));
-  const connect = vi.fn(() => of(undefined));
+  const connect = vi.fn(() => of(opts.connectResult));
   const pingConnection = vi.fn(() => of(true));
   const setAppState = vi.fn(() => of(undefined));
   const getAppState = vi.fn(() => of(opts.appState ?? {}));
@@ -176,6 +187,7 @@ function makeService(
     profiles?: ConnectionProfile[];
     appState?: Record<string, unknown>;
     ipcAvailable?: boolean;
+    connectResult?: ActiveConnection;
   } = {}
 ): {
   service: ConnectionStateService;
@@ -183,11 +195,13 @@ function makeService(
   tab: TabHarness;
   notification: NotificationService;
   ipc: IpcHarness;
+  capabilitiesStore: CapabilitiesStore;
 } {
   const ipc = makeIpcStub({
     databasesByProfile: opts.databasesByProfile,
     appState: opts.appState,
     available: opts.ipcAvailable,
+    connectResult: opts.connectResult,
   });
   const notification = makeNotificationStub();
   const tab = makeTabStub();
@@ -203,6 +217,7 @@ function makeService(
     ],
   });
   const service = injector.get(ConnectionStateService);
+  const capabilitiesStore = injector.get(CapabilitiesStore);
   // Seed profiles via the private signal so connect() finds them. Tests own
   // this break-the-encapsulation because the service has no public setter.
   if (opts.profiles?.length) {
@@ -210,7 +225,7 @@ function makeService(
       opts.profiles
     );
   }
-  return { service, explorer, tab, notification, ipc };
+  return { service, explorer, tab, notification, ipc, capabilitiesStore };
 }
 
 const profileA: ConnectionProfile = {
@@ -709,6 +724,75 @@ describe('ConnectionStateService — persistence migration edge cases (spec 1.8 
     );
     // No code path should still be writing the legacy key.
     expect(lastCall).not.toHaveProperty('lastConnectionId');
+
+    service.ngOnDestroy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CapabilitiesStore wiring — review finding: `active` in `connect()` was only
+// ever exercised via the default `of(undefined)` stub, so the branch reading
+// real `capabilities`/`engineVariant` off `ActiveConnection` had zero coverage.
+// These specs assert the actual value flow into (and back out of)
+// `CapabilitiesStore`, using `makeIpcStub`'s new `connectResult` fixture and
+// `makeService`'s newly-exposed `capabilitiesStore` harness field.
+// ---------------------------------------------------------------------------
+
+describe('ConnectionStateService — CapabilitiesStore wiring (review finding)', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.clearAllMocks();
+  });
+
+  const dsqlCapabilities: EngineCapabilities = {
+    supportsMultipleDatabases: false,
+    supportsDatabaseManagement: false,
+    supportsStoredProcedures: false,
+    supportsTriggers: false,
+    supportsBackupRestore: false,
+  };
+
+  it('connect() populates the store from a real ActiveConnection, and disconnect() reverts it', async () => {
+    const activeConnection: ActiveConnection = {
+      id: profileA.id,
+      profile: profileA,
+      status: 'connected',
+      engineVariant: 'dsql',
+      capabilities: dsqlCapabilities,
+    };
+    const { service, capabilitiesStore } = makeService({
+      profiles: [profileA],
+      databasesByProfile: { [profileA.id]: [] },
+      connectResult: activeConnection,
+    });
+
+    await service.connect(profileA.id);
+
+    expect(capabilitiesStore.for(profileA.id)).toEqual(dsqlCapabilities);
+    expect(capabilitiesStore.variantFor(profileA.id)).toBe('dsql');
+
+    await service.disconnect(profileA.id);
+
+    expect(capabilitiesStore.for(profileA.id)).toEqual(FULL_CAPABILITIES);
+    expect(capabilitiesStore.variantFor(profileA.id)).toBeUndefined();
+
+    service.ngOnDestroy();
+  });
+
+  it('connect() falls back to FULL_CAPABILITIES / undefined variant when the resolved ActiveConnection is undefined', async () => {
+    // No `connectResult` — pins the pre-existing default `of(undefined)`
+    // behaviour and, with it, the `active?.capabilities ?? FULL_CAPABILITIES`
+    // fallback branch explicitly.
+    const { service, capabilitiesStore } = makeService({
+      profiles: [profileA],
+      databasesByProfile: { [profileA.id]: [] },
+    });
+
+    await service.connect(profileA.id);
+
+    expect(capabilitiesStore.for(profileA.id)).toEqual(FULL_CAPABILITIES);
+    expect(capabilitiesStore.variantFor(profileA.id)).toBeUndefined();
 
     service.ngOnDestroy();
   });
