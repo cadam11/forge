@@ -41,4 +41,10 @@ describe('parseAwsProfileNames', () => {
   it('handles empty inputs', () => {
     expect(parseAwsProfileNames('', '')).toEqual([]);
   });
+
+  it('treats credentials section names literally (no profile-prefix stripping)', () => {
+    expect(parseAwsProfileNames('', '[profile foo]\naws_access_key_id = x\n')).toEqual([
+      'profile foo',
+    ]);
+  });
 });
