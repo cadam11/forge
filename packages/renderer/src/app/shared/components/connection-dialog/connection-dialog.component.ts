@@ -777,6 +777,14 @@ export class ConnectionDialogComponent {
     if (!authValidForEngine) {
       this.formData.authenticationType = 'sql';
     }
+    // Re-run DSQL detection when landing on postgresql: a server value
+    // pasted while a different engine was selected (e.g. mssql, the
+    // dialog's default) never got split/detected because onServerChange
+    // short-circuits on engine. Running it here makes paste-then-switch
+    // and switch-then-paste behave identically.
+    if (engine === 'postgresql') {
+      this.applyDsqlAutoDetect();
+    }
   }
 
   /**
@@ -790,14 +798,37 @@ export class ConnectionDialogComponent {
   }
 
   /**
-   * Fires on every Server field edit. Aurora DSQL endpoints are recognizable
-   * by hostname alone, so a pasted "<id>.dsql.<region>.on.aws" (optionally
-   * with a ":<port>" suffix) auto-switches the form to aws-iam — but only
-   * when the user hasn't already chosen a different auth type or typed a
-   * password, so this never clobbers a deliberate manual choice.
+   * Fires on every Server field edit. Delegates to applyDsqlAutoDetect(),
+   * which normalizes the field and — when the engine/auth/password state
+   * allows it — auto-switches the form to aws-iam.
    */
   onServerChange(server: string): void {
-    const { host, port } = this.splitHostPort(server);
+    this.formData.server = server;
+    this.applyDsqlAutoDetect();
+  }
+
+  /**
+   * Normalize the server field (trim, split a pasted ":<port>" suffix) and,
+   * when the host is a DSQL endpoint on a postgresql profile with untouched
+   * sql-auth defaults, auto-select AWS IAM. Called from onServerChange and
+   * from onEngineChange when the engine switches to postgresql, so
+   * field-entry order (paste-then-switch-engine, or the reverse) doesn't
+   * matter.
+   *
+   * Normalization (trim + port-split) always runs, for every engine — a
+   * trimmed bare host is correct regardless of engine. Only the aws-iam
+   * auto-select is gated to postgresql/sql-auth/no-password, so this never
+   * clobbers a deliberate manual choice and never fires for mssql/mysql.
+   */
+  private applyDsqlAutoDetect(): void {
+    // formData.server defaults to '' (never undefined) at runtime; the
+    // Partial<ConnectionProfile> intersection just widens its static type.
+    const { host, port } = this.splitHostPort(this.formData.server ?? '');
+    this.formData.server = host;
+    if (port !== undefined) {
+      this.formData.port = port;
+    }
+
     // Aurora DSQL is a PostgreSQL-compatible service only — gating on engine
     // keeps this a no-op for mssql/mysql even in the (astronomically
     // unlikely) case a non-DSQL host matches the endpoint pattern.
@@ -810,10 +841,6 @@ export class ConnectionDialogComponent {
       return;
     }
 
-    if (port !== undefined) {
-      this.formData.server = host;
-      this.formData.port = port;
-    }
     this.formData.authenticationType = 'aws-iam';
     this.formData.database = 'postgres';
     this.formData.encrypt = true;
@@ -826,16 +853,25 @@ export class ConnectionDialogComponent {
    * regex only matches bare hostnames, so callers must strip a port suffix
    * before testing — otherwise a pasted "<id>.dsql.<region>.on.aws:5432"
    * would silently fail auto-detection.
+   *
+   * IPv6 guard: only splits when the part before the final colon contains
+   * no other colon. A bare IPv6 literal ("2001:db8::1") or a bracketed one
+   * ("[::1]") has multiple colons, so it's left untouched rather than
+   * truncated at the last one — only an unambiguous single "host:port" or
+   * "host:port" trailing-digits suffix gets split.
    */
   private splitHostPort(value: string): { host: string; port?: number } {
     const trimmed = value.trim();
     const separatorIndex = trimmed.lastIndexOf(':');
     if (separatorIndex <= 0) return { host: trimmed };
 
+    const hostPart = trimmed.slice(0, separatorIndex);
+    if (hostPart.includes(':')) return { host: trimmed };
+
     const port = Number(trimmed.slice(separatorIndex + 1));
     if (!Number.isInteger(port) || port <= 0 || port > 65535) return { host: trimmed };
 
-    return { host: trimmed.slice(0, separatorIndex), port };
+    return { host: hostPart, port };
   }
 
   /**
