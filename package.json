@@ -51,6 +51,9 @@
   },
   "main": "packages/main/dist/index.js",
   "dependencies": {
+    "@aws-sdk/credential-providers": "^3.1091.0",
+    "@aws-sdk/dsql-signer": "^3.1091.0",
+    "@aws/aurora-dsql-node-postgres-connector": "^0.1.9",
     "@azure/msal-node": "^5.1.2",
     "@memberjunction/sqlglot-ts": "^5.23.0",
     "devicon": "^2.17.0",

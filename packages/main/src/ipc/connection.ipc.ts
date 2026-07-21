@@ -7,6 +7,7 @@ import type { ConnectionProfile, TestConnectionResult, ActiveConnection } from '
 import { ConnectionPoolManager } from '../services/sql/connection-pool';
 import { ConnectionProfilesStore } from '../services/config/connection-profiles';
 import { capabilitiesForDialect } from '../services/sql/dialect';
+import { listAwsProfiles } from '../services/config/aws-profiles';
 import { createLogger } from '../utils/logger';
 import { safeHandle } from './safe-handle';
 
@@ -124,5 +125,10 @@ export function registerConnectionHandlers(): void {
   // Cheap liveness ping used by the renderer heartbeat (SELECT 1)
   safeHandle(IPC_CHANNELS.CONNECTION.PING, async (_event, id: string): Promise<boolean> => {
     return poolManager.pingConnection(id);
+  });
+
+  // AWS profile names for the aws-iam auth picker (names only — no credentials)
+  safeHandle(IPC_CHANNELS.CONNECTION.LIST_AWS_PROFILES, async (): Promise<string[]> => {
+    return listAwsProfiles();
   });
 }

@@ -18,6 +18,8 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ConnectionStateService } from '../../../core/state/connection.state';
 import { ExplorerStateService } from '../../../core/state/explorer.state';
+import { IpcService } from '../../../core/services/ipc.service';
+import { isDsqlEndpoint } from '@mj-forge/shared';
 import { PasswordHygieneWarningComponent } from '../password-hygiene-warning/password-hygiene-warning.component';
 import { TestResultPanelComponent } from '../test-result-panel/test-result-panel.component';
 import type {
@@ -94,7 +96,12 @@ export interface ConnectionDialogResult {
         <div class="form-row">
           <mat-form-field appearance="outline" class="flex-2">
             <mat-label>Server</mat-label>
-            <input matInput [(ngModel)]="formData.server" placeholder="localhost or hostname" />
+            <input
+              matInput
+              [(ngModel)]="formData.server"
+              (ngModelChange)="onServerChange($event)"
+              placeholder="localhost or hostname"
+            />
           </mat-form-field>
           <mat-form-field appearance="outline" class="flex-1">
             <mat-label>Port</mat-label>
@@ -117,16 +124,22 @@ export interface ConnectionDialogResult {
 
         <!-- Authentication -->
         <h3>Authentication</h3>
-        @if (formData.engine === 'mssql') {
+        @if (formData.engine === 'mssql' || formData.engine === 'postgresql') {
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Authentication Type</mat-label>
             <mat-select
               [(ngModel)]="formData.authenticationType"
-              (ngModelChange)="clearTestResult()"
+              (ngModelChange)="onAuthTypeChange($event); clearTestResult()"
             >
-              <mat-option value="sql">SQL Server Authentication</mat-option>
-              <mat-option value="windows">Windows Authentication</mat-option>
-              <mat-option value="entra-id">Microsoft Entra ID</mat-option>
+              @if (formData.engine === 'mssql') {
+                <mat-option value="sql">SQL Server Authentication</mat-option>
+                <mat-option value="windows">Windows Authentication</mat-option>
+                <mat-option value="entra-id">Microsoft Entra ID</mat-option>
+              }
+              @if (formData.engine === 'postgresql') {
+                <mat-option value="sql">Password Authentication</mat-option>
+                <mat-option value="aws-iam">AWS IAM (Aurora DSQL)</mat-option>
+              }
             </mat-select>
           </mat-form-field>
         }
@@ -137,10 +150,12 @@ export interface ConnectionDialogResult {
               <mat-label>Username</mat-label>
               <input matInput [(ngModel)]="formData.username" />
             </mat-form-field>
-            <mat-form-field appearance="outline" class="flex-1">
-              <mat-label>Password</mat-label>
-              <input matInput type="password" [(ngModel)]="formData.password" />
-            </mat-form-field>
+            @if (!isAwsIamAuth()) {
+              <mat-form-field appearance="outline" class="flex-1">
+                <mat-label>Password</mat-label>
+                <input matInput type="password" [(ngModel)]="formData.password" />
+              </mat-form-field>
+            }
           </div>
 
           <app-password-hygiene-warning [value]="formData.password" />
@@ -148,6 +163,27 @@ export interface ConnectionDialogResult {
 
         @if (formData.authenticationType === 'entra-id') {
           <p class="auth-hint">Signs in via Microsoft login window. Supports MFA.</p>
+        }
+
+        @if (isAwsIamAuth()) {
+          @if (awsProfiles().length > 0) {
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>AWS Profile</mat-label>
+              <mat-select [(ngModel)]="formData.awsProfile">
+                @for (p of awsProfiles(); track p) {
+                  <mat-option [value]="p">{{ p }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          } @else {
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>AWS Profile</mat-label>
+              <input matInput [(ngModel)]="formData.awsProfile" placeholder="default" />
+            </mat-form-field>
+          }
+          <p class="auth-hint">
+            Tokens are minted automatically from your AWS credentials — nothing is stored.
+          </p>
         }
 
         <mat-divider />
@@ -180,17 +216,23 @@ export interface ConnectionDialogResult {
 
         <!-- Options -->
         <h3>Options</h3>
-        <div class="checkbox-row">
-          <mat-checkbox [(ngModel)]="formData.encrypt" (ngModelChange)="clearTestResult()">
-            Encrypt Connection
-          </mat-checkbox>
-          <mat-checkbox
-            [(ngModel)]="formData.trustServerCertificate"
-            (ngModelChange)="clearTestResult()"
-          >
-            Trust Server Certificate
-          </mat-checkbox>
-        </div>
+        @if (isAwsIamAuth()) {
+          <p class="auth-hint">
+            TLS is always enabled and the server certificate is always validated for Aurora DSQL.
+          </p>
+        } @else {
+          <div class="checkbox-row">
+            <mat-checkbox [(ngModel)]="formData.encrypt" (ngModelChange)="clearTestResult()">
+              Encrypt Connection
+            </mat-checkbox>
+            <mat-checkbox
+              [(ngModel)]="formData.trustServerCertificate"
+              (ngModelChange)="clearTestResult()"
+            >
+              Trust Server Certificate
+            </mat-checkbox>
+          </div>
+        }
 
         <div class="form-row">
           <mat-form-field appearance="outline" class="flex-1">
@@ -237,57 +279,64 @@ export interface ConnectionDialogResult {
 
         <!-- SSH Tunnel -->
         <h3>SSH Tunnel</h3>
-        <mat-checkbox [(ngModel)]="formData.sshEnabled" (ngModelChange)="clearTestResult()">
-          Connect via SSH tunnel
-        </mat-checkbox>
+        @if (isAwsIamAuth()) {
+          <p class="auth-hint">
+            SSH tunneling isn't available with AWS IAM authentication — Aurora DSQL uses a public
+            TLS endpoint.
+          </p>
+        } @else {
+          <mat-checkbox [(ngModel)]="formData.sshEnabled" (ngModelChange)="clearTestResult()">
+            Connect via SSH tunnel
+          </mat-checkbox>
 
-        @if (formData.sshEnabled) {
-          <div class="form-row" style="margin-top: 12px">
-            <mat-form-field appearance="outline" class="flex-2">
-              <mat-label>SSH Host</mat-label>
-              <input matInput [(ngModel)]="formData.sshHost" placeholder="bastion.example.com" />
-            </mat-form-field>
-            <mat-form-field appearance="outline" class="flex-1">
-              <mat-label>SSH Port</mat-label>
-              <input matInput type="number" [(ngModel)]="formData.sshPort" />
-            </mat-form-field>
-          </div>
+          @if (formData.sshEnabled) {
+            <div class="form-row" style="margin-top: 12px">
+              <mat-form-field appearance="outline" class="flex-2">
+                <mat-label>SSH Host</mat-label>
+                <input matInput [(ngModel)]="formData.sshHost" placeholder="bastion.example.com" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="flex-1">
+                <mat-label>SSH Port</mat-label>
+                <input matInput type="number" [(ngModel)]="formData.sshPort" />
+              </mat-form-field>
+            </div>
 
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>SSH Username</mat-label>
-            <input matInput [(ngModel)]="formData.sshUsername" />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>SSH Auth Type</mat-label>
-            <mat-select [(ngModel)]="formData.sshAuthType" (ngModelChange)="clearTestResult()">
-              <mat-option value="password">Password</mat-option>
-              <mat-option value="privateKey">Private Key</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          @if (formData.sshAuthType === 'password') {
             <mat-form-field appearance="outline" class="full-width">
-              <mat-label>SSH Password</mat-label>
-              <input matInput type="password" [(ngModel)]="formData.sshPassword" />
+              <mat-label>SSH Username</mat-label>
+              <input matInput [(ngModel)]="formData.sshUsername" />
             </mat-form-field>
-            <app-password-hygiene-warning [value]="formData.sshPassword" />
-          }
 
-          @if (formData.sshAuthType === 'privateKey') {
             <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Private Key Path</mat-label>
-              <input
-                matInput
-                [(ngModel)]="formData.sshPrivateKeyPath"
-                placeholder="~/.ssh/id_rsa"
-              />
+              <mat-label>SSH Auth Type</mat-label>
+              <mat-select [(ngModel)]="formData.sshAuthType" (ngModelChange)="clearTestResult()">
+                <mat-option value="password">Password</mat-option>
+                <mat-option value="privateKey">Private Key</mat-option>
+              </mat-select>
             </mat-form-field>
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Passphrase (optional)</mat-label>
-              <input matInput type="password" [(ngModel)]="formData.sshPassphrase" />
-            </mat-form-field>
-            <app-password-hygiene-warning [value]="formData.sshPassphrase" />
+
+            @if (formData.sshAuthType === 'password') {
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>SSH Password</mat-label>
+                <input matInput type="password" [(ngModel)]="formData.sshPassword" />
+              </mat-form-field>
+              <app-password-hygiene-warning [value]="formData.sshPassword" />
+            }
+
+            @if (formData.sshAuthType === 'privateKey') {
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Private Key Path</mat-label>
+                <input
+                  matInput
+                  [(ngModel)]="formData.sshPrivateKeyPath"
+                  placeholder="~/.ssh/id_rsa"
+                />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Passphrase (optional)</mat-label>
+                <input matInput type="password" [(ngModel)]="formData.sshPassphrase" />
+              </mat-form-field>
+              <app-password-hygiene-warning [value]="formData.sshPassphrase" />
+            }
           }
         }
       </mat-dialog-content>
@@ -505,6 +554,7 @@ export interface ConnectionDialogResult {
 export class ConnectionDialogComponent {
   readonly connectionState = inject(ConnectionStateService);
   private readonly explorerState = inject(ExplorerStateService);
+  private readonly ipc = inject(IpcService);
   readonly dialogRef = inject(MatDialogRef<ConnectionDialogComponent>);
   readonly data: ConnectionDialogData = inject(MAT_DIALOG_DATA) || {};
 
@@ -517,6 +567,10 @@ export class ConnectionDialogComponent {
    * a configuration the user has since changed.
    */
   readonly testResult = signal<TestConnectionResult | null>(null);
+
+  /** AWS CLI/config profile names for the aws-iam picker; loaded lazily, cached for the dialog's lifetime. */
+  readonly awsProfiles = signal<string[]>([]);
+  private awsProfilesLoaded = false;
 
   readonly presetColors = [
     { value: '#e53935', label: 'Red' },
@@ -547,6 +601,7 @@ export class ConnectionDialogComponent {
     authenticationType: 'sql',
     username: '',
     password: '',
+    awsProfile: undefined,
     encrypt: true,
     trustServerCertificate: true,
     connectionTimeout: 30,
@@ -580,6 +635,10 @@ export class ConnectionDialogComponent {
         sshPassword: '',
         sshPassphrase: '',
       };
+      if (this.formData.authenticationType === 'aws-iam') {
+        this.formData.awsProfile ||= 'default';
+        this.loadAwsProfiles();
+      }
     } else {
       // Apply pre-fill values
       if (this.data.server) {
@@ -606,6 +665,7 @@ export class ConnectionDialogComponent {
    * then exercises exactly what Connect will use, instead of ''.
    */
   private testPassword(): string | undefined {
+    if (this.isAwsIamAuth()) return undefined; // IAM tokens are minted, never typed
     if (this.isEditing() && this.formData.password === '') return undefined;
     return this.formData.password;
   }
@@ -640,7 +700,7 @@ export class ConnectionDialogComponent {
       const profile = this.buildProfile();
       const savedProfile = await this.connectionState.saveProfile(
         profile,
-        this.formData.password,
+        this.resolvedPassword(),
         this.formData.sshPassword,
         this.formData.sshPassphrase
       );
@@ -659,7 +719,7 @@ export class ConnectionDialogComponent {
     const profile = this.buildProfile();
     const savedProfile = await this.connectionState.saveProfile(
       profile,
-      this.formData.password,
+      this.resolvedPassword(),
       this.formData.sshPassword,
       this.formData.sshPassphrase
     );
@@ -684,10 +744,11 @@ export class ConnectionDialogComponent {
   }
 
   /**
-   * True when the form must collect a username/password from the user.
-   * Non-mssql engines always need them. On mssql, only "sql" auth uses
+   * True when the form must collect at least a username from the user.
+   * Non-mssql engines always need one. On mssql, only "sql" auth uses
    * form credentials — "windows" uses the OS principal, "entra-id" uses
-   * MSAL via the system browser.
+   * MSAL via the system browser. The password half of this is further
+   * narrowed by isAwsIamAuth() — aws-iam never takes a form password.
    */
   needsUsernamePassword(): boolean {
     if (this.formData.engine !== 'mssql') return true;
@@ -696,6 +757,11 @@ export class ConnectionDialogComponent {
 
   isEntraAuth(): boolean {
     return this.formData.authenticationType === 'entra-id';
+  }
+
+  /** Aurora DSQL auth: the pool mints IAM tokens, so no password is ever collected. */
+  isAwsIamAuth(): boolean {
+    return this.formData.authenticationType === 'aws-iam';
   }
 
   validationHint(): string {
@@ -717,11 +783,13 @@ export class ConnectionDialogComponent {
 
   isValid(): boolean {
     const needsCreds = this.needsUsernamePassword();
+    // aws-iam defaults an empty username to 'admin' at save time (see
+    // resolvedUsername()), so a blank field here must not block the form.
     const baseValid = !!(
       this.formData.name &&
       this.formData.server &&
       this.formData.port &&
-      (!needsCreds || this.formData.username)
+      (!needsCreds || this.formData.username || this.isAwsIamAuth())
     );
 
     if (!baseValid) return false;
@@ -763,10 +831,144 @@ export class ConnectionDialogComponent {
     ) {
       this.formData.username = 'sa';
     }
-    // PG/MySQL don't support Windows auth
-    if (engine !== 'mssql' && this.formData.authenticationType !== 'sql') {
+    // Reset authenticationType to 'sql' unless it's valid for the new engine:
+    // mssql supports sql/windows/entra-id; postgresql supports sql/aws-iam;
+    // mysql supports sql only. This also covers switching away from
+    // postgresql while aws-iam is selected (e.g. to mssql, which has no
+    // aws-iam option in its dropdown).
+    const currentAuth = this.formData.authenticationType;
+    const authValidForEngine =
+      engine === 'mssql'
+        ? currentAuth === 'sql' || currentAuth === 'windows' || currentAuth === 'entra-id'
+        : engine === 'postgresql'
+          ? currentAuth === 'sql' || currentAuth === 'aws-iam'
+          : currentAuth === 'sql';
+    if (!authValidForEngine) {
       this.formData.authenticationType = 'sql';
     }
+    // Re-run DSQL detection when landing on postgresql: a server value
+    // pasted while a different engine was selected (e.g. mssql, the
+    // dialog's default) never got split/detected because onServerChange
+    // short-circuits on engine. Running it here makes paste-then-switch
+    // and switch-then-paste behave identically.
+    if (engine === 'postgresql') {
+      this.applyDsqlAutoDetect();
+    }
+  }
+
+  /**
+   * Fires when the auth-type dropdown changes. Only aws-iam needs follow-up:
+   * default the AWS profile field and kick off the lazy profile-name fetch.
+   */
+  onAuthTypeChange(authType: string): void {
+    if (authType !== 'aws-iam') return;
+    this.formData.awsProfile ||= 'default';
+    this.loadAwsProfiles();
+  }
+
+  /**
+   * Fires on every Server field edit. Delegates to applyDsqlAutoDetect(),
+   * which normalizes the field and — when the engine/auth/password state
+   * allows it — auto-switches the form to aws-iam.
+   */
+  onServerChange(server: string): void {
+    this.formData.server = server;
+    this.applyDsqlAutoDetect();
+  }
+
+  /**
+   * Normalize the server field (trim, split a pasted ":<port>" suffix) and,
+   * when the host is a DSQL endpoint on a postgresql profile with untouched
+   * sql-auth defaults, auto-select AWS IAM. Called from onServerChange and
+   * from onEngineChange when the engine switches to postgresql, so
+   * field-entry order (paste-then-switch-engine, or the reverse) doesn't
+   * matter.
+   *
+   * Normalization (trim + port-split) always runs, for every engine — a
+   * trimmed bare host is correct regardless of engine. Only the aws-iam
+   * auto-select is gated to postgresql/sql-auth/no-password, so this never
+   * clobbers a deliberate manual choice and never fires for mssql/mysql.
+   */
+  private applyDsqlAutoDetect(): void {
+    // formData.server defaults to '' (never undefined) at runtime; the
+    // Partial<ConnectionProfile> intersection just widens its static type.
+    const { host, port } = this.splitHostPort(this.formData.server ?? '');
+    this.formData.server = host;
+    if (port !== undefined) {
+      this.formData.port = port;
+    }
+
+    // Aurora DSQL is a PostgreSQL-compatible service only — gating on engine
+    // keeps this a no-op for mssql/mysql even in the (astronomically
+    // unlikely) case a non-DSQL host matches the endpoint pattern.
+    if (
+      this.formData.engine !== 'postgresql' ||
+      this.formData.authenticationType !== 'sql' ||
+      this.formData.password ||
+      !isDsqlEndpoint(host)
+    ) {
+      return;
+    }
+
+    this.formData.authenticationType = 'aws-iam';
+    this.formData.database = 'postgres';
+    this.formData.encrypt = true;
+    this.formData.awsProfile ||= 'default';
+    this.loadAwsProfiles();
+  }
+
+  /**
+   * Splits a pasted "host:port" string into its parts. isDsqlEndpoint's
+   * regex only matches bare hostnames, so callers must strip a port suffix
+   * before testing — otherwise a pasted "<id>.dsql.<region>.on.aws:5432"
+   * would silently fail auto-detection.
+   *
+   * IPv6 guard: only splits when the part before the final colon contains
+   * no other colon. A bare IPv6 literal ("2001:db8::1") or a bracketed one
+   * ("[::1]") has multiple colons, so it's left untouched rather than
+   * truncated at the last one — only an unambiguous single "host:port" or
+   * "host:port" trailing-digits suffix gets split.
+   */
+  private splitHostPort(value: string): { host: string; port?: number } {
+    const trimmed = value.trim();
+    const separatorIndex = trimmed.lastIndexOf(':');
+    if (separatorIndex <= 0) return { host: trimmed };
+
+    const hostPart = trimmed.slice(0, separatorIndex);
+    if (hostPart.includes(':')) return { host: trimmed };
+
+    const port = Number(trimmed.slice(separatorIndex + 1));
+    if (!Number.isInteger(port) || port <= 0 || port > 65535) return { host: trimmed };
+
+    return { host: hostPart, port };
+  }
+
+  /**
+   * Loads AWS CLI/config profile names for the aws-iam picker once per
+   * dialog lifetime. Failure (e.g. no ~/.aws directory) degrades to an
+   * empty list, which the template renders as a free-text input instead.
+   */
+  private loadAwsProfiles(): void {
+    if (this.awsProfilesLoaded) return;
+    this.awsProfilesLoaded = true;
+    this.ipc.listAwsProfiles().subscribe({
+      next: profiles => this.awsProfiles.set(profiles),
+      error: (error: unknown) => {
+        console.warn('Failed to load AWS profiles, falling back to free-text entry:', error);
+        this.awsProfiles.set([]);
+      },
+    });
+  }
+
+  /** aws-iam never sends a form password — the pool mints IAM tokens instead. */
+  private resolvedPassword(): string | undefined {
+    return this.isAwsIamAuth() ? undefined : this.formData.password;
+  }
+
+  /** aws-iam defaults an empty username (DB role) to 'admin' at save/test time. */
+  private resolvedUsername(): string | undefined {
+    if (this.isAwsIamAuth() && !this.formData.username) return 'admin';
+    return this.formData.username;
   }
 
   canTestConnection(): boolean {
@@ -774,7 +976,7 @@ export class ConnectionDialogComponent {
     return !!(
       this.formData.server &&
       this.formData.port &&
-      (!needsCreds || this.formData.username)
+      (!needsCreds || this.formData.username || this.isAwsIamAuth())
     );
   }
 
@@ -802,13 +1004,14 @@ export class ConnectionDialogComponent {
       server: this.formData.server!,
       port: this.formData.port!,
       authenticationType: this.formData.authenticationType as AuthenticationType,
-      username: this.formData.username,
+      username: this.resolvedUsername(),
       database: this.formData.database || undefined,
       encrypt: this.formData.encrypt ?? true,
       trustServerCertificate: this.formData.trustServerCertificate ?? true,
       connectionTimeout: this.formData.connectionTimeout || 30,
       color: this.formData.color,
       mysqlCollation: this.formData.mysqlCollation || undefined,
+      awsProfile: this.formData.awsProfile || undefined,
       sshTunnel: this.buildSshTunnelConfig(),
     };
   }
@@ -823,13 +1026,14 @@ export class ConnectionDialogComponent {
       server: this.formData.server!,
       port: this.formData.port!,
       authenticationType: this.formData.authenticationType as AuthenticationType,
-      username: this.formData.username,
+      username: this.resolvedUsername(),
       database: this.formData.database || undefined,
       encrypt: this.formData.encrypt ?? true,
       trustServerCertificate: this.formData.trustServerCertificate ?? true,
       connectionTimeout: this.formData.connectionTimeout || 30,
       color: this.formData.color,
       mysqlCollation: this.formData.mysqlCollation || undefined,
+      awsProfile: this.formData.awsProfile || undefined,
       sshTunnel: this.buildSshTunnelConfig(),
     };
   }

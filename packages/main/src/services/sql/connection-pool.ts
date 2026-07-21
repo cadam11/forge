@@ -6,6 +6,7 @@
 
 import { ConnectionPool, config as SqlConfig, IResult } from 'mssql';
 import { Pool as PgPool } from 'pg';
+import { AuroraDSQLPool } from '@aws/aurora-dsql-node-postgres-connector';
 import mysql from 'mysql2/promise';
 import type { Pool as MySQLPool } from 'mysql2/promise';
 import { acquireTokenInteractive } from '../azure/entra-auth';
@@ -17,6 +18,7 @@ import { ConnectionProfilesStore } from '../config/connection-profiles';
 import { SshTunnelManager, type SshCredentials } from '../ssh/ssh-tunnel-manager';
 import { splitTopLevelStatements } from './sql-statement-splitter';
 import { getDialect, type SQLDialect } from './dialect';
+import { auroraDsqlPoolOptions } from './aurora-dsql-pool-options';
 
 const log = createLogger('PoolManager');
 
@@ -169,6 +171,26 @@ export class ConnectionPoolManager extends BaseSingleton {
   }
 
   /**
+   * Construct an AuroraDSQLPool for an aws-iam profile. Shared by getPgPool
+   * (persistent pool) and testPgConnection (throwaway pool) so the two
+   * paths can't drift on option names. The connector mints a fresh IAM
+   * token per physical connection from the user's ~/.aws credentials —
+   * nothing here reads from or writes to the Keychain.
+   *
+   * Option construction itself lives in the pure auroraDsqlPoolOptions
+   * helper (aurora-dsql-pool-options.ts) so its security-critical
+   * invariants — TLS validation always on, never built from a
+   * tunnel-rewritten profile — are unit-testable without driver mocking.
+   */
+  private buildAuroraDsqlPool(
+    profile: ConnectionProfile,
+    dbName: string,
+    poolOptions: { max: number; idleTimeoutMillis?: number; query_timeout?: number }
+  ): AuroraDSQLPool {
+    return new AuroraDSQLPool(auroraDsqlPoolOptions(profile, dbName, poolOptions));
+  }
+
+  /**
    * If the SSH tunnel for a profile has been evicted (e.g. ssh2 keepalive
    * detected a dead bastion connection and fired 'close'), all DB pools that
    * were tunneling through it are stale — even if their `.connected` flag
@@ -283,10 +305,19 @@ export class ConnectionPoolManager extends BaseSingleton {
    * sys.dsql_major_version() exists only on DSQL; on vanilla PostgreSQL the
    * call errors, which we interpret as "not DSQL". Result is cached per
    * profile and cleared on disconnect. Mirrors the isAzureSQL pattern.
+   * aws-iam profiles skip the probe entirely — that auth type only exists
+   * for DSQL, so the answer is always true.
    */
   async detectDsql(profileId: string): Promise<boolean> {
     const cached = this.dsqlCache.get(profileId);
     if (cached !== undefined) return cached;
+
+    const profile = this.profileStore.getById(profileId);
+    if (profile?.authenticationType === 'aws-iam') {
+      // IAM auth is DSQL-only — no need to probe.
+      this.dsqlCache.set(profileId, true);
+      return true;
+    }
 
     if (this.getEngineForProfile(profileId) !== 'postgresql') {
       this.dsqlCache.set(profileId, false);
@@ -363,6 +394,26 @@ export class ConnectionPoolManager extends BaseSingleton {
     let tunnelKey: string | null = null;
     let effectiveProfile = profile;
     try {
+      // aws-iam (Aurora DSQL) never tunnels: the connector needs the real
+      // DSQL hostname both to parse the AWS region and to sign a SigV4
+      // token for the actual endpoint. Guard here, before any tunnel is
+      // opened, so a saved profile that already carries an enabled tunnel
+      // fails with a clear message instead of wastefully opening a tunnel
+      // and then failing deep inside the connector with a cryptic "can't
+      // parse region from '127.0.0.1'" error.
+      if (profile.authenticationType === 'aws-iam' && profile.sshTunnel?.enabled) {
+        return {
+          success: false,
+          error:
+            'SSH tunneling is not supported with AWS IAM authentication (Aurora DSQL uses a public TLS endpoint). Disable the SSH tunnel on this profile.',
+          errorCode: 'SSH_TUNNEL_UNSUPPORTED',
+          guidance: [
+            'Disable the SSH tunnel on this profile',
+            'Aurora DSQL uses a public, publicly-trusted TLS endpoint and does not need one',
+          ],
+        };
+      }
+
       if (profile.sshTunnel?.enabled) {
         tunnelKey = `test-${Date.now()}`;
         const endpoint = await this.sshTunnelManager.openTunnel(
@@ -485,16 +536,23 @@ export class ConnectionPoolManager extends BaseSingleton {
   ): Promise<TestConnectionResult> {
     let testPool: PgPool | null = null;
     try {
-      testPool = new PgPool({
-        host: profile.server,
-        port: profile.port,
-        user: profile.username,
-        password,
-        database: profile.database || 'postgres',
-        ssl: profile.encrypt ? { rejectUnauthorized: !profile.trustServerCertificate } : false,
-        connectionTimeoutMillis: profile.connectionTimeout * 1000,
-        max: 1,
-      });
+      // aws-iam (Aurora DSQL): the `password` param (always '' for these
+      // profiles, since testConnection's callers never touch the Keychain
+      // for aws-iam) is ignored on this branch.
+      if (profile.authenticationType === 'aws-iam') {
+        testPool = this.buildAuroraDsqlPool(profile, profile.database || 'postgres', { max: 1 });
+      } else {
+        testPool = new PgPool({
+          host: profile.server,
+          port: profile.port,
+          user: profile.username,
+          password,
+          database: profile.database || 'postgres',
+          ssl: profile.encrypt ? { rejectUnauthorized: !profile.trustServerCertificate } : false,
+          connectionTimeoutMillis: profile.connectionTimeout * 1000,
+          max: 1,
+        });
+      }
 
       const client = await testPool.connect();
       const result = await client.query('SELECT version() AS version, current_database() AS name');
@@ -507,12 +565,12 @@ export class ConnectionPoolManager extends BaseSingleton {
         serverName: row?.name || 'Unknown',
       };
     } catch (error) {
-      const err = error as Error & { code?: string };
+      const err = error as Error & { code?: string; name?: string };
       return {
         success: false,
         error: err.message,
         errorCode: err.code || 'UNKNOWN',
-        guidance: this.categorizePgError(err, password),
+        guidance: this.categorizePgError(err, profile, password),
       };
     } finally {
       if (testPool) {
@@ -546,26 +604,48 @@ export class ConnectionPoolManager extends BaseSingleton {
       return existing.pool;
     }
 
-    const password = await this.profileStore.getPassword(profileId);
-    if (!password) throw new Error('Connection password not found in Keychain');
-
-    // Open SSH tunnel if configured (reuses existing tunnel for this profileId)
-    const { effectiveProfile } = await this.withTunnel(profile);
-
-    const pool = new PgPool({
-      host: effectiveProfile.server,
-      port: effectiveProfile.port,
-      user: effectiveProfile.username,
-      password,
-      database: dbName,
-      ssl: effectiveProfile.encrypt
-        ? { rejectUnauthorized: !effectiveProfile.trustServerCertificate }
-        : false,
-      connectionTimeoutMillis: effectiveProfile.connectionTimeout * 1000,
-      query_timeout: (effectiveProfile.requestTimeout || 30) * 1000,
-      max: 10,
-      idleTimeoutMillis: 30000,
-    });
+    // aws-iam (Aurora DSQL): nothing is read from or written to the
+    // Keychain for these profiles. This branch MUST stay ahead of the
+    // getPassword() call below, which throws when no Keychain password
+    // exists (never the case for aws-iam). It also never tunnels — SSH
+    // tunneling rewrites server/port to a local loopback address, which
+    // breaks both the connector's region-from-hostname parsing and the
+    // SigV4 signature (signed for the wrong host). Guard here, before any
+    // tunnel is opened and before the pool is built, so a saved profile
+    // that already carries an enabled tunnel fails loudly instead of
+    // reaching the connector with a tunneled host.
+    let pool: PgPool;
+    if (profile.authenticationType === 'aws-iam') {
+      if (profile.sshTunnel?.enabled) {
+        throw new Error(
+          'SSH tunneling is not supported with AWS IAM authentication (Aurora DSQL uses a public TLS endpoint). Disable the SSH tunnel on this profile.'
+        );
+      }
+      pool = this.buildAuroraDsqlPool(profile, dbName, {
+        max: 10,
+        idleTimeoutMillis: 30000,
+        query_timeout: (profile.requestTimeout || 30) * 1000,
+      });
+    } else {
+      // Open SSH tunnel if configured (reuses existing tunnel for this profileId)
+      const { effectiveProfile } = await this.withTunnel(profile);
+      const password = await this.profileStore.getPassword(profileId);
+      if (!password) throw new Error('Connection password not found in Keychain');
+      pool = new PgPool({
+        host: effectiveProfile.server,
+        port: effectiveProfile.port,
+        user: effectiveProfile.username,
+        password,
+        database: dbName,
+        ssl: effectiveProfile.encrypt
+          ? { rejectUnauthorized: !effectiveProfile.trustServerCertificate }
+          : false,
+        connectionTimeoutMillis: effectiveProfile.connectionTimeout * 1000,
+        query_timeout: (effectiveProfile.requestTimeout || 30) * 1000,
+        max: 10,
+        idleTimeoutMillis: 30000,
+      });
+    }
 
     // Verify connection
     const client = await pool.connect();
@@ -1181,9 +1261,41 @@ export class ConnectionPoolManager extends BaseSingleton {
   }
 
   /**
-   * Categorize PostgreSQL connection errors for user-friendly messages
+   * True when an error looks like a failure to mint AWS credentials rather
+   * than a database-level rejection — the AWS SDK's CredentialsProviderError
+   * name, or wording it (and expired-SSO-session errors) surface in message
+   * text. Only meaningful for aws-iam profiles; callers gate on that first.
    */
-  private categorizePgError(error: Error & { code?: string }, password?: string): string[] {
+  private isAwsCredentialError(error: Error & { name?: string }): boolean {
+    if (error.name === 'CredentialsProviderError') return true;
+    const message = error.message.toLowerCase();
+    return (
+      message.includes('could not load credentials') ||
+      message.includes('expired') ||
+      message.includes('sso')
+    );
+  }
+
+  /**
+   * Categorize PostgreSQL connection errors for user-friendly messages.
+   * `profile` routes aws-iam credential failures to aws-sso-login guidance;
+   * `password` feeds paste-artifact hygiene hints on auth failures. Both are
+   * optional so existing callers compile; pass whatever is available.
+   */
+  private categorizePgError(
+    error: Error & { code?: string; name?: string },
+    profile?: ConnectionProfile,
+    password?: string
+  ): string[] {
+    if (profile?.authenticationType === 'aws-iam' && this.isAwsCredentialError(error)) {
+      const awsProfile = profile.awsProfile || 'default';
+      return [
+        `AWS credentials for profile '${awsProfile}' are missing or expired`,
+        `If you use SSO, run: aws sso login --profile ${awsProfile}`,
+        'Then retry the connection',
+      ];
+    }
+
     switch (error.code) {
       case 'ECONNREFUSED':
         return [
