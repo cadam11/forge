@@ -186,8 +186,10 @@ export class ConnectionPoolManager extends BaseSingleton {
       user: profile.username || 'admin',
       database: dbName,
       profile: profile.awsProfile || undefined,
-      // DSQL rejects non-SSL connections; encrypt is forced on this path.
-      ssl: { rejectUnauthorized: !profile.trustServerCertificate },
+      // DSQL always presents a publicly-trusted certificate and the password
+      // IS a live credential (SigV4 token) — certificate validation is never
+      // optional on this path, regardless of the profile's trust toggle.
+      ssl: { rejectUnauthorized: true },
       connectionTimeoutMillis: profile.connectionTimeout * 1000,
       ...poolOptions,
     });
@@ -397,6 +399,26 @@ export class ConnectionPoolManager extends BaseSingleton {
     let tunnelKey: string | null = null;
     let effectiveProfile = profile;
     try {
+      // aws-iam (Aurora DSQL) never tunnels: the connector needs the real
+      // DSQL hostname both to parse the AWS region and to sign a SigV4
+      // token for the actual endpoint. Guard here, before any tunnel is
+      // opened, so a saved profile that already carries an enabled tunnel
+      // fails with a clear message instead of wastefully opening a tunnel
+      // and then failing deep inside the connector with a cryptic "can't
+      // parse region from '127.0.0.1'" error.
+      if (profile.authenticationType === 'aws-iam' && profile.sshTunnel?.enabled) {
+        return {
+          success: false,
+          error:
+            'SSH tunneling is not supported with AWS IAM authentication (Aurora DSQL uses a public TLS endpoint). Disable the SSH tunnel on this profile.',
+          errorCode: 'SSH_TUNNEL_UNSUPPORTED',
+          guidance: [
+            'Disable the SSH tunnel on this profile',
+            'Aurora DSQL uses a public, publicly-trusted TLS endpoint and does not need one',
+          ],
+        };
+      }
+
       if (profile.sshTunnel?.enabled) {
         tunnelKey = `test-${Date.now()}`;
         const endpoint = await this.sshTunnelManager.openTunnel(
@@ -574,21 +596,31 @@ export class ConnectionPoolManager extends BaseSingleton {
       return existing.pool;
     }
 
-    // Open SSH tunnel if configured (reuses existing tunnel for this profileId)
-    const { effectiveProfile } = await this.withTunnel(profile);
-
     // aws-iam (Aurora DSQL): nothing is read from or written to the
     // Keychain for these profiles. This branch MUST stay ahead of the
     // getPassword() call below, which throws when no Keychain password
-    // exists (never the case for aws-iam).
+    // exists (never the case for aws-iam). It also never tunnels — SSH
+    // tunneling rewrites server/port to a local loopback address, which
+    // breaks both the connector's region-from-hostname parsing and the
+    // SigV4 signature (signed for the wrong host). Guard here, before any
+    // tunnel is opened and before the pool is built, so a saved profile
+    // that already carries an enabled tunnel fails loudly instead of
+    // reaching the connector with a tunneled host.
     let pool: PgPool;
     if (profile.authenticationType === 'aws-iam') {
-      pool = this.buildAuroraDsqlPool(effectiveProfile, dbName, {
+      if (profile.sshTunnel?.enabled) {
+        throw new Error(
+          'SSH tunneling is not supported with AWS IAM authentication (Aurora DSQL uses a public TLS endpoint). Disable the SSH tunnel on this profile.'
+        );
+      }
+      pool = this.buildAuroraDsqlPool(profile, dbName, {
         max: 10,
         idleTimeoutMillis: 30000,
-        query_timeout: (effectiveProfile.requestTimeout || 30) * 1000,
+        query_timeout: (profile.requestTimeout || 30) * 1000,
       });
     } else {
+      // Open SSH tunnel if configured (reuses existing tunnel for this profileId)
+      const { effectiveProfile } = await this.withTunnel(profile);
       const password = await this.profileStore.getPassword(profileId);
       if (!password) throw new Error('Connection password not found in Keychain');
       pool = new PgPool({

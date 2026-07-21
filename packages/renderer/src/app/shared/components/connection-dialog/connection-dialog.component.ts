@@ -207,12 +207,18 @@ export interface ConnectionDialogResult {
 
         <!-- Options -->
         <h3>Options</h3>
-        <div class="checkbox-row">
-          <mat-checkbox [(ngModel)]="formData.encrypt">Encrypt Connection</mat-checkbox>
-          <mat-checkbox [(ngModel)]="formData.trustServerCertificate">
-            Trust Server Certificate
-          </mat-checkbox>
-        </div>
+        @if (isAwsIamAuth()) {
+          <p class="auth-hint">
+            TLS is always enabled and the server certificate is always validated for Aurora DSQL.
+          </p>
+        } @else {
+          <div class="checkbox-row">
+            <mat-checkbox [(ngModel)]="formData.encrypt">Encrypt Connection</mat-checkbox>
+            <mat-checkbox [(ngModel)]="formData.trustServerCertificate">
+              Trust Server Certificate
+            </mat-checkbox>
+          </div>
+        }
 
         <div class="form-row">
           <mat-form-field appearance="outline" class="flex-1">
@@ -259,53 +265,60 @@ export interface ConnectionDialogResult {
 
         <!-- SSH Tunnel -->
         <h3>SSH Tunnel</h3>
-        <mat-checkbox [(ngModel)]="formData.sshEnabled">Connect via SSH tunnel</mat-checkbox>
+        @if (isAwsIamAuth()) {
+          <p class="auth-hint">
+            SSH tunneling isn't available with AWS IAM authentication — Aurora DSQL uses a public
+            TLS endpoint.
+          </p>
+        } @else {
+          <mat-checkbox [(ngModel)]="formData.sshEnabled">Connect via SSH tunnel</mat-checkbox>
 
-        @if (formData.sshEnabled) {
-          <div class="form-row" style="margin-top: 12px">
-            <mat-form-field appearance="outline" class="flex-2">
-              <mat-label>SSH Host</mat-label>
-              <input matInput [(ngModel)]="formData.sshHost" placeholder="bastion.example.com" />
-            </mat-form-field>
-            <mat-form-field appearance="outline" class="flex-1">
-              <mat-label>SSH Port</mat-label>
-              <input matInput type="number" [(ngModel)]="formData.sshPort" />
-            </mat-form-field>
-          </div>
+          @if (formData.sshEnabled) {
+            <div class="form-row" style="margin-top: 12px">
+              <mat-form-field appearance="outline" class="flex-2">
+                <mat-label>SSH Host</mat-label>
+                <input matInput [(ngModel)]="formData.sshHost" placeholder="bastion.example.com" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="flex-1">
+                <mat-label>SSH Port</mat-label>
+                <input matInput type="number" [(ngModel)]="formData.sshPort" />
+              </mat-form-field>
+            </div>
 
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>SSH Username</mat-label>
-            <input matInput [(ngModel)]="formData.sshUsername" />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>SSH Auth Type</mat-label>
-            <mat-select [(ngModel)]="formData.sshAuthType">
-              <mat-option value="password">Password</mat-option>
-              <mat-option value="privateKey">Private Key</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          @if (formData.sshAuthType === 'password') {
             <mat-form-field appearance="outline" class="full-width">
-              <mat-label>SSH Password</mat-label>
-              <input matInput type="password" [(ngModel)]="formData.sshPassword" />
+              <mat-label>SSH Username</mat-label>
+              <input matInput [(ngModel)]="formData.sshUsername" />
             </mat-form-field>
-          }
 
-          @if (formData.sshAuthType === 'privateKey') {
             <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Private Key Path</mat-label>
-              <input
-                matInput
-                [(ngModel)]="formData.sshPrivateKeyPath"
-                placeholder="~/.ssh/id_rsa"
-              />
+              <mat-label>SSH Auth Type</mat-label>
+              <mat-select [(ngModel)]="formData.sshAuthType">
+                <mat-option value="password">Password</mat-option>
+                <mat-option value="privateKey">Private Key</mat-option>
+              </mat-select>
             </mat-form-field>
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Passphrase (optional)</mat-label>
-              <input matInput type="password" [(ngModel)]="formData.sshPassphrase" />
-            </mat-form-field>
+
+            @if (formData.sshAuthType === 'password') {
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>SSH Password</mat-label>
+                <input matInput type="password" [(ngModel)]="formData.sshPassword" />
+              </mat-form-field>
+            }
+
+            @if (formData.sshAuthType === 'privateKey') {
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Private Key Path</mat-label>
+                <input
+                  matInput
+                  [(ngModel)]="formData.sshPrivateKeyPath"
+                  placeholder="~/.ssh/id_rsa"
+                />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Passphrase (optional)</mat-label>
+                <input matInput type="password" [(ngModel)]="formData.sshPassphrase" />
+              </mat-form-field>
+            }
           }
         }
       </mat-dialog-content>
