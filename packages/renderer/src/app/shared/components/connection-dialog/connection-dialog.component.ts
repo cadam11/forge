@@ -20,11 +20,14 @@ import { ConnectionStateService } from '../../../core/state/connection.state';
 import { ExplorerStateService } from '../../../core/state/explorer.state';
 import { IpcService } from '../../../core/services/ipc.service';
 import { isDsqlEndpoint } from '@mj-forge/shared';
+import { PasswordHygieneWarningComponent } from '../password-hygiene-warning/password-hygiene-warning.component';
+import { TestResultPanelComponent } from '../test-result-panel/test-result-panel.component';
 import type {
   ConnectionProfile,
   AuthenticationType,
   SshAuthType,
   SshTunnelConfig,
+  TestConnectionResult,
 } from '@mj-forge/shared';
 
 export interface ConnectionDialogData {
@@ -59,6 +62,8 @@ export interface ConnectionDialogResult {
     MatProgressSpinnerModule,
     MatDividerModule,
     MatTooltipModule,
+    PasswordHygieneWarningComponent,
+    TestResultPanelComponent,
   ],
   template: `
     <div class="connection-dialog">
@@ -67,7 +72,9 @@ export interface ConnectionDialogResult {
         <span>{{ isEditing() ? 'Edit Connection' : 'New Connection' }}</span>
       </h2>
 
-      <mat-dialog-content>
+      <!-- Any edit invalidates the last Test result — the (input) listener
+           catches every text field; selects/checkboxes clear explicitly. -->
+      <mat-dialog-content (input)="clearTestResult()">
         <!-- Database Engine -->
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Database Engine</mat-label>
@@ -122,7 +129,7 @@ export interface ConnectionDialogResult {
             <mat-label>Authentication Type</mat-label>
             <mat-select
               [(ngModel)]="formData.authenticationType"
-              (ngModelChange)="onAuthTypeChange($event)"
+              (ngModelChange)="onAuthTypeChange($event); clearTestResult()"
             >
               @if (formData.engine === 'mssql') {
                 <mat-option value="sql">SQL Server Authentication</mat-option>
@@ -150,6 +157,8 @@ export interface ConnectionDialogResult {
               </mat-form-field>
             }
           </div>
+
+          <app-password-hygiene-warning [value]="formData.password" />
         }
 
         @if (formData.authenticationType === 'entra-id') {
@@ -213,8 +222,13 @@ export interface ConnectionDialogResult {
           </p>
         } @else {
           <div class="checkbox-row">
-            <mat-checkbox [(ngModel)]="formData.encrypt">Encrypt Connection</mat-checkbox>
-            <mat-checkbox [(ngModel)]="formData.trustServerCertificate">
+            <mat-checkbox [(ngModel)]="formData.encrypt" (ngModelChange)="clearTestResult()">
+              Encrypt Connection
+            </mat-checkbox>
+            <mat-checkbox
+              [(ngModel)]="formData.trustServerCertificate"
+              (ngModelChange)="clearTestResult()"
+            >
               Trust Server Certificate
             </mat-checkbox>
           </div>
@@ -247,7 +261,7 @@ export interface ConnectionDialogResult {
         @if (formData.engine === 'mysql') {
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Collation</mat-label>
-            <mat-select [(ngModel)]="formData.mysqlCollation">
+            <mat-select [(ngModel)]="formData.mysqlCollation" (ngModelChange)="clearTestResult()">
               <mat-option [value]="undefined">Server default</mat-option>
               <mat-option value="utf8mb4_0900_ai_ci">utf8mb4_0900_ai_ci (MySQL 8.0+)</mat-option>
               <mat-option value="utf8mb4_unicode_ci">utf8mb4_unicode_ci</mat-option>
@@ -271,7 +285,9 @@ export interface ConnectionDialogResult {
             TLS endpoint.
           </p>
         } @else {
-          <mat-checkbox [(ngModel)]="formData.sshEnabled">Connect via SSH tunnel</mat-checkbox>
+          <mat-checkbox [(ngModel)]="formData.sshEnabled" (ngModelChange)="clearTestResult()">
+            Connect via SSH tunnel
+          </mat-checkbox>
 
           @if (formData.sshEnabled) {
             <div class="form-row" style="margin-top: 12px">
@@ -292,7 +308,7 @@ export interface ConnectionDialogResult {
 
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>SSH Auth Type</mat-label>
-              <mat-select [(ngModel)]="formData.sshAuthType">
+              <mat-select [(ngModel)]="formData.sshAuthType" (ngModelChange)="clearTestResult()">
                 <mat-option value="password">Password</mat-option>
                 <mat-option value="privateKey">Private Key</mat-option>
               </mat-select>
@@ -303,6 +319,7 @@ export interface ConnectionDialogResult {
                 <mat-label>SSH Password</mat-label>
                 <input matInput type="password" [(ngModel)]="formData.sshPassword" />
               </mat-form-field>
+              <app-password-hygiene-warning [value]="formData.sshPassword" />
             }
 
             @if (formData.sshAuthType === 'privateKey') {
@@ -318,6 +335,7 @@ export interface ConnectionDialogResult {
                 <mat-label>Passphrase (optional)</mat-label>
                 <input matInput type="password" [(ngModel)]="formData.sshPassphrase" />
               </mat-form-field>
+              <app-password-hygiene-warning [value]="formData.sshPassphrase" />
             }
           }
         }
@@ -326,6 +344,8 @@ export interface ConnectionDialogResult {
       @if (validationHint(); as hint) {
         <p class="validation-hint">{{ hint }}</p>
       }
+
+      <app-test-result-panel [result]="testResult()" />
 
       <mat-dialog-actions align="start">
         <button
@@ -439,6 +459,14 @@ export interface ConnectionDialogResult {
         font-size: 11px;
       }
 
+      app-password-hygiene-warning {
+        margin: -2px 0 12px;
+      }
+
+      app-test-result-panel {
+        margin: 12px 24px 0;
+      }
+
       .validation-hint {
         margin: 12px 24px 0;
         padding: 10px 12px;
@@ -533,6 +561,12 @@ export class ConnectionDialogComponent {
   readonly isEditing = signal(false);
   readonly testing = signal(false);
   readonly saving = signal(false);
+  /**
+   * Last FAILED "Test" result, rendered inline with its guidance (successes
+   * only toast). Cleared on any form edit so a stale error can never describe
+   * a configuration the user has since changed.
+   */
+  readonly testResult = signal<TestConnectionResult | null>(null);
 
   /** AWS CLI/config profile names for the aws-iam picker; loaded lazily, cached for the dialog's lifetime. */
   readonly awsProfiles = signal<string[]>([]);
@@ -620,18 +654,39 @@ export class ConnectionDialogComponent {
     this.formData.color = color;
   }
 
+  clearTestResult(): void {
+    this.testResult.set(null);
+  }
+
+  /**
+   * When editing a saved profile with the password field left blank, send
+   * undefined so the main process falls back to the keychain-stored password
+   * (buildTestProfile passes the real profile id for the same reason) — Test
+   * then exercises exactly what Connect will use, instead of ''.
+   */
+  private testPassword(): string | undefined {
+    if (this.isAwsIamAuth()) return undefined; // IAM tokens are minted, never typed
+    if (this.isEditing() && this.formData.password === '') return undefined;
+    return this.formData.password;
+  }
+
   async testConnection(): Promise<void> {
     if (!this.canTestConnection()) return;
 
     this.testing.set(true);
+    this.clearTestResult();
     try {
       const profile = this.buildTestProfile();
-      await this.connectionState.testConnection(
+      // notifyErrors: false — failures render in the inline panel; a toast on
+      // top would announce the same error twice.
+      const result = await this.connectionState.testConnection(
         profile,
-        this.resolvedPassword(),
+        this.testPassword(),
         this.formData.sshPassword,
-        this.formData.sshPassphrase
+        this.formData.sshPassphrase,
+        { notifyErrors: false }
       );
+      this.testResult.set(result.success ? null : result);
     } finally {
       this.testing.set(false);
     }
@@ -750,6 +805,7 @@ export class ConnectionDialogComponent {
   }
 
   onEngineChange(engine: string): void {
+    this.clearTestResult();
     const ports: Record<string, number> = { mssql: 1433, postgresql: 5432, mysql: 3306 };
     this.formData.port = ports[engine] || 1433;
     // Adjust default username for engine
@@ -940,7 +996,9 @@ export class ConnectionDialogComponent {
 
   private buildTestProfile(): ConnectionProfile {
     return {
-      id: 'test-connection',
+      // The real id when editing lets the test IPC handler resolve the
+      // keychain-stored password for a blank password field (see testPassword).
+      id: this.data.profile?.id ?? 'test-connection',
       name: this.formData.name || 'Test Connection',
       engine: this.formData.engine || 'mssql',
       server: this.formData.server!,
