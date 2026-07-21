@@ -16,7 +16,9 @@ import { ConnectionStateService } from '../../core/state/connection.state';
 import { ExplorerStateService } from '../../core/state/explorer.state';
 import { NotificationService } from '../../core/services/notification.service';
 import { ConfirmDialogComponent } from '../../shared/components/dialog/confirm-dialog.component';
-import type { ConnectionProfile, AuthenticationType } from '@mj-forge/shared';
+import { PasswordHygieneWarningComponent } from '../../shared/components/password-hygiene-warning/password-hygiene-warning.component';
+import { TestResultPanelComponent } from '../../shared/components/test-result-panel/test-result-panel.component';
+import type { ConnectionProfile, AuthenticationType, TestConnectionResult } from '@mj-forge/shared';
 
 @Component({
   selector: 'app-connections',
@@ -35,6 +37,8 @@ import type { ConnectionProfile, AuthenticationType } from '@mj-forge/shared';
     MatDividerModule,
     MatTooltipModule,
     ConfirmDialogComponent,
+    PasswordHygieneWarningComponent,
+    TestResultPanelComponent,
   ],
   template: `
     <div class="connections-container">
@@ -83,7 +87,9 @@ import type { ConnectionProfile, AuthenticationType } from '@mj-forge/shared';
         <h2>{{ isEditing() ? 'Edit Connection' : 'New Connection' }}</h2>
 
         <mat-card>
-          <mat-card-content>
+          <!-- Any edit invalidates the last Test result (text fields via the
+               bubbled input event; selects/checkboxes clear explicitly). -->
+          <mat-card-content (input)="clearTestResult()">
             <!-- Connection Name -->
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Connection Name *</mat-label>
@@ -109,7 +115,10 @@ import type { ConnectionProfile, AuthenticationType } from '@mj-forge/shared';
             <h3>Authentication</h3>
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Authentication Type</mat-label>
-              <mat-select [(ngModel)]="formData.authenticationType">
+              <mat-select
+                [(ngModel)]="formData.authenticationType"
+                (ngModelChange)="clearTestResult()"
+              >
                 <mat-option value="sql">SQL Server Authentication</mat-option>
                 <mat-option value="windows">Windows Authentication</mat-option>
                 <mat-option value="entra-id">Microsoft Entra ID</mat-option>
@@ -127,6 +136,7 @@ import type { ConnectionProfile, AuthenticationType } from '@mj-forge/shared';
                   <input matInput type="password" [(ngModel)]="formData.password" />
                 </mat-form-field>
               </div>
+              <app-password-hygiene-warning [value]="formData.password" />
             }
 
             <mat-divider />
@@ -134,8 +144,13 @@ import type { ConnectionProfile, AuthenticationType } from '@mj-forge/shared';
             <!-- Options -->
             <h3>Options</h3>
             <div class="checkbox-row">
-              <mat-checkbox [(ngModel)]="formData.encrypt"> Encrypt Connection </mat-checkbox>
-              <mat-checkbox [(ngModel)]="formData.trustServerCertificate">
+              <mat-checkbox [(ngModel)]="formData.encrypt" (ngModelChange)="clearTestResult()">
+                Encrypt Connection
+              </mat-checkbox>
+              <mat-checkbox
+                [(ngModel)]="formData.trustServerCertificate"
+                (ngModelChange)="clearTestResult()"
+              >
                 Trust Server Certificate
               </mat-checkbox>
             </div>
@@ -149,6 +164,8 @@ import type { ConnectionProfile, AuthenticationType } from '@mj-forge/shared';
               <mat-label>Default Database (optional)</mat-label>
               <input matInput [(ngModel)]="formData.database" placeholder="master" />
             </mat-form-field>
+
+            <app-test-result-panel [result]="testResult()" />
           </mat-card-content>
 
           <mat-card-actions align="end">
@@ -377,6 +394,12 @@ export class ConnectionsComponent {
   isEditing = signal(false);
   testing = signal(false);
   saving = signal(false);
+  /**
+   * Last FAILED "Test Connection" result, rendered inline with its guidance
+   * (successes only toast). Cleared on any form edit or profile switch so a
+   * stale error never describes a configuration that has since changed.
+   */
+  testResult = signal<TestConnectionResult | null>(null);
 
   formData: Partial<ConnectionProfile> & { password?: string } = {
     name: '',
@@ -407,16 +430,22 @@ export class ConnectionsComponent {
   newConnection(): void {
     this.selectedProfileId.set(null);
     this.isEditing.set(false);
+    this.clearTestResult();
     this.resetForm();
   }
 
   selectProfile(profile: ConnectionProfile): void {
     this.selectedProfileId.set(profile.id);
     this.isEditing.set(true);
+    this.clearTestResult();
     this.formData = {
       ...profile,
       password: '', // Don't show stored password
     };
+  }
+
+  clearTestResult(): void {
+    this.testResult.set(null);
   }
 
   deleteProfile(profileId: string, event: Event): void {
@@ -444,13 +473,34 @@ export class ConnectionsComponent {
     }
   }
 
+  /**
+   * When editing a saved profile with the password field left blank, send
+   * undefined so the main process falls back to the keychain-stored password
+   * (buildTestProfile passes the real profile id for the same reason) — Test
+   * then exercises exactly what Connect will use, instead of ''.
+   */
+  private testPassword(): string | undefined {
+    if (this.isEditing() && this.formData.password === '') return undefined;
+    return this.formData.password;
+  }
+
   async testConnection(): Promise<void> {
     if (!this.canTestConnection()) return;
 
     this.testing.set(true);
+    this.clearTestResult();
     try {
       const profile = this.buildTestProfile();
-      await this.connectionState.testConnection(profile, this.formData.password);
+      // notifyErrors: false — failures render in the inline panel; a toast on
+      // top would announce the same error twice.
+      const result = await this.connectionState.testConnection(
+        profile,
+        this.testPassword(),
+        undefined,
+        undefined,
+        { notifyErrors: false }
+      );
+      this.testResult.set(result.success ? null : result);
     } finally {
       this.testing.set(false);
     }
@@ -458,7 +508,9 @@ export class ConnectionsComponent {
 
   private buildTestProfile(): ConnectionProfile {
     return {
-      id: 'test-connection',
+      // The real id when editing lets the test IPC handler resolve the
+      // keychain-stored password for a blank password field (see testPassword).
+      id: this.selectedProfileId() ?? 'test-connection',
       name: this.formData.name || 'Test Connection',
       engine: this.formData.engine || 'mssql',
       server: this.formData.server!,
