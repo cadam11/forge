@@ -1,7 +1,12 @@
 import { Injectable, OnDestroy, computed, inject, signal } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
-import type { ConnectionProfile, DatabaseInfo, AppState } from '@mj-forge/shared';
 import { FULL_CAPABILITIES } from '@mj-forge/shared';
+import type {
+  ConnectionProfile,
+  DatabaseInfo,
+  AppState,
+  TestConnectionResult,
+} from '@mj-forge/shared';
 import { IpcService } from '../services/ipc.service';
 import { NotificationService } from '../services/notification.service';
 import { ExplorerStateService } from './explorer.state';
@@ -192,12 +197,21 @@ export class ConnectionStateService implements OnDestroy {
     }
   }
 
+  /**
+   * Always resolves with a full TestConnectionResult (incl. error code +
+   * guidance) so callers can render details inline; an IPC-level throw is
+   * folded into a synthesized failure rather than a separate null shape.
+   * Callers that render failures themselves pass notifyErrors: false to
+   * suppress the error toast (the success toast always fires).
+   */
   async testConnection(
     profile: ConnectionProfile,
     password?: string,
     sshPassword?: string,
-    sshPassphrase?: string
-  ): Promise<boolean> {
+    sshPassphrase?: string,
+    opts: { notifyErrors?: boolean } = {}
+  ): Promise<TestConnectionResult> {
+    const notifyErrors = opts.notifyErrors ?? true;
     try {
       this._connecting.set(true);
       const result = await firstValueFrom(
@@ -205,15 +219,16 @@ export class ConnectionStateService implements OnDestroy {
       );
       if (result.success) {
         this.notification.success(`Connected to ${result.serverVersion || 'SQL Server'}`);
-        return true;
-      } else {
+      } else if (notifyErrors) {
         this.notification.error(result.error || 'Connection failed');
-        return false;
       }
+      return result;
     } catch (error) {
-      this.notification.error('Connection test failed');
+      if (notifyErrors) {
+        this.notification.error('Connection test failed');
+      }
       console.error('Connection test failed:', error);
-      return false;
+      return { success: false, error: 'Connection test failed' };
     } finally {
       this._connecting.set(false);
     }

@@ -10,6 +10,7 @@ import mysql from 'mysql2/promise';
 import type { Pool as MySQLPool } from 'mysql2/promise';
 import { acquireTokenInteractive } from '../azure/entra-auth';
 import type { ConnectionProfile, TestConnectionResult, DatabaseEngine } from '@mj-forge/shared';
+import { describePasswordHygiene } from '@mj-forge/shared';
 import { BaseSingleton } from '../../utils/singleton';
 import { createLogger } from '../../utils/logger';
 import { ConnectionProfilesStore } from '../config/connection-profiles';
@@ -386,13 +387,23 @@ export class ConnectionPoolManager extends BaseSingleton {
       // Default: SQL Server
       return await this.testMssqlConnection(effectiveProfile, password || '');
     } catch (error) {
-      // SSH tunnel errors surface here
       const err = error as Error;
+      // Only label SSH_TUNNEL_ERROR when a tunnel is actually configured —
+      // this catch also sees pre-connect throws from the engine test methods,
+      // and SSH guidance for a profile with no tunnel misdirects the user.
+      if (profile.sshTunnel?.enabled) {
+        return {
+          success: false,
+          error: err.message,
+          errorCode: 'SSH_TUNNEL_ERROR',
+          guidance: ['Check your SSH tunnel settings', 'Verify the SSH host is reachable'],
+        };
+      }
       return {
         success: false,
         error: err.message,
-        errorCode: 'SSH_TUNNEL_ERROR',
-        guidance: ['Check your SSH tunnel settings', 'Verify the SSH host is reachable'],
+        errorCode: 'TEST_FAILED',
+        guidance: ['Check the error details and try again'],
       };
     } finally {
       if (tunnelKey) {
@@ -413,18 +424,21 @@ export class ConnectionPoolManager extends BaseSingleton {
     password: string
   ): Promise<TestConnectionResult> {
     const testDb = profile.database || 'master';
-    const config = await buildMssqlConfig(profile, password, testDb, {
-      connectionMs: profile.connectionTimeout * 1000,
-      requestMs: 10000,
-    });
-
-    log.debug(
-      `Config: encrypt=${config.options?.encrypt}, trustCert=${config.options?.trustServerCertificate}, auth=${profile.authenticationType}`
-    );
-
     let pool: ConnectionPool | null = null;
 
     try {
+      // Inside the try so config-stage failures (e.g. a cancelled Entra ID
+      // browser login) are categorized here instead of escaping to the outer
+      // testConnection catch and being mislabeled as tunnel/test errors.
+      const config = await buildMssqlConfig(profile, password, testDb, {
+        connectionMs: profile.connectionTimeout * 1000,
+        requestMs: 10000,
+      });
+
+      log.debug(
+        `Config: encrypt=${config.options?.encrypt}, trustCert=${config.options?.trustServerCertificate}, auth=${profile.authenticationType}`
+      );
+
       pool = new ConnectionPool(config);
       log.debug('Attempting test connection...');
       await pool.connect();
@@ -444,7 +458,7 @@ export class ConnectionPoolManager extends BaseSingleton {
       };
     } catch (error) {
       const err = error as Error & { code?: string; number?: number };
-      const categorized = this.categorizeError(err);
+      const categorized = this.categorizeError(err, password);
       return {
         success: false,
         error: categorized.message,
@@ -498,7 +512,7 @@ export class ConnectionPoolManager extends BaseSingleton {
         success: false,
         error: err.message,
         errorCode: err.code || 'UNKNOWN',
-        guidance: this.categorizePgError(err),
+        guidance: this.categorizePgError(err, password),
       };
     } finally {
       if (testPool) {
@@ -603,7 +617,7 @@ export class ConnectionPoolManager extends BaseSingleton {
         success: false,
         error: err.message,
         errorCode: err.code || 'UNKNOWN',
-        guidance: this.categorizeMySQLError(err),
+        guidance: this.categorizeMySQLError(err, password),
       };
     } finally {
       if (testPool) {
@@ -1069,28 +1083,59 @@ export class ConnectionPoolManager extends BaseSingleton {
   }
 
   /**
+   * Guidance for a failed username/password login, shared by all three engines.
+   * Appends paste-artifact findings for the password that was actually sent to
+   * the server — the form-entered value, or the keychain-stored one when a
+   * saved profile was tested with a blank password field — plus its character
+   * count. Advisory only; never echoes the value.
+   */
+  private authFailedGuidance(password: string | undefined, engineHint: string): string[] {
+    const guidance = [
+      'Check that the username is correct',
+      'Check that the password is correct',
+      engineHint,
+    ];
+    if (password !== undefined) {
+      guidance.push(...describePasswordHygiene(password, { includeLength: true }));
+    }
+    return guidance;
+  }
+
+  /**
    * Categorize connection errors for user-friendly messages
    */
-  private categorizeError(error: Error & { code?: string; number?: number }): {
+  private categorizeError(
+    error: Error & { code?: string; number?: number },
+    password?: string
+  ): {
+    code: string;
+    message: string;
+    guidance: string[];
+  } {
+    // SQL Server login failure. Server error 18456 reaches us in two shapes:
+    // a query-time RequestError carrying `number`, or — the test-connection
+    // case — a tedious ConnectionError from pool.connect() carrying only
+    // code 'ELOGIN' (tedious never copies the server error number onto it).
+    if (error.number === 18456 || error.code === 'ELOGIN') {
+      return {
+        code: 'AUTH_FAILED',
+        message: 'Login failed',
+        guidance: this.authFailedGuidance(password, 'Ensure the login has permission to connect'),
+      };
+    }
+    return this.categorizeMssqlInfraError(error);
+  }
+
+  /**
+   * Non-auth MSSQL failures: network, timeout, certificate, and the fallback.
+   */
+  private categorizeMssqlInfraError(error: Error & { code?: string; number?: number }): {
     code: string;
     message: string;
     guidance: string[];
   } {
     const code = error.code || error.number?.toString() || 'UNKNOWN';
     const message = error.message;
-
-    // SQL Server error numbers
-    if (error.number === 18456) {
-      return {
-        code: 'AUTH_FAILED',
-        message: 'Login failed',
-        guidance: [
-          'Check that the username is correct',
-          'Check that the password is correct',
-          'Ensure the login has permission to connect',
-        ],
-      };
-    }
 
     if (error.code === 'ESOCKET' || error.code === 'ECONNREFUSED') {
       return {
@@ -1138,7 +1183,7 @@ export class ConnectionPoolManager extends BaseSingleton {
   /**
    * Categorize PostgreSQL connection errors for user-friendly messages
    */
-  private categorizePgError(error: Error & { code?: string }): string[] {
+  private categorizePgError(error: Error & { code?: string }, password?: string): string[] {
     switch (error.code) {
       case 'ECONNREFUSED':
         return [
@@ -1149,11 +1194,10 @@ export class ConnectionPoolManager extends BaseSingleton {
         ];
       case '28P01': // invalid_password
       case '28000': // invalid_authorization_specification
-        return [
-          'Check that the username is correct',
-          'Check that the password is correct',
-          'Ensure the user has CONNECT privilege on the database',
-        ];
+        return this.authFailedGuidance(
+          password,
+          'Ensure the user has CONNECT privilege on the database'
+        );
       case '3D000': // invalid_catalog_name
         return ['The specified database does not exist', 'Check the database name'];
       case 'ETIMEOUT':
@@ -1170,7 +1214,7 @@ export class ConnectionPoolManager extends BaseSingleton {
   /**
    * Categorize MySQL connection errors for user-friendly messages
    */
-  private categorizeMySQLError(error: Error & { code?: string }): string[] {
+  private categorizeMySQLError(error: Error & { code?: string }, password?: string): string[] {
     switch (error.code) {
       case 'ECONNREFUSED':
         return [
@@ -1180,11 +1224,7 @@ export class ConnectionPoolManager extends BaseSingleton {
           'For Docker: ensure the container is running and port is exposed',
         ];
       case 'ER_ACCESS_DENIED_ERROR':
-        return [
-          'Check that the username is correct',
-          'Check that the password is correct',
-          'Ensure the user has access from this host',
-        ];
+        return this.authFailedGuidance(password, 'Ensure the user has access from this host');
       case 'ER_BAD_DB_ERROR':
         return ['The specified database does not exist', 'Check the database name'];
       case 'ETIMEDOUT':
