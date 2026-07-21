@@ -11,6 +11,7 @@ export const IPC_CHANNELS = {
     CONNECT: 'connection:connect',
     DISCONNECT: 'connection:disconnect',
     PING: 'connection:ping',
+    LIST_AWS_PROFILES: 'connection:list-aws-profiles',
   },
 
   // Docker Detection
