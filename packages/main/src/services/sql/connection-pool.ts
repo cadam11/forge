@@ -17,6 +17,7 @@ import { ConnectionProfilesStore } from '../config/connection-profiles';
 import { SshTunnelManager, type SshCredentials } from '../ssh/ssh-tunnel-manager';
 import { splitTopLevelStatements } from './sql-statement-splitter';
 import { getDialect, type SQLDialect } from './dialect';
+import { auroraDsqlPoolOptions } from './aurora-dsql-pool-options';
 
 const log = createLogger('PoolManager');
 
@@ -174,25 +175,18 @@ export class ConnectionPoolManager extends BaseSingleton {
    * paths can't drift on option names. The connector mints a fresh IAM
    * token per physical connection from the user's ~/.aws credentials —
    * nothing here reads from or writes to the Keychain.
+   *
+   * Option construction itself lives in the pure auroraDsqlPoolOptions
+   * helper (aurora-dsql-pool-options.ts) so its security-critical
+   * invariants — TLS validation always on, never built from a
+   * tunnel-rewritten profile — are unit-testable without driver mocking.
    */
   private buildAuroraDsqlPool(
     profile: ConnectionProfile,
     dbName: string,
     poolOptions: { max: number; idleTimeoutMillis?: number; query_timeout?: number }
   ): AuroraDSQLPool {
-    return new AuroraDSQLPool({
-      host: profile.server,
-      port: profile.port,
-      user: profile.username || 'admin',
-      database: dbName,
-      profile: profile.awsProfile || undefined,
-      // DSQL always presents a publicly-trusted certificate and the password
-      // IS a live credential (SigV4 token) — certificate validation is never
-      // optional on this path, regardless of the profile's trust toggle.
-      ssl: { rejectUnauthorized: true },
-      connectionTimeoutMillis: profile.connectionTimeout * 1000,
-      ...poolOptions,
-    });
+    return new AuroraDSQLPool(auroraDsqlPoolOptions(profile, dbName, poolOptions));
   }
 
   /**
