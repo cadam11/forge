@@ -14,7 +14,7 @@ import { SQLDialect } from './sql-dialect';
 
 export class PgDialect extends SQLDialect {
   readonly engine = 'postgresql' as const;
-  readonly label = 'PostgreSQL';
+  readonly label: string = 'PostgreSQL';
   readonly defaultPort = 5432;
   readonly monacoLanguage = 'pgsql';
   readonly batchSeparator = null; // PostgreSQL doesn't use GO

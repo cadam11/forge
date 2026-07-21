@@ -83,6 +83,7 @@ import type {
   MJUserRecordLog,
   MJEntityRelationship,
   LogEntry,
+  ActiveConnection,
 } from '@mj-forge/shared';
 
 /**
@@ -104,8 +105,10 @@ export interface ForgeAPI {
     ) => Promise<ConnectionProfile>;
     delete: (profileId: string) => Promise<void>;
     list: () => Promise<ConnectionProfile[]>;
-    connect: (profileId: string) => Promise<void>;
+    connect: (profileId: string) => Promise<ActiveConnection>;
     disconnect: (profileId: string) => Promise<void>;
+    ping: (profileId: string) => Promise<boolean>;
+    listAwsProfiles: () => Promise<string[]>;
   };
 
   docker: {
@@ -590,6 +593,8 @@ const forgeAPI: ForgeAPI = {
     list: () => ipcRenderer.invoke(IPC_CHANNELS.CONNECTION.LIST),
     connect: profileId => ipcRenderer.invoke(IPC_CHANNELS.CONNECTION.CONNECT, profileId),
     disconnect: profileId => ipcRenderer.invoke(IPC_CHANNELS.CONNECTION.DISCONNECT, profileId),
+    ping: profileId => ipcRenderer.invoke(IPC_CHANNELS.CONNECTION.PING, profileId),
+    listAwsProfiles: () => ipcRenderer.invoke(IPC_CHANNELS.CONNECTION.LIST_AWS_PROFILES),
   },
 
   docker: {

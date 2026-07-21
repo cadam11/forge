@@ -1,5 +1,6 @@
 import { Injectable, OnDestroy, computed, inject, signal } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
+import { FULL_CAPABILITIES } from '@mj-forge/shared';
 import type {
   ConnectionProfile,
   DatabaseInfo,
@@ -10,6 +11,7 @@ import { IpcService } from '../services/ipc.service';
 import { NotificationService } from '../services/notification.service';
 import { ExplorerStateService } from './explorer.state';
 import { TabStateService } from './tab.state';
+import { CapabilitiesStore } from './capabilities.state';
 import { firstValueFrom } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
@@ -18,6 +20,7 @@ export class ConnectionStateService implements OnDestroy {
   private readonly notification = inject(NotificationService);
   private readonly explorerState = inject(ExplorerStateService);
   private readonly tabState = inject(TabStateService);
+  private readonly capabilitiesStore = inject(CapabilitiesStore);
 
   private readonly _profiles = signal<ConnectionProfile[]>([]);
   private readonly _connecting = signal(false);
@@ -240,7 +243,11 @@ export class ConnectionStateService implements OnDestroy {
 
     try {
       this._connecting.set(true);
-      await firstValueFrom(this.ipc.connect(profileId));
+      const active = await firstValueFrom(this.ipc.connect(profileId));
+      this.capabilitiesStore.set(profileId, {
+        capabilities: active?.capabilities ?? FULL_CAPABILITIES,
+        variant: active?.engineVariant,
+      });
       this.addConnectedProfileId(profileId);
       this.setHealth(profileId, true);
       this.notification.success(`Connected to ${profile.name}`);
@@ -437,7 +444,7 @@ export class ConnectionStateService implements OnDestroy {
   private async pingConnection(connectionId: string): Promise<boolean> {
     try {
       await this.withTimeout(
-        firstValueFrom(this.ipc.listDatabases(connectionId)),
+        firstValueFrom(this.ipc.pingConnection(connectionId)),
         ConnectionStateService.HEARTBEAT_TICK_TIMEOUT_MS,
         `heartbeat ping for ${connectionId}`
       );
@@ -453,6 +460,8 @@ export class ConnectionStateService implements OnDestroy {
   private async attemptReconnect(connectionId: string): Promise<void> {
     this._reconnectingByConnection.add(connectionId);
     try {
+      // Capabilities are deliberately not re-synced here: they're set on the
+      // initial connect() and stable per profile, and are only cleared on disconnect.
       await this.withTimeout(
         firstValueFrom(this.ipc.connect(connectionId)),
         ConnectionStateService.HEARTBEAT_TICK_TIMEOUT_MS,
@@ -652,5 +661,6 @@ export class ConnectionStateService implements OnDestroy {
     this.deleteHealth(connectionId);
     this.stopHeartbeat(connectionId);
     this.explorerState.removeServerNode(connectionId);
+    this.capabilitiesStore.clear(connectionId);
   }
 }

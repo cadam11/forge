@@ -33,18 +33,26 @@ vi.mock('@angular/core/rxjs-interop', () => ({
   toObservable: () => EMPTY,
   toSignal: (source: unknown) => source,
 }));
-import type { ConnectionProfile, DatabaseInfo } from '@mj-forge/shared';
+import type {
+  ActiveConnection,
+  ConnectionProfile,
+  DatabaseInfo,
+  EngineCapabilities,
+} from '@mj-forge/shared';
+import { FULL_CAPABILITIES } from '@mj-forge/shared';
 import { ConnectionStateService } from './connection.state';
 import { ExplorerStateService, type TreeNode } from './explorer.state';
 import { IpcService } from '../services/ipc.service';
 import { NotificationService } from '../services/notification.service';
 import { TabStateService } from './tab.state';
+import { CapabilitiesStore } from './capabilities.state';
 
 interface IpcHarness {
   service: IpcService;
   // Exposed spies so heartbeat / persistence specs can assert call shape.
   listDatabases: ReturnType<typeof vi.fn>;
   connect: ReturnType<typeof vi.fn>;
+  pingConnection: ReturnType<typeof vi.fn>;
   setAppState: ReturnType<typeof vi.fn>;
   getAppState: ReturnType<typeof vi.fn>;
 }
@@ -56,6 +64,11 @@ interface IpcStubOpts {
   // Mark `isAvailable` true so persistence-related code paths run; defaults false
   // (existing behaviour) so heartbeat / disconnect specs don't trigger saveState IPC.
   available?: boolean;
+  // Optional ActiveConnection-shaped value `ipc.connect()` resolves with. Left
+  // unset, `connect` resolves `of(undefined)` — the pre-existing default every
+  // other test in this file relies on, which pins `connect()`'s
+  // `active?.capabilities ?? FULL_CAPABILITIES` fallback branch.
+  connectResult?: ActiveConnection;
 }
 
 // Minimal IPC stub — methods return synchronous Observables so connect /
@@ -65,7 +78,8 @@ interface IpcStubOpts {
 function makeIpcStub(opts: IpcStubOpts = {}): IpcHarness {
   const databasesByProfile = opts.databasesByProfile ?? {};
   const listDatabases = vi.fn((id: string) => of(databasesByProfile[id] ?? []));
-  const connect = vi.fn(() => of(undefined));
+  const connect = vi.fn(() => of(opts.connectResult));
+  const pingConnection = vi.fn(() => of(true));
   const setAppState = vi.fn(() => of(undefined));
   const getAppState = vi.fn(() => of(opts.appState ?? {}));
   const service = {
@@ -74,10 +88,11 @@ function makeIpcStub(opts: IpcStubOpts = {}): IpcHarness {
     connect,
     disconnect: () => of(undefined),
     listDatabases,
+    pingConnection,
     setAppState,
     getAppState,
   } as unknown as IpcService;
-  return { service, listDatabases, connect, setAppState, getAppState };
+  return { service, listDatabases, connect, pingConnection, setAppState, getAppState };
 }
 
 function makeNotificationStub(): NotificationService {
@@ -172,6 +187,7 @@ function makeService(
     profiles?: ConnectionProfile[];
     appState?: Record<string, unknown>;
     ipcAvailable?: boolean;
+    connectResult?: ActiveConnection;
   } = {}
 ): {
   service: ConnectionStateService;
@@ -179,11 +195,13 @@ function makeService(
   tab: TabHarness;
   notification: NotificationService;
   ipc: IpcHarness;
+  capabilitiesStore: CapabilitiesStore;
 } {
   const ipc = makeIpcStub({
     databasesByProfile: opts.databasesByProfile,
     appState: opts.appState,
     available: opts.ipcAvailable,
+    connectResult: opts.connectResult,
   });
   const notification = makeNotificationStub();
   const tab = makeTabStub();
@@ -194,10 +212,12 @@ function makeService(
       { provide: NotificationService, useValue: notification },
       { provide: TabStateService, useValue: tab.service },
       { provide: ExplorerStateService, useValue: explorer.service },
+      { provide: CapabilitiesStore },
       { provide: ConnectionStateService },
     ],
   });
   const service = injector.get(ConnectionStateService);
+  const capabilitiesStore = injector.get(CapabilitiesStore);
   // Seed profiles via the private signal so connect() finds them. Tests own
   // this break-the-encapsulation because the service has no public setter.
   if (opts.profiles?.length) {
@@ -205,7 +225,7 @@ function makeService(
       opts.profiles
     );
   }
-  return { service, explorer, tab, notification, ipc };
+  return { service, explorer, tab, notification, ipc, capabilitiesStore };
 }
 
 const profileA: ConnectionProfile = {
@@ -339,16 +359,17 @@ describe('ConnectionStateService — focusedConnectionId derives from active tab
 // Phase 7 — per-connection heartbeat
 //
 // `connect(profileId)` calls `loadDatabases(profileId)` synchronously, which
-// itself invokes `ipc.listDatabases(profileId)`. Once the heartbeat starts,
-// each 30s tick adds another `ipc.listDatabases(profileId)` call. To assert
-// "did the heartbeat fire?" the tests count `listDatabases` calls *after* the
-// initial connect, advance fake timers, and compare per-id counts.
+// itself invokes `ipc.listDatabases(profileId)` once at connect time. Once the
+// heartbeat starts, each 30s tick invokes `ipc.pingConnection(profileId)`
+// instead — the cheap heartbeat probe. To assert "did the heartbeat fire?"
+// the tests count `pingConnection` calls *after* the initial connect, advance
+// fake timers, and compare per-id counts.
 // ---------------------------------------------------------------------------
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
 
-function listDatabasesCallsFor(ipc: IpcHarness, connectionId: string): number {
-  return ipc.listDatabases.mock.calls.filter(([id]) => id === connectionId).length;
+function pingConnectionCallsFor(ipc: IpcHarness, connectionId: string): number {
+  return ipc.pingConnection.mock.calls.filter(([id]) => id === connectionId).length;
 }
 
 describe('ConnectionStateService — per-connection heartbeat (spec 1.7)', () => {
@@ -367,14 +388,14 @@ describe('ConnectionStateService — per-connection heartbeat (spec 1.7)', () =>
     await service.connect(profileA.id);
     await service.connect(profileB.id);
 
-    const baselineA = listDatabasesCallsFor(ipc, profileA.id);
-    const baselineB = listDatabasesCallsFor(ipc, profileB.id);
+    const baselineA = pingConnectionCallsFor(ipc, profileA.id);
+    const baselineB = pingConnectionCallsFor(ipc, profileB.id);
 
     // One heartbeat tick — both per-id intervals should fire.
     await vi.advanceTimersByTimeAsync(HEARTBEAT_INTERVAL_MS);
 
-    expect(listDatabasesCallsFor(ipc, profileA.id)).toBe(baselineA + 1);
-    expect(listDatabasesCallsFor(ipc, profileB.id)).toBe(baselineB + 1);
+    expect(pingConnectionCallsFor(ipc, profileA.id)).toBe(baselineA + 1);
+    expect(pingConnectionCallsFor(ipc, profileB.id)).toBe(baselineB + 1);
 
     // Cleanup so the test doesn't leak intervals into the next describe block.
     service.ngOnDestroy();
@@ -391,15 +412,15 @@ describe('ConnectionStateService — per-connection heartbeat (spec 1.7)', () =>
 
     await service.disconnect(profileA.id);
 
-    const baselineA = listDatabasesCallsFor(ipc, profileA.id);
-    const baselineB = listDatabasesCallsFor(ipc, profileB.id);
+    const baselineA = pingConnectionCallsFor(ipc, profileA.id);
+    const baselineB = pingConnectionCallsFor(ipc, profileB.id);
 
     await vi.advanceTimersByTimeAsync(HEARTBEAT_INTERVAL_MS);
 
     // A's heartbeat is gone — no new pings for A.
-    expect(listDatabasesCallsFor(ipc, profileA.id)).toBe(baselineA);
+    expect(pingConnectionCallsFor(ipc, profileA.id)).toBe(baselineA);
     // B's heartbeat continues — exactly one new ping for B.
-    expect(listDatabasesCallsFor(ipc, profileB.id)).toBe(baselineB + 1);
+    expect(pingConnectionCallsFor(ipc, profileB.id)).toBe(baselineB + 1);
 
     service.ngOnDestroy();
   });
@@ -530,9 +551,9 @@ describe('ConnectionStateService — heartbeat failure handling (spec 1.7 supple
 
     // From this point onward, every IPC call for profileA fails. Reconnect
     // attempts also fail. profileB stays healthy.
-    ipc.listDatabases.mockImplementation((id: string) => {
+    ipc.pingConnection.mockImplementation((id: string) => {
       if (id === profileA.id) return throwError(() => new Error('ping failed'));
-      return of([]);
+      return of(true);
     });
     ipc.connect.mockImplementation((id: string) => {
       if (id === profileA.id) return throwError(() => new Error('reconnect failed'));
@@ -549,9 +570,9 @@ describe('ConnectionStateService — heartbeat failure handling (spec 1.7 supple
     expect(notification.error).toHaveBeenCalledWith(expect.stringContaining(profileA.name));
 
     // After the self-stop, additional ticks don't fire pings for A.
-    const callsAAfterStop = listDatabasesCallsFor(ipc, profileA.id);
+    const callsAAfterStop = pingConnectionCallsFor(ipc, profileA.id);
     await vi.advanceTimersByTimeAsync(HEARTBEAT_INTERVAL_MS);
-    expect(listDatabasesCallsFor(ipc, profileA.id)).toBe(callsAAfterStop);
+    expect(pingConnectionCallsFor(ipc, profileA.id)).toBe(callsAAfterStop);
 
     // B's heartbeat is unaffected — still healthy, still ticking.
     expect(service.healthFor(profileB.id)).toBe(true);
@@ -571,13 +592,13 @@ describe('ConnectionStateService — heartbeat failure handling (spec 1.7 supple
 
     // After disconnect, A's interval should be cleared. Advance time and
     // confirm the call count is unchanged for A and grows for B.
-    const beforeA = listDatabasesCallsFor(ipc, profileA.id);
-    const beforeB = listDatabasesCallsFor(ipc, profileB.id);
+    const beforeA = pingConnectionCallsFor(ipc, profileA.id);
+    const beforeB = pingConnectionCallsFor(ipc, profileB.id);
 
     await vi.advanceTimersByTimeAsync(HEARTBEAT_INTERVAL_MS * 2);
 
-    expect(listDatabasesCallsFor(ipc, profileA.id)).toBe(beforeA);
-    expect(listDatabasesCallsFor(ipc, profileB.id)).toBeGreaterThan(beforeB);
+    expect(pingConnectionCallsFor(ipc, profileA.id)).toBe(beforeA);
+    expect(pingConnectionCallsFor(ipc, profileB.id)).toBeGreaterThan(beforeB);
 
     service.ngOnDestroy();
   });
@@ -594,21 +615,21 @@ describe('ConnectionStateService — heartbeat failure handling (spec 1.7 supple
     // A's ping fails — pushes A into the reconnecting state. A's reconnect
     // attempt is also configured to fail, so A stays in the failure path; the
     // service uses a per-id reconnect lock, so B's tick must still proceed.
-    ipc.listDatabases.mockImplementation((id: string) => {
+    ipc.pingConnection.mockImplementation((id: string) => {
       if (id === profileA.id) return throwError(() => new Error('ping failed'));
-      return of([]);
+      return of(true);
     });
     ipc.connect.mockImplementation((id: string) => {
       if (id === profileA.id) return throwError(() => new Error('reconnect failed'));
       return of(undefined);
     });
 
-    const beforeB = listDatabasesCallsFor(ipc, profileB.id);
+    const beforeB = pingConnectionCallsFor(ipc, profileB.id);
     await vi.advanceTimersByTimeAsync(HEARTBEAT_INTERVAL_MS);
 
     // B ticked exactly once during the same advance window — proves the
     // reconnect lock is not a global gate.
-    expect(listDatabasesCallsFor(ipc, profileB.id)).toBe(beforeB + 1);
+    expect(pingConnectionCallsFor(ipc, profileB.id)).toBe(beforeB + 1);
     expect(service.healthFor(profileB.id)).toBe(true);
 
     service.ngOnDestroy();
@@ -703,6 +724,75 @@ describe('ConnectionStateService — persistence migration edge cases (spec 1.8 
     );
     // No code path should still be writing the legacy key.
     expect(lastCall).not.toHaveProperty('lastConnectionId');
+
+    service.ngOnDestroy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CapabilitiesStore wiring — review finding: `active` in `connect()` was only
+// ever exercised via the default `of(undefined)` stub, so the branch reading
+// real `capabilities`/`engineVariant` off `ActiveConnection` had zero coverage.
+// These specs assert the actual value flow into (and back out of)
+// `CapabilitiesStore`, using `makeIpcStub`'s new `connectResult` fixture and
+// `makeService`'s newly-exposed `capabilitiesStore` harness field.
+// ---------------------------------------------------------------------------
+
+describe('ConnectionStateService — CapabilitiesStore wiring (review finding)', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.clearAllMocks();
+  });
+
+  const dsqlCapabilities: EngineCapabilities = {
+    supportsMultipleDatabases: false,
+    supportsDatabaseManagement: false,
+    supportsStoredProcedures: false,
+    supportsTriggers: false,
+    supportsBackupRestore: false,
+  };
+
+  it('connect() populates the store from a real ActiveConnection, and disconnect() reverts it', async () => {
+    const activeConnection: ActiveConnection = {
+      id: profileA.id,
+      profile: profileA,
+      status: 'connected',
+      engineVariant: 'dsql',
+      capabilities: dsqlCapabilities,
+    };
+    const { service, capabilitiesStore } = makeService({
+      profiles: [profileA],
+      databasesByProfile: { [profileA.id]: [] },
+      connectResult: activeConnection,
+    });
+
+    await service.connect(profileA.id);
+
+    expect(capabilitiesStore.for(profileA.id)).toEqual(dsqlCapabilities);
+    expect(capabilitiesStore.variantFor(profileA.id)).toBe('dsql');
+
+    await service.disconnect(profileA.id);
+
+    expect(capabilitiesStore.for(profileA.id)).toEqual(FULL_CAPABILITIES);
+    expect(capabilitiesStore.variantFor(profileA.id)).toBeUndefined();
+
+    service.ngOnDestroy();
+  });
+
+  it('connect() falls back to FULL_CAPABILITIES / undefined variant when the resolved ActiveConnection is undefined', async () => {
+    // No `connectResult` — pins the pre-existing default `of(undefined)`
+    // behaviour and, with it, the `active?.capabilities ?? FULL_CAPABILITIES`
+    // fallback branch explicitly.
+    const { service, capabilitiesStore } = makeService({
+      profiles: [profileA],
+      databasesByProfile: { [profileA.id]: [] },
+    });
+
+    await service.connect(profileA.id);
+
+    expect(capabilitiesStore.for(profileA.id)).toEqual(FULL_CAPABILITIES);
+    expect(capabilitiesStore.variantFor(profileA.id)).toBeUndefined();
 
     service.ngOnDestroy();
   });

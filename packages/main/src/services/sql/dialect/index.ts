@@ -4,15 +4,17 @@
  * Factory for getting the correct dialect instance per database engine.
  */
 
-import type { DatabaseEngine } from '@mj-forge/shared';
+import type { DatabaseEngine, EngineCapabilities, EngineVariant } from '@mj-forge/shared';
 import { SQLDialect } from './sql-dialect';
 import { MSSQLDialect } from './mssql-dialect';
 import { PgDialect } from './pg-dialect';
+import { PgDsqlDialect } from './pg-dsql-dialect';
 import { MySQLDialect } from './mysql-dialect';
 
 export { SQLDialect } from './sql-dialect';
 export { MSSQLDialect } from './mssql-dialect';
 export { PgDialect } from './pg-dialect';
+export { PgDsqlDialect } from './pg-dsql-dialect';
 export { MySQLDialect } from './mysql-dialect';
 
 const dialects: Record<DatabaseEngine, SQLDialect> = {
@@ -21,7 +23,23 @@ const dialects: Record<DatabaseEngine, SQLDialect> = {
   mysql: new MySQLDialect(),
 };
 
-/** Get the dialect instance for a given database engine */
-export function getDialect(engine: DatabaseEngine): SQLDialect {
+const pgDsqlDialect = new PgDsqlDialect();
+
+/** Get the dialect instance for a given database engine (and optional variant) */
+export function getDialect(engine: DatabaseEngine, variant?: EngineVariant): SQLDialect {
+  if (engine === 'postgresql' && variant === 'dsql') {
+    return pgDsqlDialect;
+  }
   return dialects[engine];
+}
+
+/** App-level capabilities derived from a dialect, shipped to the renderer. */
+export function capabilitiesForDialect(dialect: SQLDialect): EngineCapabilities {
+  return {
+    supportsMultipleDatabases: dialect.supportsMultipleDatabases,
+    supportsDatabaseManagement: dialect.supportsDatabaseManagement,
+    supportsStoredProcedures: dialect.supportsStoredProcedures,
+    supportsTriggers: dialect.supportsTriggers,
+    supportsBackupRestore: dialect.supportsBackupTooling,
+  };
 }

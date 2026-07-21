@@ -12,6 +12,8 @@ import type {
 import { IpcService } from '../services/ipc.service';
 import { NotificationService } from '../services/notification.service';
 import { firstValueFrom } from 'rxjs';
+import { CapabilitiesStore } from './capabilities.state';
+import { schemaFolderDefs, tableSubFolderDefs } from './explorer-folders';
 
 export type NodeType =
   | 'server'
@@ -71,6 +73,7 @@ export interface TreeNode {
 export class ExplorerStateService {
   private readonly ipc = inject(IpcService);
   private readonly notification = inject(NotificationService);
+  private readonly capabilitiesStore = inject(CapabilitiesStore);
 
   private readonly _rootNodes = signal<TreeNode[]>([]);
   private readonly _selectedNodeId = signal<string | null>(null);
@@ -436,13 +439,10 @@ export class ExplorerStateService {
   }
 
   private getTableSubFolders(node: TreeNode): TreeNode[] {
-    const folders = [
-      { name: 'Columns', type: 'columns_folder' as NodeType },
-      { name: 'Indexes', type: 'indexes_folder' as NodeType },
-      { name: 'Keys', type: 'keys_folder' as NodeType },
-      { name: 'Constraints', type: 'constraints_folder' as NodeType },
-      { name: 'Triggers', type: 'triggers_folder' as NodeType },
-    ];
+    const folders = tableSubFolderDefs(this.capabilitiesStore.for(node.connectionId)).map(f => ({
+      name: f.name,
+      type: f.type as NodeType,
+    }));
 
     return folders.map(folder => ({
       id: `${node.id}-${folder.type}`,
@@ -670,12 +670,7 @@ export class ExplorerStateService {
   }
 
   private getSchemaFolders(connectionId: string, databaseName: string, schema: string): TreeNode[] {
-    const folders = [
-      { name: 'Tables', type: 'tables', icon: 'table_chart' },
-      { name: 'Views', type: 'views', icon: 'view_list' },
-      { name: 'Stored Procedures', type: 'procedures', icon: 'functions' },
-      { name: 'Functions', type: 'functions', icon: 'calculate' },
-    ];
+    const folders = schemaFolderDefs(this.capabilitiesStore.for(connectionId));
 
     return folders.map(folder => ({
       id: `folder-${connectionId}-${databaseName}-${schema}-${folder.type}`,

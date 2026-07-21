@@ -25,6 +25,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { IpcService } from '../../core/services/ipc.service';
 import { ConnectionStateService } from '../../core/state/connection.state';
+import { CapabilitiesStore } from '../../core/state/capabilities.state';
 import { keyHint } from '../../core/utils/platform';
 import { TabStateService } from '../../core/state/tab.state';
 import { NotificationService } from '../../core/services/notification.service';
@@ -50,6 +51,7 @@ import type {
   QueryHistoryEntry,
   ExportFormat,
   QueryResultSnapshot,
+  ObjectMetadata,
 } from '@mj-forge/shared';
 import { format as formatSQL } from 'sql-formatter';
 
@@ -948,6 +950,7 @@ export class QueryComponent implements OnInit, OnDestroy {
   resultsGrid?: ResultsGridComponent;
 
   private readonly ipc = inject(IpcService);
+  private readonly capabilitiesStore = inject(CapabilitiesStore);
   readonly connectionState = inject(ConnectionStateService);
   readonly tabState = inject(TabStateService);
   private readonly notification = inject(NotificationService);
@@ -1480,10 +1483,17 @@ export class QueryComponent implements OnInit, OnDestroy {
     if (!connectionId || !database) return;
 
     try {
+      const caps = this.capabilitiesStore.for(connectionId);
+      const fetchChildren = (kind: string): Promise<ObjectMetadata[]> =>
+        firstValueFrom(this.ipc.getExplorerChildren(connectionId, database, kind)).catch(err => {
+          console.warn(`Autocomplete prefetch for ${kind} failed:`, err);
+          return [];
+        });
+
       const [tables, views, procs] = await Promise.all([
-        firstValueFrom(this.ipc.getExplorerChildren(connectionId, database, 'tables')),
-        firstValueFrom(this.ipc.getExplorerChildren(connectionId, database, 'views')),
-        firstValueFrom(this.ipc.getExplorerChildren(connectionId, database, 'procedures')),
+        fetchChildren('tables'),
+        fetchChildren('views'),
+        caps.supportsStoredProcedures ? fetchChildren('procedures') : Promise.resolve([]),
       ]);
 
       const objects = [

@@ -119,3 +119,27 @@ describe('ConnectionProfile', () => {
     expect(profile.isDocker).toBe(true);
   });
 });
+
+import { FULL_CAPABILITIES } from './connection.types';
+import type { EngineCapabilities, EngineVariant, ActiveConnection } from './connection.types';
+
+describe('EngineCapabilities', () => {
+  it('FULL_CAPABILITIES has every capability enabled', () => {
+    const values = Object.values(FULL_CAPABILITIES);
+    expect(values.length).toBe(5);
+    expect(values.every(v => v === true)).toBe(true);
+  });
+
+  it('ActiveConnection accepts capabilities and engineVariant', () => {
+    const variant: EngineVariant = 'dsql';
+    const caps: EngineCapabilities = {
+      supportsMultipleDatabases: false,
+      supportsDatabaseManagement: false,
+      supportsStoredProcedures: false,
+      supportsTriggers: false,
+      supportsBackupRestore: false,
+    };
+    const conn: Partial<ActiveConnection> = { capabilities: caps, engineVariant: variant };
+    expect(conn.capabilities?.supportsTriggers).toBe(false);
+  });
+});

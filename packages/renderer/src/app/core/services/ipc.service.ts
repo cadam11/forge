@@ -83,6 +83,7 @@ import type {
   MJErrorLog,
   MJUserRecordLog,
   MJEntityRelationship,
+  ActiveConnection,
 } from '@mj-forge/shared';
 
 // Dialog types for Electron dialogs
@@ -145,8 +146,10 @@ interface ForgeAPI {
     ) => Promise<ConnectionProfile>;
     delete: (profileId: string) => Promise<void>;
     list: () => Promise<ConnectionProfile[]>;
-    connect: (profileId: string) => Promise<void>;
+    connect: (profileId: string) => Promise<ActiveConnection>;
     disconnect: (profileId: string) => Promise<void>;
+    ping: (profileId: string) => Promise<boolean>;
+    listAwsProfiles: () => Promise<string[]>;
   };
   docker: {
     detect: () => Promise<DockerStatus>;
@@ -556,8 +559,16 @@ export class IpcService {
     return from(this.api.connection.list());
   }
 
-  connect(profileId: string): Observable<void> {
+  connect(profileId: string): Observable<ActiveConnection> {
     return from(this.api.connection.connect(profileId));
+  }
+
+  pingConnection(connectionId: string): Observable<boolean> {
+    return from(this.api.connection.ping(connectionId));
+  }
+
+  listAwsProfiles(): Observable<string[]> {
+    return from(this.api.connection.listAwsProfiles());
   }
 
   disconnect(profileId: string): Observable<void> {

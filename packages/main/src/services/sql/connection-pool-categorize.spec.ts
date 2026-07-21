@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import type { ConnectionProfile } from '@mj-forge/shared';
 import { ConnectionPoolManager } from './connection-pool';
 
 /**
@@ -20,7 +21,11 @@ interface CategorizeSeam {
     error: Error & { code?: string; number?: number },
     password?: string
   ): Categorized;
-  categorizePgError(error: Error & { code?: string }, password?: string): string[];
+  categorizePgError(
+    error: Error & { code?: string },
+    profile?: ConnectionProfile,
+    password?: string
+  ): string[];
   categorizeMySQLError(error: Error & { code?: string }, password?: string): string[];
 }
 
@@ -78,6 +83,7 @@ describe('categorizePgError — PostgreSQL auth failures', () => {
   it('appends hygiene findings on 28P01 when a password is provided', () => {
     const guidance = seam().categorizePgError(
       Object.assign(new Error('password authentication failed'), { code: '28P01' }),
+      undefined,
       'secret\n'
     );
     expect(guidance.join(' ')).toMatch(/ends with a space/);
@@ -87,14 +93,25 @@ describe('categorizePgError — PostgreSQL auth failures', () => {
   it('stays generic on 28P01 with a clean password and on non-auth codes', () => {
     const clean = seam().categorizePgError(
       Object.assign(new Error('x'), { code: '28P01' }),
+      undefined,
       'CleanP@ss1'
     );
     expect(clean).toHaveLength(3);
     const refused = seam().categorizePgError(
       Object.assign(new Error('x'), { code: 'ECONNREFUSED' }),
+      undefined,
       'secret '
     );
     expect(refused.join(' ')).not.toMatch(/characters/);
+  });
+
+  it('routes aws-iam credential failures to SSO guidance ahead of the generic cases', () => {
+    const profile = { authenticationType: 'aws-iam', awsProfile: 'dev' } as ConnectionProfile;
+    const guidance = seam().categorizePgError(
+      new Error('Could not load credentials from any providers'),
+      profile
+    );
+    expect(guidance.join(' ')).toMatch(/aws sso login --profile dev/);
   });
 });
 

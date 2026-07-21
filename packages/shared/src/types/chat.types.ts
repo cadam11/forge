@@ -80,6 +80,8 @@ export interface ChatRequest {
   databaseName?: string;
   /** Database engine type for dialect-aware prompts */
   databaseEngine?: 'mssql' | 'postgresql' | 'mysql';
+  /** Engine sub-variant for dialect-aware prompts (e.g. Aurora DSQL) */
+  engineVariant?: 'dsql';
   /** Contents of the user's active query editor tab (if any) */
   activeEditorContent?: string;
   /** Available schema for context */

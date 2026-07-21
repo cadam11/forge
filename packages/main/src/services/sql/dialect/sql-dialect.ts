@@ -12,6 +12,7 @@ import type {
   CreateDatabaseOptions,
   RenameDatabaseOptions,
   DeleteDatabaseOptions,
+  EngineVariant,
 } from '@mj-forge/shared';
 
 // Re-export engine type for convenience
@@ -114,4 +115,38 @@ export abstract class SQLDialect {
 
   /** Whether this dialect supports server-side file browsing (xp_dirtree etc.) */
   abstract readonly supportsServerFileBrowsing: boolean;
+
+  // ── App-level capabilities (overridden by engine variants) ──
+
+  /** Engine sub-variant, when this dialect represents one (e.g. Aurora DSQL) */
+  get variant(): EngineVariant | undefined {
+    return undefined;
+  }
+
+  /** Whether the server hosts multiple enumerable/switchable databases */
+  get supportsMultipleDatabases(): boolean {
+    return true;
+  }
+
+  /** Whether CREATE/RENAME/DROP DATABASE are meaningful on this server */
+  get supportsDatabaseManagement(): boolean {
+    return true;
+  }
+
+  get supportsStoredProcedures(): boolean {
+    return true;
+  }
+
+  get supportsTriggers(): boolean {
+    return true;
+  }
+
+  /**
+   * Whether backup/restore is available at all (via SQL or CLI tooling).
+   * Distinct from supportsBackupRestore, which means "backup via SQL" and is
+   * false for PG/MySQL even though their CLI-based backup features work.
+   */
+  get supportsBackupTooling(): boolean {
+    return true;
+  }
 }

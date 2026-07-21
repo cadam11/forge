@@ -519,15 +519,12 @@ export class MetadataService extends BaseSingleton {
   }
 
   /**
-   * Get table properties for PostgreSQL using pg_catalog
+   * Standard PostgreSQL top-level table properties query (pg_class/pg_namespace
+   * joined with pg_stat_user_tables for live row counts and the pg_*_size
+   * functions for storage sizes).
    */
-  private async getTablePropertiesPg(
-    connectionId: string,
-    database: string,
-    schema: string,
-    table: string
-  ): Promise<TableProperties> {
-    const sql = `
+  private getTablePropertiesPgStandardSql(schema: string, table: string): string {
+    return `
 SELECT
   n.nspname AS schema,
   c.relname AS name,
@@ -550,6 +547,52 @@ LEFT JOIN pg_stat_user_tables s ON s.relid = c.oid
 LEFT JOIN pg_tablespace ts ON c.reltablespace = ts.oid
 WHERE n.nspname = '${this.escId(schema)}'
   AND c.relname = '${this.escId(table)}';`;
+  }
+
+  /**
+   * Aurora DSQL variant of the top-level table properties query. DSQL doesn't
+   * support the pg_*_size functions or pg_stat_user_tables, so size fields
+   * come back NULL and the row count is the pg_class.reltuples estimate
+   * instead of the live-tuple stat. Column aliases match the standard query
+   * so the caller's mapping below works unchanged for both engines.
+   */
+  private getTablePropertiesPgDsqlSql(schema: string, table: string): string {
+    return `
+SELECT
+  n.nspname AS schema,
+  c.relname AS name,
+  c.oid AS "objectId",
+  NULL AS "createdAt",
+  NULL AS "modifiedAt",
+  COALESCE(c.reltuples, 0) AS "rowCount",
+  NULL AS "dataSpaceKb",
+  NULL AS "indexSpaceKb",
+  NULL AS "unusedSpaceKb",
+  NULL AS "totalSpaceKb",
+  EXISTS(SELECT 1 FROM pg_attribute a WHERE a.attrelid = c.oid AND a.attidentity != '') AS "hasIdentity",
+  (SELECT a.attname FROM pg_attribute a WHERE a.attrelid = c.oid AND a.attidentity != '' LIMIT 1) AS "identityColumn",
+  false AS "isReplicated",
+  false AS "hasTextImage",
+  ts.spcname AS filegroup
+FROM pg_class c
+JOIN pg_namespace n ON c.relnamespace = n.oid
+LEFT JOIN pg_tablespace ts ON c.reltablespace = ts.oid
+WHERE n.nspname = '${this.escId(schema)}'
+  AND c.relname = '${this.escId(table)}';`;
+  }
+
+  /**
+   * Get table properties for PostgreSQL using pg_catalog
+   */
+  private async getTablePropertiesPg(
+    connectionId: string,
+    database: string,
+    schema: string,
+    table: string
+  ): Promise<TableProperties> {
+    const sql = this.poolManager.isDsqlCached(connectionId)
+      ? this.getTablePropertiesPgDsqlSql(schema, table)
+      : this.getTablePropertiesPgStandardSql(schema, table);
 
     const rows = await this.queryAny<TableProperties>(connectionId, sql, database);
     const props = rows[0] || ({} as TableProperties);

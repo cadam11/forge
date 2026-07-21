@@ -6,7 +6,8 @@ import { describe, it, expect } from 'vitest';
 import { MSSQLDialect } from './mssql-dialect';
 import { PgDialect } from './pg-dialect';
 import { MySQLDialect } from './mysql-dialect';
-import { getDialect } from './index';
+import { getDialect, capabilitiesForDialect } from './index';
+import { PgDsqlDialect } from './pg-dsql-dialect';
 
 describe('getDialect factory', () => {
   it('returns MSSQLDialect for mssql engine', () => {
@@ -603,5 +604,123 @@ describe('dialect cross-engine consistency', () => {
     const input = "it's a test";
     expect(mssql.escapeString(input)).toBe(pg.escapeString(input));
     expect(pg.escapeString(input)).toBe(mysql.escapeString(input));
+  });
+});
+
+describe('getDialect factory — variants', () => {
+  it('returns PgDsqlDialect for postgresql + dsql variant', () => {
+    const dialect = getDialect('postgresql', 'dsql');
+    expect(dialect).toBeInstanceOf(PgDsqlDialect);
+    expect(dialect.engine).toBe('postgresql');
+    expect(dialect.variant).toBe('dsql');
+  });
+
+  it('returns standard PgDialect when variant is omitted', () => {
+    const dialect = getDialect('postgresql');
+    expect(dialect).toBeInstanceOf(PgDialect);
+    expect(dialect.variant).toBeUndefined();
+  });
+
+  it('ignores dsql variant for non-postgresql engines', () => {
+    expect(getDialect('mssql', 'dsql')).toBeInstanceOf(MSSQLDialect);
+    expect(getDialect('mysql', 'dsql')).toBeInstanceOf(MySQLDialect);
+  });
+});
+
+describe('capability defaults on existing dialects', () => {
+  it.each([
+    ['mssql', new MSSQLDialect()],
+    ['postgresql', new PgDialect()],
+    ['mysql', new MySQLDialect()],
+  ])('%s supports everything by default', (_label, dialect) => {
+    expect(dialect.supportsMultipleDatabases).toBe(true);
+    expect(dialect.supportsDatabaseManagement).toBe(true);
+    expect(dialect.supportsStoredProcedures).toBe(true);
+    expect(dialect.supportsTriggers).toBe(true);
+    expect(dialect.supportsBackupTooling).toBe(true);
+    expect(dialect.variant).toBeUndefined();
+  });
+});
+
+describe('PgDsqlDialect', () => {
+  const dialect = new PgDsqlDialect();
+
+  it('has DSQL label and postgresql engine', () => {
+    expect(dialect.label).toBe('Aurora DSQL');
+    expect(dialect.engine).toBe('postgresql');
+    expect(dialect.variant).toBe('dsql');
+  });
+
+  it('disables unsupported capabilities', () => {
+    expect(dialect.supportsMultipleDatabases).toBe(false);
+    expect(dialect.supportsDatabaseManagement).toBe(false);
+    expect(dialect.supportsStoredProcedures).toBe(false);
+    expect(dialect.supportsTriggers).toBe(false);
+    expect(dialect.supportsBackupTooling).toBe(false);
+  });
+
+  it('listDatabasesSQL avoids pg_database and returns the current database', () => {
+    const sql = dialect.listDatabasesSQL();
+    expect(sql).not.toContain('pg_database');
+    expect(sql).toContain('current_database()');
+    expect(sql).toContain('"isSystemDb"');
+  });
+
+  it('listTablesSQL avoids pg_stat_user_tables and pg_relation_size', () => {
+    const sql = dialect.listTablesSQL('postgres', 'public');
+    expect(sql).not.toContain('pg_stat_user_tables');
+    expect(sql).not.toContain('pg_relation_size');
+    expect(sql).toContain('reltuples');
+    expect(sql).toContain("t.schemaname = 'public'");
+  });
+
+  it('listProceduresSQL / listFunctionsSQL / listTriggersSQL return empty-set queries', () => {
+    for (const sql of [
+      dialect.listProceduresSQL('postgres'),
+      dialect.listFunctionsSQL('postgres'),
+      dialect.listTriggersSQL('postgres', 'public', 't'),
+    ]) {
+      expect(sql).toContain('WHERE false');
+      expect(sql).not.toContain('pg_proc');
+      expect(sql).not.toContain('pg_trigger');
+    }
+  });
+
+  it('getObjectDefinitionSQL only consults pg_views', () => {
+    const sql = dialect.getObjectDefinitionSQL('postgres', 'public', 'v');
+    expect(sql).toContain('pg_views');
+    expect(sql).not.toContain('pg_proc');
+  });
+
+  it('database DDL generators throw with a clear message', () => {
+    expect(() => dialect.createDatabaseSQL({ name: 'x' })).toThrow(/single database/i);
+    expect(() => dialect.renameDatabaseSQL({ currentName: 'a', newName: 'b' })).toThrow(
+      /single database/i
+    );
+    expect(() => dialect.dropDatabaseSQL({ name: 'x' })).toThrow(/single database/i);
+  });
+
+  it('inherits working PG SQL for schemas, views, indexes and comments', () => {
+    expect(dialect.listSchemasSQL('postgres')).toContain('pg_namespace');
+    expect(dialect.listViewsSQL('postgres')).toContain('pg_views');
+    expect(dialect.listIndexesSQL('postgres', 'public', 't')).toContain('pg_index');
+  });
+});
+
+describe('capabilitiesForDialect', () => {
+  it('maps a fully-capable dialect to FULL capabilities', () => {
+    const caps = capabilitiesForDialect(new MSSQLDialect());
+    expect(caps).toEqual({
+      supportsMultipleDatabases: true,
+      supportsDatabaseManagement: true,
+      supportsStoredProcedures: true,
+      supportsTriggers: true,
+      supportsBackupRestore: true,
+    });
+  });
+
+  it('maps PgDsqlDialect to all-false capabilities', () => {
+    const caps = capabilitiesForDialect(new PgDsqlDialect());
+    expect(Object.values(caps).every(v => v === false)).toBe(true);
   });
 });

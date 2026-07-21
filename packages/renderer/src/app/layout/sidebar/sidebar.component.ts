@@ -41,6 +41,7 @@ import {
   ConnectionDialogData,
 } from '../../shared/components/connection-dialog/connection-dialog.component';
 import { ConnectionManagerDialogComponent } from '../../shared/components/connection-manager-dialog/connection-manager-dialog.component';
+import { CapabilitiesStore } from '../../core/state/capabilities.state';
 import type { DatabaseEngine } from '@mj-forge/shared';
 
 @Component({
@@ -663,6 +664,7 @@ export class SidebarComponent {
   readonly chatState = inject(ChatStateService);
   private readonly ipc = inject(IpcService);
   private readonly dialog = inject(MatDialog);
+  private readonly capabilitiesStore = inject(CapabilitiesStore);
 
   // State for pending database operations. The delete/rename dialogs are
   // async (open dialog, wait for confirm event), so we stash both the
@@ -893,11 +895,13 @@ export class SidebarComponent {
 
   /** Check if the focused connection's engine supports a feature */
   engineSupports(feature: 'backupRestore' | 'serverFileBrowsing' | 'extendedProperties'): boolean {
-    const engine = this.focusedProfile()?.engine;
-    if (!engine || engine === 'mssql') return true; // MSSQL supports all
-    // MySQL supports backup/restore via mysqldump CLI
-    if (feature === 'backupRestore' && engine === 'mysql') return true;
-    return false; // PG/MySQL don't support server file browsing or extended properties
+    const profile = this.focusedProfile();
+    if (!profile) return true;
+    if (feature === 'backupRestore') {
+      return this.capabilitiesStore.for(profile.id).supportsBackupRestore;
+    }
+    // serverFileBrowsing and extendedProperties remain MSSQL-only.
+    return profile.engine === 'mssql';
   }
 
   openBackup(databaseName?: string, overrideConnectionId?: string): void {
@@ -910,6 +914,11 @@ export class SidebarComponent {
 
     if (!connectionId) {
       this.notification.error('No active connection');
+      return;
+    }
+
+    if (!this.capabilitiesStore.for(connectionId).supportsBackupRestore) {
+      this.notification.info('Backup is not supported on this server (Aurora DSQL).');
       return;
     }
 
@@ -947,6 +956,11 @@ export class SidebarComponent {
 
     if (!connectionId) {
       this.notification.error('No active connection');
+      return;
+    }
+
+    if (!this.capabilitiesStore.for(connectionId).supportsBackupRestore) {
+      this.notification.info('Restore is not supported on this server (Aurora DSQL).');
       return;
     }
 
@@ -1950,6 +1964,13 @@ ORDER BY __mj_CreatedAt DESC`;
   }
 
   private _openCreateDatabaseDialog(connectionId: string): void {
+    if (!this.capabilitiesStore.for(connectionId).supportsDatabaseManagement) {
+      this.notification.info(
+        'This server hosts a single fixed database — creating databases is not supported.'
+      );
+      return;
+    }
+
     const dialogData: CreateDatabaseDialogData = {
       connectionId,
     };
@@ -1972,6 +1993,13 @@ ORDER BY __mj_CreatedAt DESC`;
   }
 
   private openRenameDatabaseDialog(connectionId: string, databaseName: string): void {
+    if (!this.capabilitiesStore.for(connectionId).supportsDatabaseManagement) {
+      this.notification.info(
+        'This server hosts a single fixed database — renaming databases is not supported.'
+      );
+      return;
+    }
+
     const dialogData: RenameDatabaseDialogData = {
       connectionId,
       databaseName,
@@ -1996,6 +2024,13 @@ ORDER BY __mj_CreatedAt DESC`;
   }
 
   private openDeleteDialog(connectionId: string, databaseName: string): void {
+    if (!this.capabilitiesStore.for(connectionId).supportsDatabaseManagement) {
+      this.notification.info(
+        'This server hosts a single fixed database — deleting databases is not supported.'
+      );
+      return;
+    }
+
     this.pendingDeleteConnectionId = connectionId;
     this.pendingDeleteDatabase = databaseName;
 
@@ -2044,6 +2079,13 @@ ORDER BY __mj_CreatedAt DESC`;
       return;
     }
 
+    if (!this.capabilitiesStore.for(connectionId).supportsDatabaseManagement) {
+      this.notification.info(
+        'This server hosts a single fixed database — renaming databases is not supported.'
+      );
+      return;
+    }
+
     try {
       const result = await firstValueFrom(
         this.ipc.renameDatabase(connectionId, { currentName: oldName, newName })
@@ -2087,6 +2129,13 @@ ORDER BY __mj_CreatedAt DESC`;
     const connectionId = overrideConnectionId ?? this.connectionState.mostRecentConnectionId();
     if (!connectionId) {
       this.notification.error('No active connection');
+      return;
+    }
+
+    if (!this.capabilitiesStore.for(connectionId).supportsDatabaseManagement) {
+      this.notification.info(
+        'This server hosts a single fixed database — deleting databases is not supported.'
+      );
       return;
     }
 

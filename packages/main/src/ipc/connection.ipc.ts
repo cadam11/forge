@@ -6,6 +6,8 @@ import { IPC_CHANNELS } from '@mj-forge/shared';
 import type { ConnectionProfile, TestConnectionResult, ActiveConnection } from '@mj-forge/shared';
 import { ConnectionPoolManager } from '../services/sql/connection-pool';
 import { ConnectionProfilesStore } from '../services/config/connection-profiles';
+import { capabilitiesForDialect } from '../services/sql/dialect';
+import { listAwsProfiles } from '../services/config/aws-profiles';
 import { createLogger } from '../utils/logger';
 import { safeHandle } from './safe-handle';
 
@@ -87,6 +89,7 @@ export function registerConnectionHandlers(): void {
       const engine = profile.engine || 'mssql';
       if (engine === 'postgresql') {
         await poolManager.getPgPool(id);
+        await poolManager.detectDsql(id);
       } else if (engine === 'mysql') {
         await poolManager.getMySQLPool(id);
       } else {
@@ -101,12 +104,15 @@ export function registerConnectionHandlers(): void {
             ? profile.database || 'information_schema'
             : profile.database || 'master';
 
+      const dialect = poolManager.getDialectForProfile(id);
       return {
         id,
         profile,
         status: 'connected',
         connectedAt: new Date().toISOString(),
         currentDatabase: defaultDb,
+        engineVariant: dialect.variant,
+        capabilities: capabilitiesForDialect(dialect),
       };
     }
   );
@@ -114,5 +120,15 @@ export function registerConnectionHandlers(): void {
   // Disconnect
   safeHandle(IPC_CHANNELS.CONNECTION.DISCONNECT, async (_event, id: string): Promise<void> => {
     await poolManager.closePool(id);
+  });
+
+  // Cheap liveness ping used by the renderer heartbeat (SELECT 1)
+  safeHandle(IPC_CHANNELS.CONNECTION.PING, async (_event, id: string): Promise<boolean> => {
+    return poolManager.pingConnection(id);
+  });
+
+  // AWS profile names for the aws-iam auth picker (names only — no credentials)
+  safeHandle(IPC_CHANNELS.CONNECTION.LIST_AWS_PROFILES, async (): Promise<string[]> => {
+    return listAwsProfiles();
   });
 }
