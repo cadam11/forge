@@ -149,6 +149,7 @@ interface ForgeAPI {
     connect: (profileId: string) => Promise<ActiveConnection>;
     disconnect: (profileId: string) => Promise<void>;
     ping: (profileId: string) => Promise<boolean>;
+    listAwsProfiles: () => Promise<string[]>;
   };
   docker: {
     detect: () => Promise<DockerStatus>;
@@ -564,6 +565,10 @@ export class IpcService {
 
   pingConnection(connectionId: string): Observable<boolean> {
     return from(this.api.connection.ping(connectionId));
+  }
+
+  listAwsProfiles(): Observable<string[]> {
+    return from(this.api.connection.listAwsProfiles());
   }
 
   disconnect(profileId: string): Observable<void> {
