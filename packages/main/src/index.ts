@@ -16,6 +16,8 @@ import { ChatService } from './services/ai/chat-service';
 import { AIService } from './services/ai/ai-service';
 import { CredentialStore } from './services/keychain/credential-store';
 import { SshTunnelManager } from './services/ssh/ssh-tunnel-manager';
+import { QueryHistoryStore } from './services/config/query-history';
+import { AppStateStore } from './services/config/app-state';
 import { cleanupWorkspaceWatchers } from './ipc/workspace.ipc';
 
 const log = createLogger('App');
@@ -48,10 +50,12 @@ if (!gotTheLock) {
   });
 
   // App ready
-  app.whenReady().then(async () => {
-    // Preload all credentials into memory cache (single keychain access at startup)
-    const credentialStore = CredentialStore.getInstance();
-    await credentialStore.loadAllIntoCache();
+  app.whenReady().then(() => {
+    // Window first: Chromium spins up and loads the renderer in its own
+    // processes while the rest of this tick runs. Handler registration
+    // happens in the same synchronous tick, so no renderer invoke can
+    // arrive before it completes.
+    createMainWindow();
 
     // Register IPC handlers
     registerAllHandlers();
@@ -59,8 +63,11 @@ if (!gotTheLock) {
     // Create menu
     createMenu();
 
-    // Create main window
-    createMainWindow();
+    // Warm the credentials vault without gating the window on the keychain
+    // (which can stall or prompt). Accessors await the same load internally.
+    CredentialStore.getInstance()
+      .loadAllIntoCache()
+      .catch(err => log.error('Credential vault preload failed:', err));
 
     // macOS: Re-create window when dock icon is clicked
     app.on('activate', () => {
@@ -142,6 +149,19 @@ if (!gotTheLock) {
       /* singleton may not exist */
     }
     log.info('Shutdown: stopped sqlglot microservice');
+
+    // Flush debounced store writes so nothing persisted-in-memory is lost.
+    try {
+      QueryHistoryStore.getInstance().flush();
+    } catch {
+      /* singleton may not exist */
+    }
+    try {
+      AppStateStore.getInstance().flush();
+    } catch {
+      /* singleton may not exist */
+    }
+    log.info('Shutdown: flushed pending store writes');
 
     // --- Async cleanup (close SQL pools + SSH tunnels) ---
     poolManager

@@ -8,6 +8,12 @@ export interface QueryRequest {
   sql: string;
   queryId?: string;
   timeout?: number;
+  /**
+   * Originating query-tab id. When present (and database is set), the main
+   * process persists a result snapshot after execution — the renderer never
+   * ships the result back over IPC for snapshotting.
+   */
+  tabId?: string;
 }
 
 export interface ColumnMetadata {

@@ -37,6 +37,15 @@ function shouldLog(level: LogLevel): boolean {
   return LEVEL_ORDER[level] >= LEVEL_ORDER[globalLevel];
 }
 
+/**
+ * True when `level` is at or above `threshold`. Used by the IPC bridge to
+ * gate per-entry renderer broadcasts (debug entries stay in the ring buffer
+ * and log file but don't wake the renderer per line).
+ */
+export function meetsLevel(level: LogLevel, threshold: LogLevel): boolean {
+  return LEVEL_ORDER[level] >= LEVEL_ORDER[threshold];
+}
+
 function timestamp(): string {
   return new Date().toISOString();
 }

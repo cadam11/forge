@@ -7,6 +7,7 @@ import Store from 'electron-store';
 import { v4 as uuidv4 } from 'uuid';
 import type { QueryHistoryEntry, QueryHistoryFilter } from '@mj-forge/shared';
 import { BaseSingleton } from '../../utils/singleton';
+import { createTrailingDebounce, type TrailingDebounce } from '../../utils/trailing-debounce';
 
 interface QueryHistorySchema {
   entries: QueryHistoryEntry[];
@@ -14,9 +15,17 @@ interface QueryHistorySchema {
 }
 
 const MAX_HISTORY_ENTRIES = 1000;
+const PERSIST_DEBOUNCE_MS = 500;
 
 export class QueryHistoryStore extends BaseSingleton {
   private store: Store<QueryHistorySchema>;
+  /**
+   * Source of truth at runtime. electron-store writes synchronously on the
+   * main thread (full re-serialize per set), so per-execution writes are
+   * debounced; index.ts flushes on before-quit.
+   */
+  private entries: QueryHistoryEntry[];
+  private persist: TrailingDebounce;
 
   constructor() {
     super();
@@ -27,28 +36,36 @@ export class QueryHistoryStore extends BaseSingleton {
         version: 1,
       },
     });
+    this.entries = this.store.get('entries', []);
+    this.persist = createTrailingDebounce(
+      () => this.store.set('entries', this.entries),
+      PERSIST_DEBOUNCE_MS
+    );
+  }
+
+  /** Write any pending mutations to disk now. Called on app quit. */
+  flush(): void {
+    this.persist.flush();
   }
 
   /**
    * Add a query to history
    */
   add(entry: Omit<QueryHistoryEntry, 'id'>): QueryHistoryEntry {
-    const entries = this.store.get('entries', []);
-
     const newEntry: QueryHistoryEntry = {
       ...entry,
       id: uuidv4(),
     };
 
     // Add to beginning of array (most recent first)
-    entries.unshift(newEntry);
+    this.entries.unshift(newEntry);
 
     // Trim to max entries
-    if (entries.length > MAX_HISTORY_ENTRIES) {
-      entries.splice(MAX_HISTORY_ENTRIES);
+    if (this.entries.length > MAX_HISTORY_ENTRIES) {
+      this.entries.splice(MAX_HISTORY_ENTRIES);
     }
 
-    this.store.set('entries', entries);
+    this.persist.call();
     return newEntry;
   }
 
@@ -56,7 +73,7 @@ export class QueryHistoryStore extends BaseSingleton {
    * Get query history with optional filtering
    */
   getHistory(filter?: QueryHistoryFilter): QueryHistoryEntry[] {
-    let entries = this.store.get('entries', []);
+    let entries = [...this.entries];
 
     if (filter) {
       if (filter.connectionId) {
@@ -103,15 +120,14 @@ export class QueryHistoryStore extends BaseSingleton {
    * Delete a single history entry
    */
   deleteEntry(id: string): boolean {
-    const entries = this.store.get('entries', []);
-    const index = entries.findIndex(e => e.id === id);
+    const index = this.entries.findIndex(e => e.id === id);
 
     if (index === -1) {
       return false;
     }
 
-    entries.splice(index, 1);
-    this.store.set('entries', entries);
+    this.entries.splice(index, 1);
+    this.persist.call();
     return true;
   }
 
@@ -119,26 +135,25 @@ export class QueryHistoryStore extends BaseSingleton {
    * Clear all history
    */
   clearAll(): void {
-    this.store.set('entries', []);
+    this.entries = [];
+    this.persist.call();
   }
 
   /**
    * Clear history for a specific connection
    */
   clearForConnection(connectionId: string): number {
-    const entries = this.store.get('entries', []);
-    const newEntries = entries.filter(e => e.connectionId !== connectionId);
-    const deletedCount = entries.length - newEntries.length;
-    this.store.set('entries', newEntries);
-    return deletedCount;
+    const before = this.entries.length;
+    this.entries = this.entries.filter(e => e.connectionId !== connectionId);
+    this.persist.call();
+    return before - this.entries.length;
   }
 
   /**
    * Get unique databases from history
    */
   getUniqueDatabases(): string[] {
-    const entries = this.store.get('entries', []);
-    const databases = new Set(entries.map(e => e.database));
+    const databases = new Set(this.entries.map(e => e.database));
     return Array.from(databases).sort();
   }
 
@@ -146,6 +161,6 @@ export class QueryHistoryStore extends BaseSingleton {
    * Get history count
    */
   getCount(): number {
-    return this.store.get('entries', []).length;
+    return this.entries.length;
   }
 }

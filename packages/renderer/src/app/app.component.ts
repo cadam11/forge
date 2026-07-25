@@ -70,6 +70,8 @@ import { TabStateService } from './core/state/tab.state';
 })
 export class AppComponent implements OnInit {
   // Inject settings service to ensure it's initialized early
+  // Injected for its constructor side effects: applies the persisted theme
+  // and wires the native-theme listener at app boot. Not read directly.
   private readonly settingsService = inject(SettingsService);
   private readonly connectionState = inject(ConnectionStateService);
   private readonly tabState = inject(TabStateService);
@@ -100,24 +102,28 @@ export class AppComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     try {
-      // Load connection profiles first
+      // Load connection profiles, then show the shell. Reconnecting saved
+      // sessions is network-bound and must not hold the whole UI behind a
+      // spinner — it continues in the background below, with progress
+      // visible through the sidebar's per-connection status indicators.
       this.loadingMessage.set('Loading connections...');
       await this.connectionState.loadProfiles();
+    } finally {
+      // Always finish loading even if there's an error
+      this.loading.set(false);
+    }
 
-      // Restore previous connection state
-      this.loadingMessage.set('Restoring session...');
+    try {
       await this.connectionState.restoreState();
 
       // Restore tabs if we have a connection. Phase 8 will iterate over every
       // restored profile; today restoreState only reconnects one, so pick that.
       const restored = [...this.connectionState.connectedProfileIds()][0];
       if (restored) {
-        this.loadingMessage.set('Restoring tabs...');
         await this.tabState.restoreTabs(restored);
       }
-    } finally {
-      // Always finish loading even if there's an error
-      this.loading.set(false);
+    } catch (error) {
+      console.error('Background session restore failed:', error);
     }
   }
 }

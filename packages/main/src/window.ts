@@ -5,6 +5,7 @@
 import { BrowserWindow, screen, nativeTheme } from 'electron';
 import * as path from 'path';
 import Store from 'electron-store';
+import { createTrailingDebounce } from './utils/trailing-debounce';
 
 interface WindowState {
   x?: number;
@@ -82,9 +83,16 @@ export function createMainWindow(): BrowserWindow {
     });
   };
 
-  mainWindow.on('resize', saveState);
-  mainWindow.on('move', saveState);
-  mainWindow.on('close', saveState);
+  // electron-store writes synchronously on the main thread; a raw per-event
+  // save turns every drag/resize frame into a blocking disk write. Collapse
+  // bursts to a single trailing write, and take the final bounds on close.
+  const debouncedSave = createTrailingDebounce(saveState, 500);
+  mainWindow.on('resize', () => debouncedSave.call());
+  mainWindow.on('move', () => debouncedSave.call());
+  mainWindow.on('close', () => {
+    debouncedSave.cancel();
+    saveState();
+  });
 
   // Show when ready — unless we're under Playwright test, in which case
   // the launcher (tests/helpers/electron-app.ts) sets FORGE_TEST=1 and we

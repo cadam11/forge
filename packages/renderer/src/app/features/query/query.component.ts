@@ -1810,6 +1810,9 @@ export class QueryComponent implements OnInit, OnDestroy {
           database: database || undefined,
           sql,
           queryId,
+          // Lets the main process persist the result snapshot itself instead
+          // of the renderer round-tripping the full result set back over IPC.
+          tabId: this.tabId || undefined,
         })
       );
 
@@ -1824,9 +1827,11 @@ export class QueryComponent implements OnInit, OnDestroy {
         this.historyState.loadHistory();
       }
 
-      // Auto-save result snapshot - use this.tabId for correct tab
-      if (result && this.tabId && connectionId && database) {
-        this.resultsState.saveSnapshot(this.tabId, sql, connectionId, database, result);
+      // Snapshot persistence happens main-side (see tabId in the request).
+      // If the Result History tab is being viewed, refresh it so the new
+      // snapshot shows up without reopening the panel.
+      if (this.tabId && this.activeTab() === 'history') {
+        this.resultsState.loadSnapshotsForTab(this.tabId);
       }
 
       // Auto-rename tab after successful execution

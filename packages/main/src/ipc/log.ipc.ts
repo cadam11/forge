@@ -16,7 +16,14 @@ import { createWriteStream, mkdirSync, type WriteStream } from 'fs';
 import { join } from 'path';
 import type { LogEntry } from '@mj-forge/shared';
 import { IPC_CHANNELS } from '@mj-forge/shared';
-import { onLogEntry, getRecentLogs, ingestExternalEntry } from '../utils/logger';
+import { onLogEntry, getRecentLogs, ingestExternalEntry, meetsLevel } from '../utils/logger';
+
+/**
+ * Per-entry pushes below this level don't cross IPC — each send wakes the
+ * renderer and triggers change detection. The full stream still lands in the
+ * ring buffer (LOG.GET_RECENT serves it on demand) and the on-disk file.
+ */
+const BROADCAST_THRESHOLD = 'info' as const;
 
 let logStream: WriteStream | null = null;
 let logFilePath = '';
@@ -28,9 +35,11 @@ function logFileLine(entry: LogEntry): string {
 }
 
 function broadcast(entry: LogEntry): void {
-  for (const win of BrowserWindow.getAllWindows()) {
-    if (!win.isDestroyed()) {
-      win.webContents.send(IPC_CHANNELS.LOG.ENTRY, entry);
+  if (meetsLevel(entry.level, BROADCAST_THRESHOLD)) {
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) {
+        win.webContents.send(IPC_CHANNELS.LOG.ENTRY, entry);
+      }
     }
   }
   logStream?.write(logFileLine(entry));
