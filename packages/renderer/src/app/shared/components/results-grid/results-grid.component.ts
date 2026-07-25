@@ -1,4 +1,5 @@
 import {
+  ChangeDetectionStrategy,
   Component,
   ElementRef,
   Input,
@@ -67,6 +68,7 @@ interface FkPreviewData {
 
 @Component({
   selector: 'app-results-grid',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: true,
   imports: [
     CommonModule,
@@ -82,7 +84,17 @@ interface FkPreviewData {
     <div class="results-grid-container">
       <div class="grid-toolbar">
         <div class="grid-info">
-          <span class="row-count">{{ rowCount() }} rows</span>
+          @if (resultSet?.truncated) {
+            <span
+              class="row-count truncated"
+              matTooltip="Result capped by the 'Max rows to display' setting; the full set was {{
+                rowCount()
+              }} rows"
+              >showing first {{ displayedRowCount() }} of {{ rowCount() }} rows</span
+            >
+          } @else {
+            <span class="row-count">{{ rowCount() }} rows</span>
+          }
           @if (selectedCount() > 0) {
             <span class="selection-info">{{ selectedCount() }} selected</span>
           }
@@ -1210,6 +1222,8 @@ export class ResultsGridComponent implements OnChanges, OnDestroy {
   rowData: Record<string, unknown>[] = [];
   columnDefs: ColDef[] = [];
   rowCount = signal(0);
+  /** Rows actually present client-side (≤ rowCount when truncated). */
+  displayedRowCount = signal(0);
   selectedCount = signal(0);
   filterText = signal('');
   showStats = signal(false);
@@ -1279,9 +1293,11 @@ export class ResultsGridComponent implements OnChanges, OnDestroy {
       ...this.resultSet.columns.map(col => this.createColumnDef(col)),
     ];
 
-    // Set row data
+    // Set row data. rowCount is the TRUE received count — when the executor
+    // capped the set (resultSet.truncated), it exceeds rows.length.
     this.rowData = this.resultSet.rows;
-    this.rowCount.set(this.resultSet.rows.length);
+    this.rowCount.set(this.resultSet.rowCount ?? this.resultSet.rows.length);
+    this.displayedRowCount.set(this.resultSet.rows.length);
 
     // Auto-size columns after data loads
     setTimeout(() => this.autoSizeAllColumns(), 100);

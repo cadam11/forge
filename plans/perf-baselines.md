@@ -45,6 +45,24 @@ Fonts fetch. Caveats: this script uses a fresh profile (so it cannot see the
 still had warm OS file caches — a true cold-cache measurement needs a reboot
 or cache purge.
 
-## After Wave 2 / Wave 3
+## After Wave 2 (2026-07-25, feature/perf-tuning)
 
-_To be filled in as waves land._
+Cold-start medians statistically unchanged from Wave 1 (426 ms first window /
+641 ms shell / 441 MB — within run-to-run noise). Wave 2's wins are not
+measurable by this script by design:
+
+- **Real-profile startup + per-query cost**: the 51 MB `query-results.json`
+  is migrated to file-per-snapshot storage on first launch; startup then
+  reads a small index, and each query writes one file asynchronously
+  instead of re-serializing the whole history synchronously.
+- **Typing**: Monaco runs outside the Angular zone; keystrokes no longer
+  rebuild the global tabs array or trigger app-wide change detection
+  (dirty-flag transitions still do, once).
+- **Tree interactions**: single-node updates clone only their branch;
+  sidebar renders with OnPush and O(1) per-node icon/color lookups.
+- **Large results**: maxRowsToDisplay is enforced main-side, so oversized
+  result sets never cross IPC ("showing first N of M" in the grid).
+
+## After Wave 3 (zoneless)
+
+_Not started — see PR description for the recommendation._

@@ -147,7 +147,11 @@ const STORAGE_KEY = 'forge-snippets';
           </div>
 
           <div class="search-footer">
-            <span class="count">{{ filteredSnippets().length }} snippet{{ filteredSnippets().length !== 1 ? 's' : '' }}</span>
+            <span class="count"
+              >{{ filteredSnippets().length }} snippet{{
+                filteredSnippets().length !== 1 ? 's' : ''
+              }}</span
+            >
             <span class="tip">Click to insert, ESC to close</span>
           </div>
         </div>
@@ -440,7 +444,9 @@ const STORAGE_KEY = 'forge-snippets';
         color: var(--text-muted);
         cursor: pointer;
         opacity: 0;
-        transition: opacity var(--transition-fast), color var(--transition-fast);
+        transition:
+          opacity var(--transition-fast),
+          color var(--transition-fast);
         flex-shrink: 0;
 
         mat-icon {
@@ -636,9 +642,7 @@ export class SnippetLibraryComponent implements OnInit, OnDestroy {
     this.close();
 
     // Dispatch a custom event with the SQL to insert into the active query tab
-    window.dispatchEvent(
-      new CustomEvent('forge:insert-snippet', { detail: { sql: snippet.sql } })
-    );
+    window.dispatchEvent(new CustomEvent('forge:insert-snippet', { detail: { sql: snippet.sql } }));
   }
 
   deleteSnippet(event: MouseEvent, snippet: Snippet): void {
@@ -669,8 +673,8 @@ export class SnippetLibraryComponent implements OnInit, OnDestroy {
 
   private getActiveTabSql(): string {
     const activeTab = this.tabState.activeTab();
-    if (activeTab?.type === 'query' && activeTab.content) {
-      return activeTab.content;
+    if (activeTab?.type === 'query') {
+      return this.tabState.getTabContent(activeTab.id);
     }
     return '';
   }

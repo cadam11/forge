@@ -2,6 +2,7 @@ import {
   Component,
   ElementRef,
   Injector,
+  NgZone,
   OnDestroy,
   OnInit,
   ViewChild,
@@ -962,6 +963,7 @@ export class QueryComponent implements OnInit, OnDestroy {
   private readonly menuService = inject(MenuService);
   private readonly intellisense = inject(SqlIntellisenseService);
   private readonly injector = inject(Injector);
+  private readonly zone = inject(NgZone);
 
   private editor?: MonacoEditorInstance;
   private resizing = false;
@@ -1065,7 +1067,11 @@ export class QueryComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.initMonaco();
+    // Monaco lives entirely outside the Angular zone: its ResizeObserver,
+    // mousemove, and per-keystroke internals must not schedule app-wide
+    // change detection. Handlers that DO touch Angular state re-enter via
+    // zone.run explicitly.
+    this.zone.runOutsideAngular(() => this.initMonaco());
     // Initialize database from this tab's bound (connectionId, databaseName).
     // The tab carries the authoritative pair; only fall back to focused-tab
     // state if the binding is somehow missing.
@@ -1286,7 +1292,7 @@ export class QueryComponent implements OnInit, OnDestroy {
     // Override Monaco's Ctrl+E / Cmd+E (normally "Expand Line Selection")
     // to fire Execute Query instead, matching SSMS behavior
     this.editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyE, () =>
-      this.handleCtrlEExecute()
+      this.zone.run(() => this.handleCtrlEExecute())
     );
 
     // Emit cursor position changes for status bar
@@ -1303,7 +1309,7 @@ export class QueryComponent implements OnInit, OnDestroy {
       if ((e.browserEvent.metaKey || e.browserEvent.ctrlKey) && e.browserEvent.key === 'Enter') {
         e.preventDefault();
         e.stopPropagation();
-        this.executeQuery();
+        this.zone.run(() => this.executeQuery());
       }
     });
 
@@ -1320,13 +1326,19 @@ export class QueryComponent implements OnInit, OnDestroy {
       });
     });
 
-    // Listen for content changes - use this.tabId for isolation
+    // Listen for content changes - use this.tabId for isolation.
+    // Runs outside the zone: setTabContent only touches the tabs array on a
+    // dirty-flag transition, and only that transition needs a CD pass (for
+    // the tab bar's dirty dot).
     this.editor.onDidChangeModelContent(() => {
       const content = this.editor?.getValue() || '';
       // Use the fixed tabId this component was created for
       // This prevents writes to wrong tabs when switching quickly
       if (this.tabId) {
-        this.tabState.setTabContent(this.tabId, content);
+        const dirtyChanged = this.tabState.setTabContent(this.tabId, content);
+        if (dirtyChanged) {
+          this.zone.run(() => {});
+        }
       }
     });
 
@@ -1334,22 +1346,23 @@ export class QueryComponent implements OnInit, OnDestroy {
     if (this.tabId) {
       const tab = this.tabState.tabs().find(t => t.id === this.tabId);
       if (tab?.type === 'query') {
-        if (tab.content) {
-          this.editor.setValue(tab.content);
+        const content = this.tabState.getTabContent(this.tabId);
+        if (content) {
+          this.editor.setValue(content);
         }
         // Ensure a clean baseline exists for this tab
         if (!this.tabState.getCleanBaseline(this.tabId!)) {
-          this.tabState.setCleanBaseline(this.tabId!, tab.content ?? '');
+          this.tabState.setCleanBaseline(this.tabId!, content);
         }
         // Handle auto-execute for initial load
-        if (tab.autoExecute && tab.content) {
+        if (tab.autoExecute && content) {
           this.tabState.clearAutoExecute(tab.id);
           // Sync database from tab before executing — the effect may not have fired yet
           if (tab.databaseName && tab.connectionId) {
             this.selectedDatabase = tab.databaseName;
             this.connectionState.selectDatabase(tab.connectionId, tab.databaseName);
           }
-          this.executeQuery();
+          this.zone.run(() => this.executeQuery());
         }
       }
     } else {
@@ -1813,6 +1826,8 @@ export class QueryComponent implements OnInit, OnDestroy {
           // Lets the main process persist the result snapshot itself instead
           // of the renderer round-tripping the full result set back over IPC.
           tabId: this.tabId || undefined,
+          // Executor truncates main-side so oversized results never cross IPC.
+          maxRows: this.settings.settings().query.maxRowsToDisplay,
         })
       );
 

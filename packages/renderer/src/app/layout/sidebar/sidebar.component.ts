@@ -1,4 +1,4 @@
-import { Component, computed, inject, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
@@ -47,6 +47,7 @@ import type { DatabaseEngine } from '@mj-forge/shared';
 @Component({
   selector: 'app-sidebar',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
     MatIconModule,
@@ -257,27 +258,24 @@ import type { DatabaseEngine } from '@mj-forge/shared';
             <span class="expand-placeholder"></span>
           }
           @if (node.type === 'server') {
-            @if (
-              getConnectionIconClass(connectionState.getProfile(node.connectionId!));
-              as hostIcon
-            ) {
+            @if (nodeViewFor(node.connectionId).hostIcon; as hostIcon) {
               <i
                 class="node-icon devicon-node"
                 [ngClass]="hostIcon"
-                [style.color]="getConnectionColor(node.connectionId)"
+                [style.color]="nodeViewFor(node.connectionId).color"
               ></i>
             } @else {
               <mat-icon
                 class="node-icon icon-server"
-                [style.color]="getConnectionColor(node.connectionId)"
+                [style.color]="nodeViewFor(node.connectionId).color"
                 >dns</mat-icon
               >
             }
           } @else if (node.icon === 'database-cylinder') {
             <i
               class="node-icon devicon-node"
-              [ngClass]="getEngineIconClass(getEngine(node.connectionId))"
-              [style.color]="getConnectionColor(node.connectionId)"
+              [ngClass]="nodeViewFor(node.connectionId).engineIcon"
+              [style.color]="nodeViewFor(node.connectionId).color"
             ></i>
           } @else {
             <mat-icon class="node-icon" [class]="'icon-' + node.type">{{ node.icon }}</mat-icon>
@@ -689,6 +687,37 @@ export class SidebarComponent {
   readonly focusedSelectedDatabase = computed(() =>
     this.connectionState.selectedDatabaseFor(this.connectionState.mostRecentConnectionId())
   );
+
+  /**
+   * Per-connection view attributes for tree nodes, memoized off the profiles
+   * signal. Tree templates render hundreds of nodes per change-detection
+   * pass; this turns per-node profile scans into one O(1) map lookup.
+   */
+  private readonly connectionNodeView = computed(() => {
+    const map = new Map<
+      string,
+      { hostIcon: string | null; engineIcon: string; color: string | null }
+    >();
+    for (const profile of this.connectionState.profiles()) {
+      map.set(profile.id, {
+        hostIcon: this.getConnectionIconClass(profile),
+        engineIcon: this.getEngineIconClass(profile.engine ?? 'mssql'),
+        color: profile.color || null,
+      });
+    }
+    return map;
+  });
+
+  private static readonly EMPTY_NODE_VIEW = {
+    hostIcon: null as string | null,
+    engineIcon: 'devicon-azuresqldatabase-plain',
+    color: null as string | null,
+  };
+
+  nodeViewFor(connectionId?: string) {
+    if (!connectionId) return SidebarComponent.EMPTY_NODE_VIEW;
+    return this.connectionNodeView().get(connectionId) ?? SidebarComponent.EMPTY_NODE_VIEW;
+  }
 
   /** Get devicon CSS class for the connection host (cloud provider or docker) */
   getConnectionIconClass(profile?: { server?: string; isDocker?: boolean } | null): string | null {

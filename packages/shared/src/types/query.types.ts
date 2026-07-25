@@ -14,6 +14,12 @@ export interface QueryRequest {
    * ships the result back over IPC for snapshotting.
    */
   tabId?: string;
+  /**
+   * User's maxRowsToDisplay setting. The executor truncates each result set
+   * to this many rows before the result crosses IPC (ResultSet.truncated
+   * marks capped sets; rowCount keeps the true received count).
+   */
+  maxRows?: number;
 }
 
 export interface ColumnMetadata {
@@ -42,7 +48,10 @@ export interface ColumnMetadata {
 export interface ResultSet {
   columns: ColumnMetadata[];
   rows: Record<string, unknown>[];
+  /** True received count — may exceed rows.length when truncated. */
   rowCount?: number;
+  /** Set when rows were capped to the user's maxRowsToDisplay setting. */
+  truncated?: boolean;
 }
 
 // Legacy alias

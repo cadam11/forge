@@ -880,22 +880,32 @@ export class ExplorerStateService {
     this._rootNodes.update(nodes => this.updateNodeInTree(nodes, nodeId, updates));
   }
 
+  /**
+   * Immutable update with structural sharing: only the path from root to the
+   * target node is cloned; every untouched subtree keeps its identity. With
+   * `track child.id` in the sidebar template this means a single node's
+   * isLoading/isExpanded flip re-renders one branch, not the whole tree.
+   */
   private updateNodeInTree(
     nodes: TreeNode[],
     nodeId: string,
     updates: Partial<TreeNode>
   ): TreeNode[] {
-    return nodes.map(node => {
+    let changed = false;
+    const next = nodes.map(node => {
       if (node.id === nodeId) {
+        changed = true;
         return { ...node, ...updates };
       }
       if (node.children) {
-        return {
-          ...node,
-          children: this.updateNodeInTree(node.children, nodeId, updates),
-        };
+        const newChildren = this.updateNodeInTree(node.children, nodeId, updates);
+        if (newChildren !== node.children) {
+          changed = true;
+          return { ...node, children: newChildren };
+        }
       }
       return node;
     });
+    return changed ? next : nodes;
   }
 }
