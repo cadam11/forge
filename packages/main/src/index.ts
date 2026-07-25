@@ -18,6 +18,7 @@ import { CredentialStore } from './services/keychain/credential-store';
 import { SshTunnelManager } from './services/ssh/ssh-tunnel-manager';
 import { QueryHistoryStore } from './services/config/query-history';
 import { AppStateStore } from './services/config/app-state';
+import { QueryResultsStore } from './services/config/query-results-store';
 import { cleanupWorkspaceWatchers } from './ipc/workspace.ipc';
 
 const log = createLogger('App');
@@ -160,6 +161,15 @@ if (!gotTheLock) {
       AppStateStore.getInstance().flush();
     } catch {
       /* singleton may not exist */
+    }
+    try {
+      // hasInstance guard: constructing the lazy store at quit would run
+      // its first-use legacy migration inside the shutdown window.
+      if (QueryResultsStore.hasInstance()) {
+        QueryResultsStore.getInstance().flush();
+      }
+    } catch (err) {
+      log.warn('Shutdown: snapshot index flush failed:', err);
     }
     log.info('Shutdown: flushed pending store writes');
 

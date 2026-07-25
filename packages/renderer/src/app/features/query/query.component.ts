@@ -2546,19 +2546,30 @@ export class QueryComponent implements OnInit, OnDestroy {
   }
 
   // View a historical result snapshot
-  onViewHistoryResult(snapshot: QueryResultSnapshot): void {
-    // Create a QueryResult from the snapshot to display
-    if (snapshot.resultSets && snapshot.resultSets.length > 0) {
-      this.viewingHistoricalResult.set(snapshot);
+  async onViewHistoryResult(snapshot: QueryResultSnapshot): Promise<void> {
+    // The history list carries metadata only (rows stay on disk main-side);
+    // hydrate the full snapshot by id before displaying.
+    let full = snapshot;
+    if (!full.resultSets?.length && full.totalRowCount > 0) {
+      const hydrated = await this.resultsState.getSnapshot(snapshot.id);
+      if (!hydrated) {
+        this.notification.error('Could not load this result snapshot');
+        return;
+      }
+      full = hydrated;
+    }
+
+    if (full.resultSets && full.resultSets.length > 0) {
+      this.viewingHistoricalResult.set(full);
       this.result.set({
-        queryId: snapshot.id,
-        success: snapshot.success,
-        resultSets: snapshot.resultSets,
-        executionTime: snapshot.executionTimeMs,
-        error: snapshot.error,
+        queryId: full.id,
+        success: full.success,
+        resultSets: full.resultSets,
+        executionTime: full.executionTimeMs,
+        error: full.error,
       });
       this.activeTab.set('result-0');
-      this.lastExecutedSql = snapshot.sql;
+      this.lastExecutedSql = full.sql;
     }
   }
 

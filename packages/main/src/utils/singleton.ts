@@ -28,6 +28,14 @@ export abstract class BaseSingleton {
   }
 
   /**
+   * True when the singleton has already been constructed. Lets shutdown
+   * paths flush an instance without instantiating it as a side effect.
+   */
+  static hasInstance<T extends BaseSingleton>(this: SingletonClass<T>): boolean {
+    return _globalObjectStore.has(this.name);
+  }
+
+  /**
    * Resets the singleton instance (useful for testing)
    */
   static resetInstance<T extends BaseSingleton>(this: SingletonClass<T>): void {

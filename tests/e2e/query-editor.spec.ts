@@ -116,6 +116,12 @@ test.describe('Forge — query editor', () => {
         .click();
       await expect(window.locator('app-result-history-panel')).toBeVisible({ timeout: 5000 });
       await expect(window.locator('.snapshot-item').first()).toBeVisible({ timeout: 10000 });
+
+      // Viewing a snapshot hydrates rows by id (the list itself is
+      // metadata-only) and shows the historical banner over the grid.
+      await window.locator('.snapshot-item').first().click();
+      await expect(window.locator('.historical-banner')).toBeVisible({ timeout: 10000 });
+      await expect(window.locator('.ag-root-wrapper').first()).toBeVisible({ timeout: 10000 });
     });
   });
 });

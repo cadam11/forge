@@ -24,6 +24,11 @@ import type {
 } from '@mj-forge/shared';
 import type { QueryResult, ColumnMetadata } from '@mj-forge/shared';
 import { BaseSingleton } from '../../utils/singleton';
+import { createLogger } from '../../utils/logger';
+import { SnapshotFileStore, type SnapshotMeta } from './snapshot-file-store';
+import { dirname, join } from 'node:path';
+
+const log = createLogger('QueryResults');
 
 interface QueryResultsSchema {
   snapshots: QueryResultSnapshot[];
@@ -41,11 +46,32 @@ const CONFIG = {
 };
 
 export class QueryResultsStore extends BaseSingleton {
-  private store: Store<QueryResultsSchema>;
+  private files: SnapshotFileStore;
 
-  constructor() {
+  /**
+   * `baseDirOverride` exists for tests; production resolves the data dir
+   * next to the legacy electron-store file and migrates it on first run.
+   */
+  constructor(baseDirOverride?: string) {
     super();
-    this.store = new Store<QueryResultsSchema>({
+    if (baseDirOverride) {
+      this.files = new SnapshotFileStore(baseDirOverride);
+    } else {
+      this.files = this.openWithLegacyMigration();
+    }
+
+    // Run cleanup on startup if needed
+    this.maybeRunCleanup();
+  }
+
+  /**
+   * One-time migration: the previous design held every snapshot in a single
+   * electron-store JSON blob (seen at 51 MB in the wild), re-written
+   * synchronously per query. Split it into file-per-snapshot storage, then
+   * empty the legacy blob so this constructor is cheap forever after.
+   */
+  private openWithLegacyMigration(): SnapshotFileStore {
+    const legacyStore = new Store<QueryResultsSchema>({
       name: 'query-results',
       defaults: {
         snapshots: [],
@@ -53,9 +79,29 @@ export class QueryResultsStore extends BaseSingleton {
         lastCleanup: new Date().toISOString(),
       },
     });
+    const files = new SnapshotFileStore(join(dirname(legacyStore.path), 'query-results-data'));
 
-    // Run cleanup on startup if needed
-    this.maybeRunCleanup();
+    const legacy = legacyStore.get('snapshots', []);
+    if (legacy.length > 0) {
+      log.info(`Migrating ${legacy.length} snapshots from legacy blob to file-per-snapshot store`);
+      for (let i = legacy.length - 1; i >= 0; i--) {
+        files.add(legacy[i]);
+      }
+      files.setLastCleanup(legacyStore.get('lastCleanup') || new Date().toISOString());
+      legacyStore.set('snapshots', []);
+      log.info('Snapshot migration complete; legacy blob emptied');
+    }
+    return files;
+  }
+
+  /** Persist the metadata index now (quit path). */
+  flush(): void {
+    this.files.flushIndexSync();
+  }
+
+  /** Await outstanding snapshot file IO (tests + graceful shutdown). */
+  settle(): Promise<void> {
+    return this.files.settle();
   }
 
   /**
@@ -68,8 +114,6 @@ export class QueryResultsStore extends BaseSingleton {
     database: string,
     result: QueryResult
   ): QueryResultSnapshot {
-    const snapshots = this.store.get('snapshots', []);
-
     // Truncate rows if necessary
     const resultSets: StoredResultSet[] = (result.resultSets || []).map(rs => {
       const rows =
@@ -105,21 +149,16 @@ export class QueryResultsStore extends BaseSingleton {
     };
 
     // Add to beginning (most recent first)
-    snapshots.unshift(snapshot);
+    this.files.add(snapshot);
 
     // Enforce per-tab limit
-    const tabSnapshots = snapshots.filter(s => s.tabId === tabId);
+    const tabSnapshots = this.files.listMeta().filter(s => s.tabId === tabId);
     if (tabSnapshots.length > CONFIG.MAX_SNAPSHOTS_PER_TAB) {
       // Remove oldest unpinned snapshots for this tab
       const toRemove = tabSnapshots
         .filter(s => !s.isPinned)
         .slice(CONFIG.MAX_SNAPSHOTS_PER_TAB - 1);
-
-      const removeIds = new Set(toRemove.map(s => s.id));
-      const filtered = snapshots.filter(s => !removeIds.has(s.id));
-      this.store.set('snapshots', filtered);
-    } else {
-      this.store.set('snapshots', snapshots);
+      this.files.remove(toRemove.map(s => s.id));
     }
 
     // Check total storage and cleanup if needed
@@ -135,7 +174,11 @@ export class QueryResultsStore extends BaseSingleton {
     filter?: QueryResultHistoryFilter,
     sort?: ResultHistorySortOptions
   ): QueryResultSnapshot[] {
-    let snapshots = this.store.get('snapshots', []);
+    // Metadata only — resultSets stay on disk. Callers that need rows fetch
+    // the single snapshot by id (GET_SNAPSHOT); the renderer hydrates on view.
+    let snapshots: QueryResultSnapshot[] = this.files
+      .listMeta()
+      .map(m => ({ ...m, resultSets: [] as StoredResultSet[] }));
 
     // Apply filters
     if (filter) {
@@ -189,36 +232,21 @@ export class QueryResultsStore extends BaseSingleton {
    * Get a single snapshot by ID
    */
   getSnapshot(id: string): QueryResultSnapshot | null {
-    const snapshots = this.store.get('snapshots', []);
-    return snapshots.find(s => s.id === id) || null;
+    return this.files.load(id);
   }
 
   /**
    * Delete a single snapshot
    */
   deleteSnapshot(id: string): boolean {
-    const snapshots = this.store.get('snapshots', []);
-    const index = snapshots.findIndex(s => s.id === id);
-
-    if (index === -1) {
-      return false;
-    }
-
-    snapshots.splice(index, 1);
-    this.store.set('snapshots', snapshots);
-    return true;
+    return this.files.remove([id]) === 1;
   }
 
   /**
    * Delete multiple snapshots
    */
   deleteSnapshots(ids: string[]): number {
-    const snapshots = this.store.get('snapshots', []);
-    const idSet = new Set(ids);
-    const newSnapshots = snapshots.filter(s => !idSet.has(s.id));
-    const deletedCount = snapshots.length - newSnapshots.length;
-    this.store.set('snapshots', newSnapshots);
-    return deletedCount;
+    return this.files.remove(ids);
   }
 
   /**
@@ -246,7 +274,7 @@ export class QueryResultsStore extends BaseSingleton {
    * Get storage statistics
    */
   getStorageStats(): ResultStorageStats {
-    const snapshots = this.store.get('snapshots', []);
+    const snapshots = this.files.listMeta();
 
     const totalSizeBytes = snapshots.reduce((sum, s) => sum + s.storageSizeBytes, 0);
     const snapshotsByTab: Record<string, number> = {};
@@ -272,12 +300,12 @@ export class QueryResultsStore extends BaseSingleton {
    * Purge snapshots based on options
    */
   purge(options: PurgeOptions): PurgeResult {
-    const snapshots = this.store.get('snapshots', []);
+    const snapshots = this.files.listMeta();
     const originalCount = snapshots.length;
     const originalSize = snapshots.reduce((sum, s) => sum + s.storageSizeBytes, 0);
 
     // Filter snapshots to delete
-    let toDelete: QueryResultSnapshot[] = [];
+    let toDelete: SnapshotMeta[] = [];
 
     if (options.olderThan) {
       const cutoff = new Date(options.olderThan);
@@ -306,10 +334,9 @@ export class QueryResultsStore extends BaseSingleton {
 
     // Remove duplicates
     const deleteIds = new Set(toDelete.map(s => s.id));
+    this.files.remove([...deleteIds]);
+
     const newSnapshots = snapshots.filter(s => !deleteIds.has(s.id));
-
-    this.store.set('snapshots', newSnapshots);
-
     const remainingSize = newSnapshots.reduce((sum, s) => sum + s.storageSizeBytes, 0);
 
     return {
@@ -384,17 +411,8 @@ export class QueryResultsStore extends BaseSingleton {
 
   // Private helpers
 
-  private updateSnapshot(id: string, updates: Partial<QueryResultSnapshot>): boolean {
-    const snapshots = this.store.get('snapshots', []);
-    const index = snapshots.findIndex(s => s.id === id);
-
-    if (index === -1) {
-      return false;
-    }
-
-    snapshots[index] = { ...snapshots[index], ...updates };
-    this.store.set('snapshots', snapshots);
-    return true;
+  private updateSnapshot(id: string, updates: Partial<SnapshotMeta>): boolean {
+    return this.files.update(id, updates);
   }
 
   private calculateChecksum(data: Record<string, unknown>[]): string {
@@ -408,7 +426,7 @@ export class QueryResultsStore extends BaseSingleton {
   }
 
   private maybeRunCleanup(): void {
-    const lastCleanup = this.store.get('lastCleanup');
+    const lastCleanup = this.files.getLastCleanup();
     if (!lastCleanup) {
       this.runCleanup();
       return;
@@ -432,7 +450,10 @@ export class QueryResultsStore extends BaseSingleton {
       keepMinPerTab: CONFIG.MIN_SNAPSHOTS_PER_TAB,
     });
 
-    this.store.set('lastCleanup', new Date().toISOString());
+    // Sweep files a crashed run may have left without index entries.
+    void this.files.removeOrphans();
+
+    this.files.setLastCleanup(new Date().toISOString());
   }
 
   private enforceStorageLimit(): void {
@@ -440,7 +461,7 @@ export class QueryResultsStore extends BaseSingleton {
 
     if (stats.totalSizeBytes > CONFIG.MAX_STORAGE_SIZE_BYTES) {
       // Remove oldest unpinned snapshots until under limit
-      const snapshots = this.store.get('snapshots', []);
+      const snapshots = this.files.listMeta();
       const sorted = [...snapshots]
         .filter(s => !s.isPinned)
         .sort((a, b) => new Date(a.executedAt).getTime() - new Date(b.executedAt).getTime());
