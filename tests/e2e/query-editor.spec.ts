@@ -95,4 +95,33 @@ test.describe('Forge — query editor', () => {
       expect(editorText).toContain('FROM');
     });
   });
+
+  test('execution persists a result snapshot visible in the history tab', async () => {
+    await withForge(async ({ app, window }) => {
+      await connectToTestPostgres(window);
+      await selectDatabase(window, 'forge_test');
+      await openNewQueryTab(app, window);
+      await typeInEditor(window, 'SELECT id, sku FROM products ORDER BY id;');
+      await executeQuery(window);
+
+      await expect(window.locator('ag-grid-angular, .ag-root-wrapper').first()).toBeVisible({
+        timeout: 15000,
+      });
+
+      // Open the Result History tab in the results pane and expect the
+      // execution above to have been captured as a snapshot.
+      await window
+        .locator('.result-tab.icon-tab', { has: window.locator('mat-icon:text("history")') })
+        .first()
+        .click();
+      await expect(window.locator('app-result-history-panel')).toBeVisible({ timeout: 5000 });
+      await expect(window.locator('.snapshot-item').first()).toBeVisible({ timeout: 10000 });
+
+      // Viewing a snapshot hydrates rows by id (the list itself is
+      // metadata-only) and shows the historical banner over the grid.
+      await window.locator('.snapshot-item').first().click();
+      await expect(window.locator('.historical-banner')).toBeVisible({ timeout: 10000 });
+      await expect(window.locator('.ag-root-wrapper').first()).toBeVisible({ timeout: 10000 });
+    });
+  });
 });

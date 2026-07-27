@@ -79,6 +79,24 @@ export async function launchForge(options: LaunchOptions = {}): Promise<Launched
 
   const window = await app.firstWindow();
   await window.waitForLoadState('domcontentloaded');
+  // Self-hosted fonts load async (font-display: swap), so screenshots can
+  // race font loading and visual baselines flip between fallback-font and
+  // Inter renders. Passively watching document.fonts.status is NOT enough —
+  // it reads "loaded" before any text has even requested a face. Force
+  // every face the UI uses to load, then await completion. String form
+  // keeps this file free of the DOM lib (tests tsconfig targets node).
+  await window.evaluate(`(async () => {
+    await Promise.all([
+      document.fonts.load('400 1em Inter'),
+      document.fonts.load('500 1em Inter'),
+      document.fonts.load('600 1em Inter'),
+      document.fonts.load('700 1em Inter'),
+      document.fonts.load('400 1em "JetBrains Mono"'),
+      document.fonts.load('500 1em "JetBrains Mono"'),
+      document.fonts.load('24px "Material Icons"'),
+    ]);
+    await document.fonts.ready;
+  })()`);
   return { app, window, userDataDir };
 }
 

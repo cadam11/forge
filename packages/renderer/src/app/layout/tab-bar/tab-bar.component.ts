@@ -293,7 +293,11 @@ export class TabBarComponent {
     if (!this.contextTab) return;
     const tab = this.contextTab;
     if (tab.type === 'query' && tab.connectionId && tab.databaseName) {
-      const newId = this.tabState.openQueryTab(tab.connectionId, tab.databaseName, tab.content);
+      const newId = this.tabState.openQueryTab(
+        tab.connectionId,
+        tab.databaseName,
+        this.tabState.getTabContent(tab.id)
+      );
       this.tabState.renameTab(newId, tab.title + ' (copy)');
       this.router.navigate(['/query']);
     }

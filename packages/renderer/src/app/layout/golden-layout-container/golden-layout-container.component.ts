@@ -459,7 +459,7 @@ export class GoldenLayoutContainerComponent implements OnInit, OnDestroy, AfterV
       isLoaded: false,
       connectionColor: profile?.color,
       configuration: {
-        content: tab.content,
+        content: this.tabState.getTabContent(tab.id),
         autoExecute: tab.autoExecute,
         ...tab.metadata,
       },

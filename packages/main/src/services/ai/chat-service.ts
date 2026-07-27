@@ -25,6 +25,7 @@ import {
   type ChatMessage as LLMMessage,
   type StreamToolCall,
 } from './llm-providers';
+import { createStreamCoalescer, type StreamCoalescer } from './stream-coalescer';
 
 const log = createLogger('Chat');
 
@@ -33,6 +34,8 @@ export class ChatService extends BaseSingleton {
   private toolRegistry: ToolRegistry;
   private aiService: AIService;
   private activeStreams: Map<string, AbortController> = new Map();
+  /** Per-window delta batching for stream chunks (see sendChunk). */
+  private chunkCoalescers = new WeakMap<BrowserWindow, StreamCoalescer>();
   /** Stores the latest editor content per conversation so tools can access it */
   private editorContent: Map<string, string> = new Map();
   private storageDir: string;
@@ -887,11 +890,24 @@ This server is an Amazon Aurora DSQL cluster (PostgreSQL 16-compatible) with har
     return llmMessages;
   }
 
+  /**
+   * Per-token deltas are batched (~40ms) before crossing IPC; control
+   * chunks pass straight through in order. See stream-coalescer.ts.
+   */
   private sendChunk(mainWindow: BrowserWindow, chunk: ChatStreamChunk): void {
+    let coalescer = this.chunkCoalescers.get(mainWindow);
+    if (!coalescer) {
+      coalescer = createStreamCoalescer(batched => this.sendChunkNow(mainWindow, batched));
+      this.chunkCoalescers.set(mainWindow, coalescer);
+    }
+    coalescer.push(chunk);
+  }
+
+  private sendChunkNow(mainWindow: BrowserWindow, chunk: ChatStreamChunk): void {
     try {
       mainWindow.webContents.send('chat:stream-chunk', chunk);
-    } catch {
-      // Window may have been closed
+    } catch (error) {
+      log.warn('Dropped stream chunk — window likely closed:', error);
     }
   }
 }

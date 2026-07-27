@@ -232,7 +232,8 @@ export class ChatInstanceState {
 
     // Include active query editor content so the AI can see what the user is working on
     const activeTab = this.tabState.activeTab();
-    const activeEditorContent = activeTab?.type === 'query' ? activeTab.content : undefined;
+    const activeEditorContent =
+      activeTab?.type === 'query' ? this.tabState.getTabContent(activeTab.id) : undefined;
 
     try {
       await firstValueFrom(

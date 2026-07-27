@@ -11,6 +11,7 @@ import { BaseSingleton } from '../../utils/singleton';
 import { createLogger } from '../../utils/logger';
 import { ConnectionPoolManager } from './connection-pool';
 import { MetadataService } from './metadata';
+import { applyRowCap } from './row-cap';
 
 const log = createLogger('QueryExecutor');
 
@@ -216,14 +217,17 @@ export class QueryExecutor extends BaseSingleton {
       }
       allMessages.push(`(${totalRowsAffected} row(s) affected)`);
 
-      return {
-        queryId,
-        success: true,
-        resultSets: allResultSets,
-        messages: allMessages,
-        rowsAffected: totalRowsAffected,
-        executionTime: Date.now() - startTime,
-      };
+      return applyRowCap(
+        {
+          queryId,
+          success: true,
+          resultSets: allResultSets,
+          messages: allMessages,
+          rowsAffected: totalRowsAffected,
+          executionTime: Date.now() - startTime,
+        },
+        request.maxRows
+      );
     } catch (error) {
       const err = error as Error & { lineNumber?: number; number?: number };
 
@@ -331,14 +335,17 @@ export class QueryExecutor extends BaseSingleton {
 
       allMessages.push(`(${totalRowsAffected} row(s) affected)`);
 
-      return {
-        queryId,
-        success: true,
-        resultSets: allResultSets,
-        messages: allMessages,
-        rowsAffected: totalRowsAffected,
-        executionTime: Date.now() - startTime,
-      };
+      return applyRowCap(
+        {
+          queryId,
+          success: true,
+          resultSets: allResultSets,
+          messages: allMessages,
+          rowsAffected: totalRowsAffected,
+          executionTime: Date.now() - startTime,
+        },
+        request.maxRows
+      );
     } finally {
       client.release();
     }
@@ -437,14 +444,17 @@ export class QueryExecutor extends BaseSingleton {
 
       allMessages.push(`(${totalRowsAffected} row(s) affected)`);
 
-      return {
-        queryId,
-        success: true,
-        resultSets: allResultSets,
-        messages: allMessages,
-        rowsAffected: totalRowsAffected,
-        executionTime: Date.now() - startTime,
-      };
+      return applyRowCap(
+        {
+          queryId,
+          success: true,
+          resultSets: allResultSets,
+          messages: allMessages,
+          rowsAffected: totalRowsAffected,
+          executionTime: Date.now() - startTime,
+        },
+        request.maxRows
+      );
     } finally {
       conn.release();
     }

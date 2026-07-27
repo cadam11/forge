@@ -64,6 +64,15 @@ export class TabStateService {
   private readonly cleanContentMap = new Map<string, string>();
 
   /**
+   * Live editor content per tab. Deliberately NOT part of the `_tabs`
+   * signal: Monaco fires per keystroke, and rebuilding the tabs array per
+   * character forced change detection through every tabs() consumer. The
+   * array's `content` field holds the initial/persisted value only; read
+   * live content through getTabContent().
+   */
+  private readonly contentMap = new Map<string, string>();
+
+  /**
    * Generate a unique tab ID using UUID v4
    */
   private generateTabId(): string {
@@ -86,6 +95,9 @@ export class TabStateService {
   openTab(tab: Omit<Tab, 'id'>): string {
     const id = this.generateTabId();
     const newTab: Tab = { ...tab, id };
+    if (typeof tab.content === 'string') {
+      this.contentMap.set(id, tab.content);
+    }
     this._tabs.update(tabs => [...tabs, newTab]);
     this._activeTabId.set(id);
     // Auto-save tabs
@@ -107,6 +119,7 @@ export class TabStateService {
 
     this._tabs.update(currentTabs => currentTabs.filter(t => t.id !== tabId));
     this.cleanContentMap.delete(tabId);
+    this.contentMap.delete(tabId);
 
     // If closing active tab, activate another tab
     if (this._activeTabId() === tabId) {
@@ -150,9 +163,8 @@ export class TabStateService {
    * Optionally updates the clean baseline to the current content.
    */
   markClean(tabId: string): void {
-    const tab = this._tabs().find(t => t.id === tabId);
-    if (tab) {
-      this.cleanContentMap.set(tabId, tab.content ?? '');
+    if (this._tabs().some(t => t.id === tabId)) {
+      this.cleanContentMap.set(tabId, this.getTabContent(tabId));
     }
     this.updateTab(tabId, { isDirty: false });
   }
@@ -176,10 +188,33 @@ export class TabStateService {
     this.updateTab(tabId, { isDirty });
   }
 
-  setTabContent(tabId: string, content: string): void {
+  /**
+   * Record live editor content. Called per keystroke, so it must stay cheap:
+   * the tabs array is only touched when the dirty flag actually flips.
+   * Returns true on a dirty-state transition (callers running outside the
+   * Angular zone use this to schedule change detection for the tab bar).
+   */
+  setTabContent(tabId: string, content: string): boolean {
+    this.contentMap.set(tabId, content);
+    this.scheduleSave();
+
     const baseline = this.cleanContentMap.get(tabId) ?? '';
     const isDirty = content !== baseline;
-    this.updateTab(tabId, { content, isDirty });
+    const tab = this._tabs().find(t => t.id === tabId);
+    if (!tab || tab.isDirty === isDirty) {
+      return false;
+    }
+    this.updateTab(tabId, { isDirty });
+    return true;
+  }
+
+  /** Live content for a tab (falls back to the tab's initial content). */
+  getTabContent(tabId: string): string {
+    const live = this.contentMap.get(tabId);
+    if (live !== undefined) {
+      return live;
+    }
+    return this._tabs().find(t => t.id === tabId)?.content ?? '';
   }
 
   /**
@@ -241,7 +276,7 @@ export class TabStateService {
         activeTab &&
         activeTab.type === 'query' &&
         !activeTab.isDirty &&
-        (!activeTab.content || activeTab.content.trim() === '')
+        this.getTabContent(activeTab.id).trim() === ''
       ) {
         this.updateTab(activeTab.id, { connectionId, databaseName });
         return activeTab.id;
@@ -451,6 +486,7 @@ export class TabStateService {
     // Clean up content tracking for all tabs
     for (const tab of this._tabs()) {
       this.cleanContentMap.delete(tab.id);
+      this.contentMap.delete(tab.id);
     }
     this._tabs.set([]);
     this._activeTabId.set('');
@@ -462,7 +498,10 @@ export class TabStateService {
     if (tab) {
       // Clean up content tracking for removed tabs
       for (const t of this._tabs()) {
-        if (t.id !== tabId) this.cleanContentMap.delete(t.id);
+        if (t.id !== tabId) {
+          this.cleanContentMap.delete(t.id);
+          this.contentMap.delete(t.id);
+        }
       }
       this._tabs.set([tab]);
       this._activeTabId.set(tabId);
@@ -477,6 +516,7 @@ export class TabStateService {
     // Clean up content tracking for removed tabs
     for (let i = index + 1; i < tabs.length; i++) {
       this.cleanContentMap.delete(tabs[i].id);
+      this.contentMap.delete(tabs[i].id);
     }
     this._tabs.set(tabs.slice(0, index + 1));
     // If active tab was to the right, activate this tab
@@ -495,7 +535,7 @@ export class TabStateService {
       icon: tab.icon,
       connectionId: tab.connectionId,
       databaseName: tab.databaseName,
-      content: tab.content,
+      content: this.getTabContent(tabId),
       isDirty: tab.isDirty,
       metadata: tab.metadata ? { ...tab.metadata } : undefined,
     });
@@ -547,7 +587,7 @@ export class TabStateService {
           id: t.id,
           type: t.type,
           title: t.title,
-          content: t.content,
+          content: this.getTabContent(t.id),
           connectionId: t.connectionId,
           databaseName: t.databaseName,
           isDirty: t.isDirty,
@@ -578,6 +618,7 @@ export class TabStateService {
         // Set clean baseline for restored query tabs so dirty tracking works
         if (t.type === 'query') {
           this.cleanContentMap.set(id, t.content ?? '');
+          this.contentMap.set(id, t.content ?? '');
         }
         return {
           id,
@@ -646,6 +687,9 @@ export class TabStateService {
           autoExecute: state.configuration?.['autoExecute'] as boolean | undefined,
           metadata: { ...state.configuration },
         };
+        if (typeof newTab.content === 'string') {
+          this.contentMap.set(newTab.id, newTab.content);
+        }
         tabsToAdd.push(newTab);
       } else {
         // Update existing tab with layout state (especially isPinned)

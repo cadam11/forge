@@ -1,0 +1,3589 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Forge: Electron vs. Go/Rust Native — Analysis</title>
+    <style>
+      :root {
+        --bg: #f7f9fb;
+        --surface: #ffffff;
+        --surface2: #eef2f6;
+        --text: #16212b;
+        --text2: #51606e;
+        --line: #d8e0e8;
+        --accent: #1465b0;
+        --accent-soft: #e3eefa;
+        --teal: #0f766e;
+        --teal-soft: #d9f2ef;
+        --amber: #92600a;
+        --amber-soft: #fdf0d4;
+        --red: #b3372e;
+        --red-soft: #fbe4e1;
+        --green: #1d7a3e;
+        --green-soft: #ddf3e4;
+        --code-bg: #eef2f6;
+        --shadow: 0 1px 3px rgba(22, 33, 43, 0.08), 0 4px 16px rgba(22, 33, 43, 0.05);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #10161c;
+          --surface: #18212a;
+          --surface2: #1f2a35;
+          --text: #e6edf3;
+          --text2: #98a8b6;
+          --line: #2c3a47;
+          --accent: #5aa2e0;
+          --accent-soft: #16293c;
+          --teal: #3fb8ac;
+          --teal-soft: #10302d;
+          --amber: #e0aa4e;
+          --amber-soft: #33270f;
+          --red: #e0695f;
+          --red-soft: #381a17;
+          --green: #52b878;
+          --green-soft: #12301d;
+          --code-bg: #1f2a35;
+          --shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.25);
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+        font-size: 16px;
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+      }
+      input,
+      textarea,
+      select {
+        -webkit-appearance: none;
+        -webkit-text-fill-color: var(--text);
+        color: var(--text);
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        font: inherit;
+      }
+      code {
+        font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.82em;
+        background: var(--code-bg);
+        padding: 0.13em 0.38em;
+        border-radius: 5px;
+        word-break: break-word;
+      }
+      a {
+        color: var(--accent);
+      }
+      h1,
+      h2,
+      h3,
+      h4 {
+        line-height: 1.25;
+      }
+      .wrap {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 0 20px 96px;
+      }
+
+      header.hero {
+        padding: 56px 0 8px;
+      }
+      .kicker {
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--teal);
+        margin-bottom: 12px;
+      }
+      h1 {
+        font-size: clamp(28px, 4.5vw, 40px);
+        margin: 0 0 10px;
+        letter-spacing: -0.02em;
+      }
+      .sub {
+        color: var(--text2);
+        font-size: 17px;
+        max-width: 44em;
+        margin: 0;
+      }
+      .meta-line {
+        color: var(--text2);
+        font-size: 13px;
+        margin-top: 14px;
+      }
+
+      .howto {
+        margin: 28px 0 0;
+        padding: 16px 18px;
+        border-radius: 12px;
+        background: var(--teal-soft);
+        border: 1px solid var(--teal);
+        font-size: 14.5px;
+      }
+      .howto strong {
+        color: var(--teal);
+      }
+
+      nav.toc {
+        margin: 32px 0 0;
+        padding: 18px 20px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        box-shadow: var(--shadow);
+        font-size: 14.5px;
+      }
+      nav.toc ol {
+        margin: 8px 0 0;
+        padding-left: 22px;
+        columns: 2;
+        column-gap: 32px;
+      }
+      nav.toc li {
+        margin: 3px 0;
+        break-inside: avoid;
+      }
+      @media (max-width: 640px) {
+        nav.toc ol {
+          columns: 1;
+        }
+      }
+
+      section {
+        margin-top: 56px;
+      }
+      section > h2 {
+        font-size: 24px;
+        margin: 0 0 6px;
+        letter-spacing: -0.01em;
+        padding-top: 8px;
+        border-top: 3px solid var(--accent);
+        display: inline-block;
+      }
+      .section-lede {
+        color: var(--text2);
+        margin: 4px 0 20px;
+        max-width: 46em;
+      }
+
+      .verdict {
+        margin-top: 28px;
+        padding: 24px 26px;
+        border-radius: 14px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-left: 5px solid var(--accent);
+        box-shadow: var(--shadow);
+      }
+      .verdict h2 {
+        margin: 0 0 10px;
+        font-size: 20px;
+        border: none;
+        padding: 0;
+      }
+      .verdict p {
+        margin: 10px 0;
+      }
+
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 20px 22px;
+        margin: 18px 0;
+        box-shadow: var(--shadow);
+      }
+      .card h3 {
+        margin: 0 0 4px;
+        font-size: 18px;
+      }
+      .card .tagline {
+        color: var(--text2);
+        font-size: 14px;
+        margin: 0 0 14px;
+      }
+
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 14px;
+      }
+      .tablewrap {
+        overflow-x: auto;
+        margin: 14px 0;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+      }
+      th {
+        text-align: left;
+        background: var(--surface2);
+        padding: 9px 12px;
+        font-size: 12.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text2);
+        white-space: nowrap;
+      }
+      td {
+        padding: 10px 12px;
+        border-top: 1px solid var(--line);
+        vertical-align: top;
+      }
+      tr:nth-child(even) td {
+        background: color-mix(in srgb, var(--surface2) 40%, transparent);
+      }
+
+      .sev {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        padding: 2px 8px;
+        border-radius: 999px;
+        white-space: nowrap;
+      }
+      .sev1 {
+        background: var(--red-soft);
+        color: var(--red);
+      }
+      .sev2 {
+        background: var(--amber-soft);
+        color: var(--amber);
+      }
+      .sev3 {
+        background: var(--surface2);
+        color: var(--text2);
+      }
+      .good {
+        background: var(--green-soft);
+        color: var(--green);
+      }
+      .badge-teal {
+        background: var(--teal-soft);
+        color: var(--teal);
+      }
+
+      .pill-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 12px 0 4px;
+      }
+      .stat {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px 14px;
+        min-width: 120px;
+        flex: 1 1 140px;
+      }
+      .stat .n {
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+      .stat .l {
+        font-size: 12.5px;
+        color: var(--text2);
+      }
+
+      .cols2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      @media (max-width: 720px) {
+        .cols2 {
+          grid-template-columns: 1fr;
+        }
+      }
+      .pro-con {
+        border-radius: 10px;
+        padding: 12px 16px;
+        font-size: 14.5px;
+      }
+      .pro-con.pro {
+        background: var(--green-soft);
+      }
+      .pro-con.con {
+        background: var(--red-soft);
+      }
+      .pro-con h4 {
+        margin: 0 0 6px;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .pro-con.pro h4 {
+        color: var(--green);
+      }
+      .pro-con.con h4 {
+        color: var(--red);
+      }
+      .pro-con ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+      .pro-con li {
+        margin: 4px 0;
+      }
+
+      .option-verdict {
+        margin-top: 14px;
+        padding: 10px 14px;
+        border-radius: 8px;
+        font-size: 14.5px;
+        background: var(--accent-soft);
+        border-left: 3px solid var(--accent);
+      }
+
+      .vote {
+        margin-top: 14px;
+        padding-top: 12px;
+        border-top: 1px dashed var(--line);
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        font-size: 13.5px;
+      }
+      .vote .vlabel {
+        color: var(--text2);
+        margin-right: 4px;
+      }
+      .vote button {
+        font: inherit;
+        font-size: 13.5px;
+        cursor: pointer;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: var(--surface);
+        color: var(--text);
+        padding: 5px 14px;
+        transition: all 0.12s ease;
+      }
+      .vote button:hover {
+        border-color: var(--accent);
+      }
+      .vote button.sel {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+
+      .qblock {
+        margin: 16px 0;
+      }
+      .qblock .q {
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .chips button {
+        font: inherit;
+        font-size: 13.5px;
+        cursor: pointer;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: var(--surface);
+        color: var(--text);
+        padding: 6px 15px;
+        transition: all 0.12s ease;
+      }
+      .chips button:hover {
+        border-color: var(--teal);
+      }
+      .chips button.sel {
+        background: var(--teal);
+        border-color: var(--teal);
+        color: #fff;
+      }
+      .qblock textarea {
+        width: 100%;
+        min-height: 72px;
+        padding: 10px 12px;
+        margin-top: 8px;
+        resize: vertical;
+      }
+      .qblock .save-note {
+        font-size: 12.5px;
+        color: var(--text2);
+        margin-top: 4px;
+      }
+
+      .copyall {
+        position: fixed;
+        right: 18px;
+        bottom: 76px;
+        z-index: 999;
+        font: inherit;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        border-radius: 999px;
+        padding: 11px 20px;
+        box-shadow: var(--shadow);
+      }
+      .copyall:active {
+        transform: scale(0.97);
+      }
+
+      details {
+        margin: 10px 0;
+      }
+      details summary {
+        cursor: pointer;
+        font-weight: 600;
+        color: var(--accent);
+        font-size: 14.5px;
+      }
+      .footnote {
+        color: var(--text2);
+        font-size: 13px;
+      }
+      ul.tight {
+        margin: 8px 0;
+        padding-left: 20px;
+      }
+      ul.tight li {
+        margin: 5px 0;
+      }
+      .num {
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="hero">
+        <div class="kicker">MJ Forge · Platform Analysis · 2026-07-25</div>
+        <h1>Should Forge move off Electron to Go or Rust?</h1>
+        <p class="sub">
+          You said the app feels slow and the UI a little janky, and asked whether a Go/Rust native
+          app would feel better. I profiled the codebase first, because the answer depends entirely
+          on <em>where</em> the slowness lives. Short version: most of it is ours, not Electron's —
+          and that changes which options make sense.
+        </p>
+        <p class="meta-line">
+          Based on Forge <code>main</code> @ v0.5.0 · Electron 41 · Angular 18.2 · ~66k lines of
+          TypeScript. All file:line references verified against the working tree today.
+        </p>
+      </header>
+
+      <div class="howto">
+        <strong>How to use this page:</strong> a comment widget is embedded (local-only mode —
+        nothing leaves your machine; notes persist in this browser via localStorage). Click the
+        widget's launcher to enter comment mode, then click any element to attach a note. The option
+        cards and the questions at the bottom have one-click answer buttons. When you're done, hit
+        <strong>Copy all feedback</strong> (bottom-right) and paste the result back into Claude Code
+        — I'll pick it up from there.
+      </div>
+
+      <nav class="toc">
+        <strong>Contents</strong>
+        <ol>
+          <li><a href="#verdict">TL;DR verdict</a></li>
+          <li><a href="#evidence">What's actually slow (evidence)</a></li>
+          <li><a href="#story">The causal story</a></li>
+          <li><a href="#rewrite-math">What a rewrite would and wouldn't fix</a></li>
+          <li><a href="#options">The four options</a></li>
+          <li><a href="#matrix">Comparison matrix</a></li>
+          <li><a href="#electron-tax">What Electron costs even when tuned</a></li>
+          <li><a href="#plan">Recommended plan</a></li>
+          <li><a href="#questions">Questions for you</a></li>
+        </ol>
+      </nav>
+
+      <div class="verdict" id="verdict">
+        <h2>TL;DR — the jank is mostly application-level, and it's very fixable</h2>
+        <p>
+          I sent two explorers through the codebase looking for the mechanics of "slow and janky."
+          They came back with a long list of concrete, cited causes — sync disk writes on every
+          window-drag frame, result sets crossing the IPC boundary <em>twice</em> in full, a
+          query-results store that re-serializes up to 500&nbsp;MB of JSON on every query, Monaco
+          running inside Angular's zone so every keystroke and mousemove triggers app-wide change
+          detection, an unvirtualized sidebar tree that fully re-renders when one node changes, and
+          render-blocking Google Fonts fetched from the network at startup. None of these are
+          Electron problems. All of them would ship unchanged (or need re-solving) in a rewrite.
+        </p>
+        <p>
+          <strong>The trap in the Go/Rust idea:</strong> Tauri (Rust) and Wails (Go) only replace
+          the ~17k-line main process. They keep your ~45k-line Angular renderer — where most of the
+          perceived jank lives — and run it on macOS's WKWebView, which is capped at 60&nbsp;fps
+          with no ProMotion support. The most likely outcome of that port is two-plus months of work
+          for an app that starts faster, uses less RAM, and <em>animates worse</em>.
+        </p>
+        <p>
+          <strong>My recommendation:</strong> spend roughly one focused week on the ranked fix list
+          below, measure, and only then re-open the platform question with data. If after tuning you
+          still want the truly native feel (120&nbsp;Hz, instant cold start, native widgets), the
+          honest path is Swift/AppKit — a different product decision with a Windows cost — not a
+          webview swap.
+        </p>
+      </div>
+
+      <section id="evidence">
+        <h2>1 · What's actually slow — the evidence</h2>
+        <p class="section-lede">
+          Everything below is from today's working tree, with file:line references so you can
+          spot-check me. Severity is my judgment of user-perceived impact.
+        </p>
+
+        <div class="pill-row">
+          <div class="stat">
+            <div class="n num">17.4k</div>
+            <div class="l">lines — main process (what Go/Rust would replace)</div>
+          </div>
+          <div class="stat">
+            <div class="n num">44.8k</div>
+            <div class="l">lines — Angular renderer (what Tauri/Wails would keep)</div>
+          </div>
+          <div class="stat">
+            <div class="n num">124</div>
+            <div class="l">IPC invoke handlers across ~170 channels</div>
+          </div>
+          <div class="stat">
+            <div class="n num">11 / 51</div>
+            <div class="l">components using OnPush change detection</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Main process + IPC findings</h3>
+          <p class="tagline">The data path and the disk are the story here.</p>
+          <div class="tablewrap">
+            <table>
+              <tr>
+                <th>Sev</th>
+                <th>Finding</th>
+                <th>Where</th>
+              </tr>
+              <tr>
+                <td><span class="sev sev1">SEV-1</span></td>
+                <td>
+                  <strong
+                    >Window state is written to disk synchronously on every <code>resize</code> and
+                    <code>move</code> event</strong
+                  >
+                  — no debounce. Dragging or resizing the window issues a blocking
+                  <code>writeFileSync</code> per OS event on the main thread. This is the single
+                  clearest "janky window" mechanism in the app.
+                </td>
+                <td><code>packages/main/src/window.ts:85-87</code></td>
+              </tr>
+              <tr>
+                <td><span class="sev sev1">SEV-1</span></td>
+                <td>
+                  <strong>Query results cross the process boundary twice, whole.</strong> The full
+                  result set is structured-cloned main→renderer in one message (no streaming, no
+                  chunking), then the renderer sends the <em>entire</em> result back to main for
+                  snapshot persistence. A 50k-row query makes four full copies before you see it
+                  settle.
+                </td>
+                <td>
+                  <code>packages/main/src/ipc/query.ipc.ts:31</code> ·
+                  <code>query.component.ts:1829</code>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="sev sev1">SEV-1</span></td>
+                <td>
+                  <strong>The snapshot store is the heaviest sync write in the app.</strong> Every
+                  query: checksum over every row, a throwaway
+                  <code>JSON.stringify(resultSets).length</code> size probe, then a synchronous
+                  re-serialize + write of the <em>whole snapshot history</em> (capped at
+                  500&nbsp;MB). The constructor also loads that entire file into memory at startup,
+                  before the window exists.
+                </td>
+                <td>
+                  <code
+                    >packages/main/src/services/config/query-results-store.ts:46-58, 84, 120,
+                    407</code
+                  >
+                </td>
+              </tr>
+              <tr>
+                <td><span class="sev sev2">SEV-2</span></td>
+                <td>
+                  <strong
+                    >Startup blocks on the keychain and eager store loads before the window is
+                    created.</strong
+                  >
+                  <code>await credentialStore.loadAllIntoCache()</code> (native keychain calls, can
+                  stall) and <code>registerAllHandlers()</code> (which eagerly constructs all 20
+                  service singletons, including the stores' synchronous full-file reads) both run
+                  before <code>createMainWindow()</code>.
+                </td>
+                <td><code>packages/main/src/index.ts:51-63</code></td>
+              </tr>
+              <tr>
+                <td><span class="sev sev2">SEV-2</span></td>
+                <td>
+                  <strong>AI streaming sends one IPC message per SSE token, unbatched.</strong> A
+                  fast model produces hundreds of renderer wake-ups per second; each one triggers a
+                  signal update and (see renderer table) a full markdown re-parse.
+                </td>
+                <td><code>packages/main/src/services/ai/chat-service.ts:355-364, 892</code></td>
+              </tr>
+              <tr>
+                <td><span class="sev sev2">SEV-2</span></td>
+                <td>
+                  <strong
+                    >Query history is re-serialized and sync-written on every execution</strong
+                  >
+                  — up to 1,000 entries, each holding up to ~10&nbsp;KB of SQL.
+                </td>
+                <td><code>packages/main/src/services/config/query-history.ts:34-50</code></td>
+              </tr>
+              <tr>
+                <td><span class="sev sev3">INFO</span></td>
+                <td>
+                  Every main-process log line is broadcast over IPC to the renderer; level defaults
+                  to <code>debug</code> outside production. (Dev-mode pain, mostly.)
+                </td>
+                <td><code>packages/main/src/ipc/log.ipc.ts:30-37</code></td>
+              </tr>
+              <tr>
+                <td><span class="sev sev3">INFO</span></td>
+                <td>
+                  No row cap exists anywhere on the execution/IPC path. The
+                  <code>maxRowsToDisplay</code> setting (default 10,000) is written by the settings
+                  UI and <strong>never read by anything</strong> — it's a dead setting.
+                </td>
+                <td><code>packages/shared/src/types/settings.types.ts:20,63</code></td>
+              </tr>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Renderer findings</h3>
+          <p class="tagline">
+            This is the 45k-line side that a Tauri/Wails port would carry over untouched.
+          </p>
+          <div class="tablewrap">
+            <table>
+              <tr>
+                <th>Sev</th>
+                <th>Finding</th>
+                <th>Where</th>
+              </tr>
+              <tr>
+                <td><span class="sev sev1">SEV-1</span></td>
+                <td>
+                  <strong
+                    >zone.js is on, and the three hottest components run default change
+                    detection.</strong
+                  >
+                  Only 11 of 51 components are OnPush; <code>query.component</code> (2,658 lines),
+                  <code>sidebar.component</code> (2,183) and
+                  <code>results-grid.component</code> (2,040) are not among them. Signals are used
+                  heavily (103 <code>computed()</code>) but on top of zone.js, so every zone-patched
+                  timer, listener, and IPC callback still triggers an app-wide tick. There are
+                  <em>zero</em> <code>runOutsideAngular</code> calls in the codebase.
+                </td>
+                <td><code>renderer/src/main.ts:10-17</code></td>
+              </tr>
+              <tr>
+                <td><span class="sev sev1">SEV-1</span></td>
+                <td>
+                  <strong
+                    >Monaco runs fully inside the zone, and every keystroke rebuilds global
+                    state.</strong
+                  >
+                  <code>onDidChangeModelContent</code> → <code>setTabContent()</code> → a new tabs
+                  array + tab object allocated per character, consumed by the shell, tab bar, and
+                  golden-layout container. Monaco's own mousemove/ResizeObserver handlers each
+                  schedule an app-wide CD tick too.
+                </td>
+                <td>
+                  <code>query.component.ts:1324-1332</code> · <code>tab.state.ts:133-139</code>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="sev sev1">SEV-1</span></td>
+                <td>
+                  <strong
+                    >The sidebar tree is hand-rolled, unvirtualized, and rebuilds wholesale.</strong
+                  >
+                  It doesn't use the OnPush <code>tree-view</code> component that exists in the
+                  codebase; it renders its own recursive template under default CD, calls functions
+                  like <code>getConnectionIconClass(...)</code> per node per CD tick, and a single
+                  <code>isLoading</code> toggle re-maps the entire tree into new objects,
+                  re-rendering everything expanded.
+                </td>
+                <td>
+                  <code>sidebar.component.ts:233-296, 694-702</code> ·
+                  <code>explorer.state.ts:883-900</code>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="sev sev2">SEV-2</span></td>
+                <td>
+                  <strong
+                    >Startup fetches two render-blocking Google Fonts stylesheets from the
+                    network</strong
+                  >
+                  — in a packaged desktop app. Cold start pays a network round trip (or an offline
+                  timeout) before first paint.
+                </td>
+                <td><code>renderer/src/index.html:8-13</code></td>
+              </tr>
+              <tr>
+                <td><span class="sev sev2">SEV-2</span></td>
+                <td>
+                  <strong
+                    >Chat streaming re-parses the full accumulated markdown on every token</strong
+                  >, delivered through <code>zone.run()</code> per chunk. The chat panel is OnPush,
+                  but the re-parse cost grows with message length.
+                </td>
+                <td>
+                  <code>chat.state.ts:74</code> · <code>chat-panel.component.ts:241-247</code>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="sev sev2">SEV-2</span></td>
+                <td>
+                  <strong>The lazy routes are dead code.</strong> Seven
+                  <code>loadComponent</code> routes are defined, but
+                  <code>&lt;router-outlet&gt;</code> is never placed — golden-layout statically
+                  imports Query, Explorer, ERD, and Chat, so everything lands in the eager bundle.
+                  The 723&nbsp;KB main bundle + 509&nbsp;KB of eager CSS (ag-grid themes,
+                  golden-layout, all of devicon) load up front.
+                </td>
+                <td>
+                  <code>app.routes.ts</code> vs
+                  <code>golden-layout-container.component.ts:29-33, 499-509</code>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="sev sev3">INFO</span></td>
+                <td>
+                  Two 30-second zone-patched polls (Docker status, per-connection heartbeat) each
+                  force a global CD pass; ag-grid runs <code>autoSizeAllColumns()</code> over the
+                  loaded rows 100&nbsp;ms after every result set.
+                </td>
+                <td>
+                  <code>status-bar.component.ts:539</code> ·
+                  <code>connection.state.ts:45,407</code> ·
+                  <code>results-grid.component.ts:1291</code>
+                </td>
+              </tr>
+            </table>
+          </div>
+          <p class="footnote">
+            For balance: plenty is done right — ag-grid virtualizes rows, the explorer state
+            lazy-loads children, <code>show:false</code> + <code>ready-to-show</code> is the correct
+            window pattern, 93 of 95 <code>@for</code> blocks have <code>track</code>, and tab
+            persistence is debounced. The bones are good.
+          </p>
+        </div>
+      </section>
+
+      <section id="story">
+        <h2>2 · The causal story</h2>
+        <p class="section-lede">
+          Why these specific findings produce the exact feel you described.
+        </p>
+        <p>
+          "Janky window dragging/resizing" is the sync <code>writeFileSync</code> per resize/move
+          event fighting the compositor on the main process thread — the one thread that must stay
+          responsive for OS-level window operations. "Slow to start" is a chain: keychain → eager
+          construction of 20 services → synchronous read of a possibly-huge snapshot JSON → window
+          creation → renderer boots a 723&nbsp;KB eager bundle → blocks on Google Fonts over the
+          network → then serially awaits three IPC round trips (<code
+            >loadProfiles → restoreState → restoreTabs</code
+          >) behind a spinner, plus auto-reconnects to every previously-open database.
+        </p>
+        <p>
+          "Typing feels heavy" is Monaco inside the zone: each keystroke allocates a new global tabs
+          array and runs change detection across ~40 default-CD components. "Results feel sluggish"
+          is the full result set being cloned main→renderer, then renderer→main again, then
+          checksummed and appended into a giant JSON file that's synchronously rewritten — per
+          query. And "general vibe" is the sum: 30s polls, per-token IPC wake-ups, full-tree
+          re-renders, all multiplied by zone.js turning every event into an app-wide tick.
+        </p>
+        <p>
+          <strong>The key observation: not one of these is caused by Electron.</strong> Chromium is
+          perfectly capable of 120&nbsp;Hz buttery UI (VS Code, Slack, Figma's shell, Linear). These
+          are architectural choices in our code — and they'd follow us to any platform that keeps
+          this renderer, while a from-scratch rewrite would simply have to re-earn all 66k lines
+          without making the same classes of mistake in a new language.
+        </p>
+      </section>
+
+      <section id="rewrite-math">
+        <h2>3 · What a rewrite would and wouldn't fix</h2>
+        <p class="section-lede">The uncomfortable arithmetic of the Go/Rust options.</p>
+        <p>
+          Tauri and Wails share one architecture: your web UI in the OS's built-in webview, your
+          backend in Rust/Go instead of Node. That means they replace the
+          <strong>17.4k-line main process</strong> — the smaller, healthier side — and keep the
+          <strong>44.8k-line renderer</strong> where the SEV-1 jank lives. The renderer would run on
+          WKWebView on macOS, which is
+          <a href="https://tech-insider.org/tauri-vs-electron-2026/"
+            >capped at 60&nbsp;fps and cannot use ProMotion</a
+          >
+          (Chromium in Electron does 120&nbsp;Hz), with
+          <a
+            href="https://forum.babylonjs.com/t/performance-between-safari-and-wkwebview-tauri/60811"
+            >reported jitter even at 60</a
+          >. If "feel" is the goal, that's a step backwards on the axis you care about most.
+        </p>
+        <p>
+          What you <em>would</em> get: dramatically smaller install (~10–20&nbsp;MB vs
+          ~200&nbsp;MB), lower baseline memory (roughly 100–200&nbsp;MB less), faster cold start,
+          and a memory-safe backend. What you'd pay: reimplementing 124 IPC handlers and 20
+          services, replacing mature Node integrations (<code>tedious</code>+MSAL for Azure Entra
+          auth, the AWS DSQL connector, dockerode, keytar), and — significant for us —
+          <strong>the 268-test Playwright harness loses its e2e and visual tiers</strong>, because
+          Playwright can't drive WKWebView; Apple ships
+          <a href="https://v2.tauri.app/develop/tests/webdriver/">no WebDriver for it</a> and the
+          official <code>tauri-driver</code> skips macOS (community workarounds exist via
+          <a href="https://webdriver.io/docs/desktop-testing/tauri/platform-support/">WebdriverIO</a
+          >, but it's a harness rewrite either way).
+        </p>
+        <p>
+          Driver reality check for a SQL IDE: Go is genuinely strong here (Microsoft maintains
+          <a href="https://github.com/microsoft/go-mssqldb">go-mssqldb</a>; pgx and
+          go-sql-driver/mysql are first-class; Docker's own client is Go). Rust is workable (<a
+            href="https://github.com/prisma/tiberius"
+            >tiberius</a
+          >
+          for TDS, sqlx/tokio-postgres, bollard) but Azure Entra auth becomes bring-your-own-token
+          and the ecosystem around SQL Server is thinner. Either way it's a rewrite of the layer
+          that is <em>not</em> the problem.
+        </p>
+      </section>
+
+      <section id="options">
+        <h2>4 · The four options</h2>
+        <p class="section-lede">
+          Each card has a quick vote row — your picks land in the feedback bundle.
+        </p>
+
+        <div class="card" data-opt="A">
+          <h3>Option A — Tune Electron in place</h3>
+          <p class="tagline">Fix the ranked list from §1. Ship in waves; measure between waves.</p>
+          <div class="cols2">
+            <div class="pro-con pro">
+              <h4>Gains</h4>
+              <ul>
+                <li>Attacks every SEV-1 directly — window drag, typing, results, startup</li>
+                <li>
+                  Days-to-weeks, not months; each fix independently shippable + testable in the
+                  existing harness
+                </li>
+                <li>
+                  Keeps all 268 tests, all drivers, MSAL/DSQL auth, the AI layer — zero platform
+                  risk
+                </li>
+                <li>
+                  Angular is already signal-heavy (103 <code>computed()</code>) — well-positioned
+                  for zoneless later
+                </li>
+              </ul>
+            </div>
+            <div class="pro-con con">
+              <h4>Limits</h4>
+              <ul>
+                <li>
+                  Electron's floor remains: ~200&nbsp;MB install, ~150–300&nbsp;MB baseline RAM, ~1s
+                  cold start at best
+                </li>
+                <li>
+                  Still web widgets, not native ones — "native feel" ceiling is VS Code, not
+                  TablePlus
+                </li>
+                <li>
+                  Requires discipline: perf regressions can creep back without a perf gate in the
+                  harness
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div class="option-verdict">
+            <strong>Effort:</strong> Wave 1 ≈ 2–4 days · Wave 2 ≈ 1–2 weeks · Wave 3 (zoneless +
+            Angular 20) ≈ 1 week.
+            <strong>Verdict: do this first regardless of anything else</strong> — even a Tauri port
+            would want the renderer fixes.
+          </div>
+          <div class="vote" data-vote="option-A">
+            <span class="vlabel">Your take:</span> <button data-v="pursue">👍 Pursue</button
+            ><button data-v="maybe">🤔 Maybe</button><button data-v="pass">👎 Pass</button>
+          </div>
+        </div>
+
+        <div class="card" data-opt="B">
+          <h3>Option B — Tauri 2 (Rust backend, keep the Angular UI)</h3>
+          <p class="tagline">
+            Stable and production-proven (v2.10, March 2026). Rust core + system webview.
+          </p>
+          <div class="cols2">
+            <div class="pro-con pro">
+              <h4>Gains</h4>
+              <ul>
+                <li>~10–20&nbsp;MB installs, big RAM reduction, fast cold start</li>
+                <li>
+                  Memory-safe backend; excellent security posture; mobile targets exist if ever
+                  wanted
+                </li>
+                <li>Keeps the Angular investment (no UI rewrite)</li>
+              </ul>
+            </div>
+            <div class="pro-con con">
+              <h4>Losses</h4>
+              <ul>
+                <li>
+                  <strong
+                    >WKWebView on macOS: 60&nbsp;fps cap, no ProMotion — likely feels
+                    <em>worse</em>, not better</strong
+                  >
+                </li>
+                <li>
+                  Rewrite 17k lines / 124 handlers / 20 services in Rust; tiberius + BYO Entra
+                  tokens; DSQL signing redone
+                </li>
+                <li>
+                  Playwright e2e/visual tiers dead on macOS — harness migration to WebdriverIO
+                </li>
+                <li>Renderer jank (§1) comes along for the ride</li>
+              </ul>
+            </div>
+          </div>
+          <div class="option-verdict">
+            <strong>Effort:</strong> realistically 2–3 months to parity.
+            <strong>Verdict: wrong tool for this complaint.</strong> Right tool if the pain were
+            install size or memory. Worth a 2–3 day spike only if §8's measurements say footprint
+            matters to users.
+          </div>
+          <div class="vote" data-vote="option-B">
+            <span class="vlabel">Your take:</span> <button data-v="pursue">👍 Pursue</button
+            ><button data-v="maybe">🤔 Maybe</button><button data-v="pass">👎 Pass</button>
+          </div>
+        </div>
+
+        <div class="card" data-opt="C">
+          <h3>Option C — Wails (Go backend, keep the Angular UI)</h3>
+          <p class="tagline">
+            Same architecture as Tauri, Go instead of Rust. v2 stable; v3 still alpha as of
+            mid-2026.
+          </p>
+          <div class="cols2">
+            <div class="pro-con pro">
+              <h4>Gains</h4>
+              <ul>
+                <li>
+                  Best-in-class DB drivers for our exact matrix: Microsoft-maintained go-mssqldb,
+                  pgx, go-sql-driver
+                </li>
+                <li>
+                  Docker SDK is native Go; goroutines map nicely onto pool/heartbeat/streaming work
+                </li>
+                <li>Go is faster to write and hire for than Rust</li>
+              </ul>
+            </div>
+            <div class="pro-con con">
+              <h4>Losses</h4>
+              <ul>
+                <li>
+                  Identical webview story to Tauri: WKWebView 60&nbsp;fps cap on macOS, renderer
+                  jank retained
+                </li>
+                <li>
+                  v3 (the version you'd want for multi-window/systray) is still alpha; v2 is the
+                  stable-but-aging track
+                </li>
+                <li>
+                  Smaller ecosystem/community than both Electron and Tauri; same e2e harness loss
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div class="option-verdict">
+            <strong>Effort:</strong> ~2 months to parity.
+            <strong>Verdict: same conclusion as Tauri</strong> — Go's driver story is genuinely
+            tempting for a SQL tool, but it fixes the layer that isn't broken.
+          </div>
+          <div class="vote" data-vote="option-C">
+            <span class="vlabel">Your take:</span> <button data-v="pursue">👍 Pursue</button
+            ><button data-v="maybe">🤔 Maybe</button><button data-v="pass">👎 Pass</button>
+          </div>
+        </div>
+
+        <div class="card" data-opt="D">
+          <h3>Option D — Full native (Swift/AppKit on Mac)</h3>
+          <p class="tagline">The only option that actually raises the "feel" ceiling.</p>
+          <div class="cols2">
+            <div class="pro-con pro">
+              <h4>Gains</h4>
+              <ul>
+                <li>
+                  True native feel: 120&nbsp;Hz ProMotion, instant launch, NSTableView happily
+                  scrolls millions of rows
+                </li>
+                <li>
+                  ~5–15&nbsp;MB app, ~50&nbsp;MB RAM, real menu bar / services / Quick Look
+                  integration
+                </li>
+                <li>Differentiated product position (the TablePlus/Sequel Ace tier of polish)</li>
+              </ul>
+            </div>
+            <div class="pro-con con">
+              <h4>Losses</h4>
+              <ul>
+                <li>Full rewrite of all ~66k lines including UI — realistically 6–12 months</li>
+                <li>
+                  package.json says "for macOS <em>and Windows</em>" — native means two apps or
+                  dropping Windows
+                </li>
+                <li>
+                  Monaco, golden-layout docking, d3 ERD, ng-markdown, the AI chat UI: all rebuilt
+                  from scratch (SQL Server drivers for Swift are thin; you'd likely embed a helper
+                  process anyway)
+                </li>
+                <li>Entire test harness rebuilt (XCUITest)</li>
+              </ul>
+            </div>
+          </div>
+          <div class="option-verdict">
+            <strong>Effort:</strong> 6–12+ months.
+            <strong>Verdict: a product-strategy decision, not a performance fix.</strong> Only
+            rational if "premium Mac-first SQL client" becomes the positioning and Windows is
+            expendable. Don't start here; the tuned Electron app is the cheap experiment that tells
+            you whether you still want this.
+          </div>
+          <div class="vote" data-vote="option-D">
+            <span class="vlabel">Your take:</span> <button data-v="pursue">👍 Pursue</button
+            ><button data-v="maybe">🤔 Maybe</button><button data-v="pass">👎 Pass</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="matrix">
+        <h2>5 · Comparison matrix</h2>
+        <p class="section-lede">
+          "Electron (tuned)" assumes Waves 1–3 from the plan in §8 are done.
+        </p>
+        <div class="tablewrap">
+          <table>
+            <tr>
+              <th>Dimension</th>
+              <th>Electron (tuned)</th>
+              <th>Tauri 2</th>
+              <th>Wails</th>
+              <th>Swift native</th>
+            </tr>
+            <tr>
+              <td>Cold start</td>
+              <td>~1–1.5s</td>
+              <td>&lt;1s</td>
+              <td>&lt;1s</td>
+              <td>~instant</td>
+            </tr>
+            <tr>
+              <td>Baseline RAM</td>
+              <td>~250&nbsp;MB</td>
+              <td>~80–150&nbsp;MB</td>
+              <td>~80–150&nbsp;MB</td>
+              <td>~50&nbsp;MB</td>
+            </tr>
+            <tr>
+              <td>Install size</td>
+              <td>~200&nbsp;MB</td>
+              <td>~15&nbsp;MB</td>
+              <td>~15&nbsp;MB</td>
+              <td>~10&nbsp;MB</td>
+            </tr>
+            <tr>
+              <td>Animation ceiling (macOS)</td>
+              <td><span class="sev good">120&nbsp;Hz</span></td>
+              <td><span class="sev sev1">60&nbsp;fps cap</span></td>
+              <td><span class="sev sev1">60&nbsp;fps cap</span></td>
+              <td><span class="sev good">120&nbsp;Hz</span></td>
+            </tr>
+            <tr>
+              <td>Typing latency fix</td>
+              <td><span class="sev good">Yes (zone work)</span></td>
+              <td>Same work needed</td>
+              <td>Same work needed</td>
+              <td>Native editor (rebuilt)</td>
+            </tr>
+            <tr>
+              <td>MSSQL driver</td>
+              <td><span class="sev good">tedious + MSAL (turnkey Entra)</span></td>
+              <td>tiberius (BYO tokens)</td>
+              <td><span class="sev good">go-mssqldb (MS-maintained)</span></td>
+              <td>thin / helper process</td>
+            </tr>
+            <tr>
+              <td>Aurora DSQL auth</td>
+              <td><span class="sev good">Official connector today</span></td>
+              <td>aws-sdk-rust signer</td>
+              <td>aws-sdk-go-v2 signer</td>
+              <td>DIY</td>
+            </tr>
+            <tr>
+              <td>Existing 268-test harness</td>
+              <td><span class="sev good">Keeps everything</span></td>
+              <td><span class="sev sev1">e2e/visual rebuilt</span></td>
+              <td><span class="sev sev1">e2e/visual rebuilt</span></td>
+              <td><span class="sev sev1">All rebuilt</span></td>
+            </tr>
+            <tr>
+              <td>Windows support</td>
+              <td><span class="sev good">Yes</span></td>
+              <td>Yes (WebView2)</td>
+              <td>Yes (WebView2)</td>
+              <td><span class="sev sev1">No (second app)</span></td>
+            </tr>
+            <tr>
+              <td>Effort from today</td>
+              <td><span class="sev good">~2–4 weeks total</span></td>
+              <td>~2–3 months</td>
+              <td>~2 months</td>
+              <td>6–12+ months</td>
+            </tr>
+            <tr>
+              <td>Risk</td>
+              <td><span class="sev good">Low, incremental</span></td>
+              <td>Medium-high</td>
+              <td>Medium-high (v3 alpha)</td>
+              <td>High</td>
+            </tr>
+          </table>
+        </div>
+        <p class="footnote">
+          RAM/size/start numbers are order-of-magnitude, from framework docs and community
+          benchmarks, not measurements of Forge. If we proceed to §8's Phase 0, we'll have our own
+          numbers.
+        </p>
+      </section>
+
+      <section id="electron-tax">
+        <h2>6 · What Electron still costs, even perfectly tuned</h2>
+        <p class="section-lede">
+          So the recommendation isn't cheerleading — here's what tuning can't remove.
+        </p>
+        <ul class="tight">
+          <li>
+            <strong>Footprint:</strong> ~200&nbsp;MB install, ~150–300&nbsp;MB RAM floor. If Forge
+            is meant to sit open all day next to Docker and an IDE, users notice.
+          </li>
+          <li>
+            <strong>Cold start floor:</strong> roughly a second even when perfect — Chromium
+            initialization is the tax.
+          </li>
+          <li>
+            <strong>Non-native widgets:</strong> scrollbars, context menus, text rendering are
+            Chromium's, not macOS's. Best case reads as "excellent web app" (VS Code), never "Mac
+            app" (TablePlus).
+          </li>
+          <li>
+            <strong>Update treadmill:</strong> Electron majors ship constantly (we're on 41);
+            staying current is a permanent chore.
+          </li>
+        </ul>
+        <p>
+          If, after Wave 1–2, these residuals are what still bothers you — rather than jank — that's
+          the moment the platform conversation becomes real, and §4's cards tell you which door
+          matches which complaint.
+        </p>
+      </section>
+
+      <section id="plan">
+        <h2>7 · Recommended plan</h2>
+        <p class="section-lede">
+          Measure → quick wins → structural → re-evaluate with data. Each wave is a normal PR-sized
+          branch, TDD'd against the harness.
+        </p>
+
+        <div class="card">
+          <h3>Phase 0 — Instrument (half a day)</h3>
+          <p>
+            Add perf marks around startup phases, query round trip, and keystroke-to-paint; wire a
+            simple perf tier into the regression harness so improvements are provable and
+            regressions get caught. Baseline numbers on your machine, packaged build.
+          </p>
+        </div>
+
+        <div class="card">
+          <h3>Wave 1 — Quick wins (2–4 days, mostly independent one-liners-to-small-PRs)</h3>
+          <ul class="tight">
+            <li>
+              Debounce window resize/move persistence (<code>window.ts:85-87</code>) — kills
+              window-drag jank outright
+            </li>
+            <li>
+              Bundle Inter/JetBrains Mono/Material Icons locally; delete the render-blocking Google
+              Fonts links (<code>index.html:8-13</code>)
+            </li>
+            <li>
+              Persist snapshots main-side from the execution result instead of round-tripping the
+              whole result set back from the renderer (<code>query.component.ts:1829</code>)
+            </li>
+            <li>
+              Coalesce AI stream chunks into ~40&nbsp;ms batches main-side
+              (<code>chat-service.ts:892</code>)
+            </li>
+            <li>
+              Make query-history and app-state writes async + debounced; stop double
+              read-modify-write per tab save
+            </li>
+            <li>
+              Defer keychain load and store construction until after <code>ready-to-show</code>;
+              parallelize the renderer's serial boot IPC
+            </li>
+            <li>Gate the per-line log IPC broadcast by level</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>Wave 2 — Structural (1–2 weeks)</h3>
+          <ul class="tight">
+            <li>
+              OnPush + signal inputs on the big three (query, sidebar, results-grid); precompute
+              per-node icon/color state instead of template method calls
+            </li>
+            <li>
+              Move Monaco setup <code>runOutsideAngular</code>; make tab content a per-tab signal so
+              keystrokes stop rebuilding the global tabs array
+            </li>
+            <li>
+              Stop whole-tree immutable rebuilds in <code>explorer.state.ts:883</code>; virtualize
+              the sidebar (flattened tree + CDK virtual scroll)
+            </li>
+            <li>
+              Replace the JSON snapshot/history stores with SQLite (better-sqlite3) — ends the
+              500&nbsp;MB stringify class of problem permanently
+            </li>
+            <li>
+              Enforce <code>maxRowsToDisplay</code> for real at the executor, with a "showing first
+              N of M" affordance in the grid
+            </li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>Wave 3 — Zoneless (about a week, optional but high-leverage)</h3>
+          <p>
+            Upgrade Angular 18 → 20 and adopt stable zoneless change detection. The app's heavy
+            signal usage means it's already 80% shaped for this; it's the single biggest systemic
+            fix for "everything ticks all the time." Full harness run gates it.
+          </p>
+        </div>
+
+        <div class="card">
+          <h3>Phase 4 — Re-open the platform question, with data</h3>
+          <p>
+            If tuned Forge still isn't what you want, we'll know precisely which residual
+            (footprint? native feel?) is driving it — and §4 maps each residual to the one option
+            that actually addresses it. If the itch is a smaller/faster shell: 2–3 day Tauri spike
+            (drivers + one window + one query path) before committing. If the itch is native feel:
+            that's the Swift conversation, and it's about product positioning, not performance.
+          </p>
+        </div>
+      </section>
+
+      <section id="questions">
+        <h2>8 · Questions for you</h2>
+        <p class="section-lede">
+          Tap answers (multi-select where it makes sense), add notes anywhere, then hit
+          <strong>Copy all feedback</strong> and paste it back to me.
+        </p>
+
+        <div class="card">
+          <div class="qblock" data-q="symptoms" data-multi="1">
+            <div class="q">Q1 · Which symptoms actually bug you? (pick all that apply)</div>
+            <div class="chips">
+              <button>Cold start time</button><button>Window drag/resize jank</button
+              ><button>Typing latency in editor</button> <button>Tab switching</button
+              ><button>Results loading</button><button>Sidebar/tree scrolling</button>
+              <button>Memory usage</button><button>General non-native feel</button>
+            </div>
+          </div>
+          <div class="qblock" data-q="where-felt">
+            <div class="q">Q2 · Where do you feel it most?</div>
+            <div class="chips">
+              <button>Packaged app</button><button>Dev mode</button
+              ><button>Both about equally</button><button>Haven't compared</button>
+            </div>
+          </div>
+          <div class="qblock" data-q="windows-req">
+            <div class="q">
+              Q3 · Is Windows support a real near-term requirement? (Swift-native hinges on this)
+            </div>
+            <div class="chips">
+              <button>Yes, near-term</button><button>Eventually, not soon</button
+              ><button>No / negotiable</button>
+            </div>
+          </div>
+          <div class="qblock" data-q="promotion">
+            <div class="q">
+              Q4 · Is your main display 120&nbsp;Hz ProMotion? (determines whether the WKWebView
+              60&nbsp;fps cap would be visible to you)
+            </div>
+            <div class="chips">
+              <button>Yes</button><button>No</button><button>Not sure</button>
+            </div>
+          </div>
+          <div class="qblock" data-q="appetite">
+            <div class="q">Q5 · Appetite right now?</div>
+            <div class="chips">
+              <button>Wave 1 quick wins only</button><button>Waves 1–2</button
+              ><button>Full plan incl. zoneless</button> <button>Also spike Tauri anyway</button
+              ><button>Seriously explore Swift</button>
+            </div>
+          </div>
+          <div class="qblock" data-q="instrument-ok">
+            <div class="q">
+              Q6 · OK to start with Phase 0 instrumentation (perf marks + a perf tier in the
+              harness)?
+            </div>
+            <div class="chips">
+              <button>Yes, go</button><button>Ask me again after we discuss</button>
+            </div>
+          </div>
+          <div class="qblock" data-q="freeform">
+            <div class="q">Anything else — reactions, disagreements, context I'm missing:</div>
+            <textarea placeholder="Type here, then click Save note…"></textarea>
+            <div>
+              <button
+                class="chips-save"
+                style="
+                  margin-top: 8px;
+                  font: inherit;
+                  font-size: 13.5px;
+                  cursor: pointer;
+                  border-radius: 8px;
+                  border: 1px solid var(--line);
+                  background: var(--surface);
+                  color: var(--text);
+                  padding: 6px 15px;
+                "
+              >
+                Save note
+              </button>
+              <span class="save-note"></span>
+            </div>
+          </div>
+        </div>
+
+        <p class="footnote">
+          Sources consulted: <a href="https://v3.wails.io/status/">Wails v3 roadmap/status</a> ·
+          <a href="https://v2.tauri.app/reference/webview-versions/">Tauri webview versions</a> ·
+          <a href="https://tech-insider.org/tauri-vs-electron-2026/"
+            >Tauri vs Electron 2026 comparison</a
+          >
+          ·
+          <a
+            href="https://forum.babylonjs.com/t/performance-between-safari-and-wkwebview-tauri/60811"
+            >WKWebView 60fps discussion</a
+          >
+          · <a href="https://v2.tauri.app/develop/tests/webdriver/">Tauri WebDriver docs</a> ·
+          <a href="https://webdriver.io/docs/desktop-testing/tauri/platform-support/"
+            >WebdriverIO Tauri platform support</a
+          >
+          · <a href="https://github.com/prisma/tiberius">prisma/tiberius</a> ·
+          <a href="https://github.com/microsoft/go-mssqldb">microsoft/go-mssqldb</a>. Codebase
+          evidence gathered 2026-07-25 from <code>main</code>.
+        </p>
+      </section>
+
+      <button class="copyall" id="copyAllBtn">📋 Copy all feedback</button>
+
+      <script>
+        (function () {
+          'use strict';
+
+          function whenWidgetReady(cb) {
+            var tries = 0;
+            var t = setInterval(function () {
+              tries += 1;
+              if (window.MJCCO && typeof window.MJCCO.addEntry === 'function') {
+                clearInterval(t);
+                cb();
+                return;
+              }
+              if (tries > 100) {
+                clearInterval(t);
+                console.warn('MJCCO widget not found; feedback controls disabled');
+              }
+            }, 50);
+          }
+
+          function setEntry(id, data) {
+            var existing = MJCCO.getEntries().find(function (e) {
+              return e.id === id;
+            });
+            if (existing) {
+              MJCCO.updateEntry(id, data);
+              return;
+            }
+            data.id = id;
+            MJCCO.addEntry(data);
+          }
+
+          function removeEntryIfAny(id) {
+            var existing = MJCCO.getEntries().find(function (e) {
+              return e.id === id;
+            });
+            if (existing) {
+              MJCCO.removeEntry(id);
+            }
+          }
+
+          function wireVotes() {
+            document.querySelectorAll('.vote').forEach(function (row) {
+              var key = row.getAttribute('data-vote');
+              var card = row.closest('.card');
+              var label = card ? card.querySelector('h3').textContent : key;
+              row.querySelectorAll('button').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                  var already = btn.classList.contains('sel');
+                  row.querySelectorAll('button').forEach(function (b) {
+                    b.classList.remove('sel');
+                  });
+                  if (already) {
+                    removeEntryIfAny('vote-' + key);
+                    return;
+                  }
+                  btn.classList.add('sel');
+                  setEntry('vote-' + key, {
+                    kind: 'vote',
+                    label: label,
+                    value: btn.getAttribute('data-v'),
+                    context: 'Section 4 options',
+                  });
+                });
+              });
+            });
+          }
+
+          function chipValues(block) {
+            return Array.from(block.querySelectorAll('.chips button.sel')).map(function (b) {
+              return b.textContent;
+            });
+          }
+
+          function wireChips() {
+            document.querySelectorAll('.qblock[data-q]').forEach(function (block) {
+              var key = block.getAttribute('data-q');
+              var multi = block.getAttribute('data-multi') === '1';
+              var label = block.querySelector('.q') ? block.querySelector('.q').textContent : key;
+              block.querySelectorAll('.chips button').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                  if (!multi) {
+                    var already = btn.classList.contains('sel');
+                    block.querySelectorAll('.chips button').forEach(function (b) {
+                      b.classList.remove('sel');
+                    });
+                    if (already) {
+                      removeEntryIfAny('q-' + key);
+                      return;
+                    }
+                    btn.classList.add('sel');
+                  } else {
+                    btn.classList.toggle('sel');
+                  }
+                  var vals = chipValues(block);
+                  if (vals.length === 0) {
+                    removeEntryIfAny('q-' + key);
+                    return;
+                  }
+                  setEntry('q-' + key, {
+                    kind: multi ? 'multi-select' : 'select',
+                    label: label,
+                    value: vals.join('; '),
+                    context: 'Section 8 questions',
+                  });
+                });
+              });
+            });
+          }
+
+          function wireFreeform() {
+            var block = document.querySelector('.qblock[data-q="freeform"]');
+            if (!block) {
+              return;
+            }
+            var ta = block.querySelector('textarea');
+            var btn = block.querySelector('.chips-save');
+            var note = block.querySelector('.save-note');
+            btn.addEventListener('click', function () {
+              var text = ta.value.trim();
+              if (!text) {
+                removeEntryIfAny('q-freeform');
+                note.textContent = 'Cleared.';
+                return;
+              }
+              setEntry('q-freeform', {
+                kind: 'free-text',
+                label: 'General notes',
+                value: text,
+                context: 'Section 8 questions',
+              });
+              note.textContent = 'Saved ✓ (included in Copy all)';
+            });
+          }
+
+          function restoreState() {
+            MJCCO.getEntries().forEach(function (e) {
+              if (!e.id) {
+                return;
+              }
+              if (e.id.indexOf('vote-') === 0) {
+                var row = document.querySelector('[data-vote="' + e.id.slice(5) + '"]');
+                if (!row) {
+                  return;
+                }
+                var b = row.querySelector('button[data-v="' + e.value + '"]');
+                if (b) {
+                  b.classList.add('sel');
+                }
+                return;
+              }
+              if (e.id.indexOf('q-') !== 0) {
+                return;
+              }
+              var block = document.querySelector('.qblock[data-q="' + e.id.slice(2) + '"]');
+              if (!block) {
+                return;
+              }
+              if (e.kind === 'free-text') {
+                block.querySelector('textarea').value = e.value;
+                return;
+              }
+              var vals = String(e.value).split('; ');
+              block.querySelectorAll('.chips button').forEach(function (b) {
+                if (vals.indexOf(b.textContent) !== -1) {
+                  b.classList.add('sel');
+                }
+              });
+            });
+          }
+
+          whenWidgetReady(function () {
+            MJCCO.ready().then(function () {
+              restoreState();
+              wireVotes();
+              wireChips();
+              wireFreeform();
+            });
+            var copyBtn = document.getElementById('copyAllBtn');
+            copyBtn.addEventListener('click', function () {
+              MJCCO.copyAll();
+              copyBtn.textContent = '✓ Copied — paste into Claude Code';
+              setTimeout(function () {
+                copyBtn.textContent = '📋 Copy all feedback';
+              }, 2500);
+            });
+          });
+        })();
+      </script>
+
+      <script>
+        window.MJCCO_DISABLE_SYNC = true;
+        window.MJCCO_HEAD_MS = 0;
+      </script>
+      <script>
+        /*!
+         * MJC Review-HTML Comment Overlay v6
+         * Bootstrap-deployed via the review-html-artifacts skill.
+         *
+         * Floating "Comment" toggle + "Copy all" + "List" + identity chip + window.MJCCO API.
+         * Real-time cross-device + multi-reviewer sync via AppSync Events (pure infrastructure,
+         * no Lambdas, JS-runtime handlers). Detects artifact updates via HEAD-poll and offers
+         * a reload toast.
+         *
+         * v6 changes vs v5:
+         *  - Real-time pub/sub via AppSync Events (replaces REST API + polling). Sub-second
+         *    propagation across all connected reviewers.
+         *  - Subscribes to /feedback/<encoded-pathname>; publishes create/update/delete events;
+         *    receives them as they happen.
+         *  - Initial load via "snapshot" event: publish on connect → server queries DDB →
+         *    server broadcasts a snapshot-response; client filters by its own clientId.
+         *  - "Clear all" button in the List panel header. Confirms, then publishes a clear
+         *    event and per-item deletes.
+         *  - Drops polling entirely; keeps HEAD-poll for artifact-update detection.
+         *  - Uses Amplify Events client (loaded dynamically from CDN, no bundled deps).
+         *  - Falls back to local-only if AppSync endpoint is unreachable.
+         *
+         * Placeholders __MJCCO_HTTP__ / __MJCCO_REALTIME__ / __MJCCO_API_KEY__ are substituted
+         * by bootstrap.sh at upload time with the per-account AppSync endpoints + key.
+         */
+        (function () {
+          'use strict';
+
+          if (window.__mjccoInstalled) return;
+          window.__mjccoInstalled = true;
+
+          const NS = 'mjcco';
+          const STORAGE_KEY = `${NS}:${location.pathname}`;
+          const ENTRIES_KEY = `${NS}:entries:${location.pathname}`;
+          const USER_KEY = `${NS}:user`;
+          const HTTP_ENDPOINT = window.MJCCO_HTTP || '__MJCCO_HTTP__';
+          const REALTIME_ENDPOINT = window.MJCCO_REALTIME || '__MJCCO_REALTIME__';
+          const API_KEY = window.MJCCO_API_KEY || '__MJCCO_API_KEY__';
+          const SNAPSHOT_URL = window.MJCCO_SNAPSHOT_URL || '__MJCCO_SNAPSHOT_URL__';
+          const SYNC_DISABLED =
+            !!window.MJCCO_DISABLE_SYNC || HTTP_ENDPOINT.indexOf('__MJCCO_') === 0;
+          const AMPLIFY_CORE_CDN = 'https://esm.sh/aws-amplify@6';
+          const AMPLIFY_DATA_CDN = 'https://esm.sh/aws-amplify@6/data';
+          const HEAD_MS = typeof window.MJCCO_HEAD_MS === 'number' ? window.MJCCO_HEAD_MS : 30000;
+          const RECONNECT_MAX_MS = 30000;
+          const CLIENT_ID = `cli-${Math.random().toString(36).slice(2, 10)}`;
+          const CHANNEL_PATH = `/feedback/p${pathToChannelSegment(location.pathname)}`;
+
+          function pathToChannelSegment(p) {
+            // AppSync Events channel segments are limited (~50 chars) and accept only
+            // [A-Za-z0-9_-]. We FNV-1a hash the pathname to a fixed short segment.
+            // Handler doesn't decode this — it uses payload.artifact for the real key.
+            // 32-bit hash collision space is plenty for a few hundred artifacts.
+            let h = 2166136261;
+            const max = Math.min(p.length, 2048);
+            for (let i = 0; i < max; i++) {
+              h ^= p.charCodeAt(i);
+              h = Math.imul(h, 16777619);
+            }
+            return (h >>> 0).toString(16).padStart(8, '0');
+          }
+          const MAX_SNIPPET = 80;
+          const MAX_COMMENTS = 200;
+          const MAX_ENTRIES = 500;
+          const MAX_DOM_WALK = 50;
+          const HIGHLIGHT_MS = 1800;
+
+          const CSS = `
+    .${NS}-controls {
+      position: fixed; bottom: 16px; right: 16px; z-index: 2147483646;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .${NS}-toggle, .${NS}-copyall {
+      padding: 10px 14px; border-radius: 999px;
+      background: var(--${NS}-toggle-bg, #1f2937); color: var(--${NS}-toggle-fg, #fff);
+      border: 1px solid var(--${NS}-toggle-border, rgba(255,255,255,0.1));
+      font: 500 13px/1 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+      transition: transform 120ms ease, background 120ms ease;
+      display: inline-flex; align-items: center; gap: 8px; user-select: none;
+    }
+    .${NS}-toggle:hover, .${NS}-copyall:hover { transform: translateY(-1px); }
+    .${NS}-toggle:focus-visible, .${NS}-copyall:focus-visible { outline: 2px solid #60a5fa; outline-offset: 2px; }
+    .${NS}-toggle[aria-pressed="true"] {
+      background: var(--${NS}-toggle-active-bg, #2563eb);
+      border-color: var(--${NS}-toggle-active-border, #1d4ed8);
+    }
+    .${NS}-copyall {
+      background: var(--${NS}-copyall-bg, #ffffff);
+      color: var(--${NS}-copyall-fg, #1f2937);
+      border-color: var(--${NS}-copyall-border, #e5e7eb);
+    }
+    .${NS}-copyall:hover {
+      background: var(--${NS}-copyall-hover-bg, #f3f4f6);
+    }
+    @media (prefers-color-scheme: dark) {
+      .${NS}-copyall {
+        background: var(--${NS}-copyall-bg, #374151);
+        color: var(--${NS}-copyall-fg, #f9fafb);
+        border-color: var(--${NS}-copyall-border, #4b5563);
+      }
+      .${NS}-copyall:hover { background: var(--${NS}-copyall-hover-bg, #4b5563); }
+    }
+    .${NS}-toggle-dot { width: 8px; height: 8px; border-radius: 999px; background: currentColor; opacity: 0.9; }
+    .${NS}-toggle-count, .${NS}-copyall-count {
+      background: var(--${NS}-badge-bg, rgba(255,255,255,0.22));
+      padding: 2px 7px; border-radius: 999px; font-size: 11px; font-weight: 600;
+    }
+    .${NS}-copyall-count {
+      background: var(--${NS}-copyall-badge-bg, rgba(0,0,0,0.08));
+    }
+    @media (prefers-color-scheme: dark) {
+      .${NS}-copyall-count { background: var(--${NS}-copyall-badge-bg, rgba(255,255,255,0.14)); }
+    }
+    body.${NS}-active *:not(.${NS}-controls):not(.${NS}-controls *):not(.${NS}-popover):not(.${NS}-popover *):not(.${NS}-marker):not(.${NS}-panel):not(.${NS}-panel *):not(.${NS}-toast):not(.${NS}-toast *) {
+      cursor: crosshair !important;
+    }
+    .${NS}-popover textarea { cursor: text !important; }
+    .${NS}-hover-outline {
+      outline: 2px dashed var(--${NS}-hover, #3b82f6) !important;
+      outline-offset: 2px !important;
+    }
+    .${NS}-marker {
+      position: absolute; z-index: 2147483645;
+      min-width: 22px; height: 22px;
+      background: var(--${NS}-marker-bg, #f59e0b); color: var(--${NS}-marker-fg, #1f2937);
+      font: 600 11px/22px -apple-system, BlinkMacSystemFont, sans-serif;
+      padding: 0 7px; border-radius: 999px; border: none;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+      cursor: pointer; pointer-events: auto; text-align: center;
+    }
+    .${NS}-marker:focus-visible { outline: 2px solid #60a5fa; outline-offset: 2px; }
+    .${NS}-popover {
+      position: absolute; z-index: 2147483647;
+      width: min(380px, calc(100vw - 24px));
+      background: var(--${NS}-popover-bg, #ffffff); color: var(--${NS}-popover-fg, #111827);
+      border: 1px solid var(--${NS}-popover-border, #e5e7eb);
+      border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,0.2);
+      padding: 12px;
+      font: 13px/1.45 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    .${NS}-popover-nav { display: flex; gap: 6px; margin-bottom: 8px; }
+    .${NS}-popover-context {
+      font-size: 11px; color: var(--${NS}-muted, #6b7280);
+      background: var(--${NS}-popover-context-bg, #f9fafb);
+      padding: 6px 8px; border-radius: 6px; margin-bottom: 8px;
+      max-height: 80px; overflow: auto; word-break: break-word;
+    }
+    .${NS}-popover-context strong { color: var(--${NS}-popover-fg, #111827); }
+    .${NS}-popover textarea,
+    .${NS}-popover input[type="text"] {
+      width: 100%; box-sizing: border-box;
+      min-height: 80px; resize: vertical;
+      padding: 8px; border-radius: 8px;
+      border: 1px solid var(--${NS}-input-border, #d1d5db);
+      background: var(--${NS}-input-bg, #ffffff);
+      color: var(--${NS}-popover-fg, #111827);
+      -webkit-text-fill-color: var(--${NS}-popover-fg, #111827);
+      -webkit-appearance: none; appearance: none;
+      font: inherit;
+    }
+    .${NS}-popover input[type="text"] { min-height: 0; resize: none; }
+    .${NS}-popover textarea:focus,
+    .${NS}-popover input[type="text"]:focus { outline: 2px solid var(--${NS}-focus, #3b82f6); outline-offset: 1px; }
+    @media (prefers-color-scheme: dark) {
+      .${NS}-popover textarea,
+      .${NS}-popover input[type="text"] {
+        background: var(--${NS}-input-bg, #111827);
+        color: var(--${NS}-popover-fg, #f9fafb);
+        -webkit-text-fill-color: var(--${NS}-popover-fg, #f9fafb);
+        border-color: var(--${NS}-input-border, #374151);
+      }
+    }
+    .${NS}-popover-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+    .${NS}-btn {
+      padding: 6px 10px; border-radius: 6px; border: 1px solid var(--${NS}-btn-border, #e5e7eb);
+      background: var(--${NS}-btn-bg, #f3f4f6); color: var(--${NS}-btn-fg, #111827);
+      font: 500 12px/1 -apple-system, sans-serif; cursor: pointer;
+    }
+    .${NS}-btn:hover { background: var(--${NS}-btn-hover-bg, #e5e7eb); }
+    .${NS}-btn:focus-visible { outline: 2px solid #60a5fa; outline-offset: 1px; }
+    .${NS}-btn-primary {
+      background: var(--${NS}-btn-primary-bg, #2563eb); color: #fff; border-color: transparent;
+    }
+    .${NS}-btn-primary:hover { background: var(--${NS}-btn-primary-hover-bg, #1d4ed8); }
+    .${NS}-btn-danger { color: var(--${NS}-danger, #dc2626); }
+    .${NS}-btn-ghost { background: transparent; border-color: transparent; }
+    .${NS}-spacer { flex: 1 1 auto; }
+
+    /* author-specificity rules to force-hide widget chrome; without these the
+       class-level "display: inline-flex" on .${NS}-toggle/.${NS}-copyall/etc.
+       overrides the UA "[hidden] { display: none }" rule and the FAB stays
+       visible after clearAll / when counts drop to 0 */
+    .${NS}-toggle[hidden],
+    .${NS}-copyall[hidden],
+    .${NS}-identity[hidden],
+    .${NS}-list-btn[hidden],
+    .${NS}-toggle-count[hidden],
+    .${NS}-copyall-count[hidden],
+    .${NS}-list-count[hidden] { display: none !important; }
+
+    @media (prefers-color-scheme: dark) {
+      .${NS}-popover {
+        background: var(--${NS}-popover-bg, #1f2937); color: var(--${NS}-popover-fg, #f9fafb);
+        border-color: var(--${NS}-popover-border, #374151);
+      }
+      .${NS}-popover-context {
+        background: var(--${NS}-popover-context-bg, #111827); color: var(--${NS}-muted, #9ca3af);
+      }
+      .${NS}-popover-context strong { color: var(--${NS}-popover-fg, #f9fafb); }
+      .${NS}-btn {
+        background: var(--${NS}-btn-bg, #374151); color: var(--${NS}-btn-fg, #f9fafb);
+        border-color: var(--${NS}-btn-border, #4b5563);
+      }
+      .${NS}-btn:hover { background: var(--${NS}-btn-hover-bg, #4b5563); }
+    }
+
+    .${NS}-controls { flex-wrap: wrap-reverse; justify-content: flex-end; max-width: calc(100vw - 32px); }
+    .${NS}-identity, .${NS}-list-btn {
+      padding: 10px 14px; border-radius: 999px;
+      background: var(--${NS}-copyall-bg, #ffffff);
+      color: var(--${NS}-copyall-fg, #1f2937);
+      border: 1px solid var(--${NS}-copyall-border, #e5e7eb);
+      font: 500 13px/1 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+      transition: transform 120ms ease, background 120ms ease;
+      display: inline-flex; align-items: center; gap: 8px; user-select: none;
+    }
+    .${NS}-identity:hover, .${NS}-list-btn:hover { transform: translateY(-1px); background: var(--${NS}-copyall-hover-bg, #f3f4f6); }
+    .${NS}-identity:focus-visible, .${NS}-list-btn:focus-visible { outline: 2px solid #60a5fa; outline-offset: 2px; }
+    .${NS}-identity-label { font-size: 11px; color: var(--${NS}-muted, #6b7280); }
+    .${NS}-identity-value { font-family: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace; font-size: 12px; }
+    .${NS}-list-count {
+      background: var(--${NS}-copyall-badge-bg, rgba(0,0,0,0.08));
+      padding: 2px 7px; border-radius: 999px; font-size: 11px; font-weight: 600;
+    }
+    @media (prefers-color-scheme: dark) {
+      .${NS}-identity, .${NS}-list-btn {
+        background: var(--${NS}-copyall-bg, #374151);
+        color: var(--${NS}-copyall-fg, #f9fafb);
+        border-color: var(--${NS}-copyall-border, #4b5563);
+      }
+      .${NS}-identity:hover, .${NS}-list-btn:hover { background: var(--${NS}-copyall-hover-bg, #4b5563); }
+      .${NS}-identity-label { color: var(--${NS}-muted, #9ca3af); }
+      .${NS}-list-count { background: var(--${NS}-copyall-badge-bg, rgba(255,255,255,0.14)); }
+    }
+
+    .${NS}-panel {
+      position: fixed; top: 0; right: 0; bottom: 0; z-index: 2147483647;
+      width: min(380px, 100vw); max-width: 100vw;
+      background: var(--${NS}-popover-bg, #ffffff); color: var(--${NS}-popover-fg, #111827);
+      border-left: 1px solid var(--${NS}-popover-border, #e5e7eb);
+      box-shadow: -8px 0 24px rgba(0,0,0,0.18);
+      display: flex; flex-direction: column;
+      transform: translateX(100%); transition: transform 200ms ease;
+      font: 13px/1.45 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    .${NS}-panel[data-open="true"] { transform: translateX(0); }
+    .${NS}-panel-head {
+      padding: 16px;
+      border-bottom: 1px solid var(--${NS}-popover-border, #e5e7eb);
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    }
+    .${NS}-panel-title { font-weight: 600; font-size: 14px; }
+    .${NS}-panel-body { flex: 1 1 auto; overflow-y: auto; padding: 0 0 12px 0; }
+    .${NS}-panel-section-title {
+      padding: 12px 16px 4px 16px;
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
+      color: var(--${NS}-muted, #6b7280);
+      font-weight: 600;
+    }
+    .${NS}-panel-empty {
+      padding: 16px; color: var(--${NS}-muted, #6b7280); font-style: italic;
+    }
+    .${NS}-panel-row {
+      display: flex; align-items: flex-start; gap: 8px;
+      width: 100%; text-align: left;
+      padding: 10px 12px 10px 16px; border: none; background: transparent;
+      color: inherit; font: inherit;
+      border-top: 1px solid var(--${NS}-popover-border, #e5e7eb);
+    }
+    .${NS}-panel-row-main {
+      flex: 1 1 auto; min-width: 0; cursor: pointer;
+      background: transparent; border: none; padding: 0; color: inherit; font: inherit; text-align: left;
+    }
+    .${NS}-panel-row-main:hover { opacity: 0.8; }
+    .${NS}-panel-row-delete {
+      flex-shrink: 0;
+      width: 28px; height: 28px;
+      border-radius: 6px; border: 1px solid transparent;
+      background: transparent; color: var(--${NS}-muted, #6b7280);
+      cursor: pointer; font: 600 14px/1 -apple-system, sans-serif;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: background 120ms ease, color 120ms ease;
+    }
+    .${NS}-panel-row-delete:hover {
+      background: var(--${NS}-status-error-bg, rgba(220,38,38,0.1));
+      color: var(--${NS}-danger, #dc2626);
+    }
+    .${NS}-panel-row-delete:focus-visible { outline: 2px solid #60a5fa; outline-offset: 1px; }
+    .${NS}-panel-row-resolve {
+      flex-shrink: 0;
+      width: 28px; height: 28px;
+      border-radius: 6px; border: 1px solid transparent;
+      background: transparent; color: var(--${NS}-muted, #6b7280);
+      cursor: pointer; font: 600 14px/1 -apple-system, sans-serif;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: background 120ms ease, color 120ms ease;
+    }
+    .${NS}-panel-row-resolve:hover {
+      background: var(--${NS}-status-success-bg, rgba(22,163,74,0.12));
+      color: var(--${NS}-success, #16a34a);
+    }
+    .${NS}-panel-row-resolve:focus-visible { outline: 2px solid #60a5fa; outline-offset: 1px; }
+    .${NS}-panel-row[data-resolved="true"] .${NS}-panel-row-resolve {
+      color: var(--${NS}-success, #16a34a);
+    }
+    .${NS}-panel-row[data-resolved="true"] .${NS}-panel-row-text {
+      text-decoration: line-through;
+      opacity: 0.65;
+    }
+    .${NS}-panel-row[data-resolved="true"] .${NS}-panel-row-meta { opacity: 0.7; }
+    .${NS}-panel-row-resolved-flag {
+      display: inline-block; padding: 1px 6px; border-radius: 3px;
+      background: var(--${NS}-status-success-bg, rgba(22,163,74,0.15));
+      color: var(--${NS}-success, #16a34a);
+      font-size: 10px; text-transform: uppercase; font-weight: 600; margin-left: 6px;
+    }
+    .${NS}-panel-row:hover { background: var(--${NS}-popover-context-bg, #f9fafb); }
+    .${NS}-panel-row-meta { font-size: 11px; color: var(--${NS}-muted, #6b7280); margin-bottom: 4px; }
+    .${NS}-panel-row-text { font-size: 13px; line-height: 1.4; }
+    .${NS}-panel-row[data-orphan="true"] .${NS}-panel-row-text { color: var(--${NS}-muted, #6b7280); font-style: italic; }
+    .${NS}-panel-row-orphan-flag {
+      display: inline-block; padding: 1px 6px; border-radius: 3px;
+      background: var(--${NS}-status-warning-bg, rgba(212,150,28,0.15));
+      color: var(--${NS}-status-warning, #b07a18);
+      font-size: 10px; text-transform: uppercase; font-weight: 600; margin-left: 6px;
+    }
+    @media (prefers-color-scheme: dark) {
+      .${NS}-panel {
+        background: var(--${NS}-popover-bg, #1f2937); color: var(--${NS}-popover-fg, #f9fafb);
+        border-left-color: var(--${NS}-popover-border, #374151);
+      }
+      .${NS}-panel-head { border-bottom-color: var(--${NS}-popover-border, #374151); }
+      .${NS}-panel-row { border-top-color: var(--${NS}-popover-border, #374151); }
+      .${NS}-panel-row:hover { background: var(--${NS}-popover-context-bg, #111827); }
+    }
+    .${NS}-flash {
+      animation: ${NS}-flash 1800ms ease-out;
+      outline: 3px solid var(--${NS}-hover, #3b82f6) !important;
+      outline-offset: 4px !important;
+    }
+    @keyframes ${NS}-flash {
+      0% { outline-color: var(--${NS}-hover, #3b82f6); }
+      80% { outline-color: var(--${NS}-hover, #3b82f6); }
+      100% { outline-color: transparent; }
+    }
+    .${NS}-toggle-count.${NS}-pulse,
+    .${NS}-copyall-count.${NS}-pulse,
+    .${NS}-list-count.${NS}-pulse {
+      animation: ${NS}-pulse 700ms ease-out;
+    }
+    @keyframes ${NS}-pulse {
+      0% { transform: scale(1); }
+      40% { transform: scale(1.35); background: var(--${NS}-hover, #3b82f6); color: #fff; }
+      100% { transform: scale(1); }
+    }
+
+    .${NS}-modal-backdrop {
+      position: fixed; inset: 0; z-index: 2147483647;
+      background: rgba(0,0,0,0.45);
+      display: flex; align-items: center; justify-content: center;
+      padding: 16px;
+      font: 13px/1.45 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    .${NS}-modal {
+      max-width: 420px; width: 100%;
+      background: var(--${NS}-popover-bg, #ffffff); color: var(--${NS}-popover-fg, #111827);
+      border: 1px solid var(--${NS}-popover-border, #e5e7eb);
+      border-radius: 12px; box-shadow: 0 24px 48px rgba(0,0,0,0.3);
+      padding: 18px 20px;
+    }
+    .${NS}-modal-title { font-weight: 600; font-size: 15px; margin-bottom: 8px; }
+    .${NS}-modal-body {
+      font-size: 13px; line-height: 1.5; margin-bottom: 14px;
+      color: var(--${NS}-muted, #4b5563);
+    }
+    .${NS}-modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+    .${NS}-btn-danger-fill {
+      background: var(--${NS}-danger, #dc2626);
+      color: #fff;
+      border-color: transparent;
+    }
+    .${NS}-btn-danger-fill:hover { background: var(--${NS}-danger-hover, #b91c1c); }
+    @media (prefers-color-scheme: dark) {
+      .${NS}-modal {
+        background: var(--${NS}-popover-bg, #1f2937);
+        color: var(--${NS}-popover-fg, #f9fafb);
+        border-color: var(--${NS}-popover-border, #374151);
+      }
+      .${NS}-modal-body { color: var(--${NS}-muted, #d1d5db); }
+    }
+
+    .${NS}-toast {
+      position: fixed; bottom: 76px; right: 16px; z-index: 2147483645;
+      max-width: calc(100vw - 32px);
+      padding: 12px 14px;
+      background: var(--${NS}-popover-bg, #1f2937); color: var(--${NS}-popover-fg, #f9fafb);
+      border: 1px solid var(--${NS}-popover-border, #374151);
+      border-radius: 10px; box-shadow: 0 12px 32px rgba(0,0,0,0.25);
+      display: flex; align-items: center; gap: 10px;
+      font: 13px/1.4 -apple-system, sans-serif;
+    }
+    @media (prefers-color-scheme: light) {
+      .${NS}-toast { background: #1f2937; color: #fff; border-color: rgba(255,255,255,0.1); }
+    }
+
+    @media (max-width: 640px) {
+      .${NS}-toggle, .${NS}-copyall, .${NS}-identity, .${NS}-list-btn { padding: 10px 12px; font-size: 13px; }
+      .${NS}-popover { width: calc(100vw - 16px); }
+      .${NS}-controls { gap: 6px; }
+      .${NS}-identity-label { display: none; }
+      .${NS}-panel { width: 100vw; }
+    }
+  `;
+
+          function installStyles() {
+            const style = document.createElement('style');
+            style.id = `${NS}-style`;
+            style.textContent = CSS;
+            document.head.appendChild(style);
+          }
+
+          let comments = loadComments();
+          let entries = loadEntries();
+          let user = loadUser();
+          let active = false;
+          let hoverEl = null;
+          let openPopover = null;
+          let markers = [];
+          let toggleBtn = null;
+          let copyAllBtn = null;
+          let listBtn = null;
+          let identityBtn = null;
+          let panelEl = null;
+          let toastEl = null;
+          let headTimer = null;
+          let artifactBaseline = null;
+          let initialSyncPromise = null;
+          const subscribers = new Set();
+
+          function loadComments() {
+            try {
+              const raw = localStorage.getItem(STORAGE_KEY);
+              if (!raw) return [];
+              const parsed = JSON.parse(raw);
+              if (!Array.isArray(parsed)) return [];
+              return parsed.slice(0, MAX_COMMENTS);
+            } catch (err) {
+              console.warn(`[${NS}] failed to load comments:`, err);
+              return [];
+            }
+          }
+
+          function saveComments() {
+            try {
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(comments));
+            } catch (err) {
+              console.warn(`[${NS}] failed to save comments:`, err);
+            }
+            notifySubscribers();
+          }
+
+          function loadEntries() {
+            try {
+              const raw = localStorage.getItem(ENTRIES_KEY);
+              if (!raw) return [];
+              const parsed = JSON.parse(raw);
+              if (!Array.isArray(parsed)) return [];
+              return parsed.slice(0, MAX_ENTRIES);
+            } catch (err) {
+              console.warn(`[${NS}] failed to load entries:`, err);
+              return [];
+            }
+          }
+
+          function saveEntries() {
+            try {
+              localStorage.setItem(ENTRIES_KEY, JSON.stringify(entries));
+            } catch (err) {
+              console.warn(`[${NS}] failed to save entries:`, err);
+            }
+            notifySubscribers();
+          }
+
+          function notifySubscribers() {
+            const snapshot = { comments: comments.slice(), entries: entries.slice() };
+            let n = 0;
+            for (const cb of subscribers) {
+              if (n++ > 100) break;
+              try {
+                cb(snapshot);
+              } catch (err) {
+                console.warn(`[${NS}] subscriber threw:`, err);
+              }
+            }
+          }
+
+          function loadUser() {
+            try {
+              const fromHash = (location.hash.match(/[#&]user=([^&]+)/) || [])[1];
+              if (fromHash) return decodeURIComponent(fromHash);
+              const stored = localStorage.getItem(USER_KEY);
+              if (stored) return stored;
+              const anon = `anon-${Math.random().toString(36).slice(2, 8)}`;
+              localStorage.setItem(USER_KEY, anon);
+              return anon;
+            } catch (err) {
+              console.warn(`[${NS}] loadUser failed:`, err);
+              return 'anon';
+            }
+          }
+
+          function persistUser(name) {
+            try {
+              localStorage.setItem(USER_KEY, name);
+            } catch (err) {
+              console.warn(`[${NS}] persistUser failed:`, err);
+            }
+          }
+
+          function getTimezone() {
+            try {
+              return Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+            } catch (err) {
+              return '';
+            }
+          }
+
+          // ---- AppSync Events client ----
+          let eventsModule = null;
+          let channelHandle = null;
+          let reconnectDelay = 1000;
+
+          function loadEventsClient() {
+            if (eventsModule) return Promise.resolve(eventsModule);
+            if (SYNC_DISABLED) return Promise.reject(new Error('sync disabled'));
+            return Promise.all([import(AMPLIFY_CORE_CDN), import(AMPLIFY_DATA_CDN)]).then(
+              ([core, data]) => {
+                if (!core || !core.Amplify || !core.Amplify.configure) {
+                  throw new Error('Amplify core missing or has no configure()');
+                }
+                if (!data || !data.events) {
+                  throw new Error('events module missing from aws-amplify/data');
+                }
+                core.Amplify.configure({
+                  API: {
+                    Events: {
+                      endpoint: HTTP_ENDPOINT,
+                      region: 'us-east-1',
+                      defaultAuthMode: 'apiKey',
+                      apiKey: API_KEY,
+                    },
+                  },
+                });
+                eventsModule = data;
+                console.info(`[${NS}] Amplify Events configured; endpoint=${HTTP_ENDPOINT}`);
+                return data;
+              }
+            );
+          }
+
+          function connectChannel() {
+            if (SYNC_DISABLED) return Promise.resolve(null);
+            console.info(`[${NS}] connecting to channel ${CHANNEL_PATH}`);
+            return loadEventsClient()
+              .then(mod => mod.events.connect(CHANNEL_PATH))
+              .then(channel => {
+                channelHandle = channel;
+                console.info(`[${NS}] WS channel open`);
+                channel.subscribe({
+                  next: msg => {
+                    let payload =
+                      msg && msg.event !== undefined
+                        ? msg.event
+                        : msg && msg.data !== undefined
+                          ? msg.data
+                          : msg;
+                    if (typeof payload === 'string') {
+                      try {
+                        payload = JSON.parse(payload);
+                      } catch (err) {
+                        console.warn(`[${NS}] failed to parse WS message:`, err, msg);
+                        return;
+                      }
+                    }
+                    handleIncomingEvent(payload);
+                  },
+                  error: err => {
+                    console.warn(`[${NS}] channel error, will reconnect:`, err);
+                    scheduleReconnect();
+                  },
+                });
+                reconnectDelay = 1000;
+                return channel;
+              })
+              .catch(err => {
+                console.warn(`[${NS}] connectChannel failed (local-only):`, err);
+                scheduleReconnect();
+                return null;
+              });
+          }
+
+          function scheduleReconnect() {
+            if (SYNC_DISABLED) return;
+            const delay = Math.min(reconnectDelay, RECONNECT_MAX_MS);
+            reconnectDelay = Math.min(reconnectDelay * 2, RECONNECT_MAX_MS);
+            setTimeout(() => {
+              if (document.visibilityState === 'visible') connectChannel();
+            }, delay);
+          }
+
+          function publishEvent(payload) {
+            if (SYNC_DISABLED) return Promise.resolve();
+            const stamped = { ...payload, artifact: location.pathname };
+            return loadEventsClient()
+              .then(mod => mod.events.post(CHANNEL_PATH, stamped))
+              .catch(err => console.warn(`[${NS}] publishEvent failed:`, err));
+          }
+
+          function pushItemRemote(type, item) {
+            publishEvent({ type: 'create', item: { ...item, type } });
+          }
+
+          function deleteItemRemote(type, id) {
+            publishEvent({ type: 'delete', itemType: type, id });
+          }
+
+          function publishClearAll() {
+            publishEvent({ type: 'clear' });
+          }
+
+          function requestSnapshot() {
+            if (SYNC_DISABLED) return Promise.resolve(false);
+            const url = `${SNAPSHOT_URL}?path=${encodeURIComponent(location.pathname)}`;
+            return fetch(url, { method: 'GET', cache: 'no-store' })
+              .then(res => {
+                if (!res.ok) throw new Error(`status ${res.status}`);
+                return res.json();
+              })
+              .then(items => {
+                if (!Array.isArray(items) || items.length === 0) return false;
+                const changed = mergeRemoteIntoLocal(items);
+                if (!changed) return false;
+                try {
+                  localStorage.setItem(STORAGE_KEY, JSON.stringify(comments));
+                  localStorage.setItem(ENTRIES_KEY, JSON.stringify(entries));
+                } catch (err) {
+                  console.warn(`[${NS}] snapshot persist failed:`, err);
+                }
+                if (copyAllBtn) updateCounts();
+                if (active) renderMarkers();
+                notifySubscribers();
+                return true;
+              })
+              .catch(err => {
+                console.warn(`[${NS}] snapshot fetch failed (local-only):`, err);
+                return false;
+              });
+          }
+
+          function handleIncomingEvent(evt) {
+            if (!evt) return;
+            const payload = evt.payload || evt;
+            if (!payload || !payload.type) return;
+
+            if (payload.type === 'create' || payload.type === 'update') {
+              const item = payload.item;
+              if (!item || !item.id || !item.type) return;
+              const changed = mergeRemoteIntoLocal([item]);
+              if (!changed) return;
+              try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(comments));
+                localStorage.setItem(ENTRIES_KEY, JSON.stringify(entries));
+              } catch (err) {
+                console.warn(`[${NS}] live persist failed:`, err);
+              }
+              if (copyAllBtn) updateCounts();
+              if (active) renderMarkers();
+              notifySubscribers();
+              pulseBadges();
+              return;
+            }
+
+            if (payload.type === 'delete') {
+              const before = comments.length + entries.length;
+              if (payload.itemType === 'comment') {
+                comments = comments.filter(c => c.id !== payload.id);
+                try {
+                  localStorage.setItem(STORAGE_KEY, JSON.stringify(comments));
+                } catch (err) {}
+              } else if (payload.itemType === 'entry') {
+                entries = entries.filter(e => e.id !== payload.id);
+                try {
+                  localStorage.setItem(ENTRIES_KEY, JSON.stringify(entries));
+                } catch (err) {}
+              }
+              if (comments.length + entries.length === before) return;
+              if (copyAllBtn) updateCounts();
+              if (active) renderMarkers();
+              notifySubscribers();
+              return;
+            }
+
+            if (payload.type === 'clear') {
+              comments = [];
+              entries = [];
+              try {
+                localStorage.removeItem(STORAGE_KEY);
+                localStorage.removeItem(ENTRIES_KEY);
+              } catch (err) {}
+              if (copyAllBtn) updateCounts();
+              if (active) renderMarkers();
+              if (panelEl && panelEl.dataset.open === 'true') renderPanel();
+              notifySubscribers();
+              return;
+            }
+          }
+
+          function mergeRemoteIntoLocal(remoteItems) {
+            if (!Array.isArray(remoteItems) || remoteItems.length === 0) return false;
+            const byId = new Map();
+            for (const c of comments) byId.set(`comment#${c.id}`, c);
+            for (const e of entries) byId.set(`entry#${e.id}`, e);
+            let changed = false;
+            const cap = Math.min(remoteItems.length, MAX_COMMENTS + MAX_ENTRIES);
+            for (let i = 0; i < cap; i++) {
+              const r = remoteItems[i];
+              if (!r || !r.type || !r.id) continue;
+              const key = `${r.type}#${r.id}`;
+              const local = byId.get(key);
+              if (!local) {
+                byId.set(key, r);
+                changed = true;
+                continue;
+              }
+              const rTs = Date.parse(r.updatedAt || r.createdAt || '0') || 0;
+              const lTs = Date.parse(local.updatedAt || local.createdAt || '0') || 0;
+              if (rTs > lTs) {
+                byId.set(key, r);
+                changed = true;
+              }
+            }
+            if (!changed) return false;
+            const newComments = [];
+            const newEntries = [];
+            for (const v of byId.values()) {
+              if (v.type === 'comment' || (!v.type && v.selector)) newComments.push(v);
+              else if (v.type === 'entry' || v.kind) newEntries.push(v);
+            }
+            newComments.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+            newEntries.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+            comments = newComments.slice(0, MAX_COMMENTS);
+            entries = newEntries.slice(0, MAX_ENTRIES);
+            return true;
+          }
+
+          function isWidget(el) {
+            if (!el || !el.closest) return true;
+            return !!el.closest(
+              `.${NS}-controls, .${NS}-popover, .${NS}-marker, .${NS}-panel, .${NS}-toast, #${NS}-style`
+            );
+          }
+
+          function escapeHtml(s) {
+            return String(s).replace(
+              /[&<>"']/g,
+              c =>
+                ({
+                  '&': '&amp;',
+                  '<': '&lt;',
+                  '>': '&gt;',
+                  '"': '&quot;',
+                  "'": '&#39;',
+                })[c]
+            );
+          }
+
+          function snippetOf(el) {
+            const text = (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
+            if (!text) return `(${el.tagName.toLowerCase()})`;
+            return text.length > MAX_SNIPPET ? text.slice(0, MAX_SNIPPET) + '…' : text;
+          }
+
+          function headingPathOf(el) {
+            const trail = [];
+            const seenLevels = new Set();
+            let cur = el;
+            for (let i = 0; i < MAX_DOM_WALK && cur && cur !== document.body; i++) {
+              let sib = cur.previousElementSibling;
+              for (let j = 0; j < 100 && sib; j++) {
+                const m = sib.tagName && sib.tagName.match(/^H([1-6])$/);
+                if (m) {
+                  const lvl = parseInt(m[1], 10);
+                  if (!seenLevels.has(lvl)) {
+                    seenLevels.add(lvl);
+                    trail.unshift((sib.innerText || '').trim());
+                    break;
+                  }
+                }
+                sib = sib.previousElementSibling;
+              }
+              cur = cur.parentElement;
+            }
+            return trail.length ? trail.join(' › ') : '(top of page)';
+          }
+
+          function stableSelector(el) {
+            if (el.id) return `#${CSS_escape(el.id)}`;
+            if (el.dataset && el.dataset.commentId)
+              return `[data-comment-id="${el.dataset.commentId}"]`;
+            const path = [];
+            let cur = el;
+            for (
+              let i = 0;
+              i < MAX_DOM_WALK && cur && cur !== document.body && cur.parentElement;
+              i++
+            ) {
+              const tag = cur.tagName.toLowerCase();
+              const sibs = Array.from(cur.parentElement.children).filter(
+                c => c.tagName === cur.tagName
+              );
+              const idx = sibs.indexOf(cur) + 1;
+              path.unshift(`${tag}:nth-of-type(${idx})`);
+              cur = cur.parentElement;
+            }
+            return path.join(' > ');
+          }
+
+          function CSS_escape(s) {
+            return window.CSS && window.CSS.escape
+              ? window.CSS.escape(s)
+              : String(s).replace(/[^\w-]/g, '\\$&');
+          }
+
+          function findByAnchor(anchor) {
+            if (!anchor) return null;
+            try {
+              return document.querySelector(`[data-mjcco-anchor="${CSS_escape(anchor)}"]`);
+            } catch (err) {
+              console.warn(`[${NS}] anchor lookup failed:`, err);
+              return null;
+            }
+          }
+
+          function findBySelector(selector, expectedSnippet) {
+            if (!selector) return null;
+            try {
+              const candidates = document.querySelectorAll(selector);
+              if (candidates.length === 0) return null;
+              if (candidates.length === 1) return candidates[0];
+              for (const c of candidates) {
+                if (snippetOf(c) === expectedSnippet) return c;
+              }
+              return candidates[0];
+            } catch (err) {
+              console.warn(`[${NS}] selector failed:`, selector, err);
+              return null;
+            }
+          }
+
+          function findByContent(tag, headingPath, expectedSnippet) {
+            if (!tag) return null;
+            const wantNorm = normalizeText(expectedSnippet);
+            const candidates = document.getElementsByTagName(tag);
+            let bestExact = null;
+            let bestFuzzy = null;
+            let bestScore = 0;
+            const cap = Math.min(candidates.length, 5000);
+            for (let i = 0; i < cap; i++) {
+              const el = candidates[i];
+              if (isWidget(el)) continue;
+              const elNorm = normalizeText(snippetOf(el));
+              if (elNorm === wantNorm) {
+                if (!bestExact || headingPathOf(el) === headingPath) bestExact = el;
+                if (headingPathOf(el) === headingPath) return el;
+              }
+              const score = jaccard(elNorm, wantNorm);
+              if (score > bestScore && score >= 0.5) {
+                bestScore = score;
+                bestFuzzy = el;
+              }
+            }
+            return bestExact || bestFuzzy;
+          }
+
+          function findCommentEl(c) {
+            return (
+              findByAnchor(c.anchor) ||
+              findBySelector(c.selector, c.snippet) ||
+              findByContent(c.tag, c.headingPath, c.snippet)
+            );
+          }
+
+          function makeComment(el, text) {
+            const id = `c_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+            stampAnchor(el, id);
+            const now = new Date().toISOString();
+            return {
+              type: 'comment',
+              id,
+              anchor: id,
+              selector: stableSelector(el),
+              snippet: snippetOf(el),
+              headingPath: headingPathOf(el),
+              tag: el.tagName.toLowerCase(),
+              text: text,
+              user: user,
+              timezone: getTimezone(),
+              resolved: false,
+              resolvedAt: null,
+              resolvedBy: null,
+              createdAt: now,
+              updatedAt: now,
+            };
+          }
+
+          function getOpenComments() {
+            return comments.filter(c => !c.resolved);
+          }
+
+          function getResolvedComments() {
+            return comments.filter(c => !!c.resolved);
+          }
+
+          function setCommentResolved(id, resolved) {
+            const idx = comments.findIndex(c => c.id === id);
+            if (idx < 0) return null;
+            const now = new Date().toISOString();
+            const next = {
+              ...comments[idx],
+              resolved: !!resolved,
+              resolvedAt: resolved ? now : null,
+              resolvedBy: resolved ? user : null,
+              updatedAt: now,
+            };
+            comments[idx] = next;
+            saveComments();
+            pushItemRemote('comment', next);
+            updateCounts();
+            if (active) renderMarkers();
+            return next;
+          }
+
+          function stampAnchor(el, id) {
+            if (!el.dataset) return;
+            if (!el.dataset.mjccoAnchor) el.dataset.mjccoAnchor = id;
+          }
+
+          function normalizeText(s) {
+            return String(s).replace(/\s+/g, ' ').trim().toLowerCase();
+          }
+
+          function jaccard(a, b) {
+            const aw = new Set(a.split(/\W+/).filter(Boolean));
+            const bw = new Set(b.split(/\W+/).filter(Boolean));
+            if (aw.size === 0 && bw.size === 0) return 1;
+            let inter = 0;
+            for (const w of aw) if (bw.has(w)) inter++;
+            return inter / (aw.size + bw.size - inter);
+          }
+
+          function buildPrompt(c) {
+            const artifact = document.title || location.pathname;
+            return [
+              `In the artifact "${artifact}":`,
+              ``,
+              `- **Location:** ${c.headingPath}`,
+              `- **Element:** <${c.tag}>`,
+              `- **Content:** "${c.snippet}"`,
+              ``,
+              `**Feedback:** ${c.text}`,
+              ``,
+              `Please address this feedback.`,
+            ].join('\n');
+          }
+
+          function formatEntry(e) {
+            const lines = [];
+            if (e.label) lines.push(`**${e.label}**`);
+            if (e.kind) lines.push(`- Kind: ${e.kind}`);
+            const val = Array.isArray(e.value)
+              ? e.value.join(', ')
+              : e.value == null
+                ? '(empty)'
+                : String(e.value);
+            lines.push(`- Value: ${val}`);
+            if (e.context) lines.push(`- Context: ${e.context}`);
+            if (e.notes) lines.push(`- Notes: ${e.notes}`);
+            if (e.user) lines.push(`- By: ${e.user}${e.timezone ? ` (${e.timezone})` : ''}`);
+            return lines.join('\n');
+          }
+
+          function buildAllPrompt() {
+            const artifact = document.title || location.pathname;
+            const openComments = getOpenComments();
+            const parts = [`Across the artifact "${artifact}", I have feedback:`, ''];
+            if (openComments.length > 0) {
+              parts.push(`## Element-anchored comments (${openComments.length})`, '');
+              openComments.forEach((c, i) => {
+                const orphaned = !findCommentEl(c);
+                parts.push(`### ${i + 1}. ${c.headingPath}`);
+                parts.push(`- **Element:** <${c.tag}>`);
+                parts.push(`- **Content:** "${c.snippet}"`);
+                if (orphaned)
+                  parts.push(`- **Note:** element no longer present in current DOM (orphaned)`);
+                if (c.user)
+                  parts.push(`- **By:** ${c.user}${c.timezone ? ` (${c.timezone})` : ''}`);
+                parts.push(`- **Feedback:** ${c.text}`);
+                parts.push('');
+              });
+            }
+            if (entries.length > 0) {
+              parts.push(`## Other feedback (${entries.length})`, '');
+              entries.forEach((e, i) => {
+                parts.push(`### ${i + 1}.`);
+                parts.push(formatEntry(e));
+                parts.push('');
+              });
+            }
+            parts.push('Please address all of the above.');
+            return parts.join('\n');
+          }
+
+          function copyToClipboard(text) {
+            if (!navigator.clipboard || !navigator.clipboard.writeText) {
+              console.warn(`[${NS}] clipboard API unavailable (non-secure context?)`);
+              return;
+            }
+            navigator.clipboard.writeText(text).catch(err => {
+              console.warn(`[${NS}] clipboard write failed:`, err);
+            });
+          }
+
+          function confirmDialog(opts) {
+            return new Promise(resolve => {
+              const backdrop = document.createElement('div');
+              backdrop.className = `${NS}-modal-backdrop`;
+              backdrop.setAttribute('role', 'dialog');
+              backdrop.setAttribute('aria-modal', 'true');
+              backdrop.setAttribute('aria-label', opts.title || 'Confirm');
+              const danger = !!opts.danger;
+              const confirmClass = danger
+                ? `${NS}-btn ${NS}-btn-danger-fill`
+                : `${NS}-btn ${NS}-btn-primary`;
+              backdrop.innerHTML = `
+        <div class="${NS}-modal">
+          <div class="${NS}-modal-title">${escapeHtml(opts.title || 'Are you sure?')}</div>
+          ${opts.body ? `<div class="${NS}-modal-body">${escapeHtml(opts.body)}</div>` : ''}
+          <div class="${NS}-modal-actions">
+            <button type="button" class="${NS}-btn ${NS}-btn-ghost" data-action="cancel">${escapeHtml(opts.cancelLabel || 'Cancel')}</button>
+            <button type="button" class="${confirmClass}" data-action="confirm">${escapeHtml(opts.confirmLabel || 'Confirm')}</button>
+          </div>
+        </div>
+      `;
+              let settled = false;
+              function finish(result) {
+                if (settled) return;
+                settled = true;
+                document.removeEventListener('keydown', onKey, true);
+                if (backdrop.isConnected) backdrop.remove();
+                resolve(result);
+              }
+              function onKey(ev) {
+                if (ev.key === 'Escape') {
+                  ev.preventDefault();
+                  finish(false);
+                } else if (ev.key === 'Enter') {
+                  ev.preventDefault();
+                  finish(true);
+                }
+              }
+              backdrop.addEventListener('click', ev => {
+                const a = ev.target.closest('[data-action]')?.dataset.action;
+                if (a === 'confirm') {
+                  finish(true);
+                  return;
+                }
+                if (a === 'cancel') {
+                  finish(false);
+                  return;
+                }
+                if (ev.target === backdrop) finish(false);
+              });
+              document.addEventListener('keydown', onKey, true);
+              document.body.appendChild(backdrop);
+              setTimeout(() => {
+                const btn = backdrop.querySelector(`[data-action="confirm"]`);
+                if (btn) btn.focus();
+              }, 0);
+            });
+          }
+
+          function buildControls() {
+            const wrap = document.createElement('div');
+            wrap.className = `${NS}-controls`;
+
+            const identity = document.createElement('button');
+            identity.type = 'button';
+            identity.className = `${NS}-identity`;
+            identity.setAttribute('aria-label', 'Edit display name');
+            identity.hidden = true;
+            identity.innerHTML = `<span class="${NS}-identity-label">as:</span><span class="${NS}-identity-value">${escapeHtml(user)}</span>`;
+            identity.addEventListener('click', openIdentityEditor);
+
+            const list = document.createElement('button');
+            list.type = 'button';
+            list.className = `${NS}-list-btn`;
+            list.setAttribute('aria-label', 'Open comment list panel');
+            list.hidden = true;
+            list.innerHTML = `<span>List</span><span class="${NS}-list-count">0</span>`;
+            list.addEventListener('click', togglePanel);
+
+            const copyAll = document.createElement('button');
+            copyAll.type = 'button';
+            copyAll.className = `${NS}-copyall`;
+            copyAll.setAttribute('aria-label', 'Copy all feedback as prompt');
+            copyAll.hidden = true;
+            copyAll.innerHTML = `<span>Copy all</span><span class="${NS}-copyall-count">0</span>`;
+            copyAll.addEventListener('click', onCopyAllClick);
+
+            const toggle = document.createElement('button');
+            toggle.type = 'button';
+            toggle.className = `${NS}-toggle`;
+            toggle.setAttribute('aria-pressed', 'false');
+            toggle.setAttribute('aria-label', 'Toggle comment mode');
+            toggle.innerHTML = `
+      <span class="${NS}-toggle-dot" aria-hidden="true"></span>
+      <span>Comment</span>
+      <span class="${NS}-toggle-count" hidden>0</span>
+    `;
+            toggle.addEventListener('click', () => setActive(!active));
+
+            wrap.appendChild(identity);
+            wrap.appendChild(list);
+            wrap.appendChild(copyAll);
+            wrap.appendChild(toggle);
+            document.body.appendChild(wrap);
+            return { wrap, toggle, copyAll, list, identity };
+          }
+
+          function openIdentityEditor() {
+            if (openPopover) closePopover();
+            const popover = document.createElement('div');
+            popover.className = `${NS}-popover`;
+            popover.setAttribute('role', 'dialog');
+            popover.setAttribute('aria-label', 'Edit display name');
+            popover.innerHTML = `
+      <div class="${NS}-popover-context">
+        <strong>Display name</strong><br/>
+        Future comments and entries will be tagged with this name. Anonymous-by-default; pick something recognizable to other reviewers.
+      </div>
+      <input type="text" maxlength="60" placeholder="e.g. craig" value="${escapeHtml(user.startsWith('anon-') ? '' : user)}" />
+      <div class="${NS}-popover-actions">
+        <button class="${NS}-btn ${NS}-btn-primary" data-action="save-name">Save</button>
+        <button class="${NS}-btn" data-action="reset-name">Reset to anon</button>
+        <span class="${NS}-spacer"></span>
+        <button class="${NS}-btn ${NS}-btn-ghost" data-action="close-name">Cancel</button>
+      </div>
+    `;
+            const input = popover.querySelector('input');
+            popover.addEventListener('click', ev => {
+              const action = ev.target.closest('[data-action]')?.dataset.action;
+              if (!action) return;
+              if (action === 'save-name') {
+                const v = input.value.trim();
+                if (v) setUser(v);
+                closePopover();
+              } else if (action === 'reset-name') {
+                try {
+                  localStorage.removeItem(USER_KEY);
+                } catch (err) {
+                  console.warn(`[${NS}] resetUser failed:`, err);
+                }
+                user = loadUser();
+                refreshIdentityLabel();
+                updateCounts();
+                notifySubscribers();
+                closePopover();
+              } else if (action === 'close-name') {
+                closePopover();
+              }
+            });
+            document.body.appendChild(popover);
+            openPopover = popover;
+            const rect = identityBtn.getBoundingClientRect();
+            popover.style.top = `${window.scrollY + rect.top - popover.offsetHeight - 8}px`;
+            popover.style.left = `${Math.max(8, window.scrollX + rect.right - popover.offsetWidth)}px`;
+            setTimeout(() => input.focus(), 0);
+          }
+
+          function onCopyAllClick(ev) {
+            const total = comments.length + entries.length;
+            if (total === 0) return;
+            copyToClipboard(buildAllPrompt());
+            flashCopied(ev.currentTarget.querySelector('span:first-child'));
+          }
+
+          function updateCounts() {
+            // open = unresolved comments, what counts toward markers + Copy all output
+            // total = everything visible in the List panel (incl. resolved)
+            const openCount = getOpenComments().length;
+            const copyTotal = openCount + entries.length;
+            const listTotal = comments.length + entries.length;
+
+            const tBadge = toggleBtn.querySelector(`.${NS}-toggle-count`);
+            tBadge.hidden = openCount === 0;
+            if (openCount > 0) tBadge.textContent = String(openCount);
+
+            copyAllBtn.hidden = copyTotal === 0;
+            if (copyTotal > 0) {
+              copyAllBtn.querySelector(`.${NS}-copyall-count`).textContent = String(copyTotal);
+            }
+
+            if (listBtn) {
+              listBtn.hidden = listTotal === 0;
+              if (listTotal > 0) {
+                listBtn.querySelector(`.${NS}-list-count`).textContent = String(listTotal);
+              }
+            }
+            if (identityBtn) {
+              identityBtn.hidden = listTotal === 0;
+              if (listTotal > 0) {
+                identityBtn.querySelector(`.${NS}-identity-value`).textContent = user;
+              }
+            }
+            if (panelEl && panelEl.dataset.open === 'true') renderPanel();
+          }
+
+          function setActive(v) {
+            active = v;
+            toggleBtn.setAttribute('aria-pressed', String(active));
+            document.body.classList.toggle(`${NS}-active`, active);
+            if (active) {
+              renderMarkers();
+            } else {
+              closePopover();
+              clearMarkers();
+              clearHover();
+            }
+          }
+
+          function setHover(el) {
+            if (hoverEl === el) return;
+            clearHover();
+            hoverEl = el;
+            el.classList.add(`${NS}-hover-outline`);
+          }
+
+          function clearHover() {
+            if (hoverEl) {
+              hoverEl.classList.remove(`${NS}-hover-outline`);
+              hoverEl = null;
+            }
+          }
+
+          function positionMarker(marker, el) {
+            const rect = el.getBoundingClientRect();
+            let left = window.scrollX + rect.right - 14;
+            const maxLeft = window.scrollX + window.innerWidth - 28;
+            if (left > maxLeft) left = maxLeft;
+            marker.style.top = `${window.scrollY + rect.top - 10}px`;
+            marker.style.left = `${left}px`;
+          }
+
+          function clearMarkers() {
+            markers.forEach(m => m.remove());
+            markers = [];
+          }
+
+          function renderMarkers() {
+            clearMarkers();
+            // resolved comments are hidden on the page; only managed from the panel
+            const open = getOpenComments();
+            const cap = Math.min(open.length, MAX_COMMENTS);
+            for (let i = 0; i < cap; i++) {
+              const c = open[i];
+              const el = findCommentEl(c);
+              if (!el) continue;
+              stampAnchor(el, c.anchor || c.id);
+              const m = document.createElement('button');
+              m.type = 'button';
+              m.className = `${NS}-marker`;
+              m.textContent = String(i + 1);
+              m.dataset.commentId = c.id;
+              m.setAttribute('aria-label', `Open comment ${i + 1}: ${c.text.slice(0, 40)}`);
+              m.addEventListener('click', ev => {
+                ev.preventDefault();
+                ev.stopPropagation();
+                openCommentFor(el, c);
+              });
+              positionMarker(m, el);
+              document.body.appendChild(m);
+              markers.push(m);
+            }
+          }
+
+          function repositionAllMarkers() {
+            if (!active) return;
+            markers.forEach(m => {
+              const id = m.dataset.commentId;
+              const c = comments.find(x => x.id === id);
+              if (!c) return;
+              const el = findCommentEl(c);
+              if (el) positionMarker(m, el);
+            });
+          }
+
+          function closePopover() {
+            if (openPopover) {
+              openPopover.remove();
+              openPopover = null;
+            }
+          }
+
+          function openCommentFor(el, existing) {
+            closePopover();
+            clearHover();
+            let currentEl = el;
+            const popover = document.createElement('div');
+            popover.className = `${NS}-popover`;
+            popover.setAttribute('role', 'dialog');
+            popover.setAttribute('aria-label', existing ? 'Edit comment' : 'Add comment');
+
+            function render() {
+              const authorLine =
+                existing && existing.user && existing.user !== user
+                  ? `<br/><em>by ${escapeHtml(existing.user)}${existing.timezone ? ` (${escapeHtml(existing.timezone)})` : ''}</em>`
+                  : '';
+              popover.innerHTML = `
+        <div class="${NS}-popover-nav">
+          <button class="${NS}-btn ${NS}-btn-ghost" data-action="parent" title="Move selection to parent element">↑ Parent</button>
+        </div>
+        <div class="${NS}-popover-context">
+          <strong>${escapeHtml(headingPathOf(currentEl))}</strong><br/>
+          &lt;${currentEl.tagName.toLowerCase()}&gt; "${escapeHtml(snippetOf(currentEl))}"${authorLine}
+        </div>
+        <textarea placeholder="What's your feedback?" rows="4"></textarea>
+        <div class="${NS}-popover-actions">
+          <button class="${NS}-btn ${NS}-btn-primary" data-action="save">Save</button>
+          <button class="${NS}-btn" data-action="copy">Copy as prompt</button>
+          ${existing ? `<button class="${NS}-btn" data-action="${existing.resolved ? 'unresolve' : 'resolve'}">${existing.resolved ? 'Unresolve' : 'Resolve'}</button>` : ''}
+          ${existing ? `<button class="${NS}-btn ${NS}-btn-danger" data-action="delete">Delete</button>` : ''}
+          <span class="${NS}-spacer"></span>
+          <button class="${NS}-btn ${NS}-btn-ghost" data-action="close">Close</button>
+        </div>
+      `;
+              const ta = popover.querySelector('textarea');
+              if (existing) ta.value = existing.text;
+              setTimeout(() => ta.focus(), 0);
+            }
+
+            function positionPopover() {
+              const rect = currentEl.getBoundingClientRect();
+              const pw = popover.offsetWidth;
+              const ph = popover.offsetHeight;
+              const vw = window.innerWidth;
+              const vh = window.innerHeight;
+              let top = window.scrollY + rect.bottom + 8;
+              let left = window.scrollX + rect.left;
+              if (left + pw > window.scrollX + vw - 8) left = window.scrollX + vw - pw - 8;
+              if (left < window.scrollX + 8) left = window.scrollX + 8;
+              if (top + ph > window.scrollY + vh - 8) top = window.scrollY + rect.top - ph - 8;
+              if (top < window.scrollY + 8) top = window.scrollY + 8;
+              popover.style.top = `${top}px`;
+              popover.style.left = `${left}px`;
+            }
+
+            popover.addEventListener('click', ev => {
+              const actionEl = ev.target.closest('[data-action]');
+              if (!actionEl) return;
+              ev.preventDefault();
+              ev.stopPropagation();
+              handleAction(
+                actionEl.dataset.action,
+                actionEl,
+                popover.querySelector('textarea').value.trim()
+              );
+            });
+
+            function handleAction(action, actionEl, text) {
+              if (action === 'parent') {
+                if (currentEl.parentElement && currentEl.parentElement !== document.body) {
+                  currentEl = currentEl.parentElement;
+                  render();
+                  positionPopover();
+                }
+                return;
+              }
+              if (action === 'save') {
+                if (!text) return;
+                upsertComment(currentEl, text, existing);
+                closePopover();
+                return;
+              }
+              if (action === 'copy') {
+                const draft = makeComment(currentEl, text || '(no text)');
+                copyToClipboard(buildPrompt(draft));
+                flashCopied(actionEl);
+                return;
+              }
+              if (action === 'delete' && existing) {
+                comments = comments.filter(c => c.id !== existing.id);
+                saveComments();
+                deleteItemRemote('comment', existing.id);
+                updateCounts();
+                closePopover();
+                renderMarkers();
+                return;
+              }
+              if ((action === 'resolve' || action === 'unresolve') && existing) {
+                // save any pending text edits first so toggling resolve doesn't drop them
+                if (text && text !== existing.text) upsertComment(currentEl, text, existing);
+                setCommentResolved(existing.id, action === 'resolve');
+                closePopover();
+                return;
+              }
+              if (action === 'close') {
+                closePopover();
+              }
+            }
+
+            document.body.appendChild(popover);
+            openPopover = popover;
+            render();
+            positionPopover();
+          }
+
+          function flashCopied(btn) {
+            const original = btn.textContent;
+            btn.textContent = 'Copied ✓';
+            btn.disabled = true;
+            setTimeout(() => {
+              if (!btn.isConnected) return;
+              btn.textContent = original;
+              btn.disabled = false;
+            }, 1200);
+          }
+
+          function upsertComment(el, text, existing) {
+            let saved = null;
+            if (existing) {
+              const idx = comments.findIndex(c => c.id === existing.id);
+              if (idx >= 0) {
+                comments[idx] = {
+                  ...comments[idx],
+                  text,
+                  selector: stableSelector(el),
+                  snippet: snippetOf(el),
+                  headingPath: headingPathOf(el),
+                  tag: el.tagName.toLowerCase(),
+                  user: comments[idx].user || user,
+                  timezone: getTimezone(),
+                  updatedAt: new Date().toISOString(),
+                };
+                saved = comments[idx];
+              }
+            } else {
+              if (comments.length >= MAX_COMMENTS) {
+                console.warn(`[${NS}] max comments reached (${MAX_COMMENTS}); dropping`);
+                return;
+              }
+              saved = makeComment(el, text);
+              comments.push(saved);
+            }
+            saveComments();
+            if (saved) pushItemRemote('comment', saved);
+            updateCounts();
+            renderMarkers();
+          }
+
+          function attachListeners() {
+            document.addEventListener(
+              'mouseover',
+              ev => {
+                if (!active) return;
+                if (isWidget(ev.target)) {
+                  clearHover();
+                  return;
+                }
+                setHover(ev.target);
+              },
+              true
+            );
+
+            document.addEventListener(
+              'mouseout',
+              ev => {
+                if (!active) return;
+                if (ev.target === hoverEl) clearHover();
+              },
+              true
+            );
+
+            document.addEventListener(
+              'click',
+              ev => {
+                if (!active) return;
+                if (isWidget(ev.target)) return;
+                ev.preventDefault();
+                ev.stopPropagation();
+                openCommentFor(ev.target);
+              },
+              true
+            );
+
+            document.addEventListener(
+              'mousedown',
+              ev => {
+                if (!openPopover) return;
+                if (isWidget(ev.target)) return;
+                closePopover();
+              },
+              true
+            );
+
+            document.addEventListener('keydown', ev => {
+              if (ev.key !== 'Escape') return;
+              if (openPopover) {
+                closePopover();
+                return;
+              }
+              if (active) setActive(false);
+            });
+
+            window.addEventListener('scroll', repositionAllMarkers, { passive: true });
+            window.addEventListener('resize', () => {
+              if (active) renderMarkers();
+            });
+          }
+
+          function addEntry(input) {
+            const e = normalizeEntryInput(input);
+            if (!e) return null;
+            if (entries.length >= MAX_ENTRIES) {
+              console.warn(`[${NS}] max entries reached (${MAX_ENTRIES}); dropping`);
+              return null;
+            }
+            entries.push(e);
+            saveEntries();
+            pushItemRemote('entry', e);
+            if (copyAllBtn) updateCounts();
+            return e;
+          }
+
+          function updateEntry(id, partial) {
+            const idx = entries.findIndex(x => x.id === id);
+            if (idx < 0) return null;
+            const next = { ...entries[idx], ...partial, id, updatedAt: new Date().toISOString() };
+            entries[idx] = next;
+            saveEntries();
+            pushItemRemote('entry', next);
+            if (copyAllBtn) updateCounts();
+            return next;
+          }
+
+          function removeEntry(id) {
+            const before = entries.length;
+            entries = entries.filter(x => x.id !== id);
+            const changed = entries.length !== before;
+            if (!changed) return false;
+            saveEntries();
+            deleteItemRemote('entry', id);
+            if (copyAllBtn) updateCounts();
+            return true;
+          }
+
+          function normalizeEntryInput(input) {
+            if (!input || typeof input !== 'object') {
+              console.warn(`[${NS}] addEntry: input must be an object`);
+              return null;
+            }
+            const now = new Date().toISOString();
+            return {
+              type: 'entry',
+              id: input.id || `e_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+              kind: input.kind || 'custom',
+              label: input.label || '',
+              value: input.value == null ? '' : input.value,
+              context: input.context || '',
+              notes: input.notes || '',
+              user: user,
+              timezone: getTimezone(),
+              createdAt: now,
+              updatedAt: now,
+            };
+          }
+
+          function clearAll() {
+            const toDelete = [];
+            for (const c of comments) toDelete.push(['comment', c.id]);
+            for (const e of entries) toDelete.push(['entry', e.id]);
+            comments = [];
+            entries = [];
+            try {
+              localStorage.removeItem(STORAGE_KEY);
+              localStorage.removeItem(ENTRIES_KEY);
+            } catch (err) {
+              console.warn(`[${NS}] clearAll failed to remove localStorage:`, err);
+            }
+            const cap = Math.min(toDelete.length, 100);
+            for (let i = 0; i < cap; i++) deleteItemRemote(toDelete[i][0], toDelete[i][1]);
+            if (copyAllBtn) updateCounts();
+            if (active) renderMarkers();
+            notifySubscribers();
+          }
+
+          function setUser(name) {
+            if (typeof name !== 'string' || !name.trim()) return;
+            user = name.trim().slice(0, 60);
+            persistUser(user);
+            refreshIdentityLabel();
+            notifySubscribers();
+          }
+
+          function refreshIdentityLabel() {
+            if (!identityBtn) return;
+            const el = identityBtn.querySelector(`.${NS}-identity-value`);
+            if (el) el.textContent = user;
+          }
+
+          function initialSync() {
+            if (initialSyncPromise) return initialSyncPromise;
+            if (SYNC_DISABLED) {
+              initialSyncPromise = Promise.resolve(false);
+              return initialSyncPromise;
+            }
+            initialSyncPromise = connectChannel().then(() => requestSnapshot());
+            return initialSyncPromise;
+          }
+
+          function exposeApi() {
+            window.MJCCO = Object.freeze({
+              addEntry,
+              updateEntry,
+              removeEntry,
+              getEntries: () => entries.slice(),
+              getComments: () => comments.slice(),
+              resolveComment: id => setCommentResolved(id, true),
+              unresolveComment: id => setCommentResolved(id, false),
+              buildPrompt: buildAllPrompt,
+              copyAll: () => copyToClipboard(buildAllPrompt()),
+              clearAll,
+              subscribe(cb) {
+                if (typeof cb !== 'function') return () => {};
+                subscribers.add(cb);
+                return () => subscribers.delete(cb);
+              },
+              setActive,
+              isActive: () => active,
+              setUser,
+              getUser: () => user,
+              ready: () => initialSync(),
+              syncEnabled: !SYNC_DISABLED,
+              httpEndpoint: HTTP_ENDPOINT,
+              realtimeEndpoint: REALTIME_ENDPOINT,
+              clientId: CLIENT_ID,
+              openPanel,
+              closePanel,
+              togglePanel,
+              version: 6,
+            });
+          }
+
+          function ensurePanel() {
+            if (panelEl) return panelEl;
+            panelEl = document.createElement('div');
+            panelEl.className = `${NS}-panel`;
+            panelEl.dataset.open = 'false';
+            panelEl.setAttribute('role', 'dialog');
+            panelEl.setAttribute('aria-label', 'All comments and feedback');
+            panelEl.innerHTML = `
+      <div class="${NS}-panel-head">
+        <span class="${NS}-panel-title">Comments &amp; feedback</span>
+        <span class="${NS}-spacer"></span>
+        <button class="${NS}-btn ${NS}-btn-danger" data-action="clear-all" title="Delete all comments and entries">Clear all</button>
+        <button class="${NS}-btn ${NS}-btn-ghost" data-action="close-panel" aria-label="Close panel">✕</button>
+      </div>
+      <div class="${NS}-panel-body"></div>
+    `;
+            panelEl.addEventListener('click', ev => {
+              const action = ev.target.closest('[data-action]')?.dataset.action;
+              if (action === 'close-panel') {
+                closePanel();
+                return;
+              }
+              if (action === 'clear-all') {
+                onClearAllClick();
+                return;
+              }
+              const resolveBtn = ev.target.closest(`[data-mjcco-resolve]`);
+              if (resolveBtn) {
+                ev.stopPropagation();
+                setCommentResolved(
+                  resolveBtn.dataset.mjccoId,
+                  resolveBtn.dataset.mjccoTarget === 'true'
+                );
+                renderPanel();
+                return;
+              }
+              const del = ev.target.closest(`[data-mjcco-delete]`);
+              if (del) {
+                ev.stopPropagation();
+                onPanelRowDelete(del.dataset.mjccoDelete, del.dataset.mjccoId);
+                return;
+              }
+              const row = ev.target.closest(`[data-mjcco-row]`);
+              if (row) onPanelRowClick(row);
+            });
+            document.body.appendChild(panelEl);
+            return panelEl;
+          }
+
+          function togglePanel() {
+            if (!panelEl || panelEl.dataset.open !== 'true') openPanel();
+            else closePanel();
+          }
+
+          function openPanel() {
+            ensurePanel();
+            renderPanel();
+            panelEl.dataset.open = 'true';
+          }
+
+          function closePanel() {
+            if (panelEl) panelEl.dataset.open = 'false';
+          }
+
+          function renderCommentRow(c, num, isResolved) {
+            const orphan = !findCommentEl(c);
+            const userLine = c.user
+              ? `${escapeHtml(c.user)}${c.timezone ? ' · ' + escapeHtml(c.timezone) : ''}`
+              : '';
+            const orphanFlag = orphan
+              ? `<span class="${NS}-panel-row-orphan-flag">orphan</span>`
+              : '';
+            const resolvedFlag = isResolved
+              ? `<span class="${NS}-panel-row-resolved-flag">resolved</span>`
+              : '';
+            const resolveLabel = isResolved ? 'Mark as unresolved' : 'Mark as resolved';
+            const resolveIcon = isResolved ? '↺' : '✓';
+            return `
+      <div class="${NS}-panel-row" data-orphan="${orphan}" data-resolved="${isResolved}">
+        <button type="button" class="${NS}-panel-row-main" data-mjcco-row="comment" data-mjcco-id="${escapeHtml(c.id)}">
+          <div class="${NS}-panel-row-meta">#${num} · ${escapeHtml(c.headingPath)} · ${escapeHtml(c.tag)} ${orphanFlag}${resolvedFlag}${userLine ? ` · ${userLine}` : ''}</div>
+          <div class="${NS}-panel-row-text">${escapeHtml(c.text || '').slice(0, 280)}</div>
+        </button>
+        <button type="button" class="${NS}-panel-row-resolve" data-mjcco-resolve="comment" data-mjcco-id="${escapeHtml(c.id)}" data-mjcco-target="${isResolved ? 'false' : 'true'}" aria-label="${resolveLabel}" title="${resolveLabel}">${resolveIcon}</button>
+        <button type="button" class="${NS}-panel-row-delete" data-mjcco-delete="comment" data-mjcco-id="${escapeHtml(c.id)}" aria-label="Delete comment" title="Delete">×</button>
+      </div>
+    `;
+          }
+
+          function renderPanel() {
+            if (!panelEl) return;
+            const body = panelEl.querySelector(`.${NS}-panel-body`);
+            if (!body) return;
+            const open = getOpenComments();
+            const resolved = getResolvedComments();
+            const parts = [];
+
+            if (open.length > 0) {
+              parts.push(`<div class="${NS}-panel-section-title">Comments (${open.length})</div>`);
+              open.forEach((c, i) => parts.push(renderCommentRow(c, i + 1, false)));
+            }
+            if (entries.length > 0) {
+              parts.push(
+                `<div class="${NS}-panel-section-title">Other feedback (${entries.length})</div>`
+              );
+              entries.forEach((e, i) => {
+                const userLine = e.user
+                  ? `${escapeHtml(e.user)}${e.timezone ? ' · ' + escapeHtml(e.timezone) : ''}`
+                  : '';
+                const val = Array.isArray(e.value) ? e.value.join(', ') : String(e.value || '');
+                parts.push(`
+          <div class="${NS}-panel-row">
+            <button type="button" class="${NS}-panel-row-main" data-mjcco-row="entry" data-mjcco-id="${escapeHtml(e.id)}">
+              <div class="${NS}-panel-row-meta">#${i + 1} · ${escapeHtml(e.kind || 'custom')}${e.label ? ' · ' + escapeHtml(e.label) : ''}${userLine ? ` · ${userLine}` : ''}</div>
+              <div class="${NS}-panel-row-text">${escapeHtml(val).slice(0, 280)}${e.context ? `<br/><em style="opacity:0.7">${escapeHtml(e.context)}</em>` : ''}</div>
+            </button>
+            <button type="button" class="${NS}-panel-row-delete" data-mjcco-delete="entry" data-mjcco-id="${escapeHtml(e.id)}" aria-label="Delete entry ${i + 1}" title="Delete">×</button>
+          </div>
+        `);
+              });
+            }
+            if (resolved.length > 0) {
+              parts.push(
+                `<div class="${NS}-panel-section-title">Resolved (${resolved.length})</div>`
+              );
+              resolved.forEach((c, i) => parts.push(renderCommentRow(c, i + 1, true)));
+            }
+            if (parts.length === 0) {
+              parts.push(`<div class="${NS}-panel-empty">No feedback yet on this artifact.</div>`);
+            }
+            body.innerHTML = parts.join('');
+          }
+
+          function onPanelRowClick(row) {
+            const kind = row.dataset.mjccoRow;
+            const id = row.dataset.mjccoId;
+            if (kind !== 'comment') {
+              closePanel();
+              return;
+            }
+            const c = comments.find(x => x.id === id);
+            if (!c) return;
+            const el = findCommentEl(c);
+            closePanel();
+            if (!el) return;
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add(`${NS}-flash`);
+            setTimeout(() => el.classList.remove(`${NS}-flash`), HIGHLIGHT_MS);
+          }
+
+          function onClearAllClick() {
+            const total = comments.length + entries.length;
+            if (total === 0) return;
+            confirmDialog({
+              title: 'Delete all feedback?',
+              body: `Delete all ${total} item(s) on this artifact. Other reviewers will see the change immediately. This cannot be undone.`,
+              confirmLabel: 'Delete all',
+              danger: true,
+            }).then(ok => {
+              if (!ok) return;
+              const toDelete = [];
+              for (const c of comments) toDelete.push(['comment', c.id]);
+              for (const e of entries) toDelete.push(['entry', e.id]);
+              comments = [];
+              entries = [];
+              try {
+                localStorage.removeItem(STORAGE_KEY);
+                localStorage.removeItem(ENTRIES_KEY);
+              } catch (err) {
+                console.warn(`[${NS}] clearAll local-remove failed:`, err);
+              }
+              publishClearAll();
+              const cap = Math.min(toDelete.length, 100);
+              for (let i = 0; i < cap; i++) deleteItemRemote(toDelete[i][0], toDelete[i][1]);
+              if (copyAllBtn) updateCounts();
+              if (active) renderMarkers();
+              renderPanel();
+              notifySubscribers();
+            });
+          }
+
+          function onPanelRowDelete(kind, id) {
+            if (kind === 'comment') {
+              const found = comments.find(c => c.id === id);
+              if (!found) return;
+              comments = comments.filter(c => c.id !== id);
+              saveComments();
+              deleteItemRemote('comment', id);
+            } else if (kind === 'entry') {
+              removeEntry(id);
+              return;
+            } else {
+              return;
+            }
+            updateCounts();
+            if (active) renderMarkers();
+          }
+
+          function pulseBadges() {
+            const badges = [
+              toggleBtn && toggleBtn.querySelector(`.${NS}-toggle-count`),
+              copyAllBtn && copyAllBtn.querySelector(`.${NS}-copyall-count`),
+              listBtn && listBtn.querySelector(`.${NS}-list-count`),
+            ];
+            for (let i = 0; i < badges.length; i++) {
+              const b = badges[i];
+              if (!b || b.hidden) continue;
+              b.classList.remove(`${NS}-pulse`);
+              void b.offsetWidth;
+              b.classList.add(`${NS}-pulse`);
+              setTimeout(() => {
+                if (b.isConnected) b.classList.remove(`${NS}-pulse`);
+              }, 800);
+            }
+          }
+
+          function startHeadPoll() {
+            stopHeadPoll();
+            if (!HEAD_MS) return;
+            headTimer = setInterval(
+              checkArtifactUpdated,
+              Math.max(5000, Math.min(HEAD_MS, 5 * 60 * 1000))
+            );
+          }
+
+          function stopHeadPoll() {
+            if (headTimer) {
+              clearInterval(headTimer);
+              headTimer = null;
+            }
+          }
+
+          function checkArtifactUpdated() {
+            if (document.visibilityState !== 'visible') return;
+            fetch(location.pathname, { method: 'HEAD', cache: 'no-store' })
+              .then(res => {
+                if (!res.ok) return;
+                const lm = res.headers.get('last-modified');
+                if (!lm) return;
+                if (!artifactBaseline) {
+                  artifactBaseline = lm;
+                  return;
+                }
+                if (Date.parse(lm) > Date.parse(artifactBaseline)) showUpdateToast();
+              })
+              .catch(err => console.warn(`[${NS}] HEAD check failed:`, err));
+          }
+
+          function showUpdateToast() {
+            if (toastEl && toastEl.isConnected) return;
+            toastEl = document.createElement('div');
+            toastEl.className = `${NS}-toast`;
+            toastEl.innerHTML = `
+      <span>This artifact has been updated.</span>
+      <button class="${NS}-btn ${NS}-btn-primary" data-action="reload">Reload</button>
+      <button class="${NS}-btn ${NS}-btn-ghost" data-action="dismiss" aria-label="Dismiss">✕</button>
+    `;
+            toastEl.addEventListener('click', ev => {
+              const a = ev.target.closest('[data-action]')?.dataset.action;
+              if (a === 'reload') location.reload();
+              if (a === 'dismiss' && toastEl) {
+                toastEl.remove();
+                toastEl = null;
+              }
+            });
+            document.body.appendChild(toastEl);
+          }
+
+          function onVisibilityChange() {
+            if (document.visibilityState !== 'visible') return;
+            checkArtifactUpdated();
+            if (!channelHandle) connectChannel().then(() => requestSnapshot());
+          }
+
+          function init() {
+            installStyles();
+            const built = buildControls();
+            toggleBtn = built.toggle;
+            copyAllBtn = built.copyAll;
+            listBtn = built.list;
+            identityBtn = built.identity;
+            updateCounts();
+            attachListeners();
+            exposeApi();
+            initialSync();
+            document.addEventListener('visibilitychange', onVisibilityChange);
+            startHeadPoll();
+            if (HEAD_MS) checkArtifactUpdated();
+          }
+
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+          } else {
+            init();
+          }
+        })();
+      </script>
+    </div>
+  </body>
+</html>

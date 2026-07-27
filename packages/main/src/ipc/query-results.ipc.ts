@@ -19,7 +19,10 @@ import { QueryResultsStore } from '../services/config/query-results-store';
 import { safeHandle } from './safe-handle';
 
 export function registerQueryResultsHandlers(): void {
-  const resultsStore = QueryResultsStore.getInstance();
+  // Resolved lazily inside each handler: the store's constructor reads the
+  // entire snapshots file (can be tens of MB) synchronously, which must not
+  // happen during startup registration.
+  const resultsStore = () => QueryResultsStore.getInstance();
 
   // Save a query result snapshot
   safeHandle(
@@ -32,7 +35,7 @@ export function registerQueryResultsHandlers(): void {
       database: string,
       result: QueryResult
     ): Promise<QueryResultSnapshot> => {
-      return resultsStore.saveSnapshot(tabId, sql, connectionId, database, result);
+      return resultsStore().saveSnapshot(tabId, sql, connectionId, database, result);
     }
   );
 
@@ -44,7 +47,7 @@ export function registerQueryResultsHandlers(): void {
       filter?: QueryResultHistoryFilter,
       sort?: ResultHistorySortOptions
     ): Promise<QueryResultSnapshot[]> => {
-      return resultsStore.getSnapshots(filter, sort);
+      return resultsStore().getSnapshots(filter, sort);
     }
   );
 
@@ -52,7 +55,7 @@ export function registerQueryResultsHandlers(): void {
   safeHandle(
     IPC_CHANNELS.QUERY_RESULTS.GET_SNAPSHOT,
     async (_event, id: string): Promise<QueryResultSnapshot | null> => {
-      return resultsStore.getSnapshot(id);
+      return resultsStore().getSnapshot(id);
     }
   );
 
@@ -60,7 +63,7 @@ export function registerQueryResultsHandlers(): void {
   safeHandle(
     IPC_CHANNELS.QUERY_RESULTS.DELETE_SNAPSHOT,
     async (_event, id: string): Promise<boolean> => {
-      return resultsStore.deleteSnapshot(id);
+      return resultsStore().deleteSnapshot(id);
     }
   );
 
@@ -68,7 +71,7 @@ export function registerQueryResultsHandlers(): void {
   safeHandle(
     IPC_CHANNELS.QUERY_RESULTS.DELETE_SNAPSHOTS,
     async (_event, ids: string[]): Promise<number> => {
-      return resultsStore.deleteSnapshots(ids);
+      return resultsStore().deleteSnapshots(ids);
     }
   );
 
@@ -76,7 +79,7 @@ export function registerQueryResultsHandlers(): void {
   safeHandle(
     IPC_CHANNELS.QUERY_RESULTS.PIN_SNAPSHOT,
     async (_event, id: string): Promise<boolean> => {
-      return resultsStore.pinSnapshot(id);
+      return resultsStore().pinSnapshot(id);
     }
   );
 
@@ -84,7 +87,7 @@ export function registerQueryResultsHandlers(): void {
   safeHandle(
     IPC_CHANNELS.QUERY_RESULTS.UNPIN_SNAPSHOT,
     async (_event, id: string): Promise<boolean> => {
-      return resultsStore.unpinSnapshot(id);
+      return resultsStore().unpinSnapshot(id);
     }
   );
 
@@ -92,7 +95,7 @@ export function registerQueryResultsHandlers(): void {
   safeHandle(
     IPC_CHANNELS.QUERY_RESULTS.LABEL_SNAPSHOT,
     async (_event, id: string, label: string): Promise<boolean> => {
-      return resultsStore.labelSnapshot(id, label);
+      return resultsStore().labelSnapshot(id, label);
     }
   );
 
@@ -100,7 +103,7 @@ export function registerQueryResultsHandlers(): void {
   safeHandle(
     IPC_CHANNELS.QUERY_RESULTS.GET_STORAGE_STATS,
     async (): Promise<ResultStorageStats> => {
-      return resultsStore.getStorageStats();
+      return resultsStore().getStorageStats();
     }
   );
 
@@ -108,7 +111,7 @@ export function registerQueryResultsHandlers(): void {
   safeHandle(
     IPC_CHANNELS.QUERY_RESULTS.PURGE,
     async (_event, options: PurgeOptions): Promise<PurgeResult> => {
-      return resultsStore.purge(options);
+      return resultsStore().purge(options);
     }
   );
 
@@ -121,7 +124,7 @@ export function registerQueryResultsHandlers(): void {
       compareId: string,
       options?: DiffOptions
     ): Promise<ResultDiff | null> => {
-      return resultsStore.compareSnapshots(baseId, compareId, options);
+      return resultsStore().compareSnapshots(baseId, compareId, options);
     }
   );
 }

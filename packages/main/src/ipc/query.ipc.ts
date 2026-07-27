@@ -20,7 +20,11 @@ import type {
 import { QueryExecutor } from '../services/sql/query-executor';
 import { QueryHistoryStore } from '../services/config/query-history';
 import { ConnectionProfilesStore } from '../services/config/connection-profiles';
+import { QueryResultsStore } from '../services/config/query-results-store';
+import { createLogger } from '../utils/logger';
 import { safeHandle } from './safe-handle';
+
+const log = createLogger('QueryIPC');
 
 export function registerQueryHandlers(): void {
   const queryExecutor = QueryExecutor.getInstance();
@@ -47,6 +51,30 @@ export function registerQueryHandlers(): void {
           rowCount: result.resultSets?.reduce((sum, rs) => sum + (rs.rowCount || 0), 0),
           success: result.success,
           error: result.error,
+        });
+      }
+
+      // Snapshot main-side, off the reply's critical path. The result used
+      // to be structured-cloned to the renderer and then cloned back whole
+      // for SAVE_SNAPSHOT; setImmediate lets the reply reach the renderer
+      // before the (synchronous) store write runs.
+      const snapshotTabId = request.tabId;
+      const snapshotDb = request.database;
+      if (snapshotTabId && snapshotDb) {
+        setImmediate(() => {
+          try {
+            // getInstance() here (not at registration) so the store's
+            // synchronous full-file load never runs during startup.
+            QueryResultsStore.getInstance().saveSnapshot(
+              snapshotTabId,
+              request.sql,
+              request.connectionId,
+              snapshotDb,
+              result
+            );
+          } catch (error) {
+            log.error('Failed to persist result snapshot:', error);
+          }
         });
       }
 

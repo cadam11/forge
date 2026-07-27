@@ -22,13 +22,26 @@ export class CredentialStore extends BaseSingleton {
   private cache: Map<string, string> = new Map();
   private cacheLoaded = false;
   private keychainAvailable = true;
+  /** In-flight load, so concurrent callers share one keychain read. */
+  private loadInFlight: Promise<void> | null = null;
 
   /**
-   * Load all credentials from keychain into memory cache (called once at startup)
+   * Load all credentials from keychain into memory cache. Startup kicks this
+   * off without awaiting (window creation is no longer gated on the
+   * keychain); every accessor awaits it internally, and concurrent calls
+   * coalesce onto a single keychain read.
    */
-  async loadAllIntoCache(): Promise<void> {
-    if (this.cacheLoaded) return;
+  loadAllIntoCache(): Promise<void> {
+    if (this.cacheLoaded) return Promise.resolve();
+    if (this.loadInFlight) return this.loadInFlight;
 
+    this.loadInFlight = this.loadVault().finally(() => {
+      this.loadInFlight = null;
+    });
+    return this.loadInFlight;
+  }
+
+  private async loadVault(): Promise<void> {
     log.info('Loading credentials vault from keychain...');
     try {
       // First, try to load the new single-entry vault
@@ -67,7 +80,9 @@ export class CredentialStore extends BaseSingleton {
       // Keychain access denied or unavailable - app will continue without saved credentials
       this.keychainAvailable = false;
       this.cacheLoaded = true;
-      log.warn('Keychain access unavailable - saved credentials will not be loaded. Grant keychain access to enable credential storage.');
+      log.warn(
+        'Keychain access unavailable - saved credentials will not be loaded. Grant keychain access to enable credential storage.'
+      );
       log.debug('Keychain error details:', error);
     }
   }
@@ -106,7 +121,9 @@ export class CredentialStore extends BaseSingleton {
     } catch (error) {
       // Keychain became unavailable - mark it and keep in memory cache
       this.keychainAvailable = false;
-      log.warn(`Failed to persist credential for ${connectionId} - keychain access denied. Cached in memory for this session.`);
+      log.warn(
+        `Failed to persist credential for ${connectionId} - keychain access denied. Cached in memory for this session.`
+      );
       log.debug('Keychain error details:', error);
     }
   }

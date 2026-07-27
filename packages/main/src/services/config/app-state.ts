@@ -6,6 +6,7 @@
 import Store from 'electron-store';
 import { BaseSingleton } from '../../utils/singleton';
 import type { AppState, TabState, LayoutConfig } from '@mj-forge/shared';
+import { createTrailingDebounce, type TrailingDebounce } from '../../utils/trailing-debounce';
 
 const DEFAULT_APP_STATE: AppState = {
   lastConnectedProfileIds: [],
@@ -20,8 +21,17 @@ const DEFAULT_APP_STATE: AppState = {
   currentWorkspacePath: null,
 };
 
+const PERSIST_DEBOUNCE_MS = 500;
+
 export class AppStateStore extends BaseSingleton {
   private store: Store<{ appState: AppState }>;
+  /**
+   * Runtime source of truth. Writes are debounced because electron-store
+   * persists synchronously (tab saves used to trigger two full
+   * read-modify-write disk cycles each); index.ts flushes on before-quit.
+   */
+  private cached: AppState;
+  private persist: TrailingDebounce;
 
   constructor() {
     super();
@@ -31,21 +41,31 @@ export class AppStateStore extends BaseSingleton {
         appState: DEFAULT_APP_STATE,
       },
     });
+    this.cached = this.store.get('appState');
+    this.persist = createTrailingDebounce(
+      () => this.store.set('appState', this.cached),
+      PERSIST_DEBOUNCE_MS
+    );
+  }
+
+  /** Write any pending mutations to disk now. Called on app quit. */
+  flush(): void {
+    this.persist.flush();
   }
 
   /**
    * Get the full app state
    */
   getState(): AppState {
-    return this.store.get('appState');
+    return structuredClone(this.cached);
   }
 
   /**
    * Update app state (partial update)
    */
   setState(partial: Partial<AppState>): void {
-    const current = this.getState();
-    this.store.set('appState', { ...current, ...partial });
+    this.cached = { ...this.cached, ...partial };
+    this.persist.call();
   }
 
   /**
@@ -208,6 +228,7 @@ export class AppStateStore extends BaseSingleton {
    * Clear all state (for testing or reset)
    */
   clearState(): void {
-    this.store.set('appState', DEFAULT_APP_STATE);
+    this.cached = structuredClone(DEFAULT_APP_STATE);
+    this.persist.call();
   }
 }
