@@ -1535,8 +1535,8 @@ export class QueryComponent implements OnInit, OnDestroy {
     }
   }
 
-  private static readonly CTRL_E_CONFIRMED_KEY = 'mj-forge-ctrl-e-execute-confirmed';
-  private static readonly PLACEHOLDER_VALUES_KEY = 'mj-forge-flyway-placeholder-values';
+  private static readonly CTRL_E_CONFIRMED_KEY = 'forge-ctrl-e-execute-confirmed';
+  private static readonly PLACEHOLDER_VALUES_KEY = 'forge-flyway-placeholder-values';
 
   /**
    * Handle Ctrl+E / Cmd+E — shows a one-time confirmation dialog for new users,

@@ -192,7 +192,7 @@ import type { DockerStatus, DockerContainer } from '@mj-forge/shared';
         }
 
         <div class="status-item version">
-          <span>MJ Forge {{ appVersion() ? 'v' + appVersion() : '' }}</span>
+          <span>Forge {{ appVersion() ? 'v' + appVersion() : '' }}</span>
         </div>
       </div>
     </div>

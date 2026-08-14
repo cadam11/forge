@@ -2,7 +2,7 @@ import { Injectable, signal, computed, NgZone, inject } from '@angular/core';
 import type { AppSettings, ThemePreference } from '@mj-forge/shared';
 import { DEFAULT_SETTINGS } from '@mj-forge/shared';
 
-const STORAGE_KEY = 'mj-forge-settings';
+const STORAGE_KEY = 'forge-settings';
 
 @Injectable({ providedIn: 'root' })
 export class SettingsService {
@@ -14,9 +14,7 @@ export class SettingsService {
    * The resolved OS theme ('dark' | 'light') as reported by Electron's nativeTheme.
    * Falls back to matchMedia when running outside Electron (e.g., browser dev).
    */
-  private readonly _nativeTheme = signal<'dark' | 'light'>(
-    this.detectInitialNativeTheme()
-  );
+  private readonly _nativeTheme = signal<'dark' | 'light'>(this.detectInitialNativeTheme());
   private nativeThemeCleanup: (() => void) | null = null;
 
   // Public readonly signals
@@ -167,7 +165,16 @@ export class SettingsService {
    * Falls back to matchMedia when running outside Electron.
    */
   private initNativeThemeListener(): void {
-    const forge = (window as Window & { forge?: { theme?: { getNative: () => Promise<'dark' | 'light'>; onChanged: (cb: (theme: 'dark' | 'light') => void) => () => void } } }).forge;
+    const forge = (
+      window as Window & {
+        forge?: {
+          theme?: {
+            getNative: () => Promise<'dark' | 'light'>;
+            onChanged: (cb: (theme: 'dark' | 'light') => void) => () => void;
+          };
+        };
+      }
+    ).forge;
 
     if (forge?.theme) {
       // Running inside Electron: use nativeTheme via IPC

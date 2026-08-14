@@ -1,5 +1,5 @@
 /**
- * Production-grade logging service for MJ Forge main process.
+ * Production-grade logging service for Forge main process.
  *
  * Log levels: debug < info < warn < error
  * In development (NODE_ENV !== 'production'), defaults to 'debug'.

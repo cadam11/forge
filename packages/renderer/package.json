@@ -1,7 +1,7 @@
 {
   "name": "@mj-forge/renderer",
   "version": "1.0.0",
-  "description": "Angular renderer for MJ Forge",
+  "description": "Angular renderer for Forge",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",

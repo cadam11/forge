@@ -1,7 +1,7 @@
 {
   "name": "@mj-forge/preload",
   "version": "1.0.0",
-  "description": "Electron preload scripts for MJ Forge",
+  "description": "Electron preload scripts for Forge",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {

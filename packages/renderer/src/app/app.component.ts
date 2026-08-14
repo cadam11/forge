@@ -80,7 +80,7 @@ export class AppComponent implements OnInit {
 
   // Loading state
   readonly loading = signal(true);
-  readonly loadingMessage = signal('Starting MJ Forge...');
+  readonly loadingMessage = signal('Starting Forge...');
 
   constructor() {
     // Register custom SVG icons

@@ -391,9 +391,9 @@ export function createMenu(): void {
       role: 'help',
       submenu: [
         {
-          label: 'MJ Forge Documentation',
+          label: 'Forge Documentation',
           click: async () => {
-            await shell.openExternal('https://github.com/MemberJunction/Forge/wiki');
+            await shell.openExternal('https://github.com/cadam11/forge/wiki');
           },
         },
         {
@@ -408,7 +408,7 @@ export function createMenu(): void {
         {
           label: 'Report Issue...',
           click: async () => {
-            await shell.openExternal('https://github.com/MemberJunction/Forge/issues');
+            await shell.openExternal('https://github.com/cadam11/forge/issues');
           },
         },
         { type: 'separator' },
@@ -424,13 +424,6 @@ export function createMenu(): void {
           label: 'SQL Server Documentation',
           click: async () => {
             await shell.openExternal('https://docs.microsoft.com/en-us/sql/sql-server/');
-          },
-        },
-        { type: 'separator' },
-        {
-          label: 'About MemberJunction',
-          click: async () => {
-            await shell.openExternal('https://github.com/MemberJunction/MJ');
           },
         },
       ],

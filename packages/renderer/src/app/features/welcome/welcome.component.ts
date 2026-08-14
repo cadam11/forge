@@ -26,7 +26,7 @@ import type { DockerStatus, DockerContainer } from '@mj-forge/shared';
       <div class="welcome-header">
         <div class="logo-section">
           <mat-icon class="app-logo">storage</mat-icon>
-          <h1>MJ Forge</h1>
+          <h1>Forge</h1>
           <p class="tagline">Multi-engine SQL IDE for macOS &amp; Windows</p>
         </div>
       </div>
@@ -91,7 +91,7 @@ import type { DockerStatus, DockerContainer } from '@mj-forge/shared';
             >
               <mat-icon>explore</mat-icon>
               <h3>Take a Tour</h3>
-              <p>Learn the basics of MJ Forge</p>
+              <p>Learn the basics of Forge</p>
             </mat-card>
           </div>
         </section>
@@ -195,8 +195,8 @@ import type { DockerStatus, DockerContainer } from '@mj-forge/shared';
               <div>
                 <h4>Connect to a Database</h4>
                 <p>
-                  MJ Forge speaks SQL Server, PostgreSQL, and MySQL. Make sure your server is
-                  reachable over the network — directly or through an SSH tunnel.
+                  Forge speaks SQL Server, PostgreSQL, and MySQL. Make sure your server is reachable
+                  over the network — directly or through an SSH tunnel.
                 </p>
               </div>
             </div>
@@ -205,8 +205,8 @@ import type { DockerStatus, DockerContainer } from '@mj-forge/shared';
               <div>
                 <h4>Use Docker for Local Development</h4>
                 <p>
-                  Running databases in Docker is the easiest way to develop locally. MJ Forge
-                  detects SQL Server, PostgreSQL, and MySQL containers automatically.
+                  Running databases in Docker is the easiest way to develop locally. Forge detects
+                  SQL Server, PostgreSQL, and MySQL containers automatically.
                 </p>
               </div>
             </div>
@@ -225,11 +225,6 @@ import type { DockerStatus, DockerContainer } from '@mj-forge/shared';
       </div>
 
       <div class="welcome-footer">
-        <p>
-          Built with
-          <mat-icon inline>favorite</mat-icon>
-          by MemberJunction
-        </p>
         <a href="#" (click)="openDocs($event)">Documentation</a>
         <span class="separator">|</span>
         <a href="#" (click)="openGitHub($event)">GitHub</a>
@@ -684,11 +679,11 @@ export class WelcomeComponent implements OnInit {
 
   openDocs(event: Event): void {
     event.preventDefault();
-    this.ipc.openExternal('https://github.com/MemberJunction/Forge/wiki').subscribe();
+    this.ipc.openExternal('https://github.com/cadam11/forge/wiki').subscribe();
   }
 
   openGitHub(event: Event): void {
     event.preventDefault();
-    this.ipc.openExternal('https://github.com/MemberJunction/Forge').subscribe();
+    this.ipc.openExternal('https://github.com/cadam11/forge').subscribe();
   }
 }

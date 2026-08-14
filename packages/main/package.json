@@ -1,7 +1,7 @@
 {
   "name": "@mj-forge/main",
   "version": "1.0.0",
-  "description": "Electron main process for MJ Forge",
+  "description": "Electron main process for Forge",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {

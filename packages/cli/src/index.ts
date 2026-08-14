@@ -12,7 +12,7 @@ const program = new Command();
 
 program
   .name('forge')
-  .description('MJ Forge CLI - SQL Server management from the command line')
+  .description('Forge CLI - SQL Server management from the command line')
   .version('0.1.0');
 
 // Add commands
@@ -27,7 +27,7 @@ program.action(() => {
   console.log(
     chalk.cyan(`
   ╔═══════════════════════════════════════════╗
-  ║           ${chalk.bold('MJ Forge CLI')}                    ║
+  ║           ${chalk.bold('Forge CLI')}                       ║
   ║     SQL Server Management Tool            ║
   ╚═══════════════════════════════════════════╝
   `)

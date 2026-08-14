@@ -64,7 +64,7 @@ import type { DatabaseEngine } from '@mj-forge/shared';
       <!-- Header (with padding for macOS traffic lights) -->
       <div class="sidebar-header">
         <div class="logo-area">
-          <img class="app-icon" src="assets/icons/mj-logo.png" alt="MJ Forge" />
+          <img class="app-icon" src="assets/icons/logo.png" alt="Forge" />
           <span class="logo">Forge</span>
         </div>
         <button
