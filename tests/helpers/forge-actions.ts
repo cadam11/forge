@@ -33,9 +33,10 @@ export const TEST_PG = {
  * Two distinct schemas are seeded:
  *   - `public.*` — synthetic e-commerce (products / customers / orders /
  *     order_items). Used by everyday spec/visual tests.
- *   - `__mj.*` — minimal MemberJunction shape (user / application / entity).
- *     Used by the MJ-specific regression tests; row counts chosen to match
- *     the legacy 31-suite expectations (11 applications, 24 entities).
+ *   - `app_meta.*` — minimal app-metadata shape (user / application / entity)
+ *     in a non-public schema. Used by the cross-schema-query regression
+ *     tests; row counts chosen to match the legacy 31-suite expectations
+ *     (11 applications, 24 entities).
  *
  * Each schema's presence is checked independently so adding either to an
  * existing seeded database doesn't redo the other.
@@ -55,13 +56,13 @@ export async function ensureForgeTestSeeded(): Promise<void> {
       await client.query(readFileSync(join(fixturesRoot, 'seed.sql'), 'utf8'));
     }
 
-    // MJ schema.
-    const mjSeeded = await client.query(
-      "SELECT 1 FROM information_schema.tables WHERE table_schema = '__mj' AND table_name = 'entity'"
+    // app_meta schema.
+    const appMetaSeeded = await client.query(
+      "SELECT 1 FROM information_schema.tables WHERE table_schema = 'app_meta' AND table_name = 'entity'"
     );
-    if (!(mjSeeded.rowCount && mjSeeded.rowCount > 0)) {
-      await client.query(readFileSync(join(fixturesRoot, 'mj-schema.sql'), 'utf8'));
-      await client.query(readFileSync(join(fixturesRoot, 'mj-seed.sql'), 'utf8'));
+    if (!(appMetaSeeded.rowCount && appMetaSeeded.rowCount > 0)) {
+      await client.query(readFileSync(join(fixturesRoot, 'app-meta-schema.sql'), 'utf8'));
+      await client.query(readFileSync(join(fixturesRoot, 'app-meta-seed.sql'), 'utf8'));
     }
   } finally {
     await client.end();
