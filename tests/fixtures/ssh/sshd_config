@@ -1,4 +1,4 @@
-# Custom sshd_config for the MJ Forge test bastion.
+# Custom sshd_config for the Forge test bastion.
 #
 # This is the linuxserver/openssh-server default config with one line flipped:
 # AllowTcpForwarding is set to "yes" (the default ships with "no") so that

@@ -2,10 +2,8 @@
  * Database Provider Abstraction
  *
  * Defines the interface that every database engine must implement.
- * Follows the MemberJunction provider pattern:
- *   DatabaseProviderBase → GenericDatabaseProvider → SQLServerDataProvider / PostgreSQLDataProvider
  *
- * For Forge, the hierarchy is simpler:
+ * The hierarchy is:
  *   DatabaseProvider (abstract) → MSSQLProvider / PgProvider
  */
 

@@ -1,4 +1,4 @@
--- MJ Forge regression-test fixture schema (MySQL 8).
+-- Forge regression-test fixture schema (MySQL 8).
 -- Identical logical shape to the mssql and postgres fixtures.
 
 DROP TABLE IF EXISTS order_items;
