@@ -1,4 +1,4 @@
-# MJ Forge regression test infrastructure.
+# Forge regression test infrastructure.
 #
 # Bring up:    npm run test:harness:up
 # Tear down:   npm run test:harness:down

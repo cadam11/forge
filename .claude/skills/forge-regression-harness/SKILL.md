@@ -1,9 +1,9 @@
 ---
 name: forge-regression-harness
-description: Use the MJ Forge regression test harness to drive quality on every non-trivial change — TDD/BDD style: harness up first, failing test first, implementation second, green test confirms intent. Trigger this skill BEFORE starting any non-trivial dev work that touches packages/main, packages/renderer, packages/shared, or packages/preload — and AFTER making changes (to catch regressions early). The user has 268+ tests across four tiers (unit, integration, e2e, visual) wired into a fast pipeline at `npm run test:full`. Make sure to use this skill whenever the user asks you to fix, implement, refactor, add, or otherwise modify substantive code in this repo, even if they don't explicitly ask you to "run the tests" — they expect you to verify your work and to write the test FIRST when the change is feature-shaped. The dashboard at http://127.0.0.1:5188 is for the human to watch your progress; you should rely on programmatic mechanisms (npm scripts, structured JSON output) to drive and interpret runs.
+description: Use the Forge regression test harness to drive quality on every non-trivial change — TDD/BDD style: harness up first, failing test first, implementation second, green test confirms intent. Trigger this skill BEFORE starting any non-trivial dev work that touches packages/main, packages/renderer, packages/shared, or packages/preload — and AFTER making changes (to catch regressions early). The user has 268+ tests across four tiers (unit, integration, e2e, visual) wired into a fast pipeline at `npm run test:full`. Make sure to use this skill whenever the user asks you to fix, implement, refactor, add, or otherwise modify substantive code in this repo, even if they don't explicitly ask you to "run the tests" — they expect you to verify your work and to write the test FIRST when the change is feature-shaped. The dashboard at http://127.0.0.1:5188 is for the human to watch your progress; you should rely on programmatic mechanisms (npm scripts, structured JSON output) to drive and interpret runs.
 ---
 
-# MJ Forge Regression Harness
+# Forge Regression Harness
 
 This repo has a comprehensive regression test harness. Use it. Use it _first_. The workflow below tells you when and how.
 

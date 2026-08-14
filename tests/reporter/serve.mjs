@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Live dashboard server for the MJ Forge regression harness.
+// Live dashboard server for the Forge regression harness.
 //
 // Brings the Docker harness up, then runs `vitest --watch` for both the unit
 // and integration tiers and hosts a live HTML dashboard at http://127.0.0.1:5188.
@@ -182,8 +182,8 @@ async function main() {
     const lanUrls = listLanUrls(PORT);
     console.log('');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log(`  MJ Forge live dashboard:  ${localUrl}`);
-    for (const u of lanUrls) console.log(`                            ${u}`);
+    console.log(`  Forge live dashboard:  ${localUrl}`);
+    for (const u of lanUrls) console.log(`                         ${u}`);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('  Vitest is watching both tiers. Edit code, see live updates.');
     console.log('  Ctrl+C to stop watchers (Docker stays up).');
@@ -1508,14 +1508,14 @@ function renderDashboardHtml() {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>MJ Forge · Regression Harness</title>
+<title>Forge · Regression Harness</title>
 ${FONT_LINKS}
 <style>${STYLES}</style>
 </head>
 <body>
 <main>
   <header class="header">
-    <h1><span class="accent">MJ Forge</span> Regression Harness</h1>
+    <h1><span class="accent">Forge</span> Regression Harness</h1>
     <div class="header-meta">
       <span class="label">Repo</span>
       <span class="value">${escapeHtml(state.git.branch)}@${escapeHtml(state.git.commit)} ${dirtyMark}</span>

@@ -1,4 +1,4 @@
-Run the Playwright UI regression test suite against the MJ Forge Electron app.
+Run the Playwright UI regression test suite against the Forge Electron app.
 
 ## Steps
 

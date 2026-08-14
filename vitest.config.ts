@@ -1,7 +1,7 @@
 /**
- * Vitest Configuration — MJ Forge
+ * Vitest Configuration — Forge
  *
- * Follows the MemberJunction monorepo testing pattern:
+ * Follows a standard Vitest monorepo testing pattern:
  * - Vitest with v8 coverage
  * - Per-package test projects
  * - Shared setup files with timeout configuration

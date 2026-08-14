@@ -1,6 +1,6 @@
-# Contributing to MJ Forge
+# Contributing to Forge
 
-Thank you for your interest in contributing to MJ Forge! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to Forge! This document provides guidelines and instructions for contributing.
 
 ## Table of Contents
 
@@ -17,7 +17,7 @@ Thank you for your interest in contributing to MJ Forge! This document provides 
 
 1. Fork the repository
 2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/Forge.git`
-3. Add the upstream remote: `git remote add upstream https://github.com/MemberJunction/Forge.git`
+3. Add the upstream remote: `git remote add upstream https://github.com/cadam11/forge.git`
 
 ## Development Setup
 
@@ -53,7 +53,7 @@ npm run package       # Current platform
 ## Project Structure
 
 ```
-mj-forge/
+forge/
 ├── packages/
 │   ├── shared/        # Types, IPC channels, ai-vendors.json
 │   ├── preload/       # Electron context bridge
@@ -80,16 +80,17 @@ mj-forge/
 
 ### Package Overview
 
-| Package | Purpose |
-|---------|---------|
-| `@mj-forge/shared` | Type definitions, IPC channel constants, AI vendor config |
-| `@mj-forge/preload` | Electron preload script with typed contextBridge API |
-| `@mj-forge/main` | Main process: SQL, AI, Docker, Keychain services + IPC handlers |
-| `@mj-forge/renderer` | Angular 18 UI with standalone components, signals, OnPush CD |
+| Package              | Purpose                                                         |
+| -------------------- | --------------------------------------------------------------- |
+| `@mj-forge/shared`   | Type definitions, IPC channel constants, AI vendor config       |
+| `@mj-forge/preload`  | Electron preload script with typed contextBridge API            |
+| `@mj-forge/main`     | Main process: SQL, AI, Docker, Keychain services + IPC handlers |
+| `@mj-forge/renderer` | Angular 18 UI with standalone components, signals, OnPush CD    |
 
 ## Making Changes
 
 1. Create a branch from `main`:
+
    ```bash
    git checkout -b feature/your-feature-name
    ```
@@ -97,6 +98,7 @@ mj-forge/
 2. Make changes following our [code style guidelines](#code-style)
 
 3. Build to check for type errors:
+
    ```bash
    npm run build
    ```
@@ -130,14 +132,14 @@ type(scope): description
 
 ### Types
 
-| Type | Description |
-|------|-------------|
-| `feat` | New feature |
-| `fix` | Bug fix |
-| `docs` | Documentation |
-| `refactor` | Code restructuring |
-| `test` | Test additions/changes |
-| `chore` | Build/tooling |
+| Type       | Description            |
+| ---------- | ---------------------- |
+| `feat`     | New feature            |
+| `fix`      | Bug fix                |
+| `docs`     | Documentation          |
+| `refactor` | Code restructuring     |
+| `test`     | Test additions/changes |
+| `chore`    | Build/tooling          |
 
 ### Examples
 
@@ -183,12 +185,12 @@ Same as commit format: `type(scope): description`
 
 ### File Naming
 
-| Type | Pattern |
-|------|---------|
-| Components | `kebab-case.component.ts` |
-| Services | `kebab-case.service.ts` / `kebab-case.ts` |
-| Types | `kebab-case.types.ts` |
-| Tests | `*.spec.ts` |
+| Type       | Pattern                                   |
+| ---------- | ----------------------------------------- |
+| Components | `kebab-case.component.ts`                 |
+| Services   | `kebab-case.service.ts` / `kebab-case.ts` |
+| Types      | `kebab-case.types.ts`                     |
+| Tests      | `*.spec.ts`                               |
 
 ### Forbidden Patterns
 
@@ -202,7 +204,7 @@ Same as commit format: `type(scope): description`
 
 ## Questions?
 
-- **Bugs** — [Open an issue](https://github.com/MemberJunction/Forge/issues)
-- **Ideas** — [Start a discussion](https://github.com/MemberJunction/Forge/discussions)
+- **Bugs** — [Open an issue](https://github.com/cadam11/forge/issues)
+- **Ideas** — [Start a discussion](https://github.com/cadam11/forge/discussions)
 
 Thank you for contributing!
