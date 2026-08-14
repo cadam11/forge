@@ -1,8 +1,14 @@
-# MJ Forge Regression Test Suite
+# Forge Regression Test Suite
+
+> **Historical.** This document describes a legacy MSSQL audit suite
+> (`full-audit.spec.ts`) that no longer exists in the repo, run against a
+> MemberJunction database. It is kept for reference only — the current test
+> harness is documented in `tests/README.md`. The `__mj` references below
+> describe that old fixture, not anything Forge still ships.
 
 ## Overview
 
-Automated Playwright tests for MJ Forge Electron app. Tests launch the full Electron app, connect to a local SQL Server Docker instance, and exercise every major feature area.
+Automated Playwright tests for the Forge Electron app. Tests launch the full Electron app, connect to a local SQL Server Docker instance, and exercise every major feature area.
 
 ## Prerequisites
 

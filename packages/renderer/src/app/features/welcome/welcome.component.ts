@@ -537,12 +537,6 @@ import type { DockerStatus, DockerContainer } from '@forgedb/shared';
         color: var(--text-muted);
         font-size: var(--font-size-sm);
 
-        mat-icon {
-          font-size: 14px;
-          vertical-align: middle;
-          color: var(--status-error);
-        }
-
         a {
           color: var(--text-accent);
           margin: 0 var(--spacing-xs);

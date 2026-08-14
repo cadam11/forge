@@ -16,7 +16,7 @@ Thank you for your interest in contributing to Forge! This document provides gui
 ## Getting Started
 
 1. Fork the repository
-2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/Forge.git`
+2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/forge.git`
 3. Add the upstream remote: `git remote add upstream https://github.com/cadam11/forge.git`
 
 ## Development Setup

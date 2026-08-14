@@ -6,8 +6,8 @@ import {
 } from './password-hygiene';
 
 /**
- * The password is captured from a UI text field (typically pasted), unlike the
- * MJ server which reads it from a deliberately-set env var. These tests pin the
+ * The password is captured from a UI text field (typically pasted), rather than
+ * from a deliberately-set env var. These tests pin the
  * paste-artifact detection that protects that path — see the connection-dialog
  * warning (#2) and the AUTH_FAILED enrichment (#3).
  */
