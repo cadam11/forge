@@ -19,7 +19,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { SharedGenericModule } from '@memberjunction/ng-shared-generic';
+import { LoadingComponent } from '../loading/loading.component';
 import { AIStateService } from '../../../core/state/ai.state';
 import type { ResultSet } from '@mj-forge/shared';
 
@@ -40,7 +40,7 @@ interface QuickAction {
     MatButtonModule,
     MatTooltipModule,
     MatProgressSpinnerModule,
-    SharedGenericModule,
+    LoadingComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -51,7 +51,15 @@ interface QuickAction {
     >
       <!-- Header (only when not embedded) -->
       @if (!embedded) {
-        <div class="panel-header" tabindex="0" role="button" aria-label="Toggle AI analysis" (click)="toggleCollapsed()" (keydown.enter)="toggleCollapsed()" (keydown.space)="toggleCollapsed(); $event.preventDefault()">
+        <div
+          class="panel-header"
+          tabindex="0"
+          role="button"
+          aria-label="Toggle AI analysis"
+          (click)="toggleCollapsed()"
+          (keydown.enter)="toggleCollapsed()"
+          (keydown.space)="toggleCollapsed(); $event.preventDefault()"
+        >
           <div class="header-left">
             <mat-icon>auto_awesome</mat-icon>
             <span class="header-title">AI Analysis</span>
@@ -123,11 +131,11 @@ interface QuickAction {
             <!-- Loading State -->
             @if (aiState.analyzingResults()) {
               <div class="analysis-loading">
-                <mj-loading
+                <app-loading
                   text="Analyzing results..."
                   size="medium"
                   animation="pulse"
-                ></mj-loading>
+                ></app-loading>
               </div>
             }
 
