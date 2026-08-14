@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { QueryResult } from '@mj-forge/shared';
+import type { QueryResult } from '@forgedb/shared';
 import { QueryResultsStore } from './query-results-store';
 
 function makeResult(rows: number): QueryResult {

@@ -1,5 +1,5 @@
 {
-  "name": "mj-forge",
+  "name": "forge",
   "version": "0.5.0",
   "description": "AI-native SQL Server IDE for macOS and Windows",
   "license": "MIT",
@@ -16,8 +16,8 @@
     "build": "turbo run build",
     "build:stream": "turbo run build --log-order=stream",
     "dev": "npm run build && concurrently -k \"npm run dev:renderer\" \"npm run dev:main\"",
-    "dev:renderer": "npm run start --workspace=@mj-forge/renderer",
-    "dev:main": "wait-on http://localhost:4200 && unset ELECTRON_RUN_AS_NODE && NODE_ENV=development npm run start --workspace=@mj-forge/main",
+    "dev:renderer": "npm run start --workspace=@forgedb/renderer",
+    "dev:main": "wait-on http://localhost:4200 && unset ELECTRON_RUN_AS_NODE && NODE_ENV=development npm run start --workspace=@forgedb/main",
     "start": "turbo run start",
     "watch": "turbo run watch",
     "test": "vitest run",

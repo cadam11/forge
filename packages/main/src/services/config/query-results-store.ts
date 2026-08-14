@@ -21,8 +21,8 @@ import type {
   RowDiff,
   CellChange,
   ColumnDiff,
-} from '@mj-forge/shared';
-import type { QueryResult, ColumnMetadata } from '@mj-forge/shared';
+} from '@forgedb/shared';
+import type { QueryResult, ColumnMetadata } from '@forgedb/shared';
 import { BaseSingleton } from '../../utils/singleton';
 import { createLogger } from '../../utils/logger';
 import { SnapshotFileStore, type SnapshotMeta } from './snapshot-file-store';

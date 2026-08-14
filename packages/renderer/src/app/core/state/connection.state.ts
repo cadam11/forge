@@ -1,12 +1,12 @@
 import { Injectable, OnDestroy, computed, inject, signal } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
-import { FULL_CAPABILITIES } from '@mj-forge/shared';
+import { FULL_CAPABILITIES } from '@forgedb/shared';
 import type {
   ConnectionProfile,
   DatabaseInfo,
   AppState,
   TestConnectionResult,
-} from '@mj-forge/shared';
+} from '@forgedb/shared';
 import { IpcService } from '../services/ipc.service';
 import { NotificationService } from '../services/notification.service';
 import { ExplorerStateService } from './explorer.state';

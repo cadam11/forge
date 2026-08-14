@@ -33,7 +33,7 @@ vi.mock('electron', () => ({
   },
 }));
 
-vi.mock('@mj-forge/main/services/config/connection-profiles', () => ({
+vi.mock('@forgedb/main/services/config/connection-profiles', () => ({
   ConnectionProfilesStore: {
     getInstance: () => ({
       getById: (id: string) => fakeProfiles.get(id),
@@ -42,8 +42,8 @@ vi.mock('@mj-forge/main/services/config/connection-profiles', () => ({
   },
 }));
 
-import { BackupRestoreService } from '@mj-forge/main/services/sql/backup-restore';
-import { ConnectionPoolManager } from '@mj-forge/main/services/sql/connection-pool';
+import { BackupRestoreService } from '@forgedb/main/services/sql/backup-restore';
+import { ConnectionPoolManager } from '@forgedb/main/services/sql/connection-pool';
 
 const SQLSERVER_DATA_DIR = '/var/opt/mssql/data';
 

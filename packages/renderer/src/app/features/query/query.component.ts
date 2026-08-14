@@ -53,7 +53,7 @@ import type {
   ExportFormat,
   QueryResultSnapshot,
   ObjectMetadata,
-} from '@mj-forge/shared';
+} from '@forgedb/shared';
 import { format as formatSQL } from 'sql-formatter';
 
 // Monaco editor types - loaded dynamically
@@ -1006,7 +1006,7 @@ export class QueryComponent implements OnInit, OnDestroy {
 
   // Execution plan state
   planData = signal<unknown>(null);
-  planEngine = signal<import('@mj-forge/shared').DatabaseEngine>('mssql');
+  planEngine = signal<import('@forgedb/shared').DatabaseEngine>('mssql');
   planMysqlExplainUrl = signal<string | null>(null);
 
   // Track last executed SQL for AI analysis

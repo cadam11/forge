@@ -7,8 +7,8 @@ import { dialog, BrowserWindow } from 'electron';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { watch, FSWatcher } from 'fs';
-import { IPC_CHANNELS } from '@mj-forge/shared';
-import type { FileTreeNode, WorkspaceInfo, WorkspaceSettings } from '@mj-forge/shared';
+import { IPC_CHANNELS } from '@forgedb/shared';
+import type { FileTreeNode, WorkspaceInfo, WorkspaceSettings } from '@forgedb/shared';
 import { AppStateStore } from '../services/config/app-state';
 import { createLogger } from '../utils/logger';
 import { safeHandle } from './safe-handle';
@@ -44,80 +44,101 @@ export function registerWorkspaceHandlers(): void {
   const appState = AppStateStore.getInstance();
 
   // Open folder and get workspace info
-  safeHandle(IPC_CHANNELS.WORKSPACE.OPEN_FOLDER, async (_event, folderPath?: string): Promise<WorkspaceInfo | null> => {
-    let targetPath = folderPath;
-    const mainWindow = getMainWindow();
+  safeHandle(
+    IPC_CHANNELS.WORKSPACE.OPEN_FOLDER,
+    async (_event, folderPath?: string): Promise<WorkspaceInfo | null> => {
+      let targetPath = folderPath;
+      const mainWindow = getMainWindow();
 
-    if (!targetPath) {
-      if (!mainWindow) return null;
-      const result = await dialog.showOpenDialog(mainWindow, {
-        properties: ['openDirectory'],
-        title: 'Open Folder',
-      });
+      if (!targetPath) {
+        if (!mainWindow) return null;
+        const result = await dialog.showOpenDialog(mainWindow, {
+          properties: ['openDirectory'],
+          title: 'Open Folder',
+        });
 
-      if (result.canceled || result.filePaths.length === 0) {
-        return null;
+        if (result.canceled || result.filePaths.length === 0) {
+          return null;
+        }
+        targetPath = result.filePaths[0];
       }
-      targetPath = result.filePaths[0];
+
+      const files = await buildFileTree(targetPath);
+      const settings = await loadWorkspaceSettings(targetPath);
+
+      // Save to app state
+      appState.setCurrentWorkspacePath(targetPath);
+
+      // Set up file watcher
+      if (mainWindow) {
+        setupFileWatcher(targetPath, mainWindow);
+      }
+
+      return {
+        path: targetPath,
+        name: path.basename(targetPath),
+        files,
+        settings,
+      };
     }
-
-    const files = await buildFileTree(targetPath);
-    const settings = await loadWorkspaceSettings(targetPath);
-
-    // Save to app state
-    appState.setCurrentWorkspacePath(targetPath);
-
-    // Set up file watcher
-    if (mainWindow) {
-      setupFileWatcher(targetPath, mainWindow);
-    }
-
-    return {
-      path: targetPath,
-      name: path.basename(targetPath),
-      files,
-      settings,
-    };
-  });
+  );
 
   // Get files in a directory
-  safeHandle(IPC_CHANNELS.WORKSPACE.GET_FILES, async (_event, dirPath: string): Promise<FileTreeNode[]> => {
-    validatePathWithinWorkspace(dirPath, appState.getCurrentWorkspacePath());
-    return buildFileTree(dirPath);
-  });
+  safeHandle(
+    IPC_CHANNELS.WORKSPACE.GET_FILES,
+    async (_event, dirPath: string): Promise<FileTreeNode[]> => {
+      validatePathWithinWorkspace(dirPath, appState.getCurrentWorkspacePath());
+      return buildFileTree(dirPath);
+    }
+  );
 
   // Read file contents
-  safeHandle(IPC_CHANNELS.WORKSPACE.READ_FILE, async (_event, filePath: string): Promise<string> => {
-    validatePathWithinWorkspace(filePath, appState.getCurrentWorkspacePath());
-    const content = await fs.readFile(filePath, 'utf-8');
-    return content;
-  });
+  safeHandle(
+    IPC_CHANNELS.WORKSPACE.READ_FILE,
+    async (_event, filePath: string): Promise<string> => {
+      validatePathWithinWorkspace(filePath, appState.getCurrentWorkspacePath());
+      const content = await fs.readFile(filePath, 'utf-8');
+      return content;
+    }
+  );
 
   // Write file contents
-  safeHandle(IPC_CHANNELS.WORKSPACE.WRITE_FILE, async (_event, filePath: string, content: string): Promise<void> => {
-    validatePathWithinWorkspace(filePath, appState.getCurrentWorkspacePath());
-    await fs.writeFile(filePath, content, 'utf-8');
-  });
+  safeHandle(
+    IPC_CHANNELS.WORKSPACE.WRITE_FILE,
+    async (_event, filePath: string, content: string): Promise<void> => {
+      validatePathWithinWorkspace(filePath, appState.getCurrentWorkspacePath());
+      await fs.writeFile(filePath, content, 'utf-8');
+    }
+  );
 
   // Create new file
-  safeHandle(IPC_CHANNELS.WORKSPACE.CREATE_FILE, async (_event, filePath: string, content?: string): Promise<void> => {
-    validatePathWithinWorkspace(filePath, appState.getCurrentWorkspacePath());
-    await fs.writeFile(filePath, content || '', 'utf-8');
-  });
+  safeHandle(
+    IPC_CHANNELS.WORKSPACE.CREATE_FILE,
+    async (_event, filePath: string, content?: string): Promise<void> => {
+      validatePathWithinWorkspace(filePath, appState.getCurrentWorkspacePath());
+      await fs.writeFile(filePath, content || '', 'utf-8');
+    }
+  );
 
   // Delete file
-  safeHandle(IPC_CHANNELS.WORKSPACE.DELETE_FILE, async (_event, filePath: string): Promise<void> => {
-    validatePathWithinWorkspace(filePath, appState.getCurrentWorkspacePath());
-    await fs.unlink(filePath);
-  });
+  safeHandle(
+    IPC_CHANNELS.WORKSPACE.DELETE_FILE,
+    async (_event, filePath: string): Promise<void> => {
+      validatePathWithinWorkspace(filePath, appState.getCurrentWorkspacePath());
+      await fs.unlink(filePath);
+    }
+  );
 
   // Rename file
-  safeHandle(IPC_CHANNELS.WORKSPACE.RENAME_FILE, async (_event, oldPath: string, newPath: string): Promise<void> => {
-    const workspace = appState.getCurrentWorkspacePath();
-    validatePathWithinWorkspace(oldPath, workspace);
-    validatePathWithinWorkspace(newPath, workspace);
-    await fs.rename(oldPath, newPath);
-  });
+  safeHandle(
+    IPC_CHANNELS.WORKSPACE.RENAME_FILE,
+    async (_event, oldPath: string, newPath: string): Promise<void> => {
+      const workspace = appState.getCurrentWorkspacePath();
+      validatePathWithinWorkspace(oldPath, workspace);
+      validatePathWithinWorkspace(newPath, workspace);
+      await fs.rename(oldPath, newPath);
+    }
+  );
 }
 
 async function buildFileTree(dirPath: string, depth = 0, maxDepth = 5): Promise<FileTreeNode[]> {
@@ -175,7 +196,9 @@ function hasSqlFiles(nodes: FileTreeNode[]): boolean {
   return false;
 }
 
-async function loadWorkspaceSettings(workspacePath: string): Promise<WorkspaceSettings | undefined> {
+async function loadWorkspaceSettings(
+  workspacePath: string
+): Promise<WorkspaceSettings | undefined> {
   const settingsPath = path.join(workspacePath, WORKSPACE_SETTINGS_FILE);
   try {
     const content = await fs.readFile(settingsPath, 'utf-8');

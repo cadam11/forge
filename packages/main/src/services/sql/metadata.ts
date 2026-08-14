@@ -19,7 +19,7 @@ import type {
   TriggerInfo,
   ExtendedProperty,
   TableProperties,
-} from '@mj-forge/shared';
+} from '@forgedb/shared';
 import { BaseSingleton } from '../../utils/singleton';
 import { ObjectCache } from '../../utils/object-cache';
 import { TsqlBuilder } from '../../utils/tsql-builder';

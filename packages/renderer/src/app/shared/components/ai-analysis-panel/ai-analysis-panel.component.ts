@@ -21,7 +21,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { LoadingComponent } from '../loading/loading.component';
 import { AIStateService } from '../../../core/state/ai.state';
-import type { ResultSet } from '@mj-forge/shared';
+import type { ResultSet } from '@forgedb/shared';
 
 interface QuickAction {
   id: string;

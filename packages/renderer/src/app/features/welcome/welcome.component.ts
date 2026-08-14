@@ -15,7 +15,7 @@ import {
   ConnectionDialogComponent,
   ConnectionDialogData,
 } from '../../shared/components/connection-dialog/connection-dialog.component';
-import type { DockerStatus, DockerContainer } from '@mj-forge/shared';
+import type { DockerStatus, DockerContainer } from '@forgedb/shared';
 
 @Component({
   selector: 'app-welcome',

@@ -15,8 +15,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client as PgClient } from 'pg';
 
-import { SshTunnelManager } from '@mj-forge/main/services/ssh/ssh-tunnel-manager';
-import type { SshTunnelConfig } from '@mj-forge/shared';
+import { SshTunnelManager } from '@forgedb/main/services/ssh/ssh-tunnel-manager';
+import type { SshTunnelConfig } from '@forgedb/shared';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PRIVATE_KEY = join(HERE, '..', '..', '.ssh', 'id_test');

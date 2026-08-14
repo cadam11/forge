@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
-import { IPC_CHANNELS, CHAT_IPC_CHANNELS } from '@mj-forge/shared';
+import { IPC_CHANNELS, CHAT_IPC_CHANNELS } from '@forgedb/shared';
 import type {
   ConnectionProfile,
   TestConnectionResult,
@@ -73,7 +73,7 @@ import type {
   ServerDefaultPaths,
   LogEntry,
   ActiveConnection,
-} from '@mj-forge/shared';
+} from '@forgedb/shared';
 
 /**
  * The API exposed to the renderer process via contextBridge

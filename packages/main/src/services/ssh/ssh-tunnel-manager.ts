@@ -7,7 +7,7 @@
 import { Client } from 'ssh2';
 import * as net from 'net';
 import * as fs from 'fs';
-import type { SshTunnelConfig } from '@mj-forge/shared';
+import type { SshTunnelConfig } from '@forgedb/shared';
 import { BaseSingleton } from '../../utils/singleton';
 import { createLogger } from '../../utils/logger';
 import { CredentialStore } from '../keychain/credential-store';

@@ -13,7 +13,7 @@ import type {
   RenameDatabaseOptions,
   DeleteDatabaseOptions,
   EngineVariant,
-} from '@mj-forge/shared';
+} from '@forgedb/shared';
 
 // Re-export engine type for convenience
 export type { DatabaseEngine };

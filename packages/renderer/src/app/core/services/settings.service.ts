@@ -1,6 +1,6 @@
 import { Injectable, signal, computed, NgZone, inject } from '@angular/core';
-import type { AppSettings, ThemePreference } from '@mj-forge/shared';
-import { DEFAULT_SETTINGS } from '@mj-forge/shared';
+import type { AppSettings, ThemePreference } from '@forgedb/shared';
+import { DEFAULT_SETTINGS } from '@forgedb/shared';
 
 const STORAGE_KEY = 'forge-settings';
 

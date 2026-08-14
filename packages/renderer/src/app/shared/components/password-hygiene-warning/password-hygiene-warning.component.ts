@@ -10,7 +10,7 @@
 
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
-import { describePasswordHygiene } from '@mj-forge/shared';
+import { describePasswordHygiene } from '@forgedb/shared';
 
 @Component({
   selector: 'app-password-hygiene-warning',

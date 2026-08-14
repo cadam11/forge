@@ -8,7 +8,7 @@
 
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
-import type { TestConnectionResult } from '@mj-forge/shared';
+import type { TestConnectionResult } from '@forgedb/shared';
 
 @Component({
   selector: 'app-test-result-panel',

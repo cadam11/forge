@@ -4,8 +4,8 @@
  */
 
 import { BrowserWindow } from 'electron';
-import { CHAT_IPC_CHANNELS } from '@mj-forge/shared';
-import type { ChatRequest } from '@mj-forge/shared';
+import { CHAT_IPC_CHANNELS } from '@forgedb/shared';
+import type { ChatRequest } from '@forgedb/shared';
 import { ChatService } from '../services/ai/chat-service';
 import { safeHandle } from './safe-handle';
 
@@ -46,12 +46,15 @@ export function registerChatHandlers(): void {
     return { started: true };
   });
 
-  safeHandle(CHAT_IPC_CHANNELS.CONFIRM_TOOL, async (event, conversationId: string, toolCallId: string, confirmed: boolean) => {
-    const mainWindow = BrowserWindow.fromWebContents(event.sender);
-    if (!mainWindow) throw new Error('No window found');
-    await chatService.confirmToolCall(conversationId, toolCallId, confirmed, mainWindow);
-    return { confirmed };
-  });
+  safeHandle(
+    CHAT_IPC_CHANNELS.CONFIRM_TOOL,
+    async (event, conversationId: string, toolCallId: string, confirmed: boolean) => {
+      const mainWindow = BrowserWindow.fromWebContents(event.sender);
+      if (!mainWindow) throw new Error('No window found');
+      await chatService.confirmToolCall(conversationId, toolCallId, confirmed, mainWindow);
+      return { confirmed };
+    }
+  );
 
   safeHandle(CHAT_IPC_CHANNELS.CANCEL_STREAM, async (_event, conversationId: string) => {
     chatService.cancelStream(conversationId);

@@ -2,7 +2,7 @@
  * Database IPC Handlers
  */
 
-import { IPC_CHANNELS } from '@mj-forge/shared';
+import { IPC_CHANNELS } from '@forgedb/shared';
 import type {
   DatabaseInfo,
   CreateDatabaseOptions,
@@ -11,7 +11,7 @@ import type {
   RenameDatabaseResult,
   DeleteDatabaseOptions,
   DeleteDatabaseResult,
-} from '@mj-forge/shared';
+} from '@forgedb/shared';
 import { ConnectionPoolManager } from '../services/sql/connection-pool';
 import { MetadataService } from '../services/sql/metadata';
 import { createLogger } from '../utils/logger';

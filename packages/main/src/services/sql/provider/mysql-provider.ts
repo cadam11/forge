@@ -6,7 +6,7 @@
 
 import mysql from 'mysql2/promise';
 import type { Pool, PoolOptions, FieldPacket, ResultSetHeader } from 'mysql2/promise';
-import type { ConnectionProfile, TestConnectionResult } from '@mj-forge/shared';
+import type { ConnectionProfile, TestConnectionResult } from '@forgedb/shared';
 import { createLogger } from '../../../utils/logger';
 import { DatabaseProvider, type ProviderQueryResult } from './database-provider';
 import { MySQLDialect } from '../dialect/mysql-dialect';

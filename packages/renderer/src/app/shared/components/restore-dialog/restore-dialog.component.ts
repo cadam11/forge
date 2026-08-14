@@ -38,7 +38,7 @@ import type {
   CliDepsResult,
   CliEngine,
   FileRelocation,
-} from '@mj-forge/shared';
+} from '@forgedb/shared';
 
 export interface RestoreDialogData {
   connectionId: string;

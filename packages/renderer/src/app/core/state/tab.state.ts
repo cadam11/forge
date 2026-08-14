@@ -2,7 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { v4 as uuidv4 } from 'uuid';
 import { IpcService } from '../services/ipc.service';
-import type { TabState } from '@mj-forge/shared';
+import type { TabState } from '@forgedb/shared';
 import { firstValueFrom } from 'rxjs';
 
 export type TabType = 'query' | 'results' | 'object' | 'welcome' | 'erd' | 'chat';

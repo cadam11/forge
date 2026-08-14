@@ -1,5 +1,5 @@
 {
-  "name": "@mj-forge/main",
+  "name": "@forgedb/main",
   "version": "1.0.0",
   "description": "Electron main process for Forge",
   "main": "dist/index.js",
@@ -15,7 +15,7 @@
     "test:coverage": "jest --coverage"
   },
   "dependencies": {
-    "@mj-forge/shared": "*",
+    "@forgedb/shared": "*",
     "dockerode": "^4.0.2",
     "electron-store": "^8.2.0",
     "keytar": "^7.9.0",

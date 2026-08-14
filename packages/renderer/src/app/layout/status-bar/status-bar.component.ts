@@ -14,7 +14,7 @@ import { IpcService } from '../../core/services/ipc.service';
 import { QueryExecutionService } from '../../core/services/query-execution.service';
 import { LogService } from '../../core/services/log.service';
 import { DockerPanelComponent } from '../../shared/components/docker-panel/docker-panel.component';
-import type { DockerStatus, DockerContainer } from '@mj-forge/shared';
+import type { DockerStatus, DockerContainer } from '@forgedb/shared';
 
 @Component({
   selector: 'app-status-bar',

@@ -15,8 +15,8 @@ import sqlserver from 'mssql';
 import { Client as PgClient } from 'pg';
 import mysql from 'mysql2/promise';
 
-import { getDialect } from '@mj-forge/main/services/sql/dialect';
-import type { DatabaseEngine } from '@mj-forge/shared';
+import { getDialect } from '@forgedb/main/services/sql/dialect';
+import type { DatabaseEngine } from '@forgedb/shared';
 
 import {
   applyFixture,

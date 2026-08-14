@@ -11,7 +11,7 @@ import type {
   StartContainerResult,
   PathTranslation,
   ContainerState,
-} from '@mj-forge/shared';
+} from '@forgedb/shared';
 import { BaseSingleton } from '../../utils/singleton';
 
 export class DockerDetector extends BaseSingleton {
@@ -62,9 +62,7 @@ export class DockerDetector extends BaseSingleton {
           imageLower.includes('postgres') ||
           imageLower.includes('postgresql') ||
           imageLower.includes('postgis');
-        const isMySQL =
-          imageLower.includes('mysql') ||
-          imageLower.includes('mariadb');
+        const isMySQL = imageLower.includes('mysql') || imageLower.includes('mariadb');
 
         const isDatabase = isSqlServer || isPostgres || isMySQL;
 

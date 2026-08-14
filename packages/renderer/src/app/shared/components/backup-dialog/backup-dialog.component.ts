@@ -37,7 +37,7 @@ import type {
   BackupHistoryEntry,
   CliDepsResult,
   CliEngine,
-} from '@mj-forge/shared';
+} from '@forgedb/shared';
 
 export interface BackupDialogData {
   connectionId: string;

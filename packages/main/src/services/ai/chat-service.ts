@@ -15,7 +15,7 @@ import type {
   ChatStreamChunk,
   Conversation,
   ToolCallResult,
-} from '@mj-forge/shared';
+} from '@forgedb/shared';
 import { BaseSingleton } from '../../utils/singleton';
 import { createLogger } from '../../utils/logger';
 import { AIService } from './ai-service';

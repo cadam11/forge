@@ -18,7 +18,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 // manager, while this import resolves at compile time to the same file.
 import { __mockSshClients, __mockSshState, __resetMockSsh } from '../../__mocks__/ssh2';
 import { SshTunnelManager } from './ssh-tunnel-manager';
-import type { SshTunnelConfig } from '@mj-forge/shared';
+import type { SshTunnelConfig } from '@forgedb/shared';
 
 const sshConfig: SshTunnelConfig = {
   enabled: true,

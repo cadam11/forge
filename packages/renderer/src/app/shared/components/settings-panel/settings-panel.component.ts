@@ -12,7 +12,7 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { SettingsService } from '../../../core/services/settings.service';
 import { AIStateService } from '../../../core/state/ai.state';
-import type { ThemePreference } from '@mj-forge/shared';
+import type { ThemePreference } from '@forgedb/shared';
 import { keyHint } from '../../../core/utils/platform';
 
 @Component({

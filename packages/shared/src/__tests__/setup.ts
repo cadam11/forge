@@ -1,5 +1,5 @@
 /**
- * Test setup for @mj-forge/shared
+ * Test setup for @forgedb/shared
  * Runs before each test file.
  */
 

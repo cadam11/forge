@@ -12,8 +12,8 @@ import type {
   AnalysisResponse,
   SQLGenerationRequest,
   SQLGenerationResponse,
-} from '@mj-forge/shared';
-import { DEFAULT_AI_SETTINGS, AI_VENDORS_CONFIG } from '@mj-forge/shared';
+} from '@forgedb/shared';
+import { DEFAULT_AI_SETTINGS, AI_VENDORS_CONFIG } from '@forgedb/shared';
 import { BaseSingleton } from '../../utils/singleton';
 import { createLogger } from '../../utils/logger';
 import { CredentialStore } from '../keychain/credential-store';
@@ -376,7 +376,12 @@ ${request.prompt || 'Provide a brief analysis of these results, noting any patte
           .join('\n');
     }
 
-    const dialectName = request.dialect === 'postgresql' ? 'PostgreSQL' : request.dialect === 'mysql' ? 'MySQL' : 'T-SQL';
+    const dialectName =
+      request.dialect === 'postgresql'
+        ? 'PostgreSQL'
+        : request.dialect === 'mysql'
+          ? 'MySQL'
+          : 'T-SQL';
     return `Generate a ${dialectName} query for the following request:
 
 ${request.prompt}

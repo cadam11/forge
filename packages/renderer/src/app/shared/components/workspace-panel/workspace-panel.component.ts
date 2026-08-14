@@ -9,7 +9,7 @@ import { IpcService } from '../../../core/services/ipc.service';
 import { TabStateService } from '../../../core/state/tab.state';
 import { ConnectionStateService } from '../../../core/state/connection.state';
 import { NotificationService } from '../../../core/services/notification.service';
-import type { FileTreeNode, WorkspaceInfo } from '@mj-forge/shared';
+import type { FileTreeNode, WorkspaceInfo } from '@forgedb/shared';
 import { firstValueFrom } from 'rxjs';
 
 @Component({

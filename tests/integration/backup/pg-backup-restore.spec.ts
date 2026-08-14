@@ -40,7 +40,7 @@ vi.mock('electron', () => ({
   },
 }));
 
-vi.mock('@mj-forge/main/services/config/connection-profiles', () => ({
+vi.mock('@forgedb/main/services/config/connection-profiles', () => ({
   ConnectionProfilesStore: {
     getInstance: () => ({
       getById: (id: string) => fakeProfiles.get(id),
@@ -50,7 +50,7 @@ vi.mock('@mj-forge/main/services/config/connection-profiles', () => ({
 }));
 
 // Import AFTER mocks so the service constructor sees the fake store.
-import { PgBackupService } from '@mj-forge/main/services/sql/pg-backup';
+import { PgBackupService } from '@forgedb/main/services/sql/pg-backup';
 
 describe('postgres backup/restore round-trip', () => {
   const tmpFiles: string[] = [];

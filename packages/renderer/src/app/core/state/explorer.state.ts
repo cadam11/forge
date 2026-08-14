@@ -7,7 +7,7 @@ import type {
   ForeignKeyInfo,
   ConstraintInfo,
   TriggerInfo,
-} from '@mj-forge/shared';
+} from '@forgedb/shared';
 import { IpcService } from '../services/ipc.service';
 import { NotificationService } from '../services/notification.service';
 import { firstValueFrom } from 'rxjs';

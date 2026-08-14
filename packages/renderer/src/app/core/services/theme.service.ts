@@ -1,6 +1,6 @@
-import { Injectable, inject, computed } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { SettingsService } from './settings.service';
-import type { ThemePreference } from '@mj-forge/shared';
+import type { ThemePreference } from '@forgedb/shared';
 
 export type ThemeMode = ThemePreference;
 

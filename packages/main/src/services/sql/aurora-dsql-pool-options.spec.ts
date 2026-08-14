@@ -7,7 +7,7 @@
  * connection-pool.ts's getPgPool guard).
  */
 import { describe, expect, it } from 'vitest';
-import type { ConnectionProfile } from '@mj-forge/shared';
+import type { ConnectionProfile } from '@forgedb/shared';
 import { auroraDsqlPoolOptions } from './aurora-dsql-pool-options';
 
 const baseProfile = (over: Partial<ConnectionProfile> = {}): ConnectionProfile => ({

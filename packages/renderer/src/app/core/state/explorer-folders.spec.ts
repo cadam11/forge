@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { FULL_CAPABILITIES } from '@mj-forge/shared';
+import { FULL_CAPABILITIES } from '@forgedb/shared';
 import { schemaFolderDefs, tableSubFolderDefs } from './explorer-folders';
 
 const DSQL_CAPS = {

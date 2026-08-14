@@ -73,7 +73,7 @@ import type {
   ServerFileEntry,
   ServerDefaultPaths,
   ActiveConnection,
-} from '@mj-forge/shared';
+} from '@forgedb/shared';
 
 // Dialog types for Electron dialogs
 export interface OpenDialogOptions {

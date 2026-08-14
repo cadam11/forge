@@ -2,7 +2,7 @@
  * Docker Volume Mapper - Translates paths between host and container
  */
 
-import type { VolumeMapping, PathTranslation } from '@mj-forge/shared';
+import type { VolumeMapping, PathTranslation } from '@forgedb/shared';
 import * as path from 'path';
 import * as fs from 'fs';
 

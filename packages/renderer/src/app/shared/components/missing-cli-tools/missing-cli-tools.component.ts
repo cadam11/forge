@@ -4,7 +4,7 @@
  * Renders inside the Backup/Restore dialog when the host is missing one
  * of the engine-specific binaries Forge shells out to (pg_dump,
  * pg_restore, mysqldump, mysql). Shows the platform-appropriate install
- * steps sourced from `@mj-forge/shared`'s `getCliInstallInstructions`,
+ * steps sourced from `@forgedb/shared`'s `getCliInstallInstructions`,
  * along with which tools were probed and which came back missing.
  *
  * The host gets a "Re-check" button so they can install the tools in a
@@ -17,7 +17,7 @@ import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import type { CliInstallInstructions, CliInstallStep, CliToolStatus } from '@mj-forge/shared';
+import type { CliInstallInstructions, CliInstallStep, CliToolStatus } from '@forgedb/shared';
 
 @Component({
   selector: 'app-missing-cli-tools',

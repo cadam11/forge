@@ -80,12 +80,12 @@ forge/
 
 ### Package Overview
 
-| Package              | Purpose                                                         |
-| -------------------- | --------------------------------------------------------------- |
-| `@mj-forge/shared`   | Type definitions, IPC channel constants, AI vendor config       |
-| `@mj-forge/preload`  | Electron preload script with typed contextBridge API            |
-| `@mj-forge/main`     | Main process: SQL, AI, Docker, Keychain services + IPC handlers |
-| `@mj-forge/renderer` | Angular 18 UI with standalone components, signals, OnPush CD    |
+| Package             | Purpose                                                         |
+| ------------------- | --------------------------------------------------------------- |
+| `@forgedb/shared`   | Type definitions, IPC channel constants, AI vendor config       |
+| `@forgedb/preload`  | Electron preload script with typed contextBridge API            |
+| `@forgedb/main`     | Main process: SQL, AI, Docker, Keychain services + IPC handlers |
+| `@forgedb/renderer` | Angular 18 UI with standalone components, signals, OnPush CD    |
 
 ## Making Changes
 
@@ -179,7 +179,7 @@ Same as commit format: `type(scope): description`
 ### Electron (Main Process)
 
 - All Node operations in main process — never expose Node APIs to renderer
-- IPC channels typed in `@mj-forge/shared`
+- IPC channels typed in `@forgedb/shared`
 - Use `invoke/handle` for request-response, `send/on` for streaming
 - Credentials via Keychain only — never in files or logs
 

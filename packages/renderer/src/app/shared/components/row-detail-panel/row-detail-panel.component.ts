@@ -13,7 +13,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatTabsModule } from '@angular/material/tabs';
-import type { ColumnMetadata, FkRecordRequest } from '@mj-forge/shared';
+import type { ColumnMetadata, FkRecordRequest } from '@forgedb/shared';
 import { IpcService } from '../../../core/services/ipc.service';
 
 interface FkPreviewState {

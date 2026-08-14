@@ -92,4 +92,4 @@ For a **patch release with no UX changes**, the audit may yield only the `Releas
 
 - **`cpu-features` build failure**: The `scripts/before-build.js` hook removes this incompatible optional module before `@electron/rebuild` runs. If it still fails, check that `before-build.js` exists and is referenced in `electron-builder.yml` under `beforeBuild`.
 - **Missing dependencies in packaged app**: The `beforeBuild` hook MUST return `true`. Returning `false` tells electron-builder that node_modules are handled externally, which excludes all deps from the asar.
-- **Workspace symlink issues**: `scripts/prepare-package.js` replaces the `@mj-forge/shared` symlink with a real copy. This runs automatically as part of `npm run package`.
+- **Workspace symlink issues**: `scripts/prepare-package.js` replaces the `@forgedb/shared` symlink with a real copy. This runs automatically as part of `npm run package`.

@@ -12,7 +12,7 @@
  * to import from unit-tested code.
  */
 
-import type { LogEntry } from '@mj-forge/shared';
+import type { LogEntry } from '@forgedb/shared';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 

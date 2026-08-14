@@ -10,7 +10,7 @@ import { firstValueFrom } from 'rxjs';
 import { TabStateService } from '../../core/state/tab.state';
 import { IpcService } from '../../core/services/ipc.service';
 import { NotificationService } from '../../core/services/notification.service';
-import type { ColumnInfo, IndexInfo } from '@mj-forge/shared';
+import type { ColumnInfo, IndexInfo } from '@forgedb/shared';
 
 @Component({
   selector: 'app-explorer',

@@ -5,7 +5,7 @@
 
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import type { QueryHistoryEntry, QueryHistoryFilter } from '@mj-forge/shared';
+import type { QueryHistoryEntry, QueryHistoryFilter } from '@forgedb/shared';
 import { IpcService } from '../services/ipc.service';
 
 @Injectable({ providedIn: 'root' })

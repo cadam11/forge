@@ -42,7 +42,7 @@ import {
 } from '../../shared/components/connection-dialog/connection-dialog.component';
 import { ConnectionManagerDialogComponent } from '../../shared/components/connection-manager-dialog/connection-manager-dialog.component';
 import { CapabilitiesStore } from '../../core/state/capabilities.state';
-import type { DatabaseEngine } from '@mj-forge/shared';
+import type { DatabaseEngine } from '@forgedb/shared';
 
 @Component({
   selector: 'app-sidebar',

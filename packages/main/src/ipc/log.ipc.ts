@@ -14,8 +14,8 @@
 import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import { createWriteStream, mkdirSync, type WriteStream } from 'fs';
 import { join } from 'path';
-import type { LogEntry } from '@mj-forge/shared';
-import { IPC_CHANNELS } from '@mj-forge/shared';
+import type { LogEntry } from '@forgedb/shared';
+import { IPC_CHANNELS } from '@forgedb/shared';
 import { onLogEntry, getRecentLogs, ingestExternalEntry, meetsLevel } from '../utils/logger';
 
 /**

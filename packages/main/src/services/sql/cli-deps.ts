@@ -22,7 +22,7 @@ import {
   type CliDepsResult,
   type CliEngine,
   type CliToolStatus,
-} from '@mj-forge/shared';
+} from '@forgedb/shared';
 
 import { BaseSingleton } from '../../utils/singleton';
 import { createLogger } from '../../utils/logger';

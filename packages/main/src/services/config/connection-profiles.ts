@@ -5,7 +5,7 @@
 
 import Store from 'electron-store';
 import { v4 as uuidv4 } from 'uuid';
-import type { ConnectionProfile, SaveConnectionRequest } from '@mj-forge/shared';
+import type { ConnectionProfile, SaveConnectionRequest } from '@forgedb/shared';
 import { BaseSingleton } from '../../utils/singleton';
 import { createLogger } from '../../utils/logger';
 import { CredentialStore } from '../keychain/credential-store';

@@ -1,5 +1,5 @@
 {
-  "name": "@mj-forge/preload",
+  "name": "@forgedb/preload",
   "version": "1.0.0",
   "description": "Electron preload scripts for Forge",
   "main": "dist/index.js",
@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@mj-forge/shared": "*"
+    "@forgedb/shared": "*"
   },
   "devDependencies": {
     "esbuild": "^0.23.0",

@@ -8,7 +8,7 @@ import type {
   ServerFileEntry,
   ServerDefaultPaths,
   BackupHistoryEntry,
-} from '@mj-forge/shared';
+} from '@forgedb/shared';
 import { BaseSingleton } from '../../utils/singleton';
 import { createLogger } from '../../utils/logger';
 import { ConnectionPoolManager } from './connection-pool';
@@ -37,7 +37,7 @@ function sanitizeServerPath(inputPath: string): string {
  * Only allows alphanumeric, underscore, space, hyphen, and dot.
  */
 function sanitizeIdentifier(name: string): string {
-  if (!/^[\w\s.\-]+$/.test(name)) {
+  if (!/^[\w\s.-]+$/.test(name)) {
     throw new Error(`Invalid identifier: ${name}`);
   }
   return name.replace(/'/g, "''");

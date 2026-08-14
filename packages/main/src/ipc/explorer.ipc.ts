@@ -2,7 +2,7 @@
  * Explorer IPC Handlers
  */
 
-import { IPC_CHANNELS } from '@mj-forge/shared';
+import { IPC_CHANNELS } from '@forgedb/shared';
 import type {
   TableInfo,
   ViewInfo,
@@ -17,7 +17,7 @@ import type {
   ExtendedProperty,
   TableProperties,
   SchemaInfo,
-} from '@mj-forge/shared';
+} from '@forgedb/shared';
 import { MetadataService } from '../services/sql/metadata';
 import { createLogger } from '../utils/logger';
 import { safeHandle } from './safe-handle';
@@ -125,7 +125,13 @@ export function registerExplorerHandlers(): void {
       // Re-fetch using the same logic as GET_CHILDREN
       if (nodePath === 'tables') {
         const tables = await metadataService.listTables(connectionId, databaseName);
-        return tables.map(t => ({ name: t.name, type: 'table' as const, schema: t.schema, rowCount: t.rowCount, sizeKb: t.sizeKb }));
+        return tables.map(t => ({
+          name: t.name,
+          type: 'table' as const,
+          schema: t.schema,
+          rowCount: t.rowCount,
+          sizeKb: t.sizeKb,
+        }));
       }
       if (nodePath === 'views') {
         const views = await metadataService.listViews(connectionId, databaseName);
@@ -141,7 +147,9 @@ export function registerExplorerHandlers(): void {
       }
       if (nodePath === 'schemas') {
         const schemas = await metadataService.listSchemas(connectionId, databaseName);
-        return schemas.filter(s => !s.isSystem).map(s => ({ name: s.name, type: 'schema' as const, schema: s.name }));
+        return schemas
+          .filter(s => !s.isSystem)
+          .map(s => ({ name: s.name, type: 'schema' as const, schema: s.name }));
       }
       return [];
     }
@@ -195,12 +203,9 @@ export function registerExplorerHandlers(): void {
   );
 
   // Refresh
-  safeHandle(
-    IPC_CHANNELS.EXPLORER.REFRESH,
-    async (_event, connectionId: string): Promise<void> => {
-      metadataService.invalidateConnection(connectionId);
-    }
-  );
+  safeHandle(IPC_CHANNELS.EXPLORER.REFRESH, async (_event, connectionId: string): Promise<void> => {
+    metadataService.invalidateConnection(connectionId);
+  });
 
   // Get table columns
   safeHandle(

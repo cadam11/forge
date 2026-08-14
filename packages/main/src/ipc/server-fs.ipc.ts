@@ -4,7 +4,7 @@
  * Only supported on SQL Server (via xp_dirtree, xp_fixeddrives).
  */
 
-import { IPC_CHANNELS } from '@mj-forge/shared';
+import { IPC_CHANNELS } from '@forgedb/shared';
 import { ServerFilesystemService } from '../services/sql/server-filesystem';
 import { ConnectionPoolManager } from '../services/sql/connection-pool';
 import { safeHandle } from './safe-handle';
@@ -17,7 +17,7 @@ function assertServerFileBrowsing(connectionId: string): void {
   if (!dialect.supportsServerFileBrowsing) {
     throw new Error(
       `Server file browsing is not supported for ${dialect.label}. ` +
-      `Use a local file path instead.`
+        `Use a local file path instead.`
     );
   }
 }

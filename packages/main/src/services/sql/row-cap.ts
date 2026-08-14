@@ -6,7 +6,7 @@
  * keeps the true received count so the grid can show "first N of M".
  */
 
-import type { QueryResult, ResultSet } from '@mj-forge/shared';
+import type { QueryResult, ResultSet } from '@forgedb/shared';
 
 export function applyRowCap(result: QueryResult, maxRows?: number): QueryResult {
   if (!maxRows || maxRows <= 0 || !result.resultSets?.length) {

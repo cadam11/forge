@@ -4,7 +4,7 @@
  * Factory for getting the correct dialect instance per database engine.
  */
 
-import type { DatabaseEngine, EngineCapabilities, EngineVariant } from '@mj-forge/shared';
+import type { DatabaseEngine, EngineCapabilities, EngineVariant } from '@forgedb/shared';
 import { SQLDialect } from './sql-dialect';
 import { MSSQLDialect } from './mssql-dialect';
 import { PgDialect } from './pg-dialect';

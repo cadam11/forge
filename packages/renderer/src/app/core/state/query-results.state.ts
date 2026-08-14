@@ -9,7 +9,7 @@ import type {
   ResultDiff,
   DiffOptions,
   QueryResult,
-} from '@mj-forge/shared';
+} from '@forgedb/shared';
 import { IpcService } from '../services/ipc.service';
 import { NotificationService } from '../services/notification.service';
 import { firstValueFrom } from 'rxjs';
