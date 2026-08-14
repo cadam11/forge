@@ -17,7 +17,6 @@
   <a href="#features">Features</a> •
   <a href="#ai-assistant">AI Assistant</a> •
   <a href="#download">Download</a> •
-  <a href="#screenshots">Screenshots</a> •
   <a href="#why-forge">Why Forge?</a> •
   <a href="#contributing">Contributing</a>
 </p>
@@ -212,25 +211,6 @@ All downloads available on the **[Releases page](https://github.com/cadam11/forg
   - **PostgreSQL** 12+
   - **MySQL** 5.7+ / 8.0+
 - **Docker** (optional) — for local containers (auto-detected)
-
----
-
-## Screenshots
-
-![Home screen — Quick Actions, Recent Connections, AI features promo](docs/screenshots/home-screen-light.png#gh-light-mode-only)
-![Home screen — Quick Actions, Recent Connections, AI features promo](docs/screenshots/home-screen-dark.png#gh-dark-mode-only)
-
-_The welcome screen — Quick Actions for new connection, recent connection, Docker container detection, and a guided tour, plus an at-a-glance promo for the AI features._
-
-![AI Assistant — agentic tool calling against a real database](docs/screenshots/ai-assistant-light.png#gh-light-mode-only)
-![AI Assistant — agentic tool calling against a real database](docs/screenshots/ai-assistant-dark.png#gh-dark-mode-only)
-
-_The AI assistant chains `list_tables` → `describe_table` → `execute_query` tool calls and synthesizes a grounded answer about feature flags, alongside the query editor and results grid._
-
-![New Connection dialog — engine picker showing SQL Server, PostgreSQL, and MySQL](docs/screenshots/connection-dialog-light.png#gh-light-mode-only)
-![New Connection dialog — engine picker showing SQL Server, PostgreSQL, and MySQL](docs/screenshots/connection-dialog-dark.png#gh-dark-mode-only)
-
-_One connection dialog, three engines. Pick SQL Server, PostgreSQL, or MySQL — the rest of the form (auth methods, defaults, options) adapts to the engine you choose._
 
 ---
 
