@@ -135,7 +135,10 @@ import type { ColumnInfo, IndexInfo } from '@mj-forge/shared';
                     } @else {
                       <div class="empty-state">
                         <mat-icon>code</mat-icon>
-                        <p>No definition available for tables. Available for views, procedures, and functions.</p>
+                        <p>
+                          No definition available for tables. Available for views, procedures, and
+                          functions.
+                        </p>
                       </div>
                     }
                   </div>
@@ -353,27 +356,33 @@ export class ExplorerComponent {
     let name = objectName;
     if (objectName.includes('.')) {
       const parts = objectName.split('.');
-      schema = parts[0].replace(/[\[\]]/g, '');
-      name = parts[1].replace(/[\[\]]/g, '');
+      schema = parts[0].replace(/[[\]]/g, '');
+      name = parts[1].replace(/[[\]]/g, '');
     }
 
     try {
       // Load columns and indexes in parallel for tables/views
-      const isTableOrView = ['table', 'view', 'mj_entity'].includes(objectType.toLowerCase());
+      const isTableOrView = ['table', 'view'].includes(objectType.toLowerCase());
 
       if (isTableOrView) {
         const [cols, idxs] = await Promise.all([
-          firstValueFrom(this.ipc.getTableColumns(connectionId, databaseName, schema, name)).catch(() => []),
-          firstValueFrom(this.ipc.getTableIndexes(connectionId, databaseName, schema, name)).catch(() => []),
+          firstValueFrom(this.ipc.getTableColumns(connectionId, databaseName, schema, name)).catch(
+            () => []
+          ),
+          firstValueFrom(this.ipc.getTableIndexes(connectionId, databaseName, schema, name)).catch(
+            () => []
+          ),
         ]);
         this.columns.set(cols);
         this.indexes.set(idxs);
       }
 
       // Load definition for views, procedures, functions
-      if (!['table', 'mj_entity'].includes(objectType.toLowerCase())) {
+      if (objectType.toLowerCase() !== 'table') {
         try {
-          const def = await firstValueFrom(this.ipc.getDefinition(connectionId, databaseName, objectType, name, schema));
+          const def = await firstValueFrom(
+            this.ipc.getDefinition(connectionId, databaseName, objectType, name, schema)
+          );
           this.definition.set(def?.definition || null);
         } catch {
           // No definition available
@@ -397,8 +406,8 @@ export class ExplorerComponent {
       let name = objectName;
       if (objectName.includes('.')) {
         const parts = objectName.split('.');
-        schema = parts[0].replace(/[\[\]]/g, '');
-        name = parts[1].replace(/[\[\]]/g, '');
+        schema = parts[0].replace(/[[\]]/g, '');
+        name = parts[1].replace(/[[\]]/g, '');
       }
 
       const script = await firstValueFrom(
@@ -432,9 +441,6 @@ export class ExplorerComponent {
       view: 'view_list',
       procedure: 'functions',
       function: 'calculate',
-      mj_entity: 'dataset',
-      mj_query: 'code',
-      mj_application: 'app_shortcut',
     };
     return icons[String(objectType).toLowerCase()] || 'description';
   }

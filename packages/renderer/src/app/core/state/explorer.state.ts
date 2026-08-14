@@ -7,7 +7,6 @@ import type {
   ForeignKeyInfo,
   ConstraintInfo,
   TriggerInfo,
-  MJDatabaseInfo,
 } from '@mj-forge/shared';
 import { IpcService } from '../services/ipc.service';
 import { NotificationService } from '../services/notification.service';
@@ -33,17 +32,7 @@ export type NodeType =
   | 'index'
   | 'foreign_key'
   | 'constraint'
-  | 'trigger'
-  // MJ-specific node types
-  | 'mj_entities_folder'
-  | 'mj_entity'
-  | 'mj_queries_folder'
-  | 'mj_query'
-  | 'mj_audit_folder'
-  | 'mj_changes_folder'
-  | 'mj_errors_folder'
-  | 'mj_applications_folder'
-  | 'mj_application';
+  | 'trigger';
 
 export interface TreeNode {
   id: string;
@@ -65,8 +54,6 @@ export interface TreeNode {
   foreignKeyInfo?: ForeignKeyInfo;
   constraintInfo?: ConstraintInfo;
   triggerInfo?: TriggerInfo;
-  /** MemberJunction database info - set when database is MJ-enabled */
-  mjInfo?: MJDatabaseInfo;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -117,16 +104,6 @@ export class ExplorerStateService {
     foreign_key: 'link',
     constraint: 'check_circle',
     trigger: 'bolt',
-    // MJ-specific icons
-    mj_entities_folder: 'category',
-    mj_entity: 'dataset',
-    mj_queries_folder: 'bookmark',
-    mj_query: 'code',
-    mj_audit_folder: 'history',
-    mj_changes_folder: 'change_history',
-    mj_errors_folder: 'error',
-    mj_applications_folder: 'apps',
-    mj_application: 'app_shortcut',
   };
 
   addServerNode(connectionId: string, serverName: string): void {
@@ -336,7 +313,6 @@ export class ExplorerStateService {
       // Load databases
       const databases = await firstValueFrom(this.ipc.listDatabases(node.connectionId));
 
-      // Create database nodes (MJ detection happens at schema level)
       const dbNodes = databases.map(db => ({
         id: `db-${node.connectionId}-${db.name}`,
         name: db.name,
@@ -364,10 +340,6 @@ export class ExplorerStateService {
     }
 
     if (node.type === 'schema' && node.databaseName && node.schema) {
-      // For __mj schema with MJ enabled, show MJ-specific folders
-      if (node.schema === '__mj' && node.mjInfo?.isMJEnabled) {
-        return this.getMJSchemaFolders(node);
-      }
       // Return folder nodes for schema objects
       return this.getSchemaFolders(node.connectionId!, node.databaseName, node.schema);
     }
@@ -410,29 +382,6 @@ export class ExplorerStateService {
     // Load triggers for a table
     if (node.type === 'triggers_folder' && node.databaseName && node.schema && node.tableName) {
       return this.loadTriggers(node);
-    }
-
-    // MJ-specific folder handlers
-    if (node.type === 'mj_entities_folder' && node.databaseName) {
-      return this.loadMJEntities(node);
-    }
-
-    if (node.type === 'mj_queries_folder' && node.databaseName) {
-      return this.loadMJQueries(node);
-    }
-
-    if (node.type === 'mj_applications_folder' && node.databaseName) {
-      return this.loadMJApplications(node);
-    }
-
-    // MJ Change History, Audit Logs, and Error Logs don't have children
-    // They open query panels instead (handled by context menu)
-    if (
-      node.type === 'mj_changes_folder' ||
-      node.type === 'mj_audit_folder' ||
-      node.type === 'mj_errors_folder'
-    ) {
-      return [];
     }
 
     return [];
@@ -639,19 +588,6 @@ export class ExplorerStateService {
       this.ipc.getExplorerChildren(node.connectionId, node.databaseName, 'schemas')
     );
 
-    // Detect MJ for __mj schema
-    let mjInfo: MJDatabaseInfo | undefined;
-    const hasMjSchema = schemas.some(s => s.name === '__mj');
-    if (hasMjSchema) {
-      try {
-        mjInfo = await firstValueFrom(
-          this.ipc.detectMJDatabase(node.connectionId, node.databaseName)
-        );
-      } catch {
-        // MJ detection failed
-      }
-    }
-
     return schemas.map(schema => ({
       id: `schema-${node.connectionId}-${node.databaseName}-${schema.name}`,
       name: schema.name,
@@ -664,8 +600,6 @@ export class ExplorerStateService {
       connectionId: node.connectionId,
       databaseName: node.databaseName,
       schema: schema.name,
-      // Set mjInfo only on the __mj schema
-      mjInfo: schema.name === '__mj' && mjInfo?.isMJEnabled ? mjInfo : undefined,
     }));
   }
 
@@ -684,161 +618,6 @@ export class ExplorerStateService {
       connectionId,
       databaseName,
       schema,
-    }));
-  }
-
-  /**
-   * Get MJ-specific folders for the __mj schema
-   */
-  private getMJSchemaFolders(node: TreeNode): TreeNode[] {
-    const folders = [
-      {
-        name: `Entities (${node.mjInfo?.entityCount || 0})`,
-        type: 'mj_entities_folder' as NodeType,
-        icon: this.iconMap['mj_entities_folder'],
-      },
-      {
-        name: 'Saved Queries',
-        type: 'mj_queries_folder' as NodeType,
-        icon: this.iconMap['mj_queries_folder'],
-      },
-      {
-        name: 'Applications',
-        type: 'mj_applications_folder' as NodeType,
-        icon: this.iconMap['mj_applications_folder'],
-      },
-      {
-        name: 'Change History',
-        type: 'mj_changes_folder' as NodeType,
-        icon: this.iconMap['mj_changes_folder'],
-      },
-      {
-        name: 'Audit Logs',
-        type: 'mj_audit_folder' as NodeType,
-        icon: this.iconMap['mj_audit_folder'],
-      },
-      {
-        name: 'Error Logs',
-        type: 'mj_errors_folder' as NodeType,
-        icon: this.iconMap['mj_errors_folder'],
-      },
-      // Also include regular schema folders
-      { name: 'Tables', type: 'folder' as NodeType, icon: 'table_chart', path: 'tables' },
-      { name: 'Views', type: 'folder' as NodeType, icon: 'view_list', path: 'views' },
-      {
-        name: 'Stored Procedures',
-        type: 'folder' as NodeType,
-        icon: 'functions',
-        path: 'procedures',
-      },
-    ];
-
-    return folders.map(folder => {
-      const folderPath = (folder as { path?: string }).path || folder.type;
-      return {
-        id: `mj-folder-${node.connectionId}-${node.databaseName}-${folderPath}`,
-        name: folder.name,
-        type: folder.type,
-        icon: folder.icon,
-        path: folderPath,
-        hasChildren: true,
-        isExpanded: false,
-        isLoading: false,
-        connectionId: node.connectionId,
-        databaseName: node.databaseName,
-        schema: node.schema,
-        mjInfo: node.mjInfo,
-      };
-    });
-  }
-
-  /**
-   * Load MJ entities
-   */
-  private async loadMJEntities(node: TreeNode): Promise<TreeNode[]> {
-    if (!node.connectionId || !node.databaseName) return [];
-
-    const entities = await firstValueFrom(
-      this.ipc.getMJEntities(node.connectionId, node.databaseName)
-    );
-
-    return entities.map(entity => ({
-      id: `mj-entity-${node.connectionId}-${node.databaseName}-${entity.id}`,
-      name: entity.name,
-      type: 'mj_entity' as NodeType,
-      icon: entity.isVirtual ? 'cloud' : this.iconMap['mj_entity'],
-      path: `entities/${entity.id}`,
-      hasChildren: false,
-      isExpanded: false,
-      isLoading: false,
-      connectionId: node.connectionId,
-      databaseName: node.databaseName,
-      schema: entity.schemaName,
-      tableName: entity.baseTable,
-      metadata: {
-        name: entity.name,
-        type: 'mj_entity',
-        schema: entity.schemaName,
-      } as ObjectMetadata,
-    }));
-  }
-
-  /**
-   * Load MJ saved queries
-   */
-  private async loadMJQueries(node: TreeNode): Promise<TreeNode[]> {
-    if (!node.connectionId || !node.databaseName) return [];
-
-    const queries = await firstValueFrom(
-      this.ipc.getMJSavedQueries(node.connectionId, node.databaseName)
-    );
-
-    return queries.map(query => ({
-      id: `mj-query-${node.connectionId}-${node.databaseName}-${query.id}`,
-      name: query.name,
-      type: 'mj_query' as NodeType,
-      icon: this.iconMap['mj_query'],
-      path: `queries/${query.id}`,
-      hasChildren: false,
-      isExpanded: false,
-      isLoading: false,
-      connectionId: node.connectionId,
-      databaseName: node.databaseName,
-      metadata: {
-        name: query.name,
-        type: 'mj_query',
-        schema: '__mj',
-        definition: query.sql,
-      } as ObjectMetadata,
-    }));
-  }
-
-  /**
-   * Load MJ applications
-   */
-  private async loadMJApplications(node: TreeNode): Promise<TreeNode[]> {
-    if (!node.connectionId || !node.databaseName) return [];
-
-    const applications = await firstValueFrom(
-      this.ipc.getMJApplications(node.connectionId, node.databaseName)
-    );
-
-    return applications.map(app => ({
-      id: `mj-app-${node.connectionId}-${node.databaseName}-${app.id}`,
-      name: app.name,
-      type: 'mj_application' as NodeType,
-      icon: app.icon || this.iconMap['mj_application'],
-      path: `applications/${app.id}`,
-      hasChildren: false,
-      isExpanded: false,
-      isLoading: false,
-      connectionId: node.connectionId,
-      databaseName: node.databaseName,
-      metadata: {
-        name: app.name,
-        type: 'mj_application',
-        schema: '__mj',
-      } as ObjectMetadata,
     }));
   }
 

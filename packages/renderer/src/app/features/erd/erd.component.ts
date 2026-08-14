@@ -5,18 +5,13 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TabStateService } from '../../core/state/tab.state';
-import { ConnectionStateService } from '../../core/state/connection.state';
 import { ERDAdapterService } from '../../core/services/erd-adapter.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { TablePropertiesService } from '../../core/services/table-properties.service';
-import { IpcService } from '../../core/services/ipc.service';
 import { ERDDiagramComponent, ERDNode, ERDField } from '../../shared/components/erd-diagram';
-import { firstValueFrom } from 'rxjs';
-import type { MJEntityInfo } from '@mj-forge/shared';
 
 interface NodePanelInfo {
   node: ERDNode;
-  mjEntity: MJEntityInfo | null;
 }
 
 @Component({
@@ -77,21 +72,15 @@ interface NodePanelInfo {
                       <mat-icon class="panel-icon">table_chart</mat-icon>
                       <div class="panel-title-text">
                         <h3>{{ info.node.name }}</h3>
-                        <span class="panel-subtitle">{{ info.node.schemaName }}.{{ info.node.name }}</span>
+                        <span class="panel-subtitle"
+                          >{{ info.node.schemaName }}.{{ info.node.name }}</span
+                        >
                       </div>
                     </div>
                     <button class="panel-close" (click)="closePanel()">
                       <mat-icon>close</mat-icon>
                     </button>
                   </div>
-
-                  <!-- MJ Entity badge -->
-                  @if (info.mjEntity) {
-                    <div class="mj-entity-badge">
-                      <mat-icon>star</mat-icon>
-                      <span>MJ Entity: {{ info.mjEntity.name }}</span>
-                    </div>
-                  }
 
                   <!-- Actions -->
                   <div class="panel-actions">
@@ -103,16 +92,6 @@ interface NodePanelInfo {
                       <mat-icon>table_chart</mat-icon>
                       SELECT TOP 1000
                     </button>
-                    @if (info.mjEntity) {
-                      <button mat-stroked-button (click)="viewChangeHistory(info.node, info.mjEntity!)">
-                        <mat-icon>change_history</mat-icon>
-                        Change History
-                      </button>
-                      <button mat-stroked-button (click)="viewAuditLog(info.node, info.mjEntity!)">
-                        <mat-icon>history</mat-icon>
-                        Audit Log
-                      </button>
-                    }
                   </div>
 
                   <!-- Columns -->
@@ -120,13 +99,21 @@ interface NodePanelInfo {
                     <h4>Columns ({{ info.node.fields.length }})</h4>
                     <div class="column-list">
                       @for (field of info.node.fields; track field.id) {
-                        <div class="column-row" [class.pk]="field.isPrimaryKey" [class.fk]="!!field.relatedNodeId">
+                        <div
+                          class="column-row"
+                          [class.pk]="field.isPrimaryKey"
+                          [class.fk]="!!field.relatedNodeId"
+                        >
                           <div class="column-badges">
                             @if (field.isPrimaryKey) {
                               <span class="badge pk" matTooltip="Primary Key">PK</span>
                             }
                             @if (field.relatedNodeId) {
-                              <span class="badge fk" matTooltip="Foreign Key → {{ field.relatedNodeName }}">FK</span>
+                              <span
+                                class="badge fk"
+                                matTooltip="Foreign Key → {{ field.relatedNodeName }}"
+                                >FK</span
+                              >
                             }
                           </div>
                           <span class="column-name">{{ field.name }}</span>
@@ -139,42 +126,6 @@ interface NodePanelInfo {
                     </div>
                   </div>
 
-                  <!-- MJ Entity details -->
-                  @if (info.mjEntity; as entity) {
-                    <div class="panel-section">
-                      <h4>MJ Entity Details</h4>
-                      <div class="entity-details">
-                        @if (entity.description) {
-                          <div class="detail-row">
-                            <span class="detail-label">Description</span>
-                            <span class="detail-value">{{ entity.description }}</span>
-                          </div>
-                        }
-                        <div class="detail-row">
-                          <span class="detail-label">Base View</span>
-                          <span class="detail-value">{{ entity.baseView || '—' }}</span>
-                        </div>
-                        <div class="detail-row">
-                          <span class="detail-label">Track Changes</span>
-                          <span class="detail-value">{{ entity.trackRecordChanges ? 'Yes' : 'No' }}</span>
-                        </div>
-                        <div class="detail-row">
-                          <span class="detail-label">Audit Access</span>
-                          <span class="detail-value">{{ entity.auditRecordAccess ? 'Yes' : 'No' }}</span>
-                        </div>
-                        <div class="detail-row">
-                          <span class="detail-label">API</span>
-                          <span class="detail-value api-flags">
-                            @if (entity.includeInAPI) { <span class="api-flag on">API</span> }
-                            @if (entity.allowCreateAPI) { <span class="api-flag on">C</span> }
-                            @if (entity.allowUpdateAPI) { <span class="api-flag on">U</span> }
-                            @if (entity.allowDeleteAPI) { <span class="api-flag on">D</span> }
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  }
-
                   <!-- Relationships -->
                   @if (getRelationships(info.node); as rels) {
                     @if (rels.length > 0) {
@@ -182,8 +133,13 @@ interface NodePanelInfo {
                         <h4>Relationships ({{ rels.length }})</h4>
                         <div class="relationship-list">
                           @for (rel of rels; track rel.id) {
-                            <div class="relationship-row" (click)="navigateToNode(rel.relatedNodeId!)">
-                              <mat-icon class="rel-icon">{{ rel.relatedNodeId ? 'arrow_forward' : 'arrow_back' }}</mat-icon>
+                            <div
+                              class="relationship-row"
+                              (click)="navigateToNode(rel.relatedNodeId!)"
+                            >
+                              <mat-icon class="rel-icon">{{
+                                rel.relatedNodeId ? 'arrow_forward' : 'arrow_back'
+                              }}</mat-icon>
                               <span class="rel-field">{{ rel.name }}</span>
                               <mat-icon class="rel-arrow">arrow_right_alt</mat-icon>
                               <span class="rel-target">{{ rel.relatedNodeName }}</span>
@@ -312,21 +268,15 @@ interface NodePanelInfo {
         border-radius: 4px;
         display: flex;
         flex-shrink: 0;
-        mat-icon { font-size: 18px; width: 18px; height: 18px; }
-        &:hover { color: var(--text-primary); background: var(--bg-hover); }
-      }
-
-      .mj-entity-badge {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 8px 16px;
-        background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
-        border-bottom: 1px solid var(--border-primary);
-        font-size: 12px;
-        font-weight: 600;
-        color: var(--accent-primary);
-        mat-icon { font-size: 14px; width: 14px; height: 14px; }
+        mat-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+        }
+        &:hover {
+          color: var(--text-primary);
+          background: var(--bg-hover);
+        }
       }
 
       .panel-actions {
@@ -338,7 +288,12 @@ interface NodePanelInfo {
         button {
           font-size: 12px;
           justify-content: flex-start;
-          mat-icon { font-size: 16px; width: 16px; height: 16px; margin-right: 6px; }
+          mat-icon {
+            font-size: 16px;
+            width: 16px;
+            height: 16px;
+            margin-right: 6px;
+          }
         }
       }
 
@@ -368,7 +323,9 @@ interface NodePanelInfo {
         padding: 3px 6px;
         border-radius: 4px;
         font-size: 12px;
-        &:hover { background: var(--bg-hover); }
+        &:hover {
+          background: var(--bg-hover);
+        }
       }
 
       .column-badges {
@@ -418,49 +375,6 @@ interface NodePanelInfo {
         flex-shrink: 0;
       }
 
-      .entity-details {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-      }
-
-      .detail-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        font-size: 12px;
-        gap: 12px;
-      }
-
-      .detail-label {
-        color: var(--text-muted);
-        flex-shrink: 0;
-      }
-
-      .detail-value {
-        color: var(--text-primary);
-        text-align: right;
-        min-width: 0;
-        overflow-wrap: break-word;
-      }
-
-      .api-flags {
-        display: flex;
-        gap: 4px;
-      }
-
-      .api-flag {
-        font-size: 10px;
-        font-weight: 600;
-        padding: 1px 5px;
-        border-radius: 3px;
-      }
-
-      .api-flag.on {
-        background: color-mix(in srgb, var(--status-success) 20%, transparent);
-        color: var(--status-success);
-      }
-
       .relationship-list {
         display: flex;
         flex-direction: column;
@@ -475,7 +389,9 @@ interface NodePanelInfo {
         border-radius: 4px;
         font-size: 12px;
         cursor: pointer;
-        &:hover { background: var(--bg-hover); }
+        &:hover {
+          background: var(--bg-hover);
+        }
       }
 
       .rel-icon {
@@ -571,11 +487,9 @@ interface NodePanelInfo {
 })
 export class ErdComponent implements OnInit {
   private readonly tabState = inject(TabStateService);
-  private readonly connectionState = inject(ConnectionStateService);
   private readonly erdAdapter = inject(ERDAdapterService);
   private readonly notification = inject(NotificationService);
   private readonly tableProperties = inject(TablePropertiesService);
-  private readonly ipc = inject(IpcService);
 
   readonly activeTab = this.tabState.activeTab;
 
@@ -591,10 +505,6 @@ export class ErdComponent implements OnInit {
   readonly panelOpen = signal(false);
   readonly isLoading = signal(false);
   readonly error = signal<string | null>(null);
-
-  // Cache MJ entities so we don't re-fetch on every click
-  private mjEntitiesCache: MJEntityInfo[] | null = null;
-  private mjEntitiesCacheKey = '';
 
   readonly focusNodeId = computed(() => {
     const tab = this.activeTab();
@@ -666,9 +576,6 @@ export class ErdComponent implements OnInit {
       if (tableName) {
         this.selectedNodeId.set(`${schema}.${tableName}`);
       }
-
-      // Pre-load MJ entities for the badge detection
-      this.loadMJEntities(tab.connectionId, tab.databaseName);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load relationships';
       this.error.set(message);
@@ -678,13 +585,10 @@ export class ErdComponent implements OnInit {
     }
   }
 
-  async onNodeSelected(node: ERDNode): Promise<void> {
+  onNodeSelected(node: ERDNode): void {
     this.selectedNodeId.set(node.id);
 
-    // Find matching MJ entity
-    const mjEntity = await this.findMJEntity(node);
-
-    this.panelInfo.set({ node, mjEntity });
+    this.panelInfo.set({ node });
     // Small delay so the DOM renders before adding the open class
     requestAnimationFrame(() => this.panelOpen.set(true));
   }
@@ -736,50 +640,6 @@ export class ErdComponent implements OnInit {
     }
   }
 
-  viewChangeHistory(node: ERDNode, entity: MJEntityInfo): void {
-    const connectionId = this.tabConnectionId();
-    const database = this.tabDatabaseName();
-    if (connectionId && database) {
-      const sql = `-- Change History for ${entity.name}
-SELECT TOP 100
-  rc.Type,
-  rc.Source,
-  rc.ChangesDescription,
-  rc.Status,
-  u.Name AS ChangedBy,
-  rc.CreatedAt AS ChangedAt,
-  rc.ChangesJSON
-FROM [__mj].[RecordChange] rc
-LEFT JOIN [__mj].[Entity] e ON rc.EntityID = e.ID
-LEFT JOIN [__mj].[User] u ON rc.UserID = u.ID
-WHERE e.Name = '${entity.name}'
-ORDER BY rc.CreatedAt DESC`;
-      this.tabState.openQueryTab(connectionId, database, sql);
-    }
-  }
-
-  viewAuditLog(node: ERDNode, entity: MJEntityInfo): void {
-    const connectionId = this.tabConnectionId();
-    const database = this.tabDatabaseName();
-    if (connectionId && database) {
-      const sql = `-- Audit Log for ${entity.name}
-SELECT TOP 100
-  al.Status,
-  alt.Name AS AuditType,
-  u.Name AS UserName,
-  al.RecordID,
-  al.Description,
-  al.CreatedAt AS AuditedAt
-FROM [__mj].[AuditLog] al
-LEFT JOIN [__mj].[AuditLogType] alt ON al.AuditLogTypeID = alt.ID
-LEFT JOIN [__mj].[Entity] e ON al.EntityID = e.ID
-LEFT JOIN [__mj].[User] u ON al.UserID = u.ID
-WHERE e.Name = '${entity.name}'
-ORDER BY al.CreatedAt DESC`;
-      this.tabState.openQueryTab(connectionId, database, sql);
-    }
-  }
-
   navigateToNode(nodeId: string): void {
     this.selectedNodeId.set(nodeId);
     const node = this.nodes().find(n => n.id === nodeId);
@@ -790,32 +650,5 @@ ORDER BY al.CreatedAt DESC`;
 
   getRelationships(node: ERDNode): ERDField[] {
     return node.fields.filter(f => f.relatedNodeId);
-  }
-
-  private async loadMJEntities(connectionId: string, database: string): Promise<void> {
-    const cacheKey = `${connectionId}:${database}`;
-    if (this.mjEntitiesCacheKey === cacheKey && this.mjEntitiesCache) return;
-
-    try {
-      this.mjEntitiesCache = await firstValueFrom(this.ipc.getMJEntities(connectionId, database));
-      this.mjEntitiesCacheKey = cacheKey;
-    } catch {
-      // MJ not installed in this database — that's fine
-      this.mjEntitiesCache = [];
-      this.mjEntitiesCacheKey = cacheKey;
-    }
-  }
-
-  private async findMJEntity(node: ERDNode): Promise<MJEntityInfo | null> {
-    const connectionId = this.tabConnectionId();
-    const database = this.tabDatabaseName();
-    if (!connectionId || !database) return null;
-
-    await this.loadMJEntities(connectionId, database);
-    if (!this.mjEntitiesCache) return null;
-
-    return this.mjEntitiesCache.find(
-      e => e.baseTable === node.name && e.schemaName === (node.schemaName || 'dbo')
-    ) ?? null;
   }
 }
