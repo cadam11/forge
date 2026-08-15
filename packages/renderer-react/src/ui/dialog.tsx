@@ -9,9 +9,12 @@
  * flows are `size="md"`/`"lg"` dialogs with their progress stream inline in the body — not
  * places you can navigate away from, because the stream is per-invocation and unpersisted.
  *
- * Radix supplies the focus trap, the return of focus to the trigger, Escape-to-close,
- * `aria-modal` and the scroll lock. Those are asserted in `dialog.spec.tsx` rather than
- * assumed, because they are the reason this is Radix and not a hand-rolled overlay.
+ * Radix supplies the focus trap, the return of focus to the trigger, Escape-to-close, the
+ * scroll lock, and modality — the last by hiding the rest of the document from assistive
+ * technology rather than by setting `aria-modal`. Those are asserted in `dialog.spec.tsx`
+ * rather than assumed, because they are the reason this is Radix and not a hand-rolled
+ * overlay, and because the `aria-modal` detail is exactly the sort of thing a Radix minor
+ * version changes underneath us.
  *
  * Composed parts rather than one `<Dialog title=… actions=…>` component: three of the four
  * consumers need a body that is a form, a progress stream and a file browser respectively,
