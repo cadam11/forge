@@ -35,3 +35,65 @@ Object.defineProperty(document, 'fonts', {
     check: () => false,
   },
 });
+
+/*
+ * The four browser APIs the Task 6 primitives need and jsdom does not implement. Each one is
+ * a real API used by real code, so stubbing it here is what keeps the product free of
+ * `typeof x === 'function'` guards that could only ever be false under test.
+ *
+ * `ResizeObserver` — Radix's popper measures its trigger with one, and
+ * `@tanstack/react-virtual` observes its scroll element with one. Inert rather than firing once,
+ * because there is nothing for it to report: the size it would carry comes from the layout shim
+ * below, which the virtualizer already reads directly.
+ *
+ * `scrollIntoView` / the pointer-capture trio — Radix's menus and select call them while
+ * moving focus and while tracking a drag-to-select gesture. jsdom leaves all four undefined,
+ * and an undefined call is a TypeError that surfaces as "arrow keys do nothing".
+ */
+class NoopResizeObserver implements ResizeObserver {
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+}
+Object.defineProperty(window, 'ResizeObserver', { writable: true, value: NoopResizeObserver });
+
+Object.defineProperty(Element.prototype, 'scrollIntoView', {
+  writable: true,
+  value: () => undefined,
+});
+Object.defineProperty(Element.prototype, 'hasPointerCapture', {
+  writable: true,
+  value: () => false,
+});
+Object.defineProperty(Element.prototype, 'setPointerCapture', {
+  writable: true,
+  value: () => undefined,
+});
+Object.defineProperty(Element.prototype, 'releasePointerCapture', {
+  writable: true,
+  value: () => undefined,
+});
+
+/*
+ * jsdom has no layout engine, so every element reports `offsetWidth`/`offsetHeight` as 0. That
+ * is not a missing API but a wrong answer, and one primitive depends on the right one:
+ * `@tanstack/react-virtual` measures its scroll element with exactly those two properties
+ * (`virtual-core/dist/esm/index.js:14-17`) and renders zero rows when told the element is 0px
+ * tall. A virtualized `Tree` would then satisfy every "does not render X" assertion vacuously,
+ * which is why `tree.spec.tsx` opens by counting rows.
+ *
+ * A fixed viewport-sized box is the smallest coherent lie that fixes it. The `initialRect` the
+ * Tree passes is NOT enough on its own: virtual-core calls its rect handler once, synchronously,
+ * with the measured size, which overwrites the initial guess before the first render — measured,
+ * not assumed.
+ */
+const JSDOM_VIEWPORT = { width: 1024, height: 768 };
+
+Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
+  configurable: true,
+  get: () => JSDOM_VIEWPORT.width,
+});
+Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+  configurable: true,
+  get: () => JSDOM_VIEWPORT.height,
+});

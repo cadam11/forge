@@ -56,6 +56,12 @@ export default defineConfig({
           include: ['packages/renderer-react/src/**/*.{test,spec}.{ts,tsx}'],
           exclude: ['**/node_modules/**', '**/dist/**'],
           environment: 'jsdom',
+          // Only so that `?raw` imports of CSS return the file's text. Vitest's default
+          // (`css: false`) stubs every CSS module to an empty string, and `?raw` is stubbed
+          // with it — which silently makes `ui/cn.spec.ts`'s type-ladder drift guard compare
+          // against nothing. Measured, not assumed. No spec imports CSS as a module, so
+          // enabling processing has no other effect.
+          css: true,
           testTimeout: 30000,
           hookTimeout: 30000,
           setupFiles: ['./packages/renderer-react/src/test/setup.ts'],
