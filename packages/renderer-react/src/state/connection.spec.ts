@@ -170,8 +170,9 @@ beforeEach(() => {
   // Every describe block in the original used fake timers, because the heartbeat uses real ones
   // and a leaked interval outlives the test that created it.
   vi.useFakeTimers();
-  // The tab store reads `joinery:welcomeDismissed` when it is constructed, and jsdom keeps
-  // localStorage across tests in a file.
+  // jsdom keeps localStorage across the tests in a file. Since Task 5 no store reads it — the
+  // welcome flag and the settings object come from main-process `AppState` through
+  // `persistence/hydrate.ts` — so this is now hygiene rather than a precondition.
   window.localStorage.clear();
 });
 
@@ -262,7 +263,8 @@ describe('connection store — focus derives from the active tab (spec 1.3)', ()
 
   it('is null when the active tab is not a query tab', async () => {
     const { connection, tab } = await makeHarness();
-    // The welcome tab is the initial active tab unless the user dismissed it.
+    // The workspace starts empty since Task 5 (hydration decides whether Welcome belongs), so the
+    // welcome tab is opened explicitly here rather than assumed.
     tab.getState().showWelcome();
     expect(connection.getState().focusedConnectionId()).toBeNull();
     expect(connection.getState().focusedDatabaseName()).toBeNull();

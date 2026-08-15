@@ -24,6 +24,11 @@ describe('App', () => {
   });
 
   it('adopts the persisted preference from the key the Angular renderer writes', () => {
+    // Since Task 5 this is the *fallback* path: the preview reads the React-owned theme mirror
+    // first and the Angular settings object only when the mirror is absent — which is the state a
+    // user is in on their first React launch, before the migration has run. Asserted synchronously
+    // on purpose: the page's persistence probe hydrates asynchronously and, with no bridge in
+    // jsdom, would then apply the default theme over this one.
     window.localStorage.setItem('joinery-settings', JSON.stringify({ theme: 'light' }));
 
     render(<App />);
