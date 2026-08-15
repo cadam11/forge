@@ -177,29 +177,29 @@ forge/
 
 ```bash
 # Development
-npm run dev              # Start in dev mode (hot reload)
-npm run dev:main         # Start main process only
-npm run dev:renderer     # Start renderer only
+pnpm run dev              # Start in dev mode (hot reload)
+pnpm run dev:main         # Start main process only
+pnpm run dev:renderer     # Start renderer only
 
 # Building
-npm run build            # Build for production
-npm run package          # Package as .app
-npm run package:dmg      # Create distributable DMG
+pnpm run build            # Build for production
+pnpm run package          # Package as .app
+pnpm run package:dmg      # Create distributable DMG
 
 # Testing
-npm run test             # Run all tests
-npm run test:unit        # Unit tests only
-npm run test:e2e         # E2E tests only
+pnpm run test             # Run all tests
+pnpm run test:unit        # Unit tests only
+pnpm run test:e2e         # E2E tests only
 
 # Utilities
-npm run lint             # Lint all code
-npm run typecheck        # TypeScript check without emit
+pnpm run lint             # Lint all code
+pnpm run typecheck        # TypeScript check without emit
 ```
 
 ## Environment Setup
 
 1. **Node.js**: v20 LTS or later
-2. **npm**: v10+
+2. **pnpm**: v11+ (`corepack enable pnpm`)
 3. **Xcode CLI Tools**: Required for native modules
 4. **Docker** (optional): For local database testing (SQL Server, PostgreSQL, MySQL containers auto-detected)
 5. **Host CLI tools for PG/MySQL backup/restore** (only if you use those features or run the backup integration/e2e tests):

@@ -59,7 +59,7 @@ Use the **`playwright-cli`** skill (or a small Playwright script written inline)
 
 Typical capture loop:
 
-1. Build the app (`npm run build`) so the renderer is up to date.
+1. Build the app (`pnpm run build`) so the renderer is up to date.
 2. Launch the app under Playwright.
 3. Wait for the main window to settle (`waitForSelector` on a known element, not `waitForTimeout`).
 4. Drive the UI to the state you want to document — open the dialog, run the query, switch the theme.

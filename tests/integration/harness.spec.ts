@@ -5,7 +5,7 @@
  * that `withFreshDatabase` creates+applies+drops a database cleanly, and that
  * the synthetic seed produces the expected row counts.
  *
- * Requires `npm run test:harness:up` to have been run first.
+ * Requires `pnpm run test:harness:up` to have been run first.
  */
 
 import { describe, expect, it } from 'vitest';

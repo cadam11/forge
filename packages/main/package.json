@@ -15,7 +15,7 @@
     "test:coverage": "jest --coverage"
   },
   "dependencies": {
-    "@forgedb/shared": "*",
+    "@forgedb/shared": "workspace:*",
     "dockerode": "^4.0.2",
     "electron-store": "^8.2.0",
     "keytar": "^7.9.0",

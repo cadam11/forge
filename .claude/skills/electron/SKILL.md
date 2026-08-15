@@ -85,8 +85,8 @@ All database operations go through an abstraction layer:
 
 - electron-builder for packaging
 - macOS: code signing + notarization required for distribution
-- `npm run build` for production build
-- `npm run package` for .app, `npm run package:dmg` for DMG
+- `pnpm run build` for production build
+- `pnpm run package` for .app, `pnpm run package:dmg` for DMG
 - Keep installer under 100MB
 
 ## Native macOS Integration

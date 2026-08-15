@@ -3,7 +3,7 @@ dist
 build
 .turbo
 coverage
-package-lock.json
+pnpm-lock.yaml
 *.min.js
 *.min.css
 .angular

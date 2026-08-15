@@ -175,7 +175,7 @@ export function renderInfrastructure(infra) {
           <span class="section-line"></span>
           ${renderHarnessControls(infra.harnessState)}
         </div>
-        <div class="infra-empty">Awaiting Docker — run <span class="mono">npm run test:harness:up</span></div>
+        <div class="infra-empty">Awaiting Docker — run <span class="mono">pnpm run test:harness:up</span></div>
       </section>
     `;
   }

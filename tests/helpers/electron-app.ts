@@ -6,7 +6,7 @@
  * call `launchForge()` and `await app.close()` (or use the helper's
  * `withForge` form for guaranteed teardown).
  *
- * Requires `npm run build` to have produced packages/main/dist/index.js and
+ * Requires `pnpm run build` to have produced packages/main/dist/index.js and
  * packages/renderer/dist/browser/index.html.
  */
 
@@ -41,13 +41,13 @@ export async function launchForge(options: LaunchOptions = {}): Promise<Launched
   if (!existsSync(MAIN_ENTRY)) {
     throw new Error(
       `[electron-app] expected built main process at ${MAIN_ENTRY}. ` +
-        `Run \`npm run build\` first.`
+        `Run \`pnpm run build\` first.`
     );
   }
   if (!existsSync(RENDERER_INDEX)) {
     throw new Error(
       `[electron-app] expected renderer build at ${RENDERER_INDEX}. ` +
-        `Run \`npm run build\` first.`
+        `Run \`pnpm run build\` first.`
     );
   }
 

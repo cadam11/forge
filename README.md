@@ -249,15 +249,15 @@ All downloads available on the **[Releases page](https://github.com/cadam11/forg
 ```bash
 git clone https://github.com/cadam11/forge.git
 cd forge
-npm install
-npm run dev          # Development mode with hot reload
+pnpm install
+pnpm run dev          # Development mode with hot reload
 ```
 
 ### Build Installers
 
 ```bash
-npm run package:mac  # Build macOS DMG (arm64 + x64)
-npm run package      # Build for current platform
+pnpm run package:mac  # Build macOS DMG (arm64 + x64)
+pnpm run package      # Build for current platform
 ```
 
 Windows builds are produced automatically by [GitHub Actions](.github/workflows/build-release.yml) on every tagged release.

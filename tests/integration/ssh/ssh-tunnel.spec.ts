@@ -39,7 +39,7 @@ beforeAll(() => {
   if (!existsSync(PRIVATE_KEY)) {
     throw new Error(
       `[ssh-tunnel.spec] expected private key at ${PRIVATE_KEY}. ` +
-        `Run \`npm run test:harness:up\` first — it generates the keypair.`
+        `Run \`pnpm run test:harness:up\` first — it generates the keypair.`
     );
   }
 });

@@ -26,23 +26,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Reads the version from the root package.json "packageManager" field.
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
+          cache: pnpm
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build all packages
-        run: npm run build
+        run: pnpm run build
 
-      - name: Prepare workspace packages
-        run: node scripts/prepare-package.js
-
+      # scripts/package.js does the symlink swap, runs electron-builder, and
+      # always restores the symlinks — doing those as separate steps leaves
+      # node_modules in the swapped state if the build fails.
       - name: Build Electron app
-        run: npx electron-builder ${{ matrix.args }} --config electron-builder.yml
+        run: node scripts/package.js ${{ matrix.args }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

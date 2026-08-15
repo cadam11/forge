@@ -78,7 +78,7 @@ function median(values) {
 
 const { runs, hidden } = parseArgs(process.argv.slice(2));
 if (!existsSync(MAIN_ENTRY)) {
-  console.error(`[perf-baseline] missing ${MAIN_ENTRY} — run \`npm run build\` first.`);
+  console.error(`[perf-baseline] missing ${MAIN_ENTRY} — run \`pnpm run build\` first.`);
   process.exit(1);
 }
 

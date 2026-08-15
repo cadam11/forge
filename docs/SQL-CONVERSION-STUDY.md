@@ -87,7 +87,7 @@ Use the existing AI integration to convert SQL with context:
 
 ### Phase 1: Library Integration
 
-1. Install `sqlglot-ts`: `npm install sqlglot-ts`
+1. Install `sqlglot-ts`: `pnpm add sqlglot-ts`
 2. Create `packages/main/src/services/sql/sql-converter.ts`
 3. Add IPC channel `query:convert-sql`
 4. Wire up basic conversion: `transpileOne(sql, source, target)`
