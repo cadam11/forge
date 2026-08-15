@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 
 /**
  * The three settings below reproduce the Angular renderer's artifact contract
@@ -10,7 +11,9 @@ import react from '@vitejs/plugin-react';
  * root `dev:main` wait-on.
  */
 export default defineConfig({
-  plugins: [react()],
+  // @tailwindcss/vite rather than the PostCSS plugin: it is the first-party v4
+  // integration and it owns the `@import "tailwindcss"` in src/styles/theme.css.
+  plugins: [react(), tailwindcss()],
 
   // Matches angular.json's production `baseHref: "./"`. Absolute asset URLs
   // 404 when the packaged app loads index.html over file://.

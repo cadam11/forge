@@ -1,13 +1,66 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="antialiased">
   <head>
     <meta charset="utf-8" />
     <title>Joinery</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <!-- window.ts:56 paints the BrowserWindow #1e1e1e under a dark system theme.
-         Without this the UA canvas stays white and text stays black, so the page
-         renders black-on-black. Task 2 replaces this with the brand tokens. -->
-    <meta name="color-scheme" content="light dark" />
+
+    <!-- Ink-first: dark is listed first so the UA picks it when nothing else has
+         resolved yet. src/styles/theme.css then sets `color-scheme` per theme, which
+         is what native scrollbars and form controls follow. -->
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#171817" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f2efe7" media="(prefers-color-scheme: light)" />
+
+    <script>
+      /* Pre-mount theme resolution. The audit (PROPOSAL §1.6) documented a three-stage
+         flash — white, then dark, then light — because the Angular renderer only writes
+         data-theme after it bootstraps (settings.service.ts:227-229). Writing it here,
+         synchronously, before the bundle is even requested, is the fix.
+
+         Reads the same localStorage key and field the Angular renderer persists
+         ('joinery-settings' -> .theme, settings.service.ts:5,149) so a user moving
+         between the two renderers keeps their choice. Task 5 owns the real migration
+         and will replace this reader, not the placement. */
+      (function () {
+        var preference = 'system';
+        try {
+          var raw = window.localStorage.getItem('joinery-settings');
+          var stored = raw ? JSON.parse(raw).theme : null;
+          if (stored === 'light' || stored === 'dark' || stored === 'system') {
+            preference = stored;
+          } else if (stored != null) {
+            console.warn('[joinery] ignoring unrecognised persisted theme:', stored);
+          }
+        } catch (error) {
+          /* Corrupt JSON, or storage blocked. Not fatal — 'system' is a correct
+             answer — but never silent. */
+          console.warn('[joinery] could not read the persisted theme:', error);
+        }
+        document.documentElement.setAttribute('data-theme', preference);
+      })();
+    </script>
+
+    <style>
+      /* Critical canvas. Covers the one window the script above cannot: HTML parsed,
+         data-theme set, stylesheet not yet applied. Four hexes duplicated from
+         theme.css on purpose — they are --color-canvas/--color-fg for both themes and
+         theme.css re-declares them as tokens immediately after. */
+      html {
+        background-color: #171817;
+        color: #f2efe7;
+      }
+      html[data-theme='light'] {
+        background-color: #f2efe7;
+        color: #171817;
+      }
+      @media (prefers-color-scheme: light) {
+        html[data-theme='system'] {
+          background-color: #f2efe7;
+          color: #171817;
+        }
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
