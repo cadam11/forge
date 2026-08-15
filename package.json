@@ -88,13 +88,12 @@
     "wait-on": "^9.0.3"
   },
   "lint-staged": {
-    "*.{ts,tsx}": [
-      "prettier --write"
-    ],
     "!(packages/renderer-react/**)*.{ts,tsx}": [
+      "prettier --write",
       "eslint --fix"
     ],
     "packages/renderer-react/**/*.{ts,tsx}": [
+      "prettier --write",
       "pnpm --filter @joinery/renderer-react exec eslint --fix"
     ],
     "*.{json,md,scss,css,html}": [
