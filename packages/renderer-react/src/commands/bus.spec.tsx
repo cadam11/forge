@@ -101,6 +101,24 @@ describe('dispatchCommand / subscribeCommand', () => {
     unsubscribe();
     expect(handlerCount('open-snippets')).toBe(1);
   });
+
+  it('calling a teardown twice does not unsubscribe a later subscriber', () => {
+    // The bug: the first teardown removes the now-empty set from the table, a new subscriber
+    // installs a fresh set under the same id, and the stale teardown firing again deletes THAT set
+    // — silently unsubscribing somebody else. The identity check in `subscribeCommand` is what
+    // stops it.
+    const stale = subscribeCommand('open-snippets', () => undefined);
+    stale();
+    expect(handlerCount('open-snippets')).toBe(0);
+
+    const survivor = vi.fn();
+    teardowns.push(subscribeCommand('open-snippets', survivor));
+    stale();
+
+    expect(handlerCount('open-snippets')).toBe(1);
+    dispatchCommand('open-snippets');
+    expect(survivor).toHaveBeenCalledOnce();
+  });
 });
 
 describe('useCommand', () => {
