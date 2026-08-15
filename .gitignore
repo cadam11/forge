@@ -52,3 +52,14 @@ test-results/
 **/*.local.json
 .envrc
 
+# Local agent tooling (not part of the product)
+.agents/
+.superpowers/
+.claude/skills/add-dark-mode/
+.claude/skills/brand-kit/
+.claude/skills/canonicalize-tailwind/
+.claude/skills/componentize/
+.claude/skills/dark-mode-image/
+.claude/skills/design/
+.claude/skills/ideas/
+
