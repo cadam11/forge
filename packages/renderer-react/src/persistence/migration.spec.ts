@@ -136,12 +136,15 @@ describe('localStorage → AppState migration — the round trip', () => {
     expect(localStorageSnapshot()).toEqual(before);
   });
 
-  it('lets main-process state win over the localStorage copy', async () => {
-    // The React renderer has been used and has newer settings; the Angular keys are stale. The
-    // migration must not undo the newer values just because it is finally running.
+  it('keeps main-process collections, which can only have grown', async () => {
+    // Anything already in `AppState` wins for the collections: a snippet or a tour created in the
+    // React renderer must not lose to a stale Angular list.
     seedAngularLocalStorage();
     const seeded = createAppStateDouble({
-      reactRendererState: { settings: { theme: 'dark' }, welcomeDismissed: false },
+      reactRendererState: {
+        snippets: [{ id: 'react-made', sql: 'SELECT 3' }],
+        welcomeDismissed: false,
+      },
     });
     removeJoineryMock();
     installJoineryMock({ app: seeded.app });
@@ -149,10 +152,45 @@ describe('localStorage → AppState migration — the round trip', () => {
     await migrateLegacyLocalStorage(createRendererStatePersistence());
 
     const persisted = seeded.snapshot().reactRendererState;
-    expect(persisted?.settings).toEqual({ theme: 'dark' });
+    expect(persisted?.snippets).toEqual([{ id: 'react-made', sql: 'SELECT 3' }]);
     expect(persisted?.welcomeDismissed).toBe(false);
     // …while everything AppState had nothing to say about still comes across.
-    expect(persisted?.snippets).toHaveLength(2);
+    expect(persisted?.completedTours).toEqual(['welcome', 'first-query']);
+  });
+
+  it('lets the Angular settings win over a pre-migration settings object', async () => {
+    // The asymmetry, and the reason for it: the marker is absent, so nothing in `AppState` can be a
+    // considered choice — no React launch has ever had settings to hydrate from. A DEFAULT-derived
+    // object here (which the settings store's write gate is there to prevent in the first place)
+    // must not be mistaken for one and silently discard what the user chose in Angular.
+    seedAngularLocalStorage();
+    const seeded = createAppStateDouble({
+      reactRendererState: { settings: { theme: 'system', editor: { fontSize: 13 } } },
+    });
+    removeJoineryMock();
+    installJoineryMock({ app: seeded.app });
+
+    await migrateLegacyLocalStorage(createRendererStatePersistence());
+
+    expect(seeded.snapshot().reactRendererState?.settings).toEqual({
+      theme: 'light',
+      editor: { fontSize: 18 },
+      grid: { copyFormat: 'csv' },
+    });
+  });
+
+  it('keeps a pre-migration settings object when localStorage has no settings key at all', async () => {
+    seedAngularLocalStorage();
+    window.localStorage.removeItem(LEGACY_KEYS.settings);
+    const seeded = createAppStateDouble({
+      reactRendererState: { settings: { theme: 'dark' } },
+    });
+    removeJoineryMock();
+    installJoineryMock({ app: seeded.app });
+
+    await migrateLegacyLocalStorage(createRendererStatePersistence());
+
+    expect(seeded.snapshot().reactRendererState?.settings).toEqual({ theme: 'dark' });
   });
 });
 

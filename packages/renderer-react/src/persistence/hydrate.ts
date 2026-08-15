@@ -70,7 +70,12 @@ export async function hydrateRendererState(
   const migration = await migrateLegacyLocalStorage(persistence);
   const persisted = await persistence.read();
 
-  settings.getState().hydrate(persisted.settings);
+  // The settings store's write path stays shut unless the migration SETTLED. `failed` means the
+  // marker is not set and another boot will migrate, so a settings write in the meantime would be
+  // read as newer than the user's Angular data (`SettingsHydration.persistWrites`); `unavailable`
+  // means there is no bridge, so a write has nowhere to go anyway.
+  const migrationSettled = migration.outcome !== 'failed' && migration.outcome !== 'unavailable';
+  settings.getState().hydrate({ settings: persisted.settings, persistWrites: migrationSettled });
   tabs.getState().hydrateWelcome(persisted.welcomeDismissed ?? false);
 
   return {

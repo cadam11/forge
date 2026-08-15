@@ -178,6 +178,81 @@ describe('hydrateRendererState — the second boot', () => {
   });
 });
 
+/*
+ * The regression the review found, end to end. It was silent, permanent, and cost the user their
+ * whole settings object: boot 1's migration fails, so no marker is written; the user nudges a
+ * setting; a DEFAULT-derived settings object lands in `AppState`; boot 2's migration runs, treats
+ * that object as newer than the localStorage copy, sets the marker — and the real Angular settings
+ * can never be lifted, because a one-shot migration does not get a second turn.
+ *
+ * Two independent defences, asserted separately below: the settings store's write path is locked
+ * until the migration settles, and — if a write got in anyway — the migration prefers the
+ * localStorage settings while the marker is absent.
+ */
+describe('hydrateRendererState — a failed first migration cannot poison the second', () => {
+  /** A bridge whose `setState` fails until `allowWrites()` is called. */
+  function flakyBridge() {
+    const backing = createAppStateDouble();
+    let failing = true;
+    removeJoineryMock();
+    teardowns.push(
+      installJoineryMock({
+        app: {
+          getState: backing.app.getState,
+          setState: (partial: Parameters<typeof backing.app.setState>[0]) =>
+            failing
+              ? Promise.reject(new Error('main process went away'))
+              : backing.app.setState(partial),
+        },
+      })
+    );
+    return {
+      backing,
+      allowWrites: () => {
+        failing = false;
+      },
+    };
+  }
+
+  it('withholds the settings write, then lifts the real Angular settings on the next boot', async () => {
+    seedAngularLocalStorage();
+    const { backing, allowWrites } = flakyBridge();
+
+    const boot1 = makeRenderer();
+    expect((await hydrateRendererState(boot1)).migration.outcome).toBe('failed');
+
+    // The failure was transient — writes work again — and the user changes a setting.
+    allowWrites();
+    boot1.settings.getState().updateEditorSetting('fontSize', 9);
+    await boot1.persistence.read();
+
+    // The gate held: nothing of ours is in AppState, so boot 2 has a clean slate to migrate into.
+    expect(backing.snapshot().reactRendererState).toBeUndefined();
+
+    const boot2 = makeRenderer();
+    expect((await hydrateRendererState(boot2)).migration.outcome).toBe('migrated');
+    expect(boot2.settings.getState().settings.editor.fontSize).toBe(18);
+    expect(boot2.settings.getState().settings.theme).toBe('light');
+  });
+
+  it('recovers even if a settings object did reach AppState before the migration ran', async () => {
+    // The second defence, driven directly: something other than the gated store (a future task, a
+    // hand-edited file) put DEFAULT-derived settings in `AppState` with no marker present.
+    seedAngularLocalStorage();
+    const renderer = makeRenderer();
+    await renderer.persistence.update(current => ({
+      ...current,
+      settings: { theme: 'system', editor: { fontSize: 13 } },
+    }));
+
+    const hydrated = await hydrateRendererState(renderer);
+
+    expect(hydrated.migration.outcome).toBe('migrated');
+    expect(renderer.settings.getState().settings.editor.fontSize).toBe(18);
+    expect(renderer.settings.getState().settings.theme).toBe('light');
+  });
+});
+
 describe('hydrateRendererState — fresh install', () => {
   it('hydrates defaults and writes nothing', async () => {
     const renderer = makeRenderer();

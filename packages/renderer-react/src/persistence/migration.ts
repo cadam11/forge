@@ -89,15 +89,27 @@ export async function migrateLegacyLocalStorage(
     }
 
     outcome = 'migrated';
-    // `current` first: anything already in `AppState` (the React renderer has been used before,
-    // just never migrated) wins over the older localStorage copy. In practice the two are
-    // disjoint, but the precedence has to be stated, and "main-process state is never overwritten
-    // by a localStorage value" is the safer of the two.
+    // `current` on top: anything already in `AppState` wins over the older localStorage copy. That
+    // is the right default for the collections — `snippets`, `completedTours`,
+    // `flywayPlaceholderValues` — where a React-created entry losing to a stale Angular list would
+    // be real data loss.
     const next: ReactRendererState = {
       ...reading.lifted,
       ...current,
       migratedFromLocalStorageAt: new Date().toISOString(),
     };
+
+    // `settings` is the one field where that default is WRONG, and it is worth the asymmetry because
+    // this migration only ever runs once. A `settings` object in `AppState` at this point cannot be
+    // a considered user choice: the marker is absent, so no React launch has ever had persisted
+    // settings to hydrate from, so whatever is here is `DEFAULT_SETTINGS` plus at most a nudge made
+    // in a boot whose migration had not succeeded. Letting that win would silently and permanently
+    // discard the settings the user actually chose in the renderer they have been using. The
+    // settings store's write path is locked until the migration settles (`SettingsHydration`), which
+    // makes this branch nearly unreachable — "nearly" is why it is here.
+    if (reading.lifted.settings) {
+      next.settings = reading.lifted.settings;
+    }
     return next;
   });
 
