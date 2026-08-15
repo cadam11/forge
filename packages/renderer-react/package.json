@@ -8,7 +8,7 @@
     "start": "vite",
     "build": "vite build",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
     "clean": "rm -rf dist"
   },
   "dependencies": {
