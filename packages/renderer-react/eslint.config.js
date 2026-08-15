@@ -29,15 +29,26 @@ const NO_INNER_HTML = ['JSXIdentifier', 'Identifier'].map(nodeType => ({
 // with no availability guard and no query key. src/ipc/ is the one boundary that may read
 // it (api.ts:findJoineryApi), and this turns that from a convention into a gate.
 //
-// Two selectors again. The first is the canonical form and carries the blame precisely; the
-// second is the backstop, because `(window as SomeCast).joinery` is a TSAsExpression and so
-// its `object.name` is not `window` — the precise selector alone is trivially bypassed by a
-// cast, which is exactly what someone working around the guard would reach for. Together
-// they also cover `const { joinery } = window`. A plain `window.joinery` trips both and
-// reports twice; that is noise on a line that must not exist anyway.
+// Three selectors, because one is trivially bypassed and each of the first two was measured
+// against a real bypass attempt before the next was added:
+//
+//  1. the canonical `window.joinery`, which carries the blame precisely;
+//  2. the bare identifier, because `(window as SomeCast).joinery` is a TSAsExpression whose
+//     `object.name` is not `window` — a cast defeats selector 1, and a cast is exactly what
+//     someone working around the guard reaches for. This also covers `const { joinery } =
+//     window`;
+//  3. the computed form, because `(window as Cast)['joinery']` has a string Literal for its
+//     property and so defeats BOTH of the above. Verified: before this selector existed that
+//     line linted clean.
+//
+// `Object.defineProperty(window, 'joinery', …)` is deliberately still allowed — it is a
+// CallExpression, not a member access, and it is how src/test/joinery-mock.ts installs the
+// bridge for tests. A plain `window.joinery` trips selectors 1 and 2 and reports twice; that
+// is noise on a line which must not exist at all.
 const NO_BRIDGE_BYPASS = [
   'MemberExpression[object.name="window"][property.name="joinery"]',
   'Identifier[name="joinery"]',
+  'MemberExpression[computed=true][property.value="joinery"]',
 ].map(selector => ({
   selector,
   message: 'Reach the bridge through src/ipc (ipc() / findJoineryApi()), never window.joinery.',

@@ -26,6 +26,9 @@ const PACKAGE_DIR = new URL(import.meta.url).pathname.replace(/\/src\/.*$/, '');
 const INNER_HTML = 'export const a = () => <div dangerouslySetInnerHTML={{ __html: x }} />;\n';
 const BRIDGE = 'export const b = () => window.joinery.app.getVersion();\n';
 const BRIDGE_VIA_CAST = 'export const c = () => (window as unknown as W).joinery;\n';
+// No identifier named `joinery` anywhere in this one — the property is a string literal, so
+// it defeats both the `object.name="window"` and the bare-`Identifier` selectors.
+const BRIDGE_VIA_COMPUTED = "export const d = () => (window as unknown as R)['joinery'];\n";
 
 /** Rule ids reported for `source` when linted as if it lived at `relativePath`. */
 async function lint(relativePath: string, source: string): Promise<string[]> {
@@ -51,6 +54,12 @@ describe('the dangerouslySetInnerHTML / window.joinery bans', () => {
       // TSAsExpression, so this is the case the backstop selector exists for. It is also the
       // first thing someone working around the guard would try.
       expect(banned(await lint('src/features/thing.tsx', BRIDGE_VIA_CAST))).toBe(true);
+    });
+
+    it('rejects window.joinery reached through computed access', async () => {
+      // `(window as Cast)['joinery']` defeats both of the other selectors, and did lint clean
+      // until the third one was added. This is the assertion that keeps it closed.
+      expect(banned(await lint('src/features/thing.tsx', BRIDGE_VIA_COMPUTED))).toBe(true);
     });
   });
 
