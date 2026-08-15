@@ -32,7 +32,7 @@ import {
   ModuleRegistry,
   AllCommunityModule,
 } from 'ag-grid-community';
-import type { ResultSet, ColumnMetadata } from '@mj-forge/shared';
+import type { ResultSet, ColumnMetadata } from '@forgedb/shared';
 import { NotificationService } from '../../../core/services/notification.service';
 import { IpcService } from '../../../core/services/ipc.service';
 import { SettingsService } from '../../../core/services/settings.service';

@@ -1,7 +1,7 @@
 {
-  "name": "@mj-forge/cli",
+  "name": "@forgedb/cli",
   "version": "0.1.0",
-  "description": "Command-line interface for MJ Forge SQL Server management",
+  "description": "Command-line interface for Forge SQL Server management",
   "main": "dist/index.js",
   "bin": {
     "forge": "./dist/index.js"
@@ -34,6 +34,6 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "author": "MJ Forge",
+  "author": "Forge",
   "license": "MIT"
 }

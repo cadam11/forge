@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { ConnectionStateService } from '../state/connection.state';
 import { AIStateService } from '../state/ai.state';
 import { IpcService } from './ipc.service';
-import type { ObjectMetadata, ColumnInfo } from '@mj-forge/shared';
+import type { ObjectMetadata, ColumnInfo } from '@forgedb/shared';
 import { firstValueFrom } from 'rxjs';
 
 // Structural Monaco shapes used by this service. Avoids depending on the

@@ -1,13 +1,13 @@
 /**
- * MJ-schema E2E specs — covers the legacy 31-test audit's tests 22 + 23.
+ * Cross-schema query E2E specs — covers the legacy 31-test audit's tests 22 + 23.
  *
- * Forge's value proposition is partly that it understands MemberJunction
- * conventions out of the box. These specs assert that queries against the
- * `__mj.*` namespace execute and return the expected row counts from the
- * minimal seeded schema (see tests/fixtures/postgres/mj-{schema,seed}.sql):
+ * These specs assert that queries against a non-`public` schema (`app_meta.*`)
+ * execute and return the expected row counts from the minimal seeded schema
+ * (see tests/fixtures/postgres/app-meta-{schema,seed}.sql), including a
+ * two-table JOIN:
  *
- *   - 11 rows in __mj.application
- *   - 24 rows in __mj.entity (each linked to an application)
+ *   - 11 rows in app_meta.application
+ *   - 24 rows in app_meta.entity (each linked to an application)
  *
  * The seed only exists once `ensureForgeTestSeeded` has run; the
  * test.beforeAll hook below makes that explicit even though several other
@@ -27,13 +27,13 @@ import {
 
 test.beforeAll(ensureForgeTestSeeded);
 
-test.describe('Forge — __mj schema queries', () => {
-  test('__mj.application returns the seeded 11 rows', async () => {
+test.describe('Forge — cross-schema queries and JOINs', () => {
+  test('app_meta.application returns the seeded 11 rows', async () => {
     await withForge(async ({ app, window }) => {
       await connectToTestPostgres(window);
       await selectDatabase(window, 'forge_test');
       await openNewQueryTab(app, window);
-      await typeInEditor(window, 'SELECT id, name FROM __mj.application ORDER BY id;');
+      await typeInEditor(window, 'SELECT id, name FROM app_meta.application ORDER BY id;');
       await executeQuery(window);
 
       // Result grid renders.
@@ -49,14 +49,14 @@ test.describe('Forge — __mj schema queries', () => {
     });
   });
 
-  test('__mj.entity JOIN __mj.application returns the seeded 24 rows', async () => {
+  test('app_meta.entity JOIN app_meta.application returns the seeded 24 rows', async () => {
     await withForge(async ({ app, window }) => {
       await connectToTestPostgres(window);
       await selectDatabase(window, 'forge_test');
       await openNewQueryTab(app, window);
       await typeInEditor(
         window,
-        'SELECT e.name AS entity, a.name AS application FROM __mj.entity e JOIN __mj.application a ON a.id = e.application_id ORDER BY e.id;'
+        'SELECT e.name AS entity, a.name AS application FROM app_meta.entity e JOIN app_meta.application a ON a.id = e.application_id ORDER BY e.id;'
       );
       await executeQuery(window);
 

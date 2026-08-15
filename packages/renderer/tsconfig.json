@@ -23,8 +23,8 @@
       "@core/*": ["src/app/core/*"],
       "@shared/*": ["src/app/shared/*"],
       "@features/*": ["src/app/features/*"],
-      "@mj-forge/shared": ["../shared/src/index.ts"],
-      "@mj-forge/shared/*": ["../shared/src/*"]
+      "@forgedb/shared": ["../shared/src/index.ts"],
+      "@forgedb/shared/*": ["../shared/src/*"]
     }
   },
   "angularCompilerOptions": {

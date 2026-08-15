@@ -4,7 +4,7 @@
  */
 
 import * as keytar from 'keytar';
-import { APP_ID } from '@mj-forge/shared';
+import { APP_ID } from '@forgedb/shared';
 import { BaseSingleton } from '../../utils/singleton';
 import { createLogger } from '../../utils/logger';
 

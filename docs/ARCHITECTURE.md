@@ -1,8 +1,8 @@
-# MJ Forge Architecture Guide
+# Forge Architecture Guide
 
 ## Overview
 
-MJ Forge is a native desktop database IDE supporting SQL Server and PostgreSQL. Built with **Electron** (desktop shell), **Angular 18+** (UI), and **Node.js** (backend services).
+Forge is a native desktop database IDE supporting SQL Server and PostgreSQL. Built with **Electron** (desktop shell), **Angular 18+** (UI), and **Node.js** (backend services).
 
 ```
                  ┌──────────────────────────────────────────┐
@@ -94,7 +94,7 @@ packages/
 
 ## Multi-Database Architecture
 
-Forge supports multiple database engines through a dialect + provider abstraction inspired by [MemberJunction](https://github.com/MemberJunction/MJ).
+Forge supports multiple database engines through a dialect + provider abstraction.
 
 ### SQL Dialect Layer
 
@@ -109,6 +109,7 @@ dialect/
 ```
 
 **Key responsibilities:**
+
 - Identifier quoting (`[name]` vs `"name"` vs `` `name` ``)
 - Database context switching (`USE [db]` vs connection-level)
 - DDL generation (CREATE/ALTER/DROP DATABASE)
@@ -129,9 +130,9 @@ The `ConnectionPoolManager` (connection-pool.ts) manages both MSSQL and PG pools
 
 ```typescript
 interface ConnectionProfile {
-  engine: DatabaseEngine;  // 'mssql' | 'postgresql' | 'mysql'
+  engine: DatabaseEngine; // 'mssql' | 'postgresql' | 'mysql'
   server: string;
-  port: number;            // Auto-set: 1433 / 5432 / 3306
+  port: number; // Auto-set: 1433 / 5432 / 3306
   // ... other fields
 }
 ```
@@ -168,29 +169,30 @@ The preload script (`packages/preload/src/index.ts`) bridges the IPC channels us
 
 The renderer uses **Angular signals** for reactive state:
 
-| Service | Purpose | Key Signals |
-|---------|---------|-------------|
-| `ConnectionStateService` | Active connection, profiles, databases | `activeConnectionId`, `profiles`, `databases` |
-| `TabStateService` | Open tabs, active tab, tab content | `tabs`, `activeTab` |
-| `QueryHistoryStateService` | Query execution history | `entries`, `isLoading` |
-| `QueryResultsStateService` | Cached result snapshots | `snapshots` |
-| `AIStateService` | AI model/vendor configuration | `settings`, `vendors` |
+| Service                    | Purpose                                | Key Signals                                   |
+| -------------------------- | -------------------------------------- | --------------------------------------------- |
+| `ConnectionStateService`   | Active connection, profiles, databases | `activeConnectionId`, `profiles`, `databases` |
+| `TabStateService`          | Open tabs, active tab, tab content     | `tabs`, `activeTab`                           |
+| `QueryHistoryStateService` | Query execution history                | `entries`, `isLoading`                        |
+| `QueryResultsStateService` | Cached result snapshots                | `snapshots`                                   |
+| `AIStateService`           | AI model/vendor configuration          | `settings`, `vendors`                         |
 
 ## AI Integration
 
 Forge supports multiple LLM providers through `llm-providers.ts`:
 
-| Provider | Models |
-|----------|--------|
-| Google | Gemini family |
-| Anthropic | Claude family |
-| OpenAI | GPT family |
-| Groq | Llama, Mixtral |
-| Cerebras | Fast inference |
+| Provider  | Models         |
+| --------- | -------------- |
+| Google    | Gemini family  |
+| Anthropic | Claude family  |
+| OpenAI    | GPT family     |
+| Groq      | Llama, Mixtral |
+| Cerebras  | Fast inference |
 
 **Key rule:** All AI calls go through the provider abstraction. Never make direct API calls.
 
 **Features:**
+
 - Chat with tool calling (SQL execution, schema inspection)
 - Tab auto-rename via AI
 - SQL generation from natural language
@@ -212,13 +214,13 @@ When executing SQL containing `${placeholder}` tokens (Flyway syntax), Forge pro
 
 ### Key Shortcuts
 
-| Shortcut | Action |
-|----------|--------|
-| F5 | Execute query |
-| Ctrl/Cmd+E | Execute query (SSMS-style) |
-| Ctrl/Cmd+Enter | Execute query |
-| Ctrl/Cmd+Shift+F | Format SQL |
-| Ctrl/Cmd+G | Go to line |
+| Shortcut         | Action                     |
+| ---------------- | -------------------------- |
+| F5               | Execute query              |
+| Ctrl/Cmd+E       | Execute query (SSMS-style) |
+| Ctrl/Cmd+Enter   | Execute query              |
+| Ctrl/Cmd+Shift+F | Format SQL                 |
+| Ctrl/Cmd+G       | Go to line                 |
 
 ## Security Model
 
@@ -242,7 +244,7 @@ The `before-quit` handler performs ordered cleanup:
 
 ## Testing
 
-**Framework:** Vitest with @vitest/coverage-v8 (matching MemberJunction/MJ pattern)
+**Framework:** Vitest with @vitest/coverage-v8 (standard Vitest + v8 coverage setup)
 
 ```bash
 npm test              # Run all tests (vitest run)
@@ -251,6 +253,7 @@ npm run test:coverage # Run with v8 coverage report
 ```
 
 **Test structure:**
+
 - `*.spec.ts` files co-located with source (explicit `import { describe, it, expect } from 'vitest'`)
 - `packages/*/src/__tests__/setup.ts` — per-package setup files
 - `packages/main/src/__mocks__/keytar.ts` — mock for native keytar module
@@ -259,6 +262,7 @@ npm run test:coverage # Run with v8 coverage report
 **Coverage thresholds:** 10% minimum for statements, branches, functions, lines
 
 **CI:** GitHub Actions runs on every PR to `main`:
+
 - Triggers on changes to `packages/**`, `package-lock.json`, `vitest.config.ts`
 - Type-check all packages (main, renderer, preload)
 - Run full test suite with coverage

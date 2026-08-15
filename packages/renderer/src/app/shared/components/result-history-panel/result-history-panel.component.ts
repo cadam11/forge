@@ -17,8 +17,8 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatBadgeModule } from '@angular/material/badge';
 import { MatDividerModule } from '@angular/material/divider';
-import { SharedGenericModule } from '@memberjunction/ng-shared-generic';
-import type { QueryResultSnapshot, ResultDiff } from '@mj-forge/shared';
+import { LoadingComponent } from '../loading/loading.component';
+import type { QueryResultSnapshot, ResultDiff } from '@forgedb/shared';
 import { QueryResultsStateService } from '../../../core/state/query-results.state';
 import { SmartDatePipe } from '../../pipes/smart-date.pipe';
 
@@ -38,7 +38,7 @@ type SortOrder = 'asc' | 'desc';
     MatCheckboxModule,
     MatBadgeModule,
     MatDividerModule,
-    SharedGenericModule,
+    LoadingComponent,
     SmartDatePipe,
   ],
   template: `
@@ -49,7 +49,15 @@ type SortOrder = 'asc' | 'desc';
     >
       <!-- Header (only when not embedded) -->
       @if (!embedded()) {
-        <div class="panel-header" tabindex="0" role="button" aria-label="Toggle result history" (click)="toggleExpanded()" (keydown.enter)="toggleExpanded()" (keydown.space)="toggleExpanded(); $event.preventDefault()">
+        <div
+          class="panel-header"
+          tabindex="0"
+          role="button"
+          aria-label="Toggle result history"
+          (click)="toggleExpanded()"
+          (keydown.enter)="toggleExpanded()"
+          (keydown.space)="toggleExpanded(); $event.preventDefault()"
+        >
           <div class="header-left">
             <mat-icon>{{ expanded() ? 'expand_less' : 'expand_more' }}</mat-icon>
             <span class="header-title">Result History</span>
@@ -177,11 +185,11 @@ type SortOrder = 'asc' | 'desc';
 
               @if (comparingInProgress()) {
                 <div class="comparison-loading">
-                  <mj-loading
+                  <app-loading
                     text="Comparing results..."
                     size="medium"
                     animation="pulse"
-                  ></mj-loading>
+                  ></app-loading>
                 </div>
               } @else if (comparisonResult()) {
                 <div class="comparison-content">

@@ -10,7 +10,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { firstValueFrom } from 'rxjs';
 import { IpcService } from '../../../core/services/ipc.service';
 import { NotificationService } from '../../../core/services/notification.service';
-import type { DockerStatus, DockerContainer } from '@mj-forge/shared';
+import type { DockerStatus, DockerContainer } from '@forgedb/shared';
 import { Router } from '@angular/router';
 
 @Component({
@@ -66,7 +66,10 @@ import { Router } from '@angular/router';
           <div class="container-list">
             @for (container of containers(); track container.id) {
               <div class="container-item" [class.running]="container.status === 'running'">
-                <div class="container-status-indicator" [class.active]="container.status === 'running'"></div>
+                <div
+                  class="container-status-indicator"
+                  [class.active]="container.status === 'running'"
+                ></div>
                 <div class="container-info">
                   <span class="container-name">{{ container.name }}</span>
                   <span class="container-details">
@@ -125,7 +128,12 @@ import { Router } from '@angular/router';
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>SA Password</mat-label>
-            <input matInput [(ngModel)]="newContainerPassword" type="password" placeholder="Strong!Pass123" />
+            <input
+              matInput
+              [(ngModel)]="newContainerPassword"
+              type="password"
+              placeholder="Strong!Pass123"
+            />
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>Host Port</mat-label>

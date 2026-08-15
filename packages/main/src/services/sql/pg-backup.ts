@@ -14,8 +14,8 @@ import type {
   BackupRequest,
   RestoreProgress,
   RestoreRequest,
-} from '@mj-forge/shared';
-import { IPC_CHANNELS } from '@mj-forge/shared';
+} from '@forgedb/shared';
+import { IPC_CHANNELS } from '@forgedb/shared';
 import { BaseSingleton } from '../../utils/singleton';
 import { createLogger } from '../../utils/logger';
 import { ConnectionProfilesStore } from '../config/connection-profiles';

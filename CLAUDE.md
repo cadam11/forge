@@ -1,8 +1,8 @@
-# MJ Forge - SQL Database Manager for Mac
+# Forge - SQL Database Manager for Mac
 
 ## Project Overview
 
-MJ Forge is a native macOS desktop application providing database management workflows for **SQL Server**, **PostgreSQL**, and **MySQL**. Built with Electron + Angular + Node.js.
+Forge is a native macOS desktop application providing database management workflows for **SQL Server**, **PostgreSQL**, and **MySQL**. Built with Electron + Angular + Node.js.
 
 ## Tech Stack
 
@@ -17,7 +17,7 @@ MJ Forge is a native macOS desktop application providing database management wor
 ## Project Structure
 
 ```
-mj-forge/
+forge/
 ├── packages/
 │   ├── main/                 # Electron main process
 │   │   └── src/

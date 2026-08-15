@@ -15,7 +15,7 @@ import type {
   ChatStreamChunk,
   Conversation,
   ToolCallResult,
-} from '@mj-forge/shared';
+} from '@forgedb/shared';
 import { BaseSingleton } from '../../utils/singleton';
 import { createLogger } from '../../utils/logger';
 import { AIService } from './ai-service';
@@ -788,7 +788,7 @@ export class ChatService extends BaseSingleton {
           ? 'MySQL SQL'
           : 'T-SQL';
 
-    let prompt = `You are Forge AI, a helpful database assistant built into MJ Forge — a multi-database management tool.
+    let prompt = `You are Forge AI, a helpful database assistant built into Forge — a multi-database management tool.
 The user is currently connected to a ${engineLabel} database. Generate ${dialectHint} syntax for all queries.
 You help users manage their databases through natural conversation. You can execute SQL queries, create databases, inspect schema, and more using the available tools.
 

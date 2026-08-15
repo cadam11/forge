@@ -4,7 +4,7 @@
  */
 
 import { Injectable, signal } from '@angular/core';
-import type { TableProperties } from '@mj-forge/shared';
+import type { TableProperties } from '@forgedb/shared';
 
 export interface TablePropertiesRequest {
   connectionId: string;

@@ -12,7 +12,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { TablePropertiesService } from '../../../core/services/table-properties.service';
-import type { ColumnInfo, ExtendedProperty } from '@mj-forge/shared';
+import type { ColumnInfo, ExtendedProperty } from '@forgedb/shared';
 
 @Component({
   selector: 'app-table-properties-container',

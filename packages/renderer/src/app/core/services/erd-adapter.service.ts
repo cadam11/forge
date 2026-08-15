@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import type { ForeignKeyInfo } from '@mj-forge/shared';
+import type { ForeignKeyInfo } from '@forgedb/shared';
 import type { ERDNode, ERDField } from '../../shared/components/erd-diagram/erd-types';
 import { IpcService } from './ipc.service';
 import { firstValueFrom } from 'rxjs';

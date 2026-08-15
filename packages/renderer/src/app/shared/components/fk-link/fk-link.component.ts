@@ -16,7 +16,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { IpcService } from '../../../core/services/ipc.service';
-import type { ColumnMetadata, FkRecordRequest } from '@mj-forge/shared';
+import type { ColumnMetadata, FkRecordRequest } from '@forgedb/shared';
 
 interface ForeignKeyRef {
   referencedSchema: string;

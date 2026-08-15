@@ -2,13 +2,13 @@
  * AI IPC Handlers
  */
 
-import { IPC_CHANNELS } from '@mj-forge/shared';
+import { IPC_CHANNELS } from '@forgedb/shared';
 import type {
   AISettings,
   TabRenameRequest,
   AnalysisRequest,
   SQLGenerationRequest,
-} from '@mj-forge/shared';
+} from '@forgedb/shared';
 import { AIService } from '../services/ai/ai-service';
 import { safeHandle } from './safe-handle';
 
@@ -44,12 +44,9 @@ export function registerAIHandlers(): void {
   });
 
   // Validate API key
-  safeHandle(
-    IPC_CHANNELS.AI.VALIDATE_API_KEY,
-    async (_event, vendorId: string, apiKey: string) => {
-      return aiService.validateApiKey(vendorId, apiKey);
-    }
-  );
+  safeHandle(IPC_CHANNELS.AI.VALIDATE_API_KEY, async (_event, vendorId: string, apiKey: string) => {
+    return aiService.validateApiKey(vendorId, apiKey);
+  });
 
   // Generate tab name
   safeHandle(IPC_CHANNELS.AI.GENERATE_TAB_NAME, async (_event, request: TabRenameRequest) => {

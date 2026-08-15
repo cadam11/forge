@@ -27,7 +27,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDividerModule } from '@angular/material/divider';
-import type { QueryHistoryEntry } from '@mj-forge/shared';
+import type { QueryHistoryEntry } from '@forgedb/shared';
 import { QueryHistoryStateService } from '../../../core/state/query-history.state';
 import type { QueryHistoryDialogResult } from '../../../core/services/query-history.service';
 
@@ -178,9 +178,7 @@ import type { QueryHistoryDialogResult } from '../../../core/services/query-hist
       <div class="dialog-footer">
         <span class="footer-hint">Click to open in new tab, double-click to execute</span>
         <div class="footer-shortcuts">
-          <kbd>Enter</kbd> open
-          <kbd>Shift+Enter</kbd> execute
-          <kbd>Esc</kbd> close
+          <kbd>Enter</kbd> open <kbd>Shift+Enter</kbd> execute <kbd>Esc</kbd> close
         </div>
       </div>
     </div>

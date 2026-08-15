@@ -1,5 +1,5 @@
 /**
- * Object cache adapted from @memberjunction/global
+ * Object cache.
  * Provides TTL-based caching for expensive operations
  */
 

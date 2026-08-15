@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, Subject } from 'rxjs';
-import type { LayoutConfig, LayoutNode } from '@mj-forge/shared';
+import type { LayoutConfig, LayoutNode } from '@forgedb/shared';
 import {
   VirtualLayout,
   ComponentContainer,

@@ -627,16 +627,6 @@ export class CommandPaletteComponent implements OnInit, OnDestroy {
           window.dispatchEvent(new CustomEvent('forge:show-shortcuts'));
         },
       },
-      {
-        id: 'about',
-        label: 'About MJ Forge',
-        description: 'Version and product information',
-        icon: 'info',
-        category: 'help',
-        action: () => {
-          window.dispatchEvent(new CustomEvent('forge:show-about'));
-        },
-      },
     ];
   }
 

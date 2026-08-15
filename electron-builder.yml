@@ -1,6 +1,6 @@
-appId: com.memberjunction.forge
-productName: MJ Forge
-copyright: Copyright © 2026 MemberJunction
+appId: ca.adam11.forge
+productName: Forge
+copyright: Copyright © 2026 Craig Adam
 
 # Directories
 directories:
@@ -23,7 +23,7 @@ files:
   - node_modules/**/*
   # Map workspace package to node_modules location
   - from: packages/shared
-    to: node_modules/@mj-forge/shared
+    to: node_modules/@forgedb/shared
     filter:
       - dist/**/*
       - package.json

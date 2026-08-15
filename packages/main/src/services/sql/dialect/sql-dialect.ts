@@ -3,8 +3,7 @@
  *
  * Encapsulates all database-specific SQL syntax differences.
  * Each database engine (SQL Server, PostgreSQL, MySQL) provides
- * a concrete implementation. Follows the MemberJunction pattern:
- * see @memberjunction/sql-dialect for the upstream design.
+ * a concrete implementation.
  */
 
 import type {
@@ -13,7 +12,7 @@ import type {
   RenameDatabaseOptions,
   DeleteDatabaseOptions,
   EngineVariant,
-} from '@mj-forge/shared';
+} from '@forgedb/shared';
 
 // Re-export engine type for convenience
 export type { DatabaseEngine };

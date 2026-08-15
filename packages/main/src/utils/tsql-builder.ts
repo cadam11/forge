@@ -7,7 +7,7 @@ import type {
   RenameDatabaseOptions,
   DeleteDatabaseOptions,
   BackupType,
-} from '@mj-forge/shared';
+} from '@forgedb/shared';
 
 /**
  * Internal options for backup T-SQL generation (no connectionId needed)

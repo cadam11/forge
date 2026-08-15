@@ -38,8 +38,8 @@ import type {
   ConnectionProfile,
   DatabaseInfo,
   EngineCapabilities,
-} from '@mj-forge/shared';
-import { FULL_CAPABILITIES } from '@mj-forge/shared';
+} from '@forgedb/shared';
+import { FULL_CAPABILITIES } from '@forgedb/shared';
 import { ConnectionStateService } from './connection.state';
 import { ExplorerStateService, type TreeNode } from './explorer.state';
 import { IpcService } from '../services/ipc.service';

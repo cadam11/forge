@@ -1,4 +1,4 @@
-# MJ Forge Regression Test Harness
+# Forge Regression Test Harness
 
 Three-tier test pyramid for catching regressions across all supported engines and the full Electron app.
 

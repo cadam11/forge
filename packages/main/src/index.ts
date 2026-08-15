@@ -1,5 +1,5 @@
 /**
- * MJ Forge - Main Process Entry Point
+ * Forge - Main Process Entry Point
  */
 
 import { app, BrowserWindow } from 'electron';

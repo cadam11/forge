@@ -29,7 +29,7 @@ import { TEST_CONNECTIONS } from '../../helpers/db-fixtures';
 const fakeProfiles: Map<string, any> = new Map();
 const fakePasswords: Map<string, string> = new Map();
 
-vi.mock('@mj-forge/main/services/config/connection-profiles', () => ({
+vi.mock('@forgedb/main/services/config/connection-profiles', () => ({
   ConnectionProfilesStore: {
     getInstance: () => ({
       getById: (id: string) => fakeProfiles.get(id),
@@ -38,10 +38,10 @@ vi.mock('@mj-forge/main/services/config/connection-profiles', () => ({
   },
 }));
 
-import { ConnectionPoolManager } from '@mj-forge/main/services/sql/connection-pool';
-import { PgDialect } from '@mj-forge/main/services/sql/dialect/pg-dialect';
-import { MySQLDialect } from '@mj-forge/main/services/sql/dialect/mysql-dialect';
-import { MSSQLDialect } from '@mj-forge/main/services/sql/dialect/mssql-dialect';
+import { ConnectionPoolManager } from '@forgedb/main/services/sql/connection-pool';
+import { PgDialect } from '@forgedb/main/services/sql/dialect/pg-dialect';
+import { MySQLDialect } from '@forgedb/main/services/sql/dialect/mysql-dialect';
+import { MSSQLDialect } from '@forgedb/main/services/sql/dialect/mssql-dialect';
 
 function freshDbName(): string {
   return `forge_t_${randomUUID().replace(/-/g, '').slice(0, 12)}`;

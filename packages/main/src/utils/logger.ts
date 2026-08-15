@@ -1,5 +1,5 @@
 /**
- * Production-grade logging service for MJ Forge main process.
+ * Production-grade logging service for Forge main process.
  *
  * Log levels: debug < info < warn < error
  * In development (NODE_ENV !== 'production'), defaults to 'debug'.
@@ -12,7 +12,7 @@
  * to import from unit-tested code.
  */
 
-import type { LogEntry } from '@mj-forge/shared';
+import type { LogEntry } from '@forgedb/shared';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 

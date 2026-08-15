@@ -1,12 +1,12 @@
--- Synthetic MJ rows. Numbers chosen to satisfy the legacy regression
--- assertions: 11 applications (>10), 3 users, 24 entities (>20).
+-- Synthetic app-metadata rows. Numbers chosen to satisfy the legacy
+-- regression assertions: 11 applications (>10), 3 users, 24 entities (>20).
 
-INSERT INTO __mj.user (name, email) VALUES
+INSERT INTO app_meta.user (name, email) VALUES
   ('Admin User',       'admin@example.test'),
   ('Builder Bot',      'builder@example.test'),
   ('Read-Only Reader', 'reader@example.test');
 
-INSERT INTO __mj.application (name, description) VALUES
+INSERT INTO app_meta.application (name, description) VALUES
   ('Forge',          'Database management workspace'),
   ('CRM',            'Customer relationship platform'),
   ('Billing',        'Invoicing and dunning'),
@@ -19,7 +19,7 @@ INSERT INTO __mj.application (name, description) VALUES
   ('Public API',     'External-facing API gateway'),
   ('Knowledge Base', 'Help articles and runbooks');
 
-INSERT INTO __mj.entity (name, base_table, schema_name, application_id, owner_user_id) VALUES
+INSERT INTO app_meta.entity (name, base_table, schema_name, application_id, owner_user_id) VALUES
   ('User',                'user',                'public', 5,  1),
   ('Account',             'account',             'public', 2,  1),
   ('Contact',             'contact',             'public', 2,  1),

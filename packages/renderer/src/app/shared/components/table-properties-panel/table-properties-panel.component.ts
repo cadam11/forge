@@ -14,7 +14,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatBadgeModule } from '@angular/material/badge';
-import type { TableProperties, ColumnInfo, ExtendedProperty } from '@mj-forge/shared';
+import type { TableProperties, ColumnInfo, ExtendedProperty } from '@forgedb/shared';
 
 export interface TablePropertiesRequest {
   connectionId: string;

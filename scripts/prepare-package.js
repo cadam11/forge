@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Prepares the workspace packages for electron-builder packaging by replacing
- * the @mj-forge/* workspace symlinks with real copies (asar can't follow
+ * the @forgedb/* workspace symlinks with real copies (asar can't follow
  * symlinks).
  *
  * NOTE: this leaves node_modules in a "packaged" state. Prefer `npm run package`

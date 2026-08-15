@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
-import { IPC_CHANNELS, CHAT_IPC_CHANNELS } from '@mj-forge/shared';
+import { IPC_CHANNELS, CHAT_IPC_CHANNELS } from '@forgedb/shared';
 import type {
   ConnectionProfile,
   TestConnectionResult,
@@ -71,20 +71,9 @@ import type {
   ServerDrive,
   ServerFileEntry,
   ServerDefaultPaths,
-  // MemberJunction types
-  MJDatabaseInfo,
-  MJEntityInfo,
-  MJEntityFieldInfo,
-  MJApplicationInfo,
-  MJRecordChange,
-  MJAuditLog,
-  MJQuery,
-  MJErrorLog,
-  MJUserRecordLog,
-  MJEntityRelationship,
   LogEntry,
   ActiveConnection,
-} from '@mj-forge/shared';
+} from '@forgedb/shared';
 
 /**
  * The API exposed to the renderer process via contextBridge
@@ -395,67 +384,6 @@ export interface ForgeAPI {
     deleteFile: (filePath: string) => Promise<void>;
     renameFile: (oldPath: string, newPath: string) => Promise<void>;
     onFileChanged: (callback: (event: { filePath: string; type: string }) => void) => () => void;
-  };
-
-  // MemberJunction Integration
-  mj: {
-    detect: (
-      connectionId: string,
-      database: string,
-      mjSchemaName?: string
-    ) => Promise<MJDatabaseInfo>;
-    getEntities: (
-      connectionId: string,
-      database: string,
-      mjSchemaName?: string
-    ) => Promise<MJEntityInfo[]>;
-    getEntityFields: (
-      connectionId: string,
-      database: string,
-      entityId: string,
-      mjSchemaName?: string
-    ) => Promise<MJEntityFieldInfo[]>;
-    getApplications: (
-      connectionId: string,
-      database: string,
-      mjSchemaName?: string
-    ) => Promise<MJApplicationInfo[]>;
-    getEntityRelationships: (
-      connectionId: string,
-      database: string,
-      entityId?: string,
-      mjSchemaName?: string
-    ) => Promise<MJEntityRelationship[]>;
-    getRecordChanges: (
-      connectionId: string,
-      database: string,
-      options?: { entityId?: string; entityName?: string; recordId?: string; limit?: number },
-      mjSchemaName?: string
-    ) => Promise<MJRecordChange[]>;
-    getAuditLogs: (
-      connectionId: string,
-      database: string,
-      options?: { entityId?: string; recordId?: string; userId?: string; limit?: number },
-      mjSchemaName?: string
-    ) => Promise<MJAuditLog[]>;
-    getSavedQueries: (
-      connectionId: string,
-      database: string,
-      categoryId?: string,
-      mjSchemaName?: string
-    ) => Promise<MJQuery[]>;
-    getErrorLogs: (
-      connectionId: string,
-      database: string,
-      options?: { category?: string; limit?: number },
-      mjSchemaName?: string
-    ) => Promise<MJErrorLog[]>;
-    getUserRecordLogs: (
-      connectionId: string,
-      database: string,
-      options?: { entityId?: string; recordId?: string; userId?: string; limit?: number },
-      mjSchemaName?: string
-    ) => Promise<MJUserRecordLog[]>;
   };
 
   theme: {
@@ -866,72 +794,6 @@ const forgeAPI: ForgeAPI = {
     renameFile: (oldPath, newPath) =>
       ipcRenderer.invoke(IPC_CHANNELS.WORKSPACE.RENAME_FILE, oldPath, newPath),
     onFileChanged: callback => createEventListener(IPC_CHANNELS.WORKSPACE.FILE_CHANGED, callback),
-  },
-
-  // MemberJunction Integration
-  mj: {
-    detect: (connectionId, database, mjSchemaName) =>
-      ipcRenderer.invoke(IPC_CHANNELS.MJ.DETECT, connectionId, database, mjSchemaName),
-    getEntities: (connectionId, database, mjSchemaName) =>
-      ipcRenderer.invoke(IPC_CHANNELS.MJ.GET_ENTITIES, connectionId, database, mjSchemaName),
-    getEntityFields: (connectionId, database, entityId, mjSchemaName) =>
-      ipcRenderer.invoke(
-        IPC_CHANNELS.MJ.GET_ENTITY_FIELDS,
-        connectionId,
-        database,
-        entityId,
-        mjSchemaName
-      ),
-    getApplications: (connectionId, database, mjSchemaName) =>
-      ipcRenderer.invoke(IPC_CHANNELS.MJ.GET_APPLICATIONS, connectionId, database, mjSchemaName),
-    getEntityRelationships: (connectionId, database, entityId, mjSchemaName) =>
-      ipcRenderer.invoke(
-        IPC_CHANNELS.MJ.GET_ENTITY_RELATIONSHIPS,
-        connectionId,
-        database,
-        entityId,
-        mjSchemaName
-      ),
-    getRecordChanges: (connectionId, database, options, mjSchemaName) =>
-      ipcRenderer.invoke(
-        IPC_CHANNELS.MJ.GET_RECORD_CHANGES,
-        connectionId,
-        database,
-        options,
-        mjSchemaName
-      ),
-    getAuditLogs: (connectionId, database, options, mjSchemaName) =>
-      ipcRenderer.invoke(
-        IPC_CHANNELS.MJ.GET_AUDIT_LOGS,
-        connectionId,
-        database,
-        options,
-        mjSchemaName
-      ),
-    getSavedQueries: (connectionId, database, categoryId, mjSchemaName) =>
-      ipcRenderer.invoke(
-        IPC_CHANNELS.MJ.GET_SAVED_QUERIES,
-        connectionId,
-        database,
-        categoryId,
-        mjSchemaName
-      ),
-    getErrorLogs: (connectionId, database, options, mjSchemaName) =>
-      ipcRenderer.invoke(
-        IPC_CHANNELS.MJ.GET_ERROR_LOGS,
-        connectionId,
-        database,
-        options,
-        mjSchemaName
-      ),
-    getUserRecordLogs: (connectionId, database, options, mjSchemaName) =>
-      ipcRenderer.invoke(
-        IPC_CHANNELS.MJ.GET_USER_RECORD_LOGS,
-        connectionId,
-        database,
-        options,
-        mjSchemaName
-      ),
   },
 
   theme: {

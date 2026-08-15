@@ -2070,14 +2070,14 @@ export function renderReportHtml(report) {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>MJ Forge — regression report (${escapeHtml(fmtTimestamp(report.startedAt))})</title>
+<title>Forge — regression report (${escapeHtml(fmtTimestamp(report.startedAt))})</title>
 ${FONT_LINKS}
 <style>${STYLES}</style>
 </head>
 <body>
 <main>
   <header class="header">
-    <h1><span class="accent">MJ Forge</span> Regression Report</h1>
+    <h1><span class="accent">Forge</span> Regression Report</h1>
     <div class="header-meta">
       <span class="label">Repo</span>
       <span class="value">${escapeHtml(report.git.branch)}@${escapeHtml(report.git.commit)} ${dirtyMark}</span>

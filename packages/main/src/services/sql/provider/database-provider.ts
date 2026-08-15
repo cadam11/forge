@@ -2,18 +2,12 @@
  * Database Provider Abstraction
  *
  * Defines the interface that every database engine must implement.
- * Follows the MemberJunction provider pattern:
- *   DatabaseProviderBase → GenericDatabaseProvider → SQLServerDataProvider / PostgreSQLDataProvider
  *
- * For Forge, the hierarchy is simpler:
+ * The hierarchy is:
  *   DatabaseProvider (abstract) → MSSQLProvider / PgProvider
  */
 
-import type {
-  ConnectionProfile,
-  TestConnectionResult,
-  DatabaseEngine,
-} from '@mj-forge/shared';
+import type { ConnectionProfile, TestConnectionResult, DatabaseEngine } from '@forgedb/shared';
 import { SQLDialect } from '../dialect/sql-dialect';
 
 /** Result of executing a SQL statement through a provider */
@@ -43,7 +37,10 @@ export abstract class DatabaseProvider {
   abstract disconnect(): Promise<void>;
 
   /** Test a connection without persisting it */
-  abstract testConnection(profile: ConnectionProfile, password: string): Promise<TestConnectionResult>;
+  abstract testConnection(
+    profile: ConnectionProfile,
+    password: string
+  ): Promise<TestConnectionResult>;
 
   /**
    * Execute a SQL batch and return results.

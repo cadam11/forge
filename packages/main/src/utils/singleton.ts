@@ -1,5 +1,5 @@
 /**
- * Singleton base class adapted from @memberjunction/global
+ * Singleton base class.
  * Provides a thread-safe singleton pattern using a global object store
  */
 

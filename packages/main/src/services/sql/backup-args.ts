@@ -5,7 +5,7 @@
  * tested in isolation. The PG and MySQL backup services consume these.
  */
 
-import type { RestoreRequest } from '@mj-forge/shared';
+import type { RestoreRequest } from '@forgedb/shared';
 
 /**
  * Resolve whether the user asked to overwrite an existing database.

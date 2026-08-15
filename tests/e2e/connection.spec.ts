@@ -2,8 +2,8 @@
  * Connection flow E2E specs — adapted from the legacy 31-test audit's
  * "Connection & Setup" + "Explorer Tree" + "Status Bar" sections.
  *
- * Uses the seeded postgres test container instead of MSSQL+MJ_5_14_0
- * (which the legacy audit assumed). Each test launches fresh Electron
+ * Uses the seeded postgres test container instead of the legacy MSSQL
+ * fixture database (which the legacy audit assumed). Each test launches fresh Electron
  * with isolated user-data so saves don't leak between specs.
  */
 

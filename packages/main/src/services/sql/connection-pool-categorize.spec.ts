@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { ConnectionProfile } from '@mj-forge/shared';
+import type { ConnectionProfile } from '@forgedb/shared';
 import { ConnectionPoolManager } from './connection-pool';
 
 /**

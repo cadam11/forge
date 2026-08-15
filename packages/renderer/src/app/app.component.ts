@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
 import { MatIconRegistry } from '@angular/material/icon';
 import { DomSanitizer } from '@angular/platform-browser';
-import { SharedGenericModule } from '@memberjunction/ng-shared-generic';
+import { LoadingComponent } from './shared/components/loading/loading.component';
 import { ShellComponent } from './layout/shell/shell.component';
 import { ContextMenuComponent } from './shared/components/context-menu/context-menu.component';
 import { SettingsPanelComponent } from './shared/components/settings-panel/settings-panel.component';
@@ -22,7 +22,7 @@ import { TabStateService } from './core/state/tab.state';
   imports: [
     CommonModule,
     RouterOutlet,
-    SharedGenericModule,
+    LoadingComponent,
     ShellComponent,
     ContextMenuComponent,
     SettingsPanelComponent,
@@ -35,7 +35,7 @@ import { TabStateService } from './core/state/tab.state';
   template: `
     @if (loading()) {
       <div class="startup-loading">
-        <mj-loading [text]="loadingMessage()" size="large" animation="pulse"></mj-loading>
+        <app-loading [text]="loadingMessage()" size="large" animation="pulse"></app-loading>
       </div>
     } @else {
       <app-shell />
@@ -80,7 +80,7 @@ export class AppComponent implements OnInit {
 
   // Loading state
   readonly loading = signal(true);
-  readonly loadingMessage = signal('Starting MJ Forge...');
+  readonly loadingMessage = signal('Starting Forge...');
 
   constructor() {
     // Register custom SVG icons

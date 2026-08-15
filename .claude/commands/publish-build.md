@@ -1,4 +1,4 @@
-Build, tag, and publish a new release of MJ Forge to GitHub with CI-built installers for macOS and Windows.
+Build, tag, and publish a new release of Forge to GitHub with CI-built installers for macOS and Windows.
 
 ## Inputs
 
@@ -50,25 +50,25 @@ The project hard rule is **never push directly to `main`** (see root CLAUDE.md).
 
 ### 5. Monitor CI
 
-- Watch the GitHub Actions run: `gh run list --repo MemberJunction/Forge --limit 1`
-- Wait for completion: `gh run watch {RUN_ID} --repo MemberJunction/Forge --exit-status`
+- Watch the GitHub Actions run: `gh run list --repo cadam11/forge --limit 1`
+- Wait for completion: `gh run watch {RUN_ID} --repo cadam11/forge --exit-status`
 - Both `macos-latest` and `windows-latest` jobs must pass
 - If a job fails, investigate with `gh run view --job={JOB_ID} --log-failed`, fix, and re-tag
 
 ### 6. Verify release
 
-- Check the release page: `gh release view v{VERSION} --repo MemberJunction/Forge`
+- Check the release page: `gh release view v{VERSION} --repo cadam11/forge`
 - Confirm all expected assets are present (typically 16 files: DMGs, ZIPs, EXEs, blockmaps)
 
 ### 7. Local test install (macOS)
 
-- Download the arm64 DMG: `gh release download v{VERSION} --repo MemberJunction/Forge --pattern "*arm64.dmg" --dir ~/Downloads`
+- Download the arm64 DMG: `gh release download v{VERSION} --repo cadam11/forge --pattern "*arm64.dmg" --dir ~/Downloads`
 - Inform the user the DMG is ready at `~/Downloads/` for manual testing
 - Remind: right-click → Open to bypass Gatekeeper (app is not yet notarized)
 
 ### 8. Update the wiki
 
-The user-facing docs at https://github.com/MemberJunction/Forge/wiki must reflect what shipped. Invoke the **wiki-author** skill (`.claude/skills/wiki-author/SKILL.md`) — it handles the clone-write-commit-push workflow, including the wiki's `master` (not `main`) default branch and the team-of-authors + dedicated wiki-editor pattern.
+The user-facing docs at https://github.com/cadam11/forge/wiki must reflect what shipped. Invoke the **wiki-author** skill (`.claude/skills/wiki-author/SKILL.md`) — it handles the clone-write-commit-push workflow, including the wiki's `master` (not `main`) default branch and the team-of-authors + dedicated wiki-editor pattern.
 
 Two things must happen on every release:
 
@@ -84,7 +84,7 @@ Two things must happen on every release:
 
 For a **patch release with no UX changes**, the audit may yield only the `Release-Notes.md` edit — that's fine, push it as a single-page commit. For **minor or major releases**, expect 3–5 content pages to need updates.
 
-**Screenshots:** the wiki pins image URLs to a specific release tag (e.g. `https://raw.githubusercontent.com/MemberJunction/Forge/v{PREVIOUS}/docs/screenshots/<name>.png`) for stability. If the UI shifted in this release, re-capture the affected screenshots (the wiki-author skill describes the playwright-cli flow against a Docker SQL Server) and update the tag in the URL to v{VERSION}. If the UI did not shift, leave the older tag as-is — pinning to v{VERSION} every release just to update the tag is churn.
+**Screenshots:** the wiki pins image URLs to a specific release tag (e.g. `https://raw.githubusercontent.com/cadam11/forge/v{PREVIOUS}/docs/screenshots/<name>.png`) for stability. If the UI shifted in this release, re-capture the affected screenshots (the wiki-author skill describes the playwright-cli flow against a Docker SQL Server) and update the tag in the URL to v{VERSION}. If the UI did not shift, leave the older tag as-is — pinning to v{VERSION} every release just to update the tag is churn.
 
 **Commit message:** `docs(wiki): update for v{VERSION}` (conventional commit). Push directly to wiki `master` after a `git diff --stat` review — wikis don't support PRs, so the push _is_ the publish. The user has standing authorization for wiki pushes during a release run; you don't need to re-confirm each one.
 
@@ -92,4 +92,4 @@ For a **patch release with no UX changes**, the audit may yield only the `Releas
 
 - **`cpu-features` build failure**: The `scripts/before-build.js` hook removes this incompatible optional module before `@electron/rebuild` runs. If it still fails, check that `before-build.js` exists and is referenced in `electron-builder.yml` under `beforeBuild`.
 - **Missing dependencies in packaged app**: The `beforeBuild` hook MUST return `true`. Returning `false` tells electron-builder that node_modules are handled externally, which excludes all deps from the asar.
-- **Workspace symlink issues**: `scripts/prepare-package.js` replaces the `@mj-forge/shared` symlink with a real copy. This runs automatically as part of `npm run package`.
+- **Workspace symlink issues**: `scripts/prepare-package.js` replaces the `@forgedb/shared` symlink with a real copy. This runs automatically as part of `npm run package`.

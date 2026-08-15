@@ -3,7 +3,7 @@
  * Handles persistence and comparison of query result snapshots
  */
 
-import { IPC_CHANNELS } from '@mj-forge/shared';
+import { IPC_CHANNELS } from '@forgedb/shared';
 import type {
   QueryResultSnapshot,
   QueryResultHistoryFilter,
@@ -14,7 +14,7 @@ import type {
   ResultDiff,
   DiffOptions,
   QueryResult,
-} from '@mj-forge/shared';
+} from '@forgedb/shared';
 import { QueryResultsStore } from '../services/config/query-results-store';
 import { safeHandle } from './safe-handle';
 

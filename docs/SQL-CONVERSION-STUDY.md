@@ -11,6 +11,7 @@ Allow users to convert SQL queries between dialects directly in the Forge query 
 ## Library Candidates
 
 ### 1. `sqlglot-ts` (Recommended)
+
 - **npm**: `sqlglot-ts`
 - **Type**: TypeScript port of Python's [sqlglot](https://sqlglot.com)
 - **API**: `parse()`, `parseOne()`, `transpileOne(sql, fromDialect, toDialect)`
@@ -19,18 +20,16 @@ Allow users to convert SQL queries between dialects directly in the Forge query 
 - **Cons**: Not all dialects fully tested; may need edge case handling
 
 ### 2. `@polyglot-sql/sdk`
+
 - **Type**: Rust/WebAssembly SQL transpiler
 - **Dialects**: 30+ SQL dialects
 - **Pros**: Very broad dialect support, fast (Wasm)
 - **Cons**: Wasm bundle size, less TypeScript-native
 
-### 3. `@memberjunction/sqlglot` (Internal MJ package — if available)
-- May be a private/internal MJ package wrapping sqlglot-ts
-- Check with MJ team for availability
-
 ## Proposed UI
 
 ### Option A: Conversion Panel (Recommended)
+
 Add a "Convert SQL" button to the query editor toolbar:
 
 ```
@@ -62,6 +61,7 @@ When clicked, the converted SQL replaces the editor content (with undo support) 
 ```
 
 ### Option B: Side-by-Side Comparison
+
 Split the editor into two panes showing source and converted SQL:
 
 ```
@@ -76,7 +76,9 @@ Split the editor into two panes showing source and converted SQL:
 ```
 
 ### Option C: AI-Powered Conversion
+
 Use the existing AI integration to convert SQL with context:
+
 - Send the query + source dialect + target dialect to the LLM
 - LLM understands intent and can handle complex cases (stored procedures, etc.)
 - Hybrid: use sqlglot-ts for simple conversions, AI for complex ones
@@ -84,18 +86,21 @@ Use the existing AI integration to convert SQL with context:
 ## Implementation Plan
 
 ### Phase 1: Library Integration
+
 1. Install `sqlglot-ts`: `npm install sqlglot-ts`
 2. Create `packages/main/src/services/sql/sql-converter.ts`
 3. Add IPC channel `query:convert-sql`
 4. Wire up basic conversion: `transpileOne(sql, source, target)`
 
 ### Phase 2: UI Integration
+
 1. Add "Convert" dropdown to query editor toolbar
 2. Auto-detect source dialect from active connection's engine
 3. Show conversion result (replace editor or new tab)
 4. Add undo support when replacing editor content
 
 ### Phase 3: Smart Conversion
+
 1. Handle conversion errors gracefully (show what couldn't be converted)
 2. Add diff view showing what changed
 3. Integrate with AI for complex cases (procedures, functions, DDL)
@@ -103,19 +108,19 @@ Use the existing AI integration to convert SQL with context:
 
 ## Key Dialect Differences to Handle
 
-| Feature | T-SQL | PostgreSQL | MySQL |
-|---------|-------|-----------|-------|
-| Top N rows | `SELECT TOP N` | `LIMIT N` | `LIMIT N` |
-| Identity | `IDENTITY(1,1)` | `GENERATED ALWAYS AS IDENTITY` | `AUTO_INCREMENT` |
-| String concat | `+` | `\|\|` | `CONCAT()` |
-| Date functions | `GETDATE()`, `DATEADD()` | `NOW()`, `+ INTERVAL` | `NOW()`, `DATE_ADD()` |
-| Boolean | `BIT (1/0)` | `BOOLEAN` | `TINYINT(1)` |
-| Quoting | `[brackets]` | `"double quotes"` | `` `backticks` `` |
-| UUID | `NEWID()` | `gen_random_uuid()` | `UUID()` |
-| Temp tables | `#temp` | `TEMP TABLE` | `TEMPORARY TABLE` |
-| CTEs | `WITH ... AS` | `WITH ... AS` | `WITH ... AS` (8.0+) |
-| IF/ELSE | `IF ... BEGIN END` | `DO $$ ... $$` | `IF ... END IF` |
-| Stored procs | `CREATE PROCEDURE` | `CREATE FUNCTION` | `CREATE PROCEDURE` |
+| Feature        | T-SQL                    | PostgreSQL                     | MySQL                 |
+| -------------- | ------------------------ | ------------------------------ | --------------------- |
+| Top N rows     | `SELECT TOP N`           | `LIMIT N`                      | `LIMIT N`             |
+| Identity       | `IDENTITY(1,1)`          | `GENERATED ALWAYS AS IDENTITY` | `AUTO_INCREMENT`      |
+| String concat  | `+`                      | `\|\|`                         | `CONCAT()`            |
+| Date functions | `GETDATE()`, `DATEADD()` | `NOW()`, `+ INTERVAL`          | `NOW()`, `DATE_ADD()` |
+| Boolean        | `BIT (1/0)`              | `BOOLEAN`                      | `TINYINT(1)`          |
+| Quoting        | `[brackets]`             | `"double quotes"`              | `` `backticks` ``     |
+| UUID           | `NEWID()`                | `gen_random_uuid()`            | `UUID()`              |
+| Temp tables    | `#temp`                  | `TEMP TABLE`                   | `TEMPORARY TABLE`     |
+| CTEs           | `WITH ... AS`            | `WITH ... AS`                  | `WITH ... AS` (8.0+)  |
+| IF/ELSE        | `IF ... BEGIN END`       | `DO $$ ... $$`                 | `IF ... END IF`       |
+| Stored procs   | `CREATE PROCEDURE`       | `CREATE FUNCTION`              | `CREATE PROCEDURE`    |
 
 ## Risk Assessment
 

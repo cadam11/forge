@@ -1,4 +1,4 @@
--- MJ Forge regression-test fixture schema (PostgreSQL).
+-- Forge regression-test fixture schema (PostgreSQL).
 -- Identical logical shape to the mssql and mysql fixtures.
 
 DROP TABLE IF EXISTS order_items CASCADE;

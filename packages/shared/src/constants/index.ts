@@ -1,8 +1,8 @@
 export * from './ipc-channels';
 
 // Application constants
-export const APP_NAME = 'MJ Forge';
-export const APP_ID = 'com.memberjunction.forge';
+export const APP_NAME = 'Forge';
+export const APP_ID = 'ca.adam11.forge';
 
 // Default values
 export const DEFAULT_PORT = 1433;

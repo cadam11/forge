@@ -5,7 +5,7 @@
  */
 
 import { Pool, PoolClient, PoolConfig } from 'pg';
-import type { ConnectionProfile, TestConnectionResult } from '@mj-forge/shared';
+import type { ConnectionProfile, TestConnectionResult } from '@forgedb/shared';
 import { createLogger } from '../../../utils/logger';
 import { DatabaseProvider, type ProviderQueryResult } from './database-provider';
 import { PgDialect } from '../dialect/pg-dialect';
@@ -51,7 +51,10 @@ export class PgProvider extends DatabaseProvider {
     }
   }
 
-  async testConnection(profile: ConnectionProfile, password: string): Promise<TestConnectionResult> {
+  async testConnection(
+    profile: ConnectionProfile,
+    password: string
+  ): Promise<TestConnectionResult> {
     let testPool: Pool | null = null;
     try {
       testPool = new Pool({
@@ -162,10 +165,7 @@ export class PgProvider extends DatabaseProvider {
           'Ensure the user has CONNECT privilege',
         ];
       case '3D000': // invalid_catalog_name (database doesn't exist)
-        return [
-          'The specified database does not exist',
-          'Check the database name',
-        ];
+        return ['The specified database does not exist', 'Check the database name'];
       default:
         return ['Check the error details and try again'];
     }

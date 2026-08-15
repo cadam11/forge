@@ -16,7 +16,7 @@ import Fuse from 'fuse.js';
 import { ConnectionStateService } from '../../../core/state/connection.state';
 import { TabStateService } from '../../../core/state/tab.state';
 import { IpcService } from '../../../core/services/ipc.service';
-import type { ObjectMetadata } from '@mj-forge/shared';
+import type { ObjectMetadata } from '@forgedb/shared';
 import { firstValueFrom } from 'rxjs';
 
 interface SearchableObject {

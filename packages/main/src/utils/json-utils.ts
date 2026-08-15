@@ -1,5 +1,5 @@
 /**
- * JSON utilities adapted from @memberjunction/global
+ * JSON utilities.
  */
 
 /**

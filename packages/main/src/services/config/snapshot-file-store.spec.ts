@@ -2,7 +2,7 @@ import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, readdirSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { QueryResultSnapshot } from '@mj-forge/shared';
+import type { QueryResultSnapshot } from '@forgedb/shared';
 import { SnapshotFileStore } from './snapshot-file-store';
 
 function makeSnapshot(

@@ -26,7 +26,7 @@ import {
   promises as fsp,
 } from 'node:fs';
 import { join } from 'node:path';
-import type { QueryResultSnapshot } from '@mj-forge/shared';
+import type { QueryResultSnapshot } from '@forgedb/shared';
 import { createLogger } from '../../utils/logger';
 import { createTrailingDebounce, type TrailingDebounce } from '../../utils/trailing-debounce';
 

@@ -1,8 +1,4 @@
-<p align="center">
-  <img src="resources/logo.png" alt="MJ Forge" width="128" height="128">
-</p>
-
-<h1 align="center">MJ Forge</h1>
+<h1 align="center">Forge</h1>
 
 <p align="center">
   <strong>An AI-native SQL IDE for SQL Server, PostgreSQL, and MySQL — on macOS & Windows</strong>
@@ -14,15 +10,14 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/MemberJunction/Forge/releases/latest"><strong>⬇️ Download Latest Release</strong></a>
+  <a href="https://github.com/cadam11/forge/releases/latest"><strong>⬇️ Download Latest Release</strong></a>
 </p>
 
 <p align="center">
   <a href="#features">Features</a> •
   <a href="#ai-assistant">AI Assistant</a> •
   <a href="#download">Download</a> •
-  <a href="#screenshots">Screenshots</a> •
-  <a href="#why-mj-forge">Why MJ Forge?</a> •
+  <a href="#why-forge">Why Forge?</a> •
   <a href="#contributing">Contributing</a>
 </p>
 
@@ -30,15 +25,15 @@
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-blue?style=flat-square" alt="Platform">
   <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License">
   <img src="https://img.shields.io/badge/engines-MSSQL%20%7C%20PostgreSQL%20%7C%20MySQL-orange?style=flat-square" alt="Engines">
-  <img src="https://img.shields.io/github/v/release/MemberJunction/Forge?style=flat-square&color=purple" alt="Release">
-  <img src="https://img.shields.io/github/actions/workflow/status/MemberJunction/Forge/build-release.yml?style=flat-square&label=build" alt="Build">
+  <img src="https://img.shields.io/github/v/release/cadam11/forge?style=flat-square&color=purple" alt="Release">
+  <img src="https://img.shields.io/github/actions/workflow/status/cadam11/forge/build-release.yml?style=flat-square&label=build" alt="Build">
 </p>
 
 ---
 
-## What is MJ Forge?
+## What is Forge?
 
-MJ Forge is a desktop database IDE with a built-in AI assistant that can query your data, explain schemas, generate SQL, and execute actions — all through natural conversation. It speaks **SQL Server**, **PostgreSQL**, and **MySQL** natively, with engine-aware tools, dialect-aware SQL conversion, and unified workflows across all three.
+Forge is a desktop database IDE with a built-in AI assistant that can query your data, explain schemas, generate SQL, and execute actions — all through natural conversation. It speaks **SQL Server**, **PostgreSQL**, and **MySQL** natively, with engine-aware tools, dialect-aware SQL conversion, and unified workflows across all three.
 
 Think of it as **SSMS / pgAdmin / Workbench meets Cursor** — a multi-engine database management environment where AI understands your schema and can take action.
 
@@ -48,7 +43,7 @@ Think of it as **SSMS / pgAdmin / Workbench meets Cursor** — a multi-engine da
 
 ### Multi-Engine, One Workflow
 
-MJ Forge speaks three database dialects fluently:
+Forge speaks three database dialects fluently:
 
 - **SQL Server** (2017+, including Azure SQL Database)
 - **PostgreSQL** (12+)
@@ -135,7 +130,7 @@ See exactly what the optimizer is doing — across **all three engines**. SQL Se
 
 ## AI Assistant
 
-The AI assistant is the heart of MJ Forge. Here's what a typical interaction looks like:
+The AI assistant is the heart of Forge. Here's what a typical interaction looks like:
 
 **You:** "Show me the top 10 customers by total order value"
 
@@ -182,26 +177,26 @@ The AI has access to these tools — each one is schema-aware and engine-aware:
 ## Download
 
 <p align="center">
-  <a href="https://github.com/MemberJunction/Forge/releases/latest">
+  <a href="https://github.com/cadam11/forge/releases/latest">
     <img src="https://img.shields.io/badge/⬇_Download_Latest-v0.4.0-purple?style=for-the-badge&logo=github" alt="Download Latest">
   </a>
 </p>
 
 ### macOS
 
-| Chip          | Installer                                                               | Portable                                                        |
-| ------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------- |
-| Apple Silicon | [MJ Forge.dmg](https://github.com/MemberJunction/Forge/releases/latest) | [.zip](https://github.com/MemberJunction/Forge/releases/latest) |
-| Intel         | [MJ Forge.dmg](https://github.com/MemberJunction/Forge/releases/latest) | [.zip](https://github.com/MemberJunction/Forge/releases/latest) |
+| Chip          | Installer                                                                       | Portable                                                 |
+| ------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Apple Silicon | [Forge-\<version\>-arm64.dmg](https://github.com/cadam11/forge/releases/latest) | [.zip](https://github.com/cadam11/forge/releases/latest) |
+| Intel         | [Forge-\<version\>-x64.dmg](https://github.com/cadam11/forge/releases/latest)   | [.zip](https://github.com/cadam11/forge/releases/latest) |
 
 ### Windows
 
-| Architecture   | Installer                                                                     | Portable                                                        |
-| -------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| x64 (most PCs) | [MJ Forge Setup.exe](https://github.com/MemberJunction/Forge/releases/latest) | [.zip](https://github.com/MemberJunction/Forge/releases/latest) |
-| ARM64          | [MJ Forge Setup.exe](https://github.com/MemberJunction/Forge/releases/latest) | [.zip](https://github.com/MemberJunction/Forge/releases/latest) |
+| Architecture   | Installer                                                                             | Portable                                                 |
+| -------------- | ------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| x64 (most PCs) | [Forge-\<version\>-x64-setup.exe](https://github.com/cadam11/forge/releases/latest)   | [.zip](https://github.com/cadam11/forge/releases/latest) |
+| ARM64          | [Forge-\<version\>-arm64-setup.exe](https://github.com/cadam11/forge/releases/latest) | [.zip](https://github.com/cadam11/forge/releases/latest) |
 
-All downloads available on the **[Releases page](https://github.com/MemberJunction/Forge/releases/latest)**.
+All downloads available on the **[Releases page](https://github.com/cadam11/forge/releases/latest)**.
 
 > **macOS:** On first launch, right-click → Open to bypass Gatekeeper (not yet notarized).
 >
@@ -219,43 +214,24 @@ All downloads available on the **[Releases page](https://github.com/MemberJuncti
 
 ---
 
-## Screenshots
+## Why Forge?
 
-![Home screen — Quick Actions, Recent Connections, AI features promo](docs/screenshots/home-screen-light.png#gh-light-mode-only)
-![Home screen — Quick Actions, Recent Connections, AI features promo](docs/screenshots/home-screen-dark.png#gh-dark-mode-only)
-
-_The welcome screen — Quick Actions for new connection, recent connection, Docker container detection, and a guided tour, plus an at-a-glance promo for the AI features._
-
-![AI Assistant — agentic tool calling against a real database](docs/screenshots/ai-assistant-light.png#gh-light-mode-only)
-![AI Assistant — agentic tool calling against a real database](docs/screenshots/ai-assistant-dark.png#gh-dark-mode-only)
-
-_The AI assistant chains `list_tables` → `describe_table` → `execute_query` tool calls and synthesizes a grounded answer about feature flags, alongside the query editor and results grid._
-
-![New Connection dialog — engine picker showing SQL Server, PostgreSQL, and MySQL](docs/screenshots/connection-dialog-light.png#gh-light-mode-only)
-![New Connection dialog — engine picker showing SQL Server, PostgreSQL, and MySQL](docs/screenshots/connection-dialog-dark.png#gh-dark-mode-only)
-
-_One connection dialog, three engines. Pick SQL Server, PostgreSQL, or MySQL — the rest of the form (auth methods, defaults, options) adapts to the engine you choose._
-
----
-
-## Why MJ Forge?
-
-| Feature                               | MJ Forge | Azure Data Studio | TablePlus | DBeaver | DataGrip |
-| ------------------------------------- | :------: | :---------------: | :-------: | :-----: | :------: |
-| macOS + Windows                       |    ✅    |        ✅         |    ✅     |   ✅    |    ✅    |
-| MSSQL + Postgres + MySQL              |    ✅    |      partial      |    ✅     |   ✅    |    ✅    |
-| Engine-aware AI Chat                  |    ✅    |        ❌         |    ❌     |   ❌    |    ❌    |
-| Agentic Tool Calling                  |    ✅    |        ❌         |    ❌     |   ❌    |    ❌    |
-| Multi-LLM Provider                    |    ✅    |        ❌         |    ❌     |   ❌    |    ❌    |
-| AI sees active editor                 |    ✅    |        ❌         |    ❌     |   ❌    |    ❌    |
-| SSH tunneling w/ auto-reconnect       |    ✅    |      partial      |    ✅     |   ✅    |    ✅    |
-| Entra ID auth (Azure SQL)             |    ✅    |        ✅         |    ❌     | partial |    ✅    |
-| Visual execution plan (all 3 engines) |    ✅    |      partial      |    ❌     | partial |    ✅    |
-| Backup & Restore (per engine)         |    ✅    |      partial      |    ❌     | partial | partial  |
-| Docker container detection            |    ✅    |        ❌         |    ❌     |   ❌    |    ❌    |
-| ERD Visualization                     |    ✅    |        ❌         |    ✅     |   ✅    |    ✅    |
-| Keychain / Credential Store           |    ✅    |      partial      |    ✅     | partial |    ✅    |
-| Open Source                           |    ✅    |        ✅         |    ❌     |   ✅    |    ❌    |
+| Feature                               | Forge | Azure Data Studio | TablePlus | DBeaver | DataGrip |
+| ------------------------------------- | :---: | :---------------: | :-------: | :-----: | :------: |
+| macOS + Windows                       |  ✅   |        ✅         |    ✅     |   ✅    |    ✅    |
+| MSSQL + Postgres + MySQL              |  ✅   |      partial      |    ✅     |   ✅    |    ✅    |
+| Engine-aware AI Chat                  |  ✅   |        ❌         |    ❌     |   ❌    |    ❌    |
+| Agentic Tool Calling                  |  ✅   |        ❌         |    ❌     |   ❌    |    ❌    |
+| Multi-LLM Provider                    |  ✅   |        ❌         |    ❌     |   ❌    |    ❌    |
+| AI sees active editor                 |  ✅   |        ❌         |    ❌     |   ❌    |    ❌    |
+| SSH tunneling w/ auto-reconnect       |  ✅   |      partial      |    ✅     |   ✅    |    ✅    |
+| Entra ID auth (Azure SQL)             |  ✅   |        ✅         |    ❌     | partial |    ✅    |
+| Visual execution plan (all 3 engines) |  ✅   |      partial      |    ❌     | partial |    ✅    |
+| Backup & Restore (per engine)         |  ✅   |      partial      |    ❌     | partial | partial  |
+| Docker container detection            |  ✅   |        ❌         |    ❌     |   ❌    |    ❌    |
+| ERD Visualization                     |  ✅   |        ❌         |    ✅     |   ✅    |    ✅    |
+| Keychain / Credential Store           |  ✅   |      partial      |    ✅     | partial |    ✅    |
+| Open Source                           |  ✅   |        ✅         |    ❌     |   ✅    |    ❌    |
 
 ---
 
@@ -263,16 +239,16 @@ _One connection dialog, three engines. Pick SQL Server, PostgreSQL, or MySQL —
 
 ### From Release
 
-1. Download the installer for your platform from [Releases](https://github.com/MemberJunction/Forge/releases/latest)
-2. Install and launch MJ Forge
+1. Download the installer for your platform from [Releases](https://github.com/cadam11/forge/releases/latest)
+2. Install and launch Forge
 3. Click **"Detect Docker Containers"** or **"Add Connection"**
 4. Pick your engine (SQL Server / PostgreSQL / MySQL) and start querying
 
 ### From Source
 
 ```bash
-git clone https://github.com/MemberJunction/Forge.git
-cd Forge
+git clone https://github.com/cadam11/forge.git
+cd forge
 npm install
 npm run dev          # Development mode with hot reload
 ```
@@ -357,7 +333,7 @@ Windows builds are produced automatically by [GitHub Actions](.github/workflows/
 ### Project Structure
 
 ```
-mj-forge/
+forge/
 ├── packages/
 │   ├── main/              # Electron main process
 │   │   └── src/
@@ -447,21 +423,15 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instr
 
 ### Quick Links
 
-- **Report Bugs** — [Open an issue](https://github.com/MemberJunction/Forge/issues)
-- **Request Features** — [Start a discussion](https://github.com/MemberJunction/Forge/discussions)
+- **Report Bugs** — [Open an issue](https://github.com/cadam11/forge/issues)
+- **Request Features** — [Start a discussion](https://github.com/cadam11/forge/discussions)
 - **Submit PRs** — Fork, branch, and open a pull request
 
 ---
 
 ## Acknowledgments
 
-MJ Forge is built by the team behind [MemberJunction](https://github.com/MemberJunction/MJ), the open-source metadata-driven application platform.
-
-<p align="center">
-  <a href="https://github.com/MemberJunction/MJ">
-    <img src="https://img.shields.io/badge/Built%20by-MemberJunction-blue?style=for-the-badge" alt="Built by MemberJunction">
-  </a>
-</p>
+Forge is an MIT-licensed fork of [MemberJunction/Forge](https://github.com/MemberJunction/Forge).
 
 ---
 
@@ -476,6 +446,6 @@ MIT License — see [LICENSE](LICENSE) for details.
 </p>
 
 <p align="center">
-  <a href="https://github.com/MemberJunction/Forge/stargazers">⭐ Star us on GitHub</a> ·
-  <a href="https://github.com/MemberJunction/Forge/releases/latest">Download Latest Release</a>
+  <a href="https://github.com/cadam11/forge/stargazers">⭐ Star us on GitHub</a> ·
+  <a href="https://github.com/cadam11/forge/releases/latest">Download Latest Release</a>
 </p>

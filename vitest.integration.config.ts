@@ -30,15 +30,15 @@ export default defineConfig({
 
     // Module resolution.
     //
-    // - `@mj-forge/shared` and `@mj-forge/main` resolve to source so tests
+    // - `@forgedb/shared` and `@forgedb/main` resolve to source so tests
     //   import the same code Forge runs in production.
     // - `keytar` is mocked so tests never touch the real macOS Keychain.
     //   The native module also wouldn't load reliably in a CI runner.
     // - `ssh2` is intentionally NOT mocked — the SSH tunnel integration tests
     //   need the real implementation to talk to the bastion container.
     alias: {
-      '@mj-forge/shared': new URL('./packages/shared/src', import.meta.url).pathname,
-      '@mj-forge/main': new URL('./packages/main/src', import.meta.url).pathname,
+      '@forgedb/shared': new URL('./packages/shared/src', import.meta.url).pathname,
+      '@forgedb/main': new URL('./packages/main/src', import.meta.url).pathname,
       keytar: new URL('./packages/main/src/__mocks__/keytar.ts', import.meta.url).pathname,
     },
 

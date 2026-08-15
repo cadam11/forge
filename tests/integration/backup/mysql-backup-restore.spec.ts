@@ -37,7 +37,7 @@ vi.mock('electron', () => ({
   },
 }));
 
-vi.mock('@mj-forge/main/services/config/connection-profiles', () => ({
+vi.mock('@forgedb/main/services/config/connection-profiles', () => ({
   ConnectionProfilesStore: {
     getInstance: () => ({
       getById: (id: string) => fakeProfiles.get(id),
@@ -46,7 +46,7 @@ vi.mock('@mj-forge/main/services/config/connection-profiles', () => ({
   },
 }));
 
-import { MySQLBackupService } from '@mj-forge/main/services/sql/mysql-backup';
+import { MySQLBackupService } from '@forgedb/main/services/sql/mysql-backup';
 
 describe('mysql backup/restore round-trip', () => {
   const tmpFiles: string[] = [];

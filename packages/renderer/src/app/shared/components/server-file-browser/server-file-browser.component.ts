@@ -15,7 +15,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { firstValueFrom } from 'rxjs';
 import { IpcService } from '../../../core/services/ipc.service';
-import type { ServerDrive, ServerFileEntry } from '@mj-forge/shared';
+import type { ServerDrive, ServerFileEntry } from '@forgedb/shared';
 
 export interface ServerFileBrowserDialogData {
   connectionId: string;
