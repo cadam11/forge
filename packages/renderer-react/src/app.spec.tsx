@@ -32,6 +32,15 @@ describe('App', () => {
     expect(screen.getByTestId('theme-light').getAttribute('aria-pressed')).toBe('true');
   });
 
+  it('reports browser mode from the IPC probe when preload never ran', () => {
+    // No window.joinery in jsdom, which is the same state as opening :4200 in a browser.
+    // The page renders the guard's answer instead of throwing on the way to the bridge.
+    render(<App />);
+
+    expect(screen.getByTestId('ipc-probe-available').textContent).toBe('browser mode');
+    expect(screen.getByTestId('ipc-probe-version').textContent).toBe('not called');
+  });
+
   it('renders one swatch per registered colour token', () => {
     render(<App />);
 

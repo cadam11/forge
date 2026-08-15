@@ -36,6 +36,37 @@ export default tseslint.config(
     files: ['vite.config.ts', 'eslint.config.js'],
     languageOptions: { globals: globals.node },
   },
+  // `dangerouslySetInnerHTML` is banned outside src/markdown/. The Angular renderer bound
+  // unsanitized strings to `[innerHTML]` in several places; CLAUDE.md's AI rules answer that
+  // with exactly one sanctioned path — a single component that parses with `marked` and
+  // sanitizes with DOMPurify. src/markdown/ (Task 6) is that component's home and the only
+  // place the escape hatch is allowed; the ban lands now so nothing can grow a second one
+  // before it exists.
+  //
+  // Two selectors because the property reaches JSX through two different AST node types:
+  // `JSXIdentifier` for `<div dangerouslySetInnerHTML={…}>`, and `Identifier` for every
+  // other route — an object literal handed to `createElement`, a spread prop, a variable
+  // built up and passed along.
+  {
+    ignores: ['src/markdown/**'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'JSXIdentifier[name="dangerouslySetInnerHTML"]',
+          message:
+            'dangerouslySetInnerHTML is banned outside src/markdown/. Render untrusted or ' +
+            'AI-generated content through the markdown component, which sanitizes with DOMPurify.',
+        },
+        {
+          selector: 'Identifier[name="dangerouslySetInnerHTML"]',
+          message:
+            'dangerouslySetInnerHTML is banned outside src/markdown/. Render untrusted or ' +
+            'AI-generated content through the markdown component, which sanitizes with DOMPurify.',
+        },
+      ],
+    },
+  },
   // Last: turns off everything Prettier already owns.
   prettier
 );
