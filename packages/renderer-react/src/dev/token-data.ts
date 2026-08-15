@@ -50,6 +50,7 @@ export const ACCENT_TOKENS: readonly TokenSpec[] = [
   { token: '--color-success', utility: 'text-success' },
   { token: '--color-warning', utility: 'text-warning' },
   { token: '--color-danger', utility: 'text-danger' },
+  { token: '--color-info', utility: 'text-info', note: 'fg-muted — never blue' },
 ];
 
 export const ALL_TOKENS: readonly string[] = [
@@ -109,7 +110,7 @@ export const BRAND_PAIRS: readonly PairSpec[] = [
     label: 'verify-deep on ivory',
     fg: '--color-j-verify-deep',
     bg: '--color-j-ivory',
-    note: 'AA large / UI only — 0.06 short of body text',
+    note: 'corrected from the proposal\u2019s #4e7a12, which measured 4.44:1',
   },
 ];
 
@@ -131,6 +132,7 @@ export const SEMANTIC_PAIRS: readonly PairSpec[] = [
   { label: 'success on canvas', fg: '--color-success', bg: '--color-canvas' },
   { label: 'warning on canvas', fg: '--color-warning', bg: '--color-canvas' },
   { label: 'danger on canvas', fg: '--color-danger', bg: '--color-canvas' },
+  { label: 'info on canvas', fg: '--color-info', bg: '--color-canvas' },
   {
     label: 'rule-strong on canvas',
     fg: '--color-rule-strong',

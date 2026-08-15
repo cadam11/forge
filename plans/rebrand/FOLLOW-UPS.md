@@ -285,3 +285,43 @@ Fix, cheapest first:
 
 Both are deliberately out of scope for the rewrite tasks themselves, which are barred
 from touching `packages/main` / `packages/shared`.
+
+---
+
+## 15. PROPOSAL §2.3's contrast table is optimistic at the extremes, and one derived colour was wrong
+
+Found while implementing the renderer-rewrite Task 2 theme, which re-measures every pair
+in `plans/ui-overhaul/PROPOSAL.md` §2.3 from the values the browser actually resolves
+(harness: `packages/renderer-react/src/dev/contrast.ts`, pinned by `contrast.spec.ts`,
+rendered live on the token preview page).
+
+The mid-range rows reproduce §2.3 exactly — 3.77, 4.33, 4.93, 5.67 (5.66) all land. Two
+rows do not:
+
+| §2.3 row          | §2.3 says | Measured (WCAG 2.1) |
+| ----------------- | --------: | ------------------: |
+| ivory on ink      |   15.98:1 |         **15.50:1** |
+| chartreuse on ink |    14.0:1 |         **13.58:1** |
+
+Both still pass AA comfortably, so nothing shipped wrong — but the numbers are ~3% high,
+and anyone who re-derives them will conclude the theme is broken before concluding the
+table is. Same for the two derived colours §2.3 never tabulated at all (`--j-amber-deep`
+5.15:1 on ivory, `--j-verify-deep`).
+
+And one value was genuinely wrong. **`--j-verify-deep: #4e7a12`, which §2.2 assigns to
+light-mode `--status-success`, measures 4.44:1 on ivory** — 0.06 short of AA body, in a
+colour whose entire reason to exist is being contrast-safe. Task 2 ships `#4d7811`
+instead (4.56:1, one step per channel darker); `contrast.spec.ts` now fails if anyone
+reverts it, and `docs/design/HOUSE-RULES.md` §5 records why.
+
+Fix: correct §2.3 in place — the two extreme ratios, the `--j-verify-deep` hex in §2.2,
+and add rows for `amber-deep` and `verify-deep` so the derived colours are all
+accounted for. The theme's own comments and tests are already correct and are the
+authority; this is about stopping the proposal from contradicting them.
+
+Related: `PROPOSAL.md` §2.2 also lists `--shadow-*: none` for ink and "subtle, as today"
+for ivory. In Tailwind v4 a `--shadow-*` theme variable is resolved at build time and
+inlined into the utility, so a per-theme override of one is emitted and never read.
+Task 2 works around it with `@utility shadow-overlay { box-shadow: var(--overlay-shadow) }`
+over a plain custom property. Worth knowing before any other token is re-pointed per
+theme through a namespace Tailwind inlines.

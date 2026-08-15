@@ -124,7 +124,10 @@ function SurfaceStack() {
         <Eyebrow>surface · rails and wells</Eyebrow>
         <div className="mt-3 border border-rule bg-chrome p-4">
           <Eyebrow>chrome · toolbars and status bar</Eyebrow>
-          <div className="mt-3 border border-rule-strong bg-elevated p-4 shadow-overlay">
+          <div
+            data-testid="elevated-surface"
+            className="mt-3 border border-rule-strong bg-elevated p-4 shadow-overlay"
+          >
             <Eyebrow>elevated · dialogs and menus</Eyebrow>
             <p className="mt-2 text-base text-fg">
               Rules separate surfaces. Shadows are for true overlays, and under ink there are none.

@@ -55,7 +55,9 @@ describe('PROPOSAL §2.3 contrast pairs', () => {
   const CHARTREUSE = '#c8f04a';
   const AMBER = '#e6a23c';
   const AMBER_DEEP = '#8a5a10';
-  const VERIFY_DEEP = '#4e7a12';
+  // Not PROPOSAL §2.2's #4e7a12, which measures 4.44:1 on ivory. See theme.css.
+  const VERIFY_DEEP = '#4d7811';
+  const VERIFY_DEEP_PROPOSED = '#4e7a12';
 
   it.each([
     ['ivory on ink', IVORY, INK, 15.5],
@@ -69,7 +71,7 @@ describe('PROPOSAL §2.3 contrast pairs', () => {
     ['chartreuse on ivory', CHARTREUSE, IVORY, 1.14],
     ['amber on ivory', AMBER, IVORY, 1.9],
     ['amber-deep on ivory', AMBER_DEEP, IVORY, 5.15],
-    ['verify-deep on ivory', VERIFY_DEEP, IVORY, 4.44],
+    ['verify-deep on ivory', VERIFY_DEEP, IVORY, 4.56],
   ])('%s measures %#', (_label, fg, bg, expected) => {
     expect(ratio(fg, bg)).toBeCloseTo(expected, 2);
   });
@@ -84,16 +86,20 @@ describe('PROPOSAL §2.3 contrast pairs', () => {
     expect(ratio('#ffffff', OXIDE_DEEP)).toBeGreaterThanOrEqual(4.5);
     expect(ratio(AMBER, IVORY)).toBeLessThan(3);
     expect(ratio(AMBER_DEEP, IVORY)).toBeGreaterThanOrEqual(4.5);
+    // verify-deep is the light-mode --color-success and chartreuse is why it exists.
+    expect(ratio(CHARTREUSE, IVORY)).toBeLessThan(3);
+    expect(ratio(VERIFY_DEEP, IVORY)).toBeGreaterThanOrEqual(4.5);
   });
 
-  it('records the one derived colour that lands short of AA body', () => {
-    // #4e7a12 is the light-mode --color-success. It clears AA for large text and UI
-    // components but misses body text by 0.06, so it is not a prose colour.
-    // HOUSE-RULES carries the rule; this test is here so a future tweak to the hex
-    // cannot silently change which side of 4.5 it sits on.
-    expect(ratio(VERIFY_DEEP, IVORY)).toBeGreaterThanOrEqual(3);
-    expect(ratio(VERIFY_DEEP, IVORY)).toBeLessThan(4.5);
-    expect(verdictFor(ratio(VERIFY_DEEP, IVORY))).toBe('aa-large');
+  it('holds verify-deep above AA body, which the proposal value did not manage', () => {
+    // The whole category is "derived, contrast-driven", so the one thing this colour may
+    // never do is sit below 4.5:1 on the canvas it was derived for. PROPOSAL §2.2's
+    // #4e7a12 does exactly that (4.44:1) and §2.3 never tabulated the pair, so the value
+    // was corrected to #4d7811. This test is the guard: it fails if anyone reverts the
+    // hex, and it will not accept a value that merely clears AA-large.
+    expect(ratio(VERIFY_DEEP_PROPOSED, IVORY)).toBeLessThan(4.5);
+    expect(ratio(VERIFY_DEEP, IVORY)).toBeGreaterThanOrEqual(4.5);
+    expect(verdictFor(ratio(VERIFY_DEEP, IVORY))).toBe('aa-body');
   });
 
   it('never permits chartreuse as a light-mode foreground', () => {

@@ -35,7 +35,7 @@ describe('App', () => {
   it('renders one swatch per registered colour token', () => {
     render(<App />);
 
-    // 8 brand + 4 derived + 6 surface + 5 text/rule + 8 accent/status.
-    expect(screen.getAllByTestId('token-swatch')).toHaveLength(31);
+    // 8 brand + 4 derived + 6 surface + 5 text/rule + 9 accent/status.
+    expect(screen.getAllByTestId('token-swatch')).toHaveLength(32);
   });
 });

@@ -85,8 +85,14 @@ toggle already exists and is persisted: `ThemePreference = 'system' | 'light' | 
 - `scheme-only-dark` does **not** apply — both themes ship. `color-scheme` is set per
   theme in theme.css so native scrollbars and controls follow.
 - Shadow rules stand and are enforced in the theme: the `--shadow-*` namespace is cleared,
-  leaving `shadow-overlay`, which is a hairline ring under ink and a real shadow under
-  ivory. Separation comes from a 1px rule and a surface step, not elevation.
+  so `shadow-sm` and friends do not compile. Separation comes from a 1px rule and a
+  surface step, not elevation.
+- The single survivor is `shadow-overlay` — a hairline ring under ink, a real drop shadow
+  under ivory. It is an `@utility` over the plain `--overlay-shadow` custom property, not a
+  `--shadow-*` theme variable, and it has to stay that way: **Tailwind resolves
+  `--shadow-*` at build time and inlines the value into the class**, so a per-theme
+  override of a `--shadow-*` variable is emitted and then never read. The same trap applies
+  to any other token you want to re-point per theme through a namespace Tailwind inlines.
 
 ## 4. `tables.md` is a look, not a markup contract.
 
@@ -139,10 +145,14 @@ theme.css record and what the preview page re-measures live. Two consequences:
 - `text-fg-subtle` is metadata, not prose. It measures 4.94:1 on the ink canvas but
   4.03:1 on `bg-chrome` and 3.11:1 on ivory `bg-chrome`. Use `text-fg-muted` for anything
   a user has to read.
-- Light-mode `--color-success` (`--color-j-verify-deep`, 4.44:1 on ivory) clears AA for
-  large text and UI components but **misses AA body by 0.06**. Use it for pips, borders,
-  icons and ≥18.66px text — not for success prose. Success prose is `text-fg` next to a
-  success pip.
+- Light-mode `--color-success` is `--color-j-verify-deep` = `#4d7811`, **4.56:1 on ivory**,
+  and it is legal for success prose. It is one step per channel darker than PROPOSAL
+  §2.2's `#4e7a12`, which measured 4.44:1 — 0.06 short of AA body, and therefore not a
+  colour a "derived, contrast-driven" token may be. Do not revert it; `contrast.spec.ts`
+  fails if you do. (Its ratio on the ink canvas is irrelevant: under ink, success is
+  chartreuse at 13.58:1.)
+- `text-info` exists and resolves to the muted foreground in both themes. Informational
+  text has a token; it is never blue.
 - Accent text on `bg-elevated` drops below 4.5:1 in both themes (oxide-lift 3.91:1,
   oxide-deep 4.21:1). On elevated surfaces, accent is a fill or a border, not body text.
 
@@ -177,6 +187,12 @@ hairline rule → well → card, in that order of preference; cards are the last
 transitions only for things that move, not colour swaps), `shadows.md`, `flexbox-layout.md`
 (`min-w-0` on flex children that can overflow — every tree row and tab label),
 `svg.md`, and `copywriting.md`.
+
+One carve-out inside `general.md`: it says to add `role="list"` to every `<ul>`, which is a
+workaround for Safari/VoiceOver dropping list semantics when `list-style: none` is applied.
+This renderer only ever runs in Chromium, where that bug does not exist, and Task 1's
+`jsx-a11y/no-redundant-roles` rejects the attribute as an error. **The roles are omitted —
+lint wins.** If a surface ever ships outside Electron, revisit this rule first.
 
 Two additions of our own:
 

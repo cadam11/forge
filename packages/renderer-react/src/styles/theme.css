@@ -117,13 +117,18 @@
    *   oxide-deep  on ivory  4.93:1   (raw oxide on ivory is 3.77:1)
    *   white       on oxide-deep fill 5.66:1  (on raw oxide it is 4.33:1)
    *   amber-deep  on ivory  5.15:1   (raw amber on ivory is 1.90:1 — fill only)
-   *   verify-deep on ivory  4.44:1   large-text/UI only, 0.06 short of AA body;
-   *                                  chartreuse on ivory is 1.14:1 and never legal
-   *                                  as a light-mode foreground. */
+   *   verify-deep on ivory  4.56:1   (chartreuse on ivory is 1.14:1 and never legal
+   *                                  as a light-mode foreground)
+   *
+   * verify-deep is #4d7811, one step per channel darker than PROPOSAL §2.2's #4e7a12.
+   * §2.3 never tabulated the pair, and the proposal's value measures 4.44:1 on ivory —
+   * 0.06 short of AA body, which defeats the entire purpose of a "derived,
+   * contrast-driven" colour. Its 3.40:1 on ink is irrelevant: under ink, success is
+   * chartreuse at 13.58:1. */
   --color-j-oxide-deep: #b83c22;
   --color-j-oxide-lift: #e8654a;
   --color-j-amber-deep: #8a5a10;
-  --color-j-verify-deep: #4e7a12;
+  --color-j-verify-deep: #4d7811;
 
   /* Kept from the cleared namespace because PROPOSAL §2.3 measures against them. */
   --color-white: #ffffff;
@@ -158,7 +163,10 @@
   --color-success: var(--color-j-chartreuse); /* 13.58:1 on canvas */
   --color-warning: var(--color-j-amber); /*  8.14:1 on canvas */
   --color-danger: #f0715a; /*  6.12:1 on canvas */
-  /* No --color-info. PROPOSAL §2.5: informational text is fg-muted, never blue. */
+  /* PROPOSAL §2.2: `--status-info` exists and is NOT blue — it is the muted foreground.
+   * Defining it makes that a token-system rule rather than a prose one, so `text-info`
+   * is a legal thing to reach for and `text-blue-500` still will not compile. */
+  --color-info: var(--color-fg-muted);
 
   /* ---------------------------------------------------------------------------
    * Type. PROPOSAL §2.4. The namespace is cleared so the ladder is closed: only
@@ -224,12 +232,16 @@
 
   /* ---------------------------------------------------------------------------
    * Shadows. PROPOSAL §2.1: rules replace shadows, and there are no shadows at all
-   * under ink. The namespace is cleared so `shadow-sm` cannot come back; the one
-   * survivor is the overlay treatment, themed below.
+   * under ink. Clearing the namespace is the whole enforcement — `shadow-sm` and
+   * friends no longer compile.
+   *
+   * The one survivor, `shadow-overlay`, is deliberately NOT a `--shadow-*` theme
+   * variable: Tailwind resolves that namespace at build time and inlines the value
+   * into the utility, so a per-theme override of `--shadow-overlay` would be emitted
+   * into the light block and never read. It is an `@utility` over a plain custom
+   * property instead — see --overlay-shadow below the @theme block.
    * ------------------------------------------------------------------------- */
   --shadow-*: initial;
-
-  --shadow-overlay: 0 0 0 1px rgb(242 239 231 / 0.1);
 
   /* ---------------------------------------------------------------------------
    * Icons get their own scale (§2.4) so icon sizing stops leaking into the type
@@ -262,6 +274,12 @@
 :root {
   color-scheme: dark;
 
+  /* The overlay treatment. A plain custom property, not a `--shadow-*` theme variable,
+   * so the light override below is actually read at paint time (see the shadows note in
+   * @theme). Under ink this is a hairline ring, not a shadow — PROPOSAL §2.1 removes
+   * shadows entirely from the dark theme. */
+  --overlay-shadow: 0 0 0 1px rgb(242 239 231 / 0.1);
+
   @variant light {
     color-scheme: light;
 
@@ -285,13 +303,21 @@
     --color-accent-fill-fg: var(--color-j-paper); /* on oxide-deep fill: 5.42:1 */
     --color-focus: var(--color-j-oxide-deep);
 
-    --color-success: var(--color-j-verify-deep); /* 4.44:1 — UI/large text only */
+    --color-success: var(--color-j-verify-deep); /* 4.56:1 on canvas */
     --color-warning: var(--color-j-amber-deep); /* 5.15:1 on canvas */
     --color-danger: #a5271b; /* 6.29:1 on canvas */
+    --color-info: var(--color-fg-muted); /* still not blue */
 
     /* Light mode is the only theme with real elevation (§2.1). */
-    --shadow-overlay: 0 8px 32px rgb(23 24 23 / 0.12);
+    --overlay-shadow: 0 8px 32px rgb(23 24 23 / 0.12);
   }
+}
+
+/* `@utility`, not a bare class, so the variants still compose (`hover:shadow-overlay`).
+ * This is the only reason `shadow-overlay` survives the cleared `--shadow-*` namespace,
+ * and the only shape in which its two themed values both reach the paint. */
+@utility shadow-overlay {
+  box-shadow: var(--overlay-shadow);
 }
 
 @layer base {
