@@ -1,0 +1,110 @@
+/**
+ * The primitives. Import from `../ui`, never from a file inside it — that keeps the set
+ * discoverable and makes "is there already a component for this?" answerable by reading one
+ * file.
+ *
+ * Rules every primitive here honours, so a caller can assume them without checking:
+ * accepts and merges `className` (through `cn`), bakes no margins, passes `data-testid`
+ * through, has a `:focus-visible` treatment if it is interactive, and paints from Layer 2
+ * tokens only so both themes follow with no `dark:` variants.
+ *
+ * `Markdown` is deliberately NOT re-exported here: it lives in `src/markdown/` because that is
+ * the only path `eslint.config.js` allows `dangerouslySetInnerHTML` in, and re-exporting it
+ * through `ui` would blur where that boundary is. Import it from `../markdown`.
+ */
+
+export { Button, type ButtonProps, type ButtonSize, type ButtonVariant } from './button';
+export { Checkbox, type CheckboxProps } from './checkbox';
+export { cn } from './cn';
+export {
+  ContextMenu,
+  ContextMenuCheckboxItem,
+  ContextMenuContent,
+  ContextMenuGroup,
+  ContextMenuItem,
+  ContextMenuLabel,
+  ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
+  ContextMenuTrigger,
+  type ContextMenuItemProps,
+} from './context-menu';
+export {
+  Dialog,
+  DialogActions,
+  DialogBody,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  type DialogContentProps,
+  type DialogSize,
+} from './dialog';
+export {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+  MenuRow,
+  type DropdownMenuItemProps,
+  type MenuRowProps,
+} from './dropdown-menu';
+export {
+  EmptyState,
+  emptyStateTitleClass,
+  type EmptyStateProps,
+  type EmptyStateSize,
+} from './empty-state';
+export {
+  describedBy,
+  Field,
+  FieldMessages,
+  InlineField,
+  useFieldIds,
+  type FieldIds,
+  type FieldOwnProps,
+} from './field';
+export { Icon, type IconProps, type IconSize } from './icon';
+export { Input, type InputProps } from './input';
+export {
+  MENU_CONTENT_CLASSES,
+  MENU_ITEM_CLASSES,
+  MENU_LABEL_CLASSES,
+  MENU_SEPARATOR_CLASSES,
+  OVERLAY_SURFACE_CLASSES,
+  TOOLTIP_CONTENT_CLASSES,
+} from './overlay';
+export { Popover, PopoverAnchor, PopoverClose, PopoverContent, PopoverTrigger } from './popover';
+export {
+  Select,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+  type SelectItemProps,
+  type SelectProps,
+} from './select';
+export { Spinner, spinnerLabelClass, type SpinnerProps, type SpinnerSize } from './spinner';
+export { Switch, type SwitchProps } from './switch';
+export { Tabs, TabsContent, TabsList, TabsTrigger } from './tabs';
+export { Textarea, type TextareaProps } from './textarea';
+export { installToastNotifier, Toaster, type ToasterProps } from './toaster';
+export {
+  Toolbar,
+  ToolbarButton,
+  ToolbarSeparator,
+  ToolbarSpacer,
+  type ToolbarButtonProps,
+} from './toolbar';
+export { Tooltip, TooltipProvider, type TooltipProps } from './tooltip';
+export { flattenTree, Tree, type TreeNode, type TreeProps, type TreeRow } from './tree';
