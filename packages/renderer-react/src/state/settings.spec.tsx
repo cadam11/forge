@@ -13,10 +13,14 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { DEFAULT_SETTINGS } from '@joinery/shared';
 import { createIpcQueryClient } from '../ipc/query-provider';
 import { installJoineryMock, recordSubscription, removeJoineryMock } from '../test/joinery-mock';
+import { createAppStateDouble } from '../test/app-state-double';
+import { createRendererStatePersistence } from '../persistence/renderer-state';
+import { THEME_MIRROR_KEY } from '../persistence/theme-mirror';
 import { createSettingsStore, nextThemePreference, useNativeThemeSync } from './settings';
 import { setDiagnosticsSink } from './diagnostics';
 
-const STORAGE_KEY = 'joinery-settings';
+/** Angular-owned, and the point of the first test below: this store must never write it. */
+const ANGULAR_STORAGE_KEY = 'joinery-settings';
 
 /** A controllable `prefers-color-scheme: dark` media query. Returns the flip handle. */
 function stubMatchMedia(initialMatches: boolean): { flip: (matches: boolean) => void } {
@@ -78,43 +82,86 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/*
+ * Task 5 moved this store's persistence from `localStorage['joinery-settings']` to main-process
+ * `AppState`. The round trip, the migration and the group-by-group merge are proved in
+ * `src/persistence/*.spec.ts`; what belongs here is the store's half of the contract — it starts at
+ * the defaults, it adopts what hydration hands it, and it writes to `AppState` and the theme mirror
+ * and to nothing else.
+ */
 describe('settings store — persistence', () => {
-  it('reads the same localStorage key and shape the Angular renderer writes', () => {
-    // Exactly what settings.service.ts:149 produces, with one group partially specified.
+  it('starts at the defaults, because AppState is only reachable asynchronously', () => {
+    stubMatchMedia(true);
     window.localStorage.setItem(
-      STORAGE_KEY,
+      ANGULAR_STORAGE_KEY,
       JSON.stringify({ theme: 'light', editor: { fontSize: 18 } })
     );
-    stubMatchMedia(true);
 
+    // Not read at construction any more — nor ever, by this store.
+    expect(createSettingsStore().getState().settings).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it('adopts hydrated settings, merged group by group over the defaults', () => {
+    stubMatchMedia(true);
     const store = createSettingsStore();
+
+    store.getState().hydrate({ theme: 'light', editor: { fontSize: 18 } });
 
     expect(store.getState().settings.theme).toBe('light');
     expect(store.getState().settings.editor.fontSize).toBe(18);
     // Merged group-by-group over the defaults, so a field the stored object omits still exists.
     expect(store.getState().settings.editor.tabSize).toBe(DEFAULT_SETTINGS.editor.tabSize);
     expect(store.getState().settings.grid).toEqual(DEFAULT_SETTINGS.grid);
+    // Hydration is a read: it must not write back what it was handed.
+    expect(themeAttribute()).toBe('light');
   });
 
-  it('falls back to defaults on corrupt JSON without throwing', () => {
-    window.localStorage.setItem(STORAGE_KEY, '{not json');
-    stubMatchMedia(false);
-
-    expect(createSettingsStore().getState().settings).toEqual(DEFAULT_SETTINGS);
-  });
-
-  it('writes the whole settings object back under the same key', () => {
+  it('hydrating nothing leaves the defaults in place', () => {
     stubMatchMedia(false);
     const store = createSettingsStore();
 
-    store.getState().updateGridSetting('copyFormat', 'csv');
+    store.getState().hydrate(undefined);
 
-    const written = JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? '{}') as {
-      grid: { copyFormat: string };
-      theme: string;
-    };
-    expect(written.grid.copyFormat).toBe('csv');
-    expect(written.theme).toBe(DEFAULT_SETTINGS.theme);
+    expect(store.getState().settings).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it('writes the whole settings object into AppState, under the React-owned key', async () => {
+    stubMatchMedia(false);
+    const bridge = createAppStateDouble();
+    teardowns.push(installJoineryMock({ app: bridge.app }));
+    const persistence = createRendererStatePersistence();
+    const store = createSettingsStore(persistence);
+
+    store.getState().updateGridSetting('copyFormat', 'csv');
+    await persistence.read(); // flushes the store's unawaited write
+
+    const written = bridge.snapshot().reactRendererState?.settings;
+    expect(written?.grid?.copyFormat).toBe('csv');
+    expect(written?.theme).toBe(DEFAULT_SETTINGS.theme);
+  });
+
+  it('mirrors the theme preference for the pre-mount script, and writes no Angular key', () => {
+    // The FOUC source, and the coexistence rule in one assertion: the Angular settings object is
+    // byte-identical after a write that changes both the theme and an editor setting.
+    stubMatchMedia(false);
+    const angular = JSON.stringify({ theme: 'system', editor: { fontSize: 11 } });
+    window.localStorage.setItem(ANGULAR_STORAGE_KEY, angular);
+    const store = createSettingsStore();
+
+    store.getState().updateTheme('dark');
+    store.getState().updateEditorSetting('fontSize', 20);
+
+    expect(window.localStorage.getItem(THEME_MIRROR_KEY)).toBe('dark');
+    expect(window.localStorage.getItem(ANGULAR_STORAGE_KEY)).toBe(angular);
+  });
+
+  it('does not fail a settings change when there is no bridge to persist to', () => {
+    stubMatchMedia(false);
+    const store = createSettingsStore();
+
+    store.getState().updateGridSetting('rowHeight', 32);
+
+    expect(store.getState().settings.grid.rowHeight).toBe(32);
   });
 });
 

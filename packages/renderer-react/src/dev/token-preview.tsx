@@ -10,6 +10,7 @@
 import { ContrastTable } from './contrast-table';
 import { FontStatus } from './font-status';
 import { IpcProbe } from './ipc-probe';
+import { PersistenceProbe } from './persistence-probe';
 import { cssVars, Eyebrow, Section, Swatch, SwatchGrid } from './preview-parts';
 import { ThemeSwitch } from './theme-switch';
 import {
@@ -223,6 +224,9 @@ export function TokenPreview() {
         </Section>
         <Section eyebrow="window.joinery · availability guard" title="IPC bridge">
           <IpcProbe />
+        </Section>
+        <Section eyebrow="localStorage → AppState · one-shot, idempotent" title="Persistence">
+          <PersistenceProbe />
         </Section>
       </main>
     </div>

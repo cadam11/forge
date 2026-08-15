@@ -12,11 +12,14 @@
  *                       tab ↗          ↗
  *   settings, ai, query-results, query-history  (independent)
  *
- * Two import-time effects come with that, both inherited from what Angular's root-provided
- * services did at injection time: the tab store reads `joinery:welcomeDismissed` and the settings
- * store reads `joinery-settings` from localStorage, and the chat panel store subscribes to
- * `chat.onStreamChunk` if the bridge is present. A module that only needs one store should import
- * that store's file directly.
+ * One import-time effect comes with that: the chat panel store subscribes to `chat.onStreamChunk`
+ * if the bridge is present. A module that only needs one store should import that store's file
+ * directly.
+ *
+ * No store reads localStorage any more. Task 5 moved the settings object and the welcome-dismissed
+ * flag into main-process `AppState`, so both arrive through `persistence/hydrate.ts` — which the
+ * shell must call once at startup, before it renders. Until it does, the settings store holds
+ * `DEFAULT_SETTINGS` and the tab store holds no tabs.
  */
 
 export {
@@ -159,6 +162,7 @@ export {
 export {
   applyThemeAttribute,
   createSettingsStore,
+  mergePersistedSettings,
   nextThemePreference,
   resolveTheme,
   selectEditorSettings,
