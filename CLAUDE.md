@@ -153,7 +153,7 @@ forge/
 
 1. **Never make direct LLM API calls.** All AI interactions MUST go through the multi-provider abstraction layer in `packages/main/src/services/ai/llm-providers.ts`. This ensures provider-agnostic code that works with Google, Anthropic, OpenAI, Groq, and Cerebras.
 
-2. **Use `@memberjunction/ng-markdown`** for rendering any AI-generated content or markdown in the renderer. Never use `innerHTML` with hand-rolled markdown parsing.
+2. **Use `<app-markdown>`** (`packages/renderer/src/app/shared/markdown/`) for rendering any AI-generated content or markdown in the renderer. It parses with `marked` and sanitizes with DOMPurify before binding. Never hand-roll markdown-to-HTML conversion, and never bind an unsanitized string to `[innerHTML]`.
 
 3. **Streaming is required** for all chat/conversational AI features. Use the `StreamCallbacks` interface from `llm-providers.ts`.
 

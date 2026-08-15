@@ -10,7 +10,6 @@ import {
   EventEmitter,
   inject,
   signal,
-  computed,
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -20,6 +19,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { LoadingComponent } from '../loading/loading.component';
+import { MarkdownViewerComponent } from '../../markdown/markdown-viewer.component';
 import { AIStateService } from '../../../core/state/ai.state';
 import type { ResultSet } from '@forgedb/shared';
 
@@ -41,6 +41,7 @@ interface QuickAction {
     MatTooltipModule,
     MatProgressSpinnerModule,
     LoadingComponent,
+    MarkdownViewerComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -153,7 +154,9 @@ interface QuickAction {
                     <mat-icon>content_copy</mat-icon>
                   </button>
                 </div>
-                <div class="result-content" [innerHTML]="formattedContent()"></div>
+                <div class="result-content">
+                  <app-markdown [data]="analysisContent()" />
+                </div>
               </div>
             }
 
@@ -369,13 +372,16 @@ interface QuickAction {
         }
       }
 
+      // These now style markup rendered inside app-markdown, a separate component,
+      // so they must pierce view encapsulation. The old white-space: pre-wrap is
+      // gone with the hand-rolled markdown — real block elements carry their own
+      // spacing, and preserving newlines on top of them double-spaces everything.
       .result-content {
         font-size: var(--font-size-sm);
         color: var(--text-primary);
         line-height: 1.6;
-        white-space: pre-wrap;
 
-        p {
+        ::ng-deep p {
           margin: 0 0 var(--spacing-sm);
 
           &:last-child {
@@ -383,13 +389,13 @@ interface QuickAction {
           }
         }
 
-        ul,
-        ol {
+        ::ng-deep ul,
+        ::ng-deep ol {
           margin: 0 0 var(--spacing-sm);
           padding-left: var(--spacing-lg);
         }
 
-        code {
+        ::ng-deep code {
           background-color: var(--bg-tertiary);
           padding: 2px 6px;
           border-radius: var(--radius-sm);
@@ -397,7 +403,7 @@ interface QuickAction {
           font-size: var(--font-size-xs);
         }
 
-        pre {
+        ::ng-deep pre {
           background-color: var(--bg-tertiary);
           padding: var(--spacing-sm);
           border-radius: var(--radius-md);
@@ -479,22 +485,6 @@ export class AIAnalysisPanelComponent {
   ];
 
   // Computed formatted content (basic markdown to HTML)
-  readonly formattedContent = computed(() => {
-    const content = this.analysisContent();
-    if (!content) return '';
-
-    // Basic markdown conversion
-    return content
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/`([^`]+)`/g, '<code>$1</code>')
-      .replace(/\n\n/g, '</p><p>')
-      .replace(/\n- /g, '</p><ul><li>')
-      .replace(/<\/li>\n- /g, '</li><li>')
-      .replace(/<li>([^<]*)<\/li>(?!<li>)/g, '<li>$1</li></ul><p>')
-      .replace(/^/, '<p>')
-      .replace(/$/, '</p>');
-  });
 
   toggleCollapsed(): void {
     this.collapsed.update(c => !c);
