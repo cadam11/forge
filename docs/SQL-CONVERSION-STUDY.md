@@ -2,7 +2,7 @@
 
 ## Vision
 
-Allow users to convert SQL queries between dialects directly in the Forge query editor. A DBA working in a mixed SQL Server + PostgreSQL environment should be able to:
+Allow users to convert SQL queries between dialects directly in the Joinery query editor. A DBA working in a mixed SQL Server + PostgreSQL environment should be able to:
 
 1. Write a query in T-SQL and convert it to PostgreSQL (or vice versa)
 2. Paste SQL from one system and convert it for another

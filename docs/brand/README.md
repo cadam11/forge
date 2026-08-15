@@ -20,7 +20,7 @@ The brand board predates the final logo decision. Its overall art direction is a
 
 ## Logo
 
-The Joinery mark is three descending fitted bars. It carries forward the strongest geometry from the Forge exploration while belonging to the independent Joinery identity.
+The Joinery mark is three descending fitted bars. It carries forward the strongest geometry from the Joinery exploration while belonging to the independent Joinery identity.
 
 - On light backgrounds, use oxide, Joinery ink, and signal chartreuse.
 - On dark backgrounds, replace the ink bar with drafting ivory.

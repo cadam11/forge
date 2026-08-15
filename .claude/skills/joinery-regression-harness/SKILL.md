@@ -1,9 +1,9 @@
 ---
-name: forge-regression-harness
-description: Use the Forge regression test harness to drive quality on every non-trivial change — TDD/BDD style: harness up first, failing test first, implementation second, green test confirms intent. Trigger this skill BEFORE starting any non-trivial dev work that touches packages/main, packages/renderer, packages/shared, or packages/preload — and AFTER making changes (to catch regressions early). The user has 268+ tests across four tiers (unit, integration, e2e, visual) wired into a fast pipeline at `pnpm run test:full`. Make sure to use this skill whenever the user asks you to fix, implement, refactor, add, or otherwise modify substantive code in this repo, even if they don't explicitly ask you to "run the tests" — they expect you to verify your work and to write the test FIRST when the change is feature-shaped. The dashboard at http://127.0.0.1:5188 is for the human to watch your progress; you should rely on programmatic mechanisms (package scripts, structured JSON output) to drive and interpret runs.
+name: joinery-regression-harness
+description: Use the Joinery regression test harness to drive quality on every non-trivial change — TDD/BDD style: harness up first, failing test first, implementation second, green test confirms intent. Trigger this skill BEFORE starting any non-trivial dev work that touches packages/main, packages/renderer, packages/shared, or packages/preload — and AFTER making changes (to catch regressions early). The user has 268+ tests across four tiers (unit, integration, e2e, visual) wired into a fast pipeline at `pnpm run test:full`. Make sure to use this skill whenever the user asks you to fix, implement, refactor, add, or otherwise modify substantive code in this repo, even if they don't explicitly ask you to "run the tests" — they expect you to verify your work and to write the test FIRST when the change is feature-shaped. The dashboard at http://127.0.0.1:5188 is for the human to watch your progress; you should rely on programmatic mechanisms (package scripts, structured JSON output) to drive and interpret runs.
 ---
 
-# Forge Regression Harness
+# Joinery Regression Harness
 
 This repo has a comprehensive regression test harness. Use it. Use it _first_. The workflow below tells you when and how.
 
@@ -159,7 +159,7 @@ Synthetic e-commerce schema (products / customers / orders / order_items) lives 
 Key helpers in `tests/helpers/`:
 
 - `db-fixtures.ts` exports `withFreshDatabase(engine, fn)` — creates a uniquely-named database on the target engine, applies the schema, hands the callback connection config, drops on exit.
-- `electron-app.ts` exports `withForge(fn)` — launches the built Forge app via Playwright's `_electron.launch()`, hands you the ElectronApplication + first Page, closes on exit.
+- `electron-app.ts` exports `withJoinery(fn)` — launches the built Joinery app via Playwright's `_electron.launch()`, hands you the ElectronApplication + first Page, closes on exit.
 
 If the harness isn't up, `pnpm run test:integration` will fail with a connection error. Bring it up with `pnpm run test:harness:up`, or just use `pnpm run test:full` which manages the lifecycle.
 

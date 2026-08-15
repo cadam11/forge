@@ -1,4 +1,4 @@
-# MJ Forge Implementation Status
+# Joinery Implementation Status
 
 Last Updated: 2026-03-22
 
@@ -11,12 +11,12 @@ All core features implemented. AI chat with agentic tool calling fully operation
 
 ## Build & Distribution
 
-| Target | Format | CI |
-|--------|--------|-----|
-| macOS Apple Silicon | DMG + ZIP | ✅ GitHub Actions |
-| macOS Intel | DMG + ZIP | ✅ GitHub Actions |
-| Windows x64 | NSIS Installer + ZIP | ✅ GitHub Actions |
-| Windows ARM64 | NSIS Installer + ZIP | ✅ GitHub Actions |
+| Target              | Format               | CI                |
+| ------------------- | -------------------- | ----------------- |
+| macOS Apple Silicon | DMG + ZIP            | ✅ GitHub Actions |
+| macOS Intel         | DMG + ZIP            | ✅ GitHub Actions |
+| Windows x64         | NSIS Installer + ZIP | ✅ GitHub Actions |
+| Windows ARM64       | NSIS Installer + ZIP | ✅ GitHub Actions |
 
 Builds trigger automatically on tagged releases via `.github/workflows/build-release.yml`.
 

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make MJ Forge usable against Amazon Aurora DSQL clusters by detecting DSQL at connect time and skipping/disabling every background introspection query and UI feature DSQL cannot serve.
+**Goal:** Make Joinery usable against Amazon Aurora DSQL clusters by detecting DSQL at connect time and skipping/disabling every background introspection query and UI feature DSQL cannot serve.
 
 **Architecture:** DSQL is detected once per profile via a cached probe (mirroring the existing `isAzureSQL` pattern in `ConnectionPoolManager`). A new `PgDsqlDialect` subclass of `PgDialect` overrides the metadata queries that touch unsupported catalogs. A small set of app-level capability flags flows from the dialect through the `connection:connect` IPC result into a new renderer `CapabilitiesStore`, which gates the explorer tree, backup/database-management UI, autocomplete prefetch, and the AI system prompt. The connection heartbeat switches from `listDatabases` to a new cheap `connection:ping` channel.
 
@@ -35,7 +35,7 @@ PostgreSQL 16-compatible serverless database (standard wire protocol; `psql`/`pg
 - DSQL-specific: `sys.jobs` view (async DDL status), `sys.dsql_major_version()` function — the latter is our **detection probe** (errors on vanilla PostgreSQL).
 - Row counts: AWS recommends `pg_class.reltuples` instead of `COUNT(*)`.
 
-### Why Forge currently breaks on DSQL
+### Why Joinery currently breaks on DSQL
 
 `PgDialect.listDatabasesSQL` (`packages/main/src/services/sql/dialect/pg-dialect.ts:74`) queries `pg_database` + `pg_database_size()`. That SQL runs eagerly on every connect (`connection.state.ts:232` → `loadDatabases`) **and** as the renderer's 30-second heartbeat ping (`connection.state.ts:422` `pingConnection`). On DSQL every heartbeat fails, the connection is marked unhealthy, and reconnect loops kick in. Secondary failures: `listTablesSQL` (joins `pg_stat_user_tables`, calls `pg_relation_size`), `listProceduresSQL`/`listFunctionsSQL`/`getObjectDefinitionSQL` (`pg_proc`), `listTriggersSQL` (`pg_trigger`), the AI `get_table_row_count` tool (`pg_stat_user_tables`), and database create/rename/drop.
 
@@ -92,7 +92,7 @@ PostgreSQL 16-compatible serverless database (standard wire protocol; `psql`/`pg
 **Interfaces:**
 
 - Consumes: nothing (leaf task).
-- Produces: `EngineVariant` (`'dsql'`), `EngineCapabilities` (5 booleans), `FULL_CAPABILITIES: EngineCapabilities`, `ActiveConnection.capabilities?: EngineCapabilities`, `ActiveConnection.engineVariant?: EngineVariant`, `IPC_CHANNELS.CONNECTION.PING = 'connection:ping'`, `ChatRequest.engineVariant?: 'dsql'`. Every later task imports these from `@mj-forge/shared`.
+- Produces: `EngineVariant` (`'dsql'`), `EngineCapabilities` (5 booleans), `FULL_CAPABILITIES: EngineCapabilities`, `ActiveConnection.capabilities?: EngineCapabilities`, `ActiveConnection.engineVariant?: EngineVariant`, `IPC_CHANNELS.CONNECTION.PING = 'connection:ping'`, `ChatRequest.engineVariant?: 'dsql'`. Every later task imports these from `@joinery/shared`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -344,7 +344,7 @@ Expected: FAIL — module `./pg-dsql-dialect` not found.
 
 - [ ] **Step 3: Add base-class getters**
 
-In `packages/main/src/services/sql/dialect/sql-dialect.ts`, add `EngineVariant` to the type import from `@mj-forge/shared`, then add at the end of the class body (after `supportsServerFileBrowsing`, line 116):
+In `packages/main/src/services/sql/dialect/sql-dialect.ts`, add `EngineVariant` to the type import from `@joinery/shared`, then add at the end of the class body (after `supportsServerFileBrowsing`, line 116):
 
 ```typescript
   // ── App-level capabilities (overridden by engine variants) ──
@@ -418,7 +418,7 @@ import type {
   RenameDatabaseOptions,
   DeleteDatabaseOptions,
   EngineVariant,
-} from '@mj-forge/shared';
+} from '@joinery/shared';
 import { PgDialect } from './pg-dialect';
 
 export class PgDsqlDialect extends PgDialect {
@@ -539,7 +539,7 @@ SELECT (
 Replace the body of `packages/main/src/services/sql/dialect/index.ts` below the imports with:
 
 ```typescript
-import type { DatabaseEngine, EngineCapabilities, EngineVariant } from '@mj-forge/shared';
+import type { DatabaseEngine, EngineCapabilities, EngineVariant } from '@joinery/shared';
 import { SQLDialect } from './sql-dialect';
 import { MSSQLDialect } from './mssql-dialect';
 import { PgDialect } from './pg-dialect';
@@ -753,11 +753,11 @@ Expected: clean typecheck; all main-process unit tests pass.
 **Interfaces:**
 
 - Consumes: `CONNECTION.PING`, `ActiveConnection` (Task 1); PING handler (Task 3).
-- Produces: `window.forge.connection.connect(profileId): Promise<ActiveConnection>`, `window.forge.connection.ping(profileId): Promise<boolean>`, `IpcService.connect(profileId): Observable<ActiveConnection>`, `IpcService.pingConnection(connectionId): Observable<boolean>`.
+- Produces: `window.joinery.connection.connect(profileId): Promise<ActiveConnection>`, `window.joinery.connection.ping(profileId): Promise<boolean>`, `IpcService.connect(profileId): Observable<ActiveConnection>`, `IpcService.pingConnection(connectionId): Observable<boolean>`.
 
 - [ ] **Step 1: Preload types and implementation**
 
-In `packages/preload/src/index.ts`, ensure `ActiveConnection` is in the type imports from `@mj-forge/shared`. Change line 107 and add ping:
+In `packages/preload/src/index.ts`, ensure `ActiveConnection` is in the type imports from `@joinery/shared`. Change line 107 and add ping:
 
 ```typescript
 connect: (profileId: string) => Promise<ActiveConnection>;
@@ -775,7 +775,7 @@ In the implementation object (line 591):
 
 - [ ] **Step 2: IpcService**
 
-In `packages/renderer/src/app/core/services/ipc.service.ts`, add `ActiveConnection` to the `@mj-forge/shared` type imports and replace `connect` (line 559) / add `pingConnection`:
+In `packages/renderer/src/app/core/services/ipc.service.ts`, add `ActiveConnection` to the `@joinery/shared` type imports and replace `connect` (line 559) / add `pingConnection`:
 
 ```typescript
   connect(profileId: string): Observable<ActiveConnection> {
@@ -813,7 +813,7 @@ Create `packages/renderer/src/app/core/state/capabilities.state.spec.ts`:
 
 ```typescript
 import { describe, it, expect } from 'vitest';
-import { FULL_CAPABILITIES } from '@mj-forge/shared';
+import { FULL_CAPABILITIES } from '@joinery/shared';
 import { CapabilitiesStore } from './capabilities.state';
 
 describe('CapabilitiesStore', () => {
@@ -868,8 +868,8 @@ Create `packages/renderer/src/app/core/state/capabilities.state.ts`:
  */
 
 import { Injectable, signal } from '@angular/core';
-import { FULL_CAPABILITIES } from '@mj-forge/shared';
-import type { EngineCapabilities, EngineVariant } from '@mj-forge/shared';
+import { FULL_CAPABILITIES } from '@joinery/shared';
+import type { EngineCapabilities, EngineVariant } from '@joinery/shared';
 
 export interface ConnectionCapabilitiesEntry {
   capabilities: EngineCapabilities;
@@ -915,7 +915,7 @@ Expected: PASS.
 
 In `packages/renderer/src/app/core/state/connection.state.ts`:
 
-1. Inject the store following the file's existing injection style (constructor or `inject()`): `private capabilitiesStore = inject(CapabilitiesStore);` with import `import { CapabilitiesStore } from './capabilities.state';` and add `FULL_CAPABILITIES` to the `@mj-forge/shared` imports.
+1. Inject the store following the file's existing injection style (constructor or `inject()`): `private capabilitiesStore = inject(CapabilitiesStore);` with import `import { CapabilitiesStore } from './capabilities.state';` and add `FULL_CAPABILITIES` to the `@joinery/shared` imports.
 
 2. In `connect()` (line 228), capture the connect result:
 
@@ -969,7 +969,7 @@ Create `packages/renderer/src/app/core/state/explorer-folders.spec.ts`:
 
 ```typescript
 import { describe, it, expect } from 'vitest';
-import { FULL_CAPABILITIES } from '@mj-forge/shared';
+import { FULL_CAPABILITIES } from '@joinery/shared';
 import { schemaFolderDefs, tableSubFolderDefs } from './explorer-folders';
 
 const DSQL_CAPS = {
@@ -1032,7 +1032,7 @@ Create `packages/renderer/src/app/core/state/explorer-folders.ts`:
  * Kept free of Angular/IPC dependencies so they are trivially testable.
  */
 
-import type { EngineCapabilities } from '@mj-forge/shared';
+import type { EngineCapabilities } from '@joinery/shared';
 
 export interface SchemaFolderDef {
   name: string;

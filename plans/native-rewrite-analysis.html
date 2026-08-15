@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Forge: Electron vs. Go/Rust Native — Analysis</title>
+    <title>Joinery: Electron vs. Go/Rust Native — Analysis</title>
     <style>
       :root {
         --bg: #f7f9fb;
@@ -482,8 +482,8 @@
   <body>
     <div class="wrap">
       <header class="hero">
-        <div class="kicker">MJ Forge · Platform Analysis · 2026-07-25</div>
-        <h1>Should Forge move off Electron to Go or Rust?</h1>
+        <div class="kicker">Joinery · Platform Analysis · 2026-07-25</div>
+        <h1>Should Joinery move off Electron to Go or Rust?</h1>
         <p class="sub">
           You said the app feels slow and the UI a little janky, and asked whether a Go/Rust native
           app would feel better. I profiled the codebase first, because the answer depends entirely
@@ -491,7 +491,7 @@
           and that changes which options make sense.
         </p>
         <p class="meta-line">
-          Based on Forge <code>main</code> @ v0.5.0 · Electron 41 · Angular 18.2 · ~66k lines of
+          Based on Joinery <code>main</code> @ v0.5.0 · Electron 41 · Angular 18.2 · ~66k lines of
           TypeScript. All file:line references verified against the working tree today.
         </p>
       </header>
@@ -1181,7 +1181,7 @@
         </div>
         <p class="footnote">
           RAM/size/start numbers are order-of-magnitude, from framework docs and community
-          benchmarks, not measurements of Forge. If we proceed to §8's Phase 0, we'll have our own
+          benchmarks, not measurements of Joinery. If we proceed to §8's Phase 0, we'll have our own
           numbers.
         </p>
       </section>
@@ -1193,7 +1193,7 @@
         </p>
         <ul class="tight">
           <li>
-            <strong>Footprint:</strong> ~200&nbsp;MB install, ~150–300&nbsp;MB RAM floor. If Forge
+            <strong>Footprint:</strong> ~200&nbsp;MB install, ~150–300&nbsp;MB RAM floor. If Joinery
             is meant to sit open all day next to Docker and an IDE, users notice.
           </li>
           <li>
@@ -1302,7 +1302,7 @@
         <div class="card">
           <h3>Phase 4 — Re-open the platform question, with data</h3>
           <p>
-            If tuned Forge still isn't what you want, we'll know precisely which residual
+            If tuned Joinery still isn't what you want, we'll know precisely which residual
             (footprint? native feel?) is driving it — and §4 maps each residual to the one option
             that actually addresses it. If the itch is a smaller/faster shell: 2–3 day Tauri spike
             (drivers + one window + one query path) before committing. If the itch is native feel:

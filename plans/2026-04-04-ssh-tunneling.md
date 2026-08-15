@@ -2,7 +2,7 @@
 
 ## Context
 
-MJ Forge connects to SQL Server and PostgreSQL (via `feature/multi-db-provider`). Many production databases sit behind firewalls accessible only via SSH bastion hosts. This feature adds SSH tunnel support so users can connect through an SSH jump host, with SSH passwords and key passphrases stored securely in the macOS Keychain alongside existing DB credentials.
+Joinery connects to SQL Server and PostgreSQL (via `feature/multi-db-provider`). Many production databases sit behind firewalls accessible only via SSH bastion hosts. This feature adds SSH tunnel support so users can connect through an SSH jump host, with SSH passwords and key passphrases stored securely in the macOS Keychain alongside existing DB credentials.
 
 **Base branch:** `feature/multi-db-provider` (not `main`) — this feature builds on top of the multi-database provider architecture.
 
@@ -206,7 +206,7 @@ connection: {
 }
 ```
 
-Update the `ForgeAPI` interface type in the preload file to match.
+Update the `JoineryAPI` interface type in the preload file to match.
 
 ### 8. Renderer IPC Service — `packages/renderer/src/app/core/services/ipc.service.ts`
 
@@ -284,7 +284,7 @@ Update `isValid()` — when SSH is enabled, require `sshHost`, `sshUsername`, an
 | `packages/main/src/services/sql/connection-pool.ts`                                            | Integrate tunnel into `testConnection()`, `getPool()`, `closePool()`                      |
 | `packages/main/src/ipc/database.ipc.ts`                                                        | Pass SSH credentials in SAVE and TEST handlers                                            |
 | `packages/main/src/index.ts`                                                                   | Add `SshTunnelManager.closeAll()` to shutdown sequence                                    |
-| `packages/preload/src/index.ts`                                                                | Update `ForgeAPI` type + `save`/`test` calls                                              |
+| `packages/preload/src/index.ts`                                                                | Update `JoineryAPI` type + `save`/`test` calls                                            |
 | `packages/renderer/src/app/core/services/ipc.service.ts`                                       | Update `saveConnection()`, `testConnection()` signatures                                  |
 | `packages/renderer/src/app/core/state/connection.state.ts`                                     | Forward SSH credentials                                                                   |
 | `packages/renderer/src/app/shared/components/connection-dialog/connection-dialog.component.ts` | SSH Tunnel UI section                                                                     |

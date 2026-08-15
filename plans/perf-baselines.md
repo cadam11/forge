@@ -16,7 +16,7 @@ Electron processes (`app.getAppMetrics()`).
 
 ## Real-profile amplifiers (not captured above — fresh profile floor only)
 
-Craig's live profile at `~/Library/Application Support/mj-forge/`:
+Craig's live profile at `~/Library/Application Support/joinery/`:
 
 | Store                | Size      | Cost mechanism                                                                                                          |
 | -------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------- |

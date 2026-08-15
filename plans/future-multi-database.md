@@ -5,11 +5,11 @@
 
 ## Overview
 
-This document outlines a provider-based architecture to support multiple database platforms beyond SQL Server. The goal is to abstract database-specific operations behind a common interface, allowing Forge to connect to PostgreSQL, MySQL, SQLite, Oracle, and other databases with minimal UI changes.
+This document outlines a provider-based architecture to support multiple database platforms beyond SQL Server. The goal is to abstract database-specific operations behind a common interface, allowing Joinery to connect to PostgreSQL, MySQL, SQLite, Oracle, and other databases with minimal UI changes.
 
 ## Current State (Updated)
 
-Forge supports **SQL Server**, **PostgreSQL**, and **MySQL** via:
+Joinery supports **SQL Server**, **PostgreSQL**, and **MySQL** via:
 
 - `mssql` / `tedious` for SQL Server, `pg` for PostgreSQL, `mysql2` for MySQL
 - Engine-specific SQL generation through the **dialect** layer (`sql/dialect/`)

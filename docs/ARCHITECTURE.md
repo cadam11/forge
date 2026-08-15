@@ -1,8 +1,8 @@
-# Forge Architecture Guide
+# Joinery Architecture Guide
 
 ## Overview
 
-Forge is a native desktop database IDE supporting SQL Server and PostgreSQL. Built with **Electron** (desktop shell), **Angular 18+** (UI), and **Node.js** (backend services).
+Joinery is a native desktop database IDE supporting SQL Server and PostgreSQL. Built with **Electron** (desktop shell), **Angular 18+** (UI), and **Node.js** (backend services).
 
 ```
                  ┌──────────────────────────────────────────┐
@@ -94,7 +94,7 @@ packages/
 
 ## Multi-Database Architecture
 
-Forge supports multiple database engines through a dialect + provider abstraction.
+Joinery supports multiple database engines through a dialect + provider abstraction.
 
 ### SQL Dialect Layer
 
@@ -179,7 +179,7 @@ The renderer uses **Angular signals** for reactive state:
 
 ## AI Integration
 
-Forge supports multiple LLM providers through `llm-providers.ts`:
+Joinery supports multiple LLM providers through `llm-providers.ts`:
 
 | Provider  | Models         |
 | --------- | -------------- |
@@ -210,7 +210,7 @@ Language updates reactively when the active connection changes.
 
 ### Flyway/Skyway Placeholder Detection
 
-When executing SQL containing `${placeholder}` tokens (Flyway syntax), Forge prompts for values before execution. Values are remembered globally in `localStorage`.
+When executing SQL containing `${placeholder}` tokens (Flyway syntax), Joinery prompts for values before execution. Values are remembered globally in `localStorage`.
 
 ### Key Shortcuts
 

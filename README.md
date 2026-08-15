@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/cadam11/forge/releases/latest"><strong>⬇️ Download Latest Release</strong></a>
+  <a href="https://github.com/cadam11/joinery/releases/latest"><strong>⬇️ Download Latest Release</strong></a>
 </p>
 
 <p align="center">
@@ -26,8 +26,8 @@
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-blue?style=flat-square" alt="Platform">
   <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License">
   <img src="https://img.shields.io/badge/engines-MSSQL%20%7C%20PostgreSQL%20%7C%20MySQL-orange?style=flat-square" alt="Engines">
-  <img src="https://img.shields.io/github/v/release/cadam11/forge?style=flat-square&color=purple" alt="Release">
-  <img src="https://img.shields.io/github/actions/workflow/status/cadam11/forge/build-release.yml?style=flat-square&label=build" alt="Build">
+  <img src="https://img.shields.io/github/v/release/cadam11/joinery?style=flat-square&color=purple" alt="Release">
+  <img src="https://img.shields.io/github/actions/workflow/status/cadam11/joinery/build-release.yml?style=flat-square&label=build" alt="Build">
 </p>
 
 ---
@@ -50,7 +50,7 @@ Joinery speaks three database dialects fluently:
 - **PostgreSQL** (12+)
 - **MySQL** (5.7+ / 8.0+)
 
-Every feature works across all three engines: query execution, object explorer, ERD, backup/restore, AI tools, and execution plans. SQL is generated per-engine via a dialect abstraction, and `@memberjunction/sqlglot-ts` powers cross-dialect conversion when you need it.
+Every feature works across all three engines: query execution, object explorer, ERD, backup/restore, AI tools, and execution plans. SQL is generated per-engine via a dialect abstraction, and a vendored [sqlglot](https://github.com/tobymao/sqlglot) client powers cross-dialect conversion when you need it.
 
 ### Connectivity That Just Works
 
@@ -178,26 +178,26 @@ The AI has access to these tools — each one is schema-aware and engine-aware:
 ## Download
 
 <p align="center">
-  <a href="https://github.com/cadam11/forge/releases/latest">
+  <a href="https://github.com/cadam11/joinery/releases/latest">
     <img src="https://img.shields.io/badge/⬇_Download_Latest-v0.4.0-purple?style=for-the-badge&logo=github" alt="Download Latest">
   </a>
 </p>
 
 ### macOS
 
-| Chip          | Installer                                                                         | Portable                                                 |
-| ------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| Apple Silicon | [Joinery-\<version\>-arm64.dmg](https://github.com/cadam11/forge/releases/latest) | [.zip](https://github.com/cadam11/forge/releases/latest) |
-| Intel         | [Joinery-\<version\>-x64.dmg](https://github.com/cadam11/forge/releases/latest)   | [.zip](https://github.com/cadam11/forge/releases/latest) |
+| Chip          | Installer                                                                           | Portable                                                   |
+| ------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Apple Silicon | [Joinery-\<version\>-arm64.dmg](https://github.com/cadam11/joinery/releases/latest) | [.zip](https://github.com/cadam11/joinery/releases/latest) |
+| Intel         | [Joinery-\<version\>-x64.dmg](https://github.com/cadam11/joinery/releases/latest)   | [.zip](https://github.com/cadam11/joinery/releases/latest) |
 
 ### Windows
 
-| Architecture   | Installer                                                                               | Portable                                                 |
-| -------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| x64 (most PCs) | [Joinery-\<version\>-x64-setup.exe](https://github.com/cadam11/forge/releases/latest)   | [.zip](https://github.com/cadam11/forge/releases/latest) |
-| ARM64          | [Joinery-\<version\>-arm64-setup.exe](https://github.com/cadam11/forge/releases/latest) | [.zip](https://github.com/cadam11/forge/releases/latest) |
+| Architecture   | Installer                                                                                 | Portable                                                   |
+| -------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| x64 (most PCs) | [Joinery-\<version\>-x64-setup.exe](https://github.com/cadam11/joinery/releases/latest)   | [.zip](https://github.com/cadam11/joinery/releases/latest) |
+| ARM64          | [Joinery-\<version\>-arm64-setup.exe](https://github.com/cadam11/joinery/releases/latest) | [.zip](https://github.com/cadam11/joinery/releases/latest) |
 
-All downloads available on the **[Releases page](https://github.com/cadam11/forge/releases/latest)**.
+All downloads available on the **[Releases page](https://github.com/cadam11/joinery/releases/latest)**.
 
 > **macOS:** On first launch, right-click → Open to bypass Gatekeeper (not yet notarized).
 >
@@ -240,7 +240,7 @@ All downloads available on the **[Releases page](https://github.com/cadam11/forg
 
 ### From Release
 
-1. Download the installer for your platform from [Releases](https://github.com/cadam11/forge/releases/latest)
+1. Download the installer for your platform from [Releases](https://github.com/cadam11/joinery/releases/latest)
 2. Install and launch Joinery
 3. Click **"Detect Docker Containers"** or **"Add Connection"**
 4. Pick your engine (SQL Server / PostgreSQL / MySQL) and start querying
@@ -248,8 +248,8 @@ All downloads available on the **[Releases page](https://github.com/cadam11/forg
 ### From Source
 
 ```bash
-git clone https://github.com/cadam11/forge.git
-cd forge
+git clone https://github.com/cadam11/joinery.git
+cd joinery
 pnpm install
 pnpm run dev          # Development mode with hot reload
 ```
@@ -280,7 +280,7 @@ Windows builds are produced automatically by [GitHub Actions](.github/workflows/
 | UI Framework       | Angular 18 (standalone components, signals)                       |
 | State Management   | Angular signals + RxJS                                            |
 | SQL Connectivity   | `mssql` (SQL Server, TDS), `pg` (PostgreSQL), `mysql2` (MySQL)    |
-| Dialect Conversion | `@memberjunction/sqlglot-ts`                                      |
+| Dialect Conversion | Vendored sqlglot client (Python)                                  |
 | Auth               | SQL auth, Windows auth, Microsoft Entra ID (`@azure/msal-node`)   |
 | AI Abstraction     | Multi-provider LLM layer (Gemini, Claude, OpenAI, Groq, Cerebras) |
 | Query Editor       | Monaco editor                                                     |
@@ -334,7 +334,7 @@ Windows builds are produced automatically by [GitHub Actions](.github/workflows/
 ### Project Structure
 
 ```
-forge/
+joinery/
 ├── packages/
 │   ├── main/              # Electron main process
 │   │   └── src/
@@ -395,7 +395,7 @@ forge/
 - [x] Visual execution plan tree across all engines
 - [x] Per-tab connection context
 - [x] AI sees active editor contents
-- [x] SQL dialect conversion via `@memberjunction/sqlglot-ts`
+- [x] SQL dialect conversion via a vendored sqlglot client
 - [x] Flyway / Skyway placeholder detection
 - [x] Test suite migrated to Vitest, CI coverage gates
 
@@ -424,8 +424,8 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instr
 
 ### Quick Links
 
-- **Report Bugs** — [Open an issue](https://github.com/cadam11/forge/issues)
-- **Request Features** — [Start a discussion](https://github.com/cadam11/forge/discussions)
+- **Report Bugs** — [Open an issue](https://github.com/cadam11/joinery/issues)
+- **Request Features** — [Start a discussion](https://github.com/cadam11/joinery/discussions)
 - **Submit PRs** — Fork, branch, and open a pull request
 - **Brand kit** — [Identity, assets, and usage guidance](docs/brand/README.md)
 
@@ -448,6 +448,6 @@ MIT License — see [LICENSE](LICENSE) for details.
 </p>
 
 <p align="center">
-  <a href="https://github.com/cadam11/forge/stargazers">⭐ Star us on GitHub</a> ·
-  <a href="https://github.com/cadam11/forge/releases/latest">Download Latest Release</a>
+  <a href="https://github.com/cadam11/joinery/stargazers">⭐ Star us on GitHub</a> ·
+  <a href="https://github.com/cadam11/joinery/releases/latest">Download Latest Release</a>
 </p>

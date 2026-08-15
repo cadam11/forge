@@ -1,10 +1,10 @@
-# MJ Forge: World-Class UX & Feature Improvements Roadmap
+# Joinery: World-Class UX & Feature Improvements Roadmap
 
 ## Executive Summary
 
-This document outlines prioritized improvements to transform MJ Forge from a solid v1.0 MVP into an indispensable tool that Mac developers will love.
+This document outlines prioritized improvements to transform Joinery from a solid v1.0 MVP into an indispensable tool that Mac developers will love.
 
-> **Note (April 2025):** This roadmap was written when Forge was SQL Server-only. Forge now supports **PostgreSQL** and **MySQL** as well. SQL Server-specific references below reflect the original v1.0 scope.
+> **Note (April 2025):** This roadmap was written when Joinery was SQL Server-only. Joinery now supports **PostgreSQL** and **MySQL** as well. SQL Server-specific references below reflect the original v1.0 scope.
 
 ### Current State (v1.0 MVP - Complete)
 
@@ -458,7 +458,7 @@ monaco.languages.registerCompletionItemProvider('sql', {
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ MJ Forge - ~/Projects/ecommerce-db                    ─ □ x │
+│ Joinery - ~/Projects/ecommerce-db                    ─ □ x │
 ├─────────────────────────────────────────────────────────────┤
 │ ┌─────────────────┬─────────────────────────────────────────┤
 │ │ EXPLORER        │ migrations/002-add-indexes.sql          │
@@ -510,7 +510,7 @@ monaco.languages.registerCompletionItemProvider('sql', {
    - Click file in explorer → opens in tab
    - Close tab prompts to save if dirty
 
-5. **Workspace Settings (.mjforge/settings.json)**
+5. **Workspace Settings (.joinery/settings.json)**
 
    ```json
    {
@@ -700,7 +700,7 @@ File
 4. **Team Shared Queries**
    ```
    team-queries/              ← Git repository
-   ├── .mjforge/
+   ├── .joinery/
    │   └── settings.json     ← Shared connection config
    ├── troubleshooting/
    │   ├── find-blocking.sql
@@ -718,11 +718,11 @@ File
 
 ---
 
-### 2.6 MJ Forge CLI (`forge`)
+### 2.6 Joinery CLI (`joinery`)
 
 **Impact:** 🔥🔥🔥🔥🔥 - Essential for automation, CI/CD, and terminal-first developers.
 
-**Philosophy:** This is NOT another sqlcmd. It's a **higher-order CLI** that leverages MJ Forge's unique capabilities:
+**Philosophy:** This is NOT another sqlcmd. It's a **higher-order CLI** that leverages Joinery's unique capabilities:
 
 - Named connections (no connection strings to remember)
 - Keychain integration (no passwords in scripts or env vars)
@@ -732,12 +732,12 @@ File
 **Installation:**
 
 ```bash
-# Installed alongside MJ Forge.app, symlinked to /usr/local/bin
-$ forge --version
-MJ Forge CLI v1.0.0
+# Installed alongside Joinery.app, symlinked to /usr/local/bin
+$ joinery --version
+Joinery CLI v1.0.0
 
 # Or via npm for CI environments
-$ npm install -g @mj-forge/cli
+$ npm install -g @joinery/cli
 ```
 
 ---
@@ -748,19 +748,19 @@ $ npm install -g @mj-forge/cli
 
 ```bash
 # List all saved connections
-$ forge connections
+$ joinery connections
   NAME              HOST                    STATUS
   production        sql.company.com:1433    ● Connected
   staging           staging-sql:1433        ○ Disconnected
   local-docker      localhost:1433          ● Connected (Docker)
 
 # Test a connection
-$ forge test production
+$ joinery test production
 ✓ Connected to production (sql.company.com:1433)
   SQL Server 2022 | 12 databases | Latency: 45ms
 
 # Add a new connection (interactive, password goes to Keychain)
-$ forge connections add
+$ joinery connections add
   Connection name: new-server
   Host: sql.newserver.com
   Port [1433]:
@@ -769,7 +769,7 @@ $ forge connections add
   ✓ Connection saved and tested successfully
 
 # Connect (establishes pool for subsequent commands)
-$ forge connect production
+$ joinery connect production
 ✓ Connected to production
 ```
 
@@ -777,14 +777,14 @@ $ forge connect production
 
 ```bash
 # List databases
-$ forge databases --connection production
+$ joinery databases --connection production
   NAME              SIZE        STATE     LAST BACKUP
   OrdersDB          2.4 GB      Online    2 hours ago
   CustomersDB       890 MB      Online    2 hours ago
   Analytics         12.1 GB     Online    1 day ago
 
 # Use a specific database for subsequent commands
-$ forge use OrdersDB --connection production
+$ joinery use OrdersDB --connection production
 ✓ Now using OrdersDB on production
 ```
 
@@ -792,14 +792,14 @@ $ forge use OrdersDB --connection production
 
 ```bash
 # Simple backup - uses intelligent defaults
-$ forge backup OrdersDB --connection production
+$ joinery backup OrdersDB --connection production
 ✓ Backing up OrdersDB...
   Progress: [████████████████████] 100%
   Completed in 2m 34s
   Output: /var/opt/mssql/backup/OrdersDB_20250124_143022.bak (2.1 GB)
 
 # Backup with options
-$ forge backup OrdersDB \
+$ joinery backup OrdersDB \
   --connection production \
   --output ~/backups/orders.bak \
   --compression \
@@ -808,41 +808,41 @@ $ forge backup OrdersDB \
 ✓ Backup completed and verified
 
 # Backup to local path (Docker-aware - auto maps volumes!)
-$ forge backup OrdersDB --connection local-docker --output ~/backups/orders.bak
+$ joinery backup OrdersDB --connection local-docker --output ~/backups/orders.bak
   ℹ Docker detected: Mapping ~/backups → /var/opt/mssql/backups
 ✓ Backup saved to ~/backups/orders.bak
 
 # Differential backup
-$ forge backup OrdersDB --connection production --differential
+$ joinery backup OrdersDB --connection production --differential
 
 # Transaction log backup
-$ forge backup OrdersDB --connection production --log
+$ joinery backup OrdersDB --connection production --log
 ```
 
 **4. Restore**
 
 ```bash
 # Restore with same name
-$ forge restore ~/backups/orders.bak --connection local-docker
+$ joinery restore ~/backups/orders.bak --connection local-docker
 ✓ Restoring to OrdersDB...
   Progress: [████████████████████] 100%
   Completed in 1m 45s
 
 # Restore with different name
-$ forge restore ~/backups/orders.bak \
+$ joinery restore ~/backups/orders.bak \
   --connection local-docker \
   --database OrdersDB_Test \
   --replace
 ✓ Restored as OrdersDB_Test
 
 # Restore with file relocation (for different paths)
-$ forge restore ~/backups/orders.bak \
+$ joinery restore ~/backups/orders.bak \
   --connection staging \
   --relocate-data /var/opt/mssql/data/ \
   --relocate-log /var/opt/mssql/log/
 
 # Preview restore (show what would happen)
-$ forge restore ~/backups/orders.bak --connection staging --dry-run
+$ joinery restore ~/backups/orders.bak --connection staging --dry-run
   Would restore:
     Database: OrdersDB
     Data file: OrdersDB.mdf → /var/opt/mssql/data/OrdersDB.mdf
@@ -854,35 +854,35 @@ $ forge restore ~/backups/orders.bak --connection staging --dry-run
 
 ```bash
 # Run inline query
-$ forge query "SELECT COUNT(*) FROM Users" --connection production --database OrdersDB
+$ joinery query "SELECT COUNT(*) FROM Users" --connection production --database OrdersDB
   COUNT
   ─────
   15234
 
 # Run query from file
-$ forge run ./queries/daily-report.sql --connection production
+$ joinery run ./queries/daily-report.sql --connection production
   [Results displayed in table format]
 
 # Run query from workspace with workspace connection
 $ cd ~/projects/ecommerce-db
-$ forge run migrations/002-add-indexes.sql
-  ℹ Using workspace connection: production (from .mjforge/settings.json)
+$ joinery run migrations/002-add-indexes.sql
+  ℹ Using workspace connection: production (from .joinery/settings.json)
   ✓ Query executed successfully (2 statements, 0 rows affected)
 
 # Output formats
-$ forge query "SELECT * FROM Users LIMIT 10" -c production -d OrdersDB --format json
-$ forge query "SELECT * FROM Users LIMIT 10" -c production -d OrdersDB --format csv
-$ forge query "SELECT * FROM Users LIMIT 10" -c production -d OrdersDB --format table
+$ joinery query "SELECT * FROM Users LIMIT 10" -c production -d OrdersDB --format json
+$ joinery query "SELECT * FROM Users LIMIT 10" -c production -d OrdersDB --format csv
+$ joinery query "SELECT * FROM Users LIMIT 10" -c production -d OrdersDB --format table
 
 # Save results to file
-$ forge query "SELECT * FROM Users" -c production -d OrdersDB -o users.csv --format csv
+$ joinery query "SELECT * FROM Users" -c production -d OrdersDB -o users.csv --format csv
 ```
 
 **6. Status & Monitoring**
 
 ```bash
 # Connection pool status
-$ forge status
+$ joinery status
   PRODUCTION (sql.company.com)
     Pool: 3/10 active connections
     Uptime: 4h 23m
@@ -894,7 +894,7 @@ $ forge status
     Uptime: 2d 5h
 
 # Database status
-$ forge status OrdersDB --connection production
+$ joinery status OrdersDB --connection production
   Database: OrdersDB
   State: Online
   Size: 2.4 GB (Data: 2.1 GB, Log: 300 MB)
@@ -908,17 +908,17 @@ $ forge status OrdersDB --connection production
 
 ```bash
 # List SQL Server containers
-$ forge docker list
+$ joinery docker list
   NAME          IMAGE                    STATUS     PORT
   mssql-dev     mssql/server:2022        Running    1433
   mssql-test    mssql/server:2019        Stopped    1434
 
 # Start/stop containers
-$ forge docker start mssql-test
-$ forge docker stop mssql-dev
+$ joinery docker start mssql-test
+$ joinery docker stop mssql-dev
 
 # Create new container (uses same wizard defaults as GUI)
-$ forge docker create \
+$ joinery docker create \
   --name dev-sql \
   --version 2022 \
   --port 1433 \
@@ -932,7 +932,7 @@ $ forge docker create \
 
 ```bash
 # Script table as CREATE
-$ forge script Users --connection production --database OrdersDB
+$ joinery script Users --connection production --database OrdersDB
   CREATE TABLE [dbo].[Users] (
     [UserID] INT IDENTITY(1,1) NOT NULL,
     [Email] NVARCHAR(255) NOT NULL,
@@ -940,11 +940,11 @@ $ forge script Users --connection production --database OrdersDB
   )
 
 # Script entire database schema
-$ forge script --all --connection production --database OrdersDB > schema.sql
+$ joinery script --all --connection production --database OrdersDB > schema.sql
 
 # Export table data
-$ forge export Users --connection production --database OrdersDB --format csv > users.csv
-$ forge export Users --connection production --database OrdersDB --format sql > users-inserts.sql
+$ joinery export Users --connection production --database OrdersDB --format csv > users.csv
+$ joinery export Users --connection production --database OrdersDB --format sql > users-inserts.sql
 ```
 
 ---
@@ -953,7 +953,7 @@ $ forge export Users --connection production --database OrdersDB --format sql > 
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     forge CLI                                │
+│                     joinery CLI                                │
 ├─────────────────────────────────────────────────────────────┤
 │  ┌─────────────────────────────────────────────────────┐    │
 │  │  Command Parser (commander.js / yargs)              │    │
@@ -972,7 +972,7 @@ $ forge export Users --connection production --database OrdersDB --format sql > 
 │  ┌─────────────────────────────────────────────────────┐    │
 │  │  Config Store                                        │    │
 │  │  • Same connection profiles as GUI                  │    │
-│  │  • ~/.mjforge/config.json                           │    │
+│  │  • ~/.joinery/config.json                           │    │
 │  └─────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -980,7 +980,7 @@ $ forge export Users --connection production --database OrdersDB --format sql > 
 **Key Design Decisions:**
 
 1. **Shared Codebase with GUI**
-   - CLI imports same services from `@mj-forge/main`
+   - CLI imports same services from `@joinery/main`
    - Connection profiles stored in same location
    - Keychain passwords shared between GUI and CLI
    - No duplication of SQL logic
@@ -991,8 +991,8 @@ $ forge export Users --connection production --database OrdersDB --format sql > 
    # ❌ Bad (like sqlcmd)
    $ sqlcmd -S server -U user -P password -Q "..."
 
-   # ✅ Good (MJ Forge way)
-   $ forge query "..." --connection production
+   # ✅ Good (Joinery way)
+   $ joinery query "..." --connection production
    # Password retrieved from Keychain automatically
    ```
 
@@ -1000,10 +1000,10 @@ $ forge export Users --connection production --database OrdersDB --format sql > 
 
    ```bash
    $ cd ~/projects/mydb
-   $ cat .mjforge/settings.json
+   $ cat .joinery/settings.json
    { "defaultConnection": "production", "defaultDatabase": "MyDB" }
 
-   $ forge query "SELECT 1"  # Uses production.MyDB automatically
+   $ joinery query "SELECT 1"  # Uses production.MyDB automatically
    ```
 
 4. **Docker Intelligence Built-in**
@@ -1014,10 +1014,10 @@ $ forge export Users --connection production --database OrdersDB --format sql > 
 5. **Human-Friendly Output by Default**
 
    ```bash
-   $ forge databases -c production
+   $ joinery databases -c production
    # Pretty table output for humans
 
-   $ forge databases -c production --json
+   $ joinery databases -c production --json
    # JSON output for scripting
    ```
 
@@ -1048,7 +1048,7 @@ packages/
 │   │   │   └── prompts.ts        # Interactive prompts
 │   │   └── config.ts             # Config file handling
 │   └── bin/
-│       └── forge                 # Executable entry
+│       └── joinery                 # Executable entry
 ├── main/                         # Existing - services reused
 ├── shared/                       # Existing - types reused
 ```
@@ -1058,8 +1058,8 @@ packages/
 ```json
 {
   "dependencies": {
-    "@mj-forge/main": "workspace:*",
-    "@mj-forge/shared": "workspace:*",
+    "@joinery/main": "workspace:*",
+    "@joinery/shared": "workspace:*",
     "commander": "^12.0.0",
     "chalk": "^5.0.0",
     "ora": "^8.0.0",
@@ -1067,7 +1067,7 @@ packages/
     "inquirer": "^9.0.0"
   },
   "bin": {
-    "forge": "./bin/forge"
+    "joinery": "./bin/joinery"
   }
 }
 ```
@@ -1078,10 +1078,10 @@ packages/
 // packages/cli/src/commands/backup.ts
 import { Command } from 'commander';
 import ora from 'ora';
-import { ConnectionPoolManager } from '@mj-forge/main/services/sql/connection-pool';
-import { BackupRestoreService } from '@mj-forge/main/services/sql/backup-restore';
-import { CredentialStore } from '@mj-forge/main/services/keychain/credential-store';
-import { VolumeMapper } from '@mj-forge/main/services/docker/volume-mapper';
+import { ConnectionPoolManager } from '@joinery/main/services/sql/connection-pool';
+import { BackupRestoreService } from '@joinery/main/services/sql/backup-restore';
+import { CredentialStore } from '@joinery/main/services/keychain/credential-store';
+import { VolumeMapper } from '@joinery/main/services/docker/volume-mapper';
 
 export const backupCommand = new Command('backup')
   .description('Backup a database')
@@ -1161,12 +1161,12 @@ jobs:
   backup:
     runs-on: macos-latest
     steps:
-      - name: Install MJ Forge CLI
-        run: npm install -g @mj-forge/cli
+      - name: Install Joinery CLI
+        run: npm install -g @joinery/cli
 
       - name: Import connection (uses GitHub secrets for one-time setup)
         run: |
-          forge connections add \
+          joinery connections add \
             --name production \
             --host ${{ secrets.DB_HOST }} \
             --user ${{ secrets.DB_USER }} \
@@ -1174,7 +1174,7 @@ jobs:
 
       - name: Backup database
         run: |
-          forge backup OrdersDB \
+          joinery backup OrdersDB \
             --connection production \
             --output ./backups/orders-$(date +%Y%m%d).bak \
             --compression \
@@ -1198,7 +1198,7 @@ mkdir -p $BACKUP_DIR
 
 for db in OrdersDB CustomersDB Analytics; do
   echo "Backing up $db..."
-  forge backup $db \
+  joinery backup $db \
     --connection production \
     --output "$BACKUP_DIR/${db}.bak" \
     --compression \
@@ -1220,7 +1220,7 @@ echo "All backups complete!"
 LATEST=$(ls -t ~/backups/*/OrdersDB.bak | head -1)
 
 echo "Restoring $LATEST to dev environment..."
-forge restore "$LATEST" \
+joinery restore "$LATEST" \
   --connection local-docker \
   --database OrdersDB_Dev \
   --replace
@@ -1232,17 +1232,17 @@ echo "Dev database refreshed!"
 
 **Why This Is Different from sqlcmd:**
 
-| Feature           | sqlcmd                     | forge CLI                  |
+| Feature           | sqlcmd                     | joinery CLI                |
 | ----------------- | -------------------------- | -------------------------- |
 | Connection        | Inline credentials         | Named profiles + Keychain  |
 | Passwords         | Visible in command/scripts | Secure in Keychain         |
 | Docker support    | Manual path mapping        | Automatic volume detection |
 | Backup/Restore    | Raw T-SQL                  | One command with progress  |
 | Output formatting | Basic                      | Tables, JSON, CSV          |
-| Workspace context | None                       | .mjforge/settings.json     |
+| Workspace context | None                       | .joinery/settings.json     |
 | Learning curve    | High                       | Low                        |
 
-**The key insight:** `forge` is for **operations**, not raw SQL. It's what you use when you want to backup a database, not when you want to run arbitrary queries (though it can do that too).
+**The key insight:** `joinery` is for **operations**, not raw SQL. It's what you use when you want to backup a database, not when you want to run arbitrary queries (though it can do that too).
 
 ---
 
@@ -1414,27 +1414,29 @@ Rules:
 ### 4.1 Keyboard Shortcuts System
 
 **Current Status:**
-| Action | Shortcut | Status |
-|--------|----------|--------|
-| Execute query | F5 | ✅ Implemented |
+
+| Action        | Shortcut | Status         |
+| ------------- | -------- | -------------- |
+| Execute query | F5       | ✅ Implemented |
 
 **Shortcuts to Add:**
-| Action | Shortcut | Priority |
-|--------|----------|----------|
-| New query tab | ⌘N | High |
-| Close tab | ⌘W | High |
-| Command palette | ⌘K | High |
-| Object search | ⌘⇧O | High |
-| Format SQL | ⌘⇧F | High |
-| Toggle history | ⌘H | Medium |
-| Next tab | ⌘⇧] | Medium |
-| Previous tab | ⌘⇧[ | Medium |
-| Focus editor | ⌘1 | Medium |
-| Focus results | ⌘2 | Medium |
-| Backup database | ⌘B | Low |
-| Restore database | ⌘R | Low |
-| Toggle sidebar | ⌘\ | Low |
-| Settings | ⌘, | Low |
+
+| Action           | Shortcut | Priority |
+| ---------------- | -------- | -------- |
+| New query tab    | ⌘N       | High     |
+| Close tab        | ⌘W       | High     |
+| Command palette  | ⌘K       | High     |
+| Object search    | ⌘⇧O      | High     |
+| Format SQL       | ⌘⇧F      | High     |
+| Toggle history   | ⌘H       | Medium   |
+| Next tab         | ⌘⇧]      | Medium   |
+| Previous tab     | ⌘⇧[      | Medium   |
+| Focus editor     | ⌘1       | Medium   |
+| Focus results    | ⌘2       | Medium   |
+| Backup database  | ⌘B       | Low      |
+| Restore database | ⌘R       | Low      |
+| Toggle sidebar   | ⌘\       | Low      |
+| Settings         | ⌘,       | Low      |
 
 **Shortcut Cheatsheet Feature:**
 
@@ -1540,7 +1542,7 @@ Rules:
 | ------------------------- | --------- | --------- |
 | ⌘K Command palette        | 1 week    | Very High |
 | Workspace/Folder support  | 1.5 weeks | Very High |
-| `forge` CLI tool          | 1.5 weeks | Very High |
+| `joinery` CLI tool        | 1.5 weeks | Very High |
 | Instant object search     | 3 days    | High      |
 | Keyboard shortcuts        | 2 days    | High      |
 | Results grid enhancements | 3 days    | Medium    |
@@ -1590,7 +1592,7 @@ Rules:
 
 ### vs. SSMS (Windows only)
 
-| Feature         | SSMS         | MJ Forge   |
+| Feature         | SSMS         | Joinery    |
 | --------------- | ------------ | ---------- |
 | Mac support     | ❌           | ✅         |
 | Startup time    | Slow (~10s)  | Fast (<3s) |
@@ -1600,7 +1602,7 @@ Rules:
 
 ### vs. Azure Data Studio
 
-| Feature            | ADS        | MJ Forge           |
+| Feature            | ADS        | Joinery            |
 | ------------------ | ---------- | ------------------ |
 | Mac support        | ✅         | ✅                 |
 | Startup time       | Slow (~8s) | Fast (<3s)         |
@@ -1611,7 +1613,7 @@ Rules:
 
 ### vs. TablePlus
 
-| Feature            | TablePlus | MJ Forge        |
+| Feature            | TablePlus | Joinery         |
 | ------------------ | --------- | --------------- |
 | SQL Server depth   | Generic   | ✅ Deep         |
 | Backup/Restore     | ❌        | ✅ Full         |
@@ -1627,5 +1629,5 @@ Rules:
 | ------- | ---------- | ------ | ------------------------------------------------------ |
 | 1.0     | 2025-01-24 | Claude | Initial roadmap based on v1.0 analysis                 |
 | 1.1     | 2025-01-24 | Claude | Added Workspace/Folder support feature (VS Code-style) |
-| 1.2     | 2025-01-24 | Claude | Added `forge` CLI tool with full command reference     |
+| 1.2     | 2025-01-24 | Claude | Added `joinery` CLI tool with full command reference   |
 | 1.3     | 2025-01-24 | Claude | Added Enhanced Docker Container Management UX          |

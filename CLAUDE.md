@@ -1,4 +1,4 @@
-# Forge - SQL Database Manager for Mac
+# Joinery - SQL Database Manager for Mac
 
 ## Session model: coordinator + Opus subagents (Craig's standing instruction)
 
@@ -11,7 +11,7 @@
 
 ## Project Overview
 
-Forge is a native macOS desktop application providing database management workflows for **SQL Server**, **PostgreSQL**, and **MySQL**. Built with Electron + Angular + Node.js.
+Joinery is a native macOS desktop application providing database management workflows for **SQL Server**, **PostgreSQL**, and **MySQL**. Built with Electron + Angular + Node.js.
 
 ## Tech Stack
 
@@ -26,7 +26,7 @@ Forge is a native macOS desktop application providing database management workfl
 ## Project Structure
 
 ```
-forge/
+joinery/
 ├── packages/
 │   ├── main/                 # Electron main process
 │   │   └── src/
@@ -214,7 +214,7 @@ pnpm run typecheck        # TypeScript check without emit
 5. **Host CLI tools for PG/MySQL backup/restore** (only if you use those features or run the backup integration/e2e tests):
    - macOS: `brew install postgresql@16 mysql-client`, then add `/opt/homebrew/opt/mysql-client/bin` to your shell PATH (mysql-client is keg-only).
    - Windows: install the PostgreSQL and MySQL client tools from the official installers; ensure `pg_dump`, `pg_restore`, `mysqldump`, and `mysql` are on PATH.
-   - Forge's PG/MySQL backup services shell out to these binaries at runtime — they are not bundled with the app. The Backup / Restore dialogs render a setup-instructions view (with platform-specific commands) when the binaries aren't found, so end users get a guided fix rather than a cryptic spawn ENOENT.
+   - Joinery's PG/MySQL backup services shell out to these binaries at runtime — they are not bundled with the app. The Backup / Restore dialogs render a setup-instructions view (with platform-specific commands) when the binaries aren't found, so end users get a guided fix rather than a cryptic spawn ENOENT.
 
 ## Key Dependencies
 

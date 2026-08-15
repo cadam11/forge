@@ -1,4 +1,4 @@
-# MJ Forge Iterative Improvement Loop
+# Joinery Iterative Improvement Loop
 
 ## Core Process (REPEAT UNTIL WORLD-CLASS)
 
@@ -17,6 +17,7 @@
 ## Quality Bar
 
 The app should be so good that Jony Ive, Steve Jobs and other visionaries would be WOW'd by it. This means:
+
 - Every feature is 100% functional
 - UX is polished, consistent, and delightful
 - No dead buttons, empty handlers, or stub implementations
@@ -27,6 +28,7 @@ The app should be so good that Jony Ive, Steve Jobs and other visionaries would 
 ## User's Additional Request (2026-03-21)
 
 Test the backup/restore flow specifically:
+
 - Do NOT restore over an existing DB
 - Restore a DB as a NEW database, OR create a new database
 - Add some tables via the UI
@@ -75,15 +77,18 @@ Also: keep this plan file so the loop instructions survive context compaction.
 ## Remaining Improvement Opportunities
 
 ### High Priority
+
 - Playwright e2e tests for backup/restore flow
 - Playwright e2e tests for core UX flows (connect, query, export)
 
 ### Medium Priority
+
 - Drag-and-drop table names from sidebar to query editor
 - Tab reordering via drag-and-drop
 - Query auto-completion (IntelliSense)
 - Multiple selection in results grid for batch copy
 
 ### Lower Priority
+
 - Light theme polish pass (verify all components look good in light mode)
 - Keyboard shortcuts for switching between result tabs

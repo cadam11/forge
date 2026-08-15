@@ -1,10 +1,10 @@
-# MJ Forge — System Plan
+# Joinery — System Plan
 
 > **Version:** 1.0.0
 > **Last Updated:** January 2026
 > **Status:** Implementation Complete - All core features implemented, testing and documentation pending
 >
-> **Note (April 2025):** This plan was written when Forge was SQL Server-only. Forge now supports **PostgreSQL** and **MySQL** as well. References to "SQL Server" throughout this document reflect the original v1.0 scope, not the current multi-engine architecture.
+> **Note (April 2025):** This plan was written when Joinery was SQL Server-only. Joinery now supports **PostgreSQL** and **MySQL** as well. References to "SQL Server" throughout this document reflect the original v1.0 scope, not the current multi-engine architecture.
 
 ---
 
@@ -12,7 +12,7 @@
 
 ## Executive Summary
 
-**MJ Forge** is a native macOS desktop application that delivers SSMS-style database management workflows to Mac developers working with SQL Server. It fills a critical gap in the Mac developer toolchain by providing an intuitive, UI-first experience for database operations that currently require either running Windows VMs or executing fragile CLI commands.
+**Joinery** is a native macOS desktop application that delivers SSMS-style database management workflows to Mac developers working with SQL Server. It fills a critical gap in the Mac developer toolchain by providing an intuitive, UI-first experience for database operations that currently require either running Windows VMs or executing fragile CLI commands.
 
 ### The Opportunity
 
@@ -25,7 +25,7 @@ The rise of containerized development has made SQL Server accessible to Mac deve
 
 ### Our Solution
 
-MJ Forge is a purpose-built, Mac-native application that makes these operations as simple as they are in SSMS on Windows — while adding modern touches like Docker container detection, streaming progress visualization, and full T-SQL transparency.
+Joinery is a purpose-built, Mac-native application that makes these operations as simple as they are in SSMS on Windows — while adding modern touches like Docker container detection, streaming progress visualization, and full T-SQL transparency.
 
 ---
 
@@ -133,13 +133,13 @@ This user needs Always On, profiler, maintenance plans, policy management — fe
 
 ### Product Vision
 
-> **MJ Forge transforms SQL Server database management on Mac from a friction-filled chore into a seamless, transparent, and even enjoyable experience.**
+> **Joinery transforms SQL Server database management on Mac from a friction-filled chore into a seamless, transparent, and even enjoyable experience.**
 
 ### Core Value Propositions
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           MJ FORGE VALUE PILLARS                            │
+│                            JOINERY VALUE PILLARS                            │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │  ┌───────────────────┐  ┌───────────────────┐  ┌───────────────────┐       │
@@ -283,7 +283,7 @@ _Note: Business model is exploratory. v1 focuses purely on value delivery._
 │   Mac-First ◀─────────────────┼─────────────────────▶ Windows-First        │
 │                               │                                             │
 │         ●                     │                                             │
-│     MJ Forge                  │         ● Azure Data Studio                 │
+│     Joinery                  │         ● Azure Data Studio                 │
 │   (our target)                │           (cross-platform but               │
 │                               │            limited backup/restore)          │
 │                               │                                             │
@@ -300,7 +300,7 @@ _Note: Business model is exploratory. v1 focuses purely on value delivery._
 
 ### Competitive Advantages
 
-| Competitor            | Gap MJ Forge Fills                                            |
+| Competitor            | Gap Joinery Fills                                             |
 | --------------------- | ------------------------------------------------------------- |
 | **SSMS**              | Windows-only. VM overhead unacceptable for quick tasks        |
 | **Azure Data Studio** | No backup/restore UI. Heavy Electron app, slow startup        |
@@ -324,7 +324,7 @@ _Note: Business model is exploratory. v1 focuses purely on value delivery._
 
 ## MemberJunction Integration
 
-MJ Forge leverages select packages from the MemberJunction ecosystem:
+Joinery leverages select packages from the MemberJunction ecosystem:
 
 ### Adopted Packages
 
@@ -357,7 +357,7 @@ _Continue to [Part II: UX Design & Mockups →](02-ux-mockups.md)_
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                         MJ FORGE DESIGN PRINCIPLES                          │
+│                          JOINERY DESIGN PRINCIPLES                          │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │  1. TRANSPARENCY        Show the T-SQL. Always. Users should never wonder  │
@@ -386,7 +386,7 @@ _Continue to [Part II: UX Design & Mockups →](02-ux-mockups.md)_
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  MJ Forge                                                    ─ □ ✕         │
+│  Joinery                                                    ─ □ ✕         │
 ├────────────────────┬────────────────────────────────────────────────────────┤
 │ ┌────────────────┐ │ ┌──────────────────────────────────────────────────┐   │
 │ │ 🔌 Connections │ │ │ Query 1    Query 2    + New Query                │   │
@@ -422,7 +422,7 @@ _Continue to [Part II: UX Design & Mockups →](02-ux-mockups.md)_
 graph TB
     subgraph Window["Application Window"]
         subgraph Toolbar["Title Bar & Toolbar"]
-            AppTitle["MJ Forge"]
+            AppTitle["Joinery"]
             WindowControls["Window Controls"]
         end
 
@@ -454,13 +454,13 @@ graph TB
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  MJ Forge                                                    ─ □ ✕         │
+│  Joinery                                                    ─ □ ✕         │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │                                                                             │
 │                         ╔═══════════════════════════════╗                   │
 │                         ║                               ║                   │
-│                         ║        ⚒️  MJ FORGE           ║                   │
+│                         ║        ⚒️  JOINERY            ║                   │
 │                         ║                               ║                   │
 │                         ║   SQL Server Management       ║                   │
 │                         ║        for macOS              ║                   │
@@ -495,7 +495,7 @@ graph TB
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  MJ Forge                                                    ─ □ ✕         │
+│  Joinery                                                    ─ □ ✕         │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │     🐳 Docker SQL Server Detection                                          │
@@ -537,7 +537,7 @@ graph TB
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  MJ Forge                                                    ─ □ ✕         │
+│  Joinery                                                    ─ □ ✕         │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │     New Connection                                                          │
@@ -595,7 +595,7 @@ graph TB
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  MJ Forge                                                    ─ □ ✕         │
+│  Joinery                                                    ─ □ ✕         │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  ┌─ Connections ──────┐  ┌─────────────────────────────────────────────────┐│
 │  │                    │  │ + New Query │ Query 1 ✕│ customers.sql ✕│      ││
@@ -765,7 +765,7 @@ graph TB
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  MJ Forge                                                    ─ □ ✕         │
+│  Joinery                                                    ─ □ ✕         │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  ┌─ Connections ──────┐  ┌─────────────────────────────────────────────────┐│
 │  │                    │  │ Query 1 │ 💾 Backup: Northwind ✕│              ││
@@ -824,7 +824,7 @@ graph TB
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  MJ Forge                                                    ─ □ ✕         │
+│  Joinery                                                    ─ □ ✕         │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  ┌─ Connections ──────┐  ┌─────────────────────────────────────────────────┐│
 │  │                    │  │ Query 1 │ 💾 Backup: Northwind ✕│              ││
@@ -870,7 +870,7 @@ graph TB
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  MJ Forge                                                    ─ □ ✕         │
+│  Joinery                                                    ─ □ ✕         │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │     📥 Restore Database                                        Step 1 of 3 │
@@ -923,7 +923,7 @@ graph TB
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  MJ Forge                                                    ─ □ ✕         │
+│  Joinery                                                    ─ □ ✕         │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │     📥 Restore Database                                        Step 2 of 3 │
@@ -983,7 +983,7 @@ graph TB
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  MJ Forge                                                    ─ □ ✕         │
+│  Joinery                                                    ─ □ ✕         │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │     📥 Restore Database                                        Step 3 of 3 │
@@ -1295,7 +1295,7 @@ _Continue to [Part III: Interaction Design →](03-interaction-design.md)_
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           MJ FORGE COLOR SYSTEM                             │
+│                            JOINERY COLOR SYSTEM                             │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │  PRIMARY                                                                    │
@@ -1334,7 +1334,7 @@ _Continue to [Part III: Interaction Design →](03-interaction-design.md)_
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           MJ FORGE TYPOGRAPHY                               │
+│                            JOINERY TYPOGRAPHY                               │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │  FONT FAMILIES                                                              │
@@ -2022,7 +2022,7 @@ graph TB
 ## Directory Structure
 
 ```
-mj-forge/
+joinery/
 ├── src/
 │   ├── main/                          # Electron main process
 │   │   ├── index.ts                   # Main entry point
@@ -2491,7 +2491,7 @@ export function registerDatabaseHandlers(sqlService: SqlService): void {
 import { contextBridge, ipcRenderer } from 'electron';
 import { IPC_CHANNELS } from '@shared/constants/ipc-channels';
 
-export interface ForgeAPI {
+export interface JoineryAPI {
   // Connection
   connection: {
     test: (profile: ConnectionProfile) => Promise<ConnectionTestResult>;
@@ -2542,7 +2542,7 @@ export interface ForgeAPI {
   };
 }
 
-const api: ForgeAPI = {
+const api: JoineryAPI = {
   connection: {
     test: profile => ipcRenderer.invoke(IPC_CHANNELS.CONNECTION.TEST, profile),
     save: profile => ipcRenderer.invoke(IPC_CHANNELS.CONNECTION.SAVE, profile),
@@ -2554,12 +2554,12 @@ const api: ForgeAPI = {
   // ... rest of implementation
 };
 
-contextBridge.exposeInMainWorld('forge', api);
+contextBridge.exposeInMainWorld('joinery', api);
 
 // Type declaration for renderer
 declare global {
   interface Window {
-    forge: ForgeAPI;
+    joinery: JoineryAPI;
   }
 }
 ```
@@ -2906,7 +2906,7 @@ export class IpcService {
   constructor(private ngZone: NgZone) {}
 
   get api() {
-    return window.forge;
+    return window.joinery;
   }
 
   /**
@@ -3014,7 +3014,7 @@ export class ConnectionState {
 flowchart TB
     subgraph Renderer["Renderer Process (Sandboxed)"]
         UI["Angular UI"]
-        API["window.forge API"]
+        API["window.joinery API"]
     end
 
     subgraph Preload["Preload (Isolated)"]
@@ -3221,8 +3221,8 @@ export function CleanAndParseJSON<T>(jsonString: string, fallback: T): T {
 ```json
 // electron-builder.json
 {
-  "appId": "com.memberjunction.forge",
-  "productName": "MJ Forge",
+  "appId": "ca.adam11.joinery",
+  "productName": "Joinery",
   "directories": {
     "output": "dist",
     "buildResources": "resources"
@@ -3286,7 +3286,7 @@ _Continue to [Part V: Implementation Task List →](05-task-list.md)_
 
 ## Overview
 
-This section provides a comprehensive, ordered task list for implementing MJ Forge. Tasks are organized into major phases, each with detailed sub-phases and individual work items.
+This section provides a comprehensive, ordered task list for implementing Joinery. Tasks are organized into major phases, each with detailed sub-phases and individual work items.
 
 ### Task Priority Legend
 
@@ -3366,9 +3366,9 @@ This section provides a comprehensive, ordered task list for implementing MJ For
 [ ] 0.2.3  🔴 Create preload script
            File: src/preload/index.ts
            - Set up contextBridge
-           - Define and expose ForgeAPI interface
+           - Define and expose JoineryAPI interface
            - Implement IPC wrapper functions
-           - Add TypeScript declarations for window.forge
+           - Add TypeScript declarations for window.joinery
 
 [ ] 0.2.4  🟠 Implement application menu
            File: src/main/menu.ts
@@ -3406,7 +3406,7 @@ This section provides a comprehensive, ordered task list for implementing MJ For
 
 [ ] 0.3.4  🟠 Create IPC service
            File: src/renderer/app/core/services/ipc.service.ts
-           - Wrap window.forge API
+           - Wrap window.joinery API
            - Handle NgZone for callbacks
            - Add error handling and logging
 ```

@@ -13,7 +13,7 @@
 - Strict TypeScript; no `any` without justification. `npm run typecheck` clean; warnings are errors in touched files (direct ESLint per file — the renderer has no `ng lint` target, pre-existing).
 - **Branch: `feature/dsql-iam-auth` created off `dsql`** (stacked on PR #42; rebases onto main after #42 merges). Never commit to main. Per-task commits, squash at PR merge (session convention).
 - Conventional commits; every commit message ends with the two session trailer lines used on the `dsql` branch.
-- Credentials discipline: Forge stores NOTHING for IAM auth — no tokens, no AWS keys, no Keychain entry. Tokens are minted in-memory per connection by the connector from the user's `~/.aws` configuration. Never log tokens or credentials.
+- Credentials discipline: Joinery stores NOTHING for IAM auth — no tokens, no AWS keys, no Keychain entry. Tokens are minted in-memory per connection by the connector from the user's `~/.aws` configuration. Never log tokens or credentials.
 - All renderer↔main communication through typed IPC channels in `packages/shared/src/constants/ipc-channels.ts`.
 - Unit test command: `npx vitest run <path>`; suites that must stay green: `packages/main` (245+), `packages/renderer` (28+), `packages/shared`.
 - Bound every loop; no swallowed errors (config-file parse failures return `[]` but log at debug; connect errors surface with guidance).
@@ -24,7 +24,7 @@
 
 ### Why
 
-DSQL auth today in Forge (and in DBeaver/DataGrip per AWS's own docs): generate a token (15-min default expiry) out-of-band, paste it as the password. Expired token → new connections fail; AWS's documented mitigation is 7-day tokens. AWS's own SQLTools VS Code driver instead does automatic IAM auth via the official node-postgres connector — endpoint + optional AWS profile, no password field. This plan brings Forge to parity with that.
+DSQL auth today in Joinery (and in DBeaver/DataGrip per AWS's own docs): generate a token (15-min default expiry) out-of-band, paste it as the password. Expired token → new connections fail; AWS's documented mitigation is 7-day tokens. AWS's own SQLTools VS Code driver instead does automatic IAM auth via the official node-postgres connector — endpoint + optional AWS profile, no password field. This plan brings Joinery to parity with that.
 
 ### Facts established by research (verify anything load-bearing in Task 1's spike)
 
@@ -398,9 +398,7 @@ if (profile.authenticationType === 'aws-iam') {
 } else {
   const password = await this.profileStore.getPassword(profileId);
   if (!password) throw new Error('Connection password not found in Keychain');
-  pool = new PgPool({
-    /* existing options block unchanged */
-  });
+  pool = new PgPool({/* existing options block unchanged */});
 }
 ```
 
@@ -446,11 +444,11 @@ Wire it so it only triggers for `aws-iam` profiles; match the file's existing gu
 **Files:**
 
 - Modify: `packages/preload/src/index.ts` (type block AND implementation object)
-- Modify: `packages/renderer/src/app/core/services/ipc.service.ts` (+ its local `ForgeAPI` shadow interface)
+- Modify: `packages/renderer/src/app/core/services/ipc.service.ts` (+ its local `JoineryAPI` shadow interface)
 
 **Interfaces:**
 
-- Produces: `window.forge.connection.listAwsProfiles(): Promise<string[]>`; `IpcService.listAwsProfiles(): Observable<string[]>`.
+- Produces: `window.joinery.connection.listAwsProfiles(): Promise<string[]>`; `IpcService.listAwsProfiles(): Observable<string[]>`.
 
 - [ ] **Step 1: Add in all THREE places** (preload type, preload impl, ipc.service shadow interface + method):
 

@@ -1,6 +1,6 @@
-# Forge — follow-up work
+# Joinery — follow-up work
 
-Deferred items from the rebrand (PR #1), the markdown renderer swap (PR #2), and
+Deferred items from the Forge rebrand (PR #1), the markdown renderer swap (PR #2), and
 the pnpm migration (PR #3). GitHub issues are disabled on this repo, so this file
 is the backlog. Delete an entry when it lands; delete the file when it is empty.
 
@@ -31,7 +31,7 @@ regenerates from current behaviour whether or not that behaviour is correct.
 
 `packages/main/src/window.ts` installs neither `setWindowOpenHandler` nor a
 `will-navigate` handler, and `packages/renderer/src/index.html` has no CSP. The
-preload calls `contextBridge.exposeInMainWorld('forge', …)` unconditionally and
+preload calls `contextBridge.exposeInMainWorld('joinery', …)` unconditionally and
 re-runs on every document load, so **any** in-app navigation hands the full IPC
 surface — SQL execution, keychain, `openExternal` — to the destination page.
 
@@ -183,7 +183,7 @@ fastapi uvicorn pydantic` appears nowhere in README or CONTRIBUTING, while the
   or stop advertising it as turnkey.
 
 The integration suite documents the requirement in practice: it skips unless a
-Python with those modules is found, and honours `FORGE_PYTHON` to point at one.
+Python with those modules is found, and honours `JOINERY_PYTHON` to point at one.
 
 ---
 

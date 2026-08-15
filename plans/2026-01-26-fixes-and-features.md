@@ -1,11 +1,11 @@
-# MJ Forge Session: Fixes and Features
+# Joinery Session: Fixes and Features
 
 **Date**: January 26, 2026
 **Branch**: `an-bc/fixes-and-features`
 
 ## Overview
 
-This session addressed several bug fixes, feature additions, and architectural improvements to MJ Forge. The work focused on improving the query editor experience, adding SSMS-style keyboard shortcuts, and introducing MemberJunction database awareness.
+This session addressed several bug fixes, feature additions, and architectural improvements to Joinery. The work focused on improving the query editor experience, adding SSMS-style keyboard shortcuts, and introducing MemberJunction database awareness.
 
 ---
 

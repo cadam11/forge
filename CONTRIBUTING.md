@@ -1,6 +1,6 @@
-# Contributing to Forge
+# Contributing to Joinery
 
-Thank you for your interest in contributing to Forge! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to Joinery! This document provides guidelines and instructions for contributing.
 
 ## Table of Contents
 
@@ -16,8 +16,8 @@ Thank you for your interest in contributing to Forge! This document provides gui
 ## Getting Started
 
 1. Fork the repository
-2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/forge.git`
-3. Add the upstream remote: `git remote add upstream https://github.com/cadam11/forge.git`
+2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/joinery.git`
+3. Add the upstream remote: `git remote add upstream https://github.com/cadam11/joinery.git`
 
 ## Development Setup
 
@@ -53,7 +53,7 @@ pnpm run package       # Current platform
 ## Project Structure
 
 ```
-forge/
+joinery/
 ├── packages/
 │   ├── shared/        # Types, IPC channels, ai-vendors.json
 │   ├── preload/       # Electron context bridge
@@ -82,10 +82,10 @@ forge/
 
 | Package             | Purpose                                                         |
 | ------------------- | --------------------------------------------------------------- |
-| `@forgedb/shared`   | Type definitions, IPC channel constants, AI vendor config       |
-| `@forgedb/preload`  | Electron preload script with typed contextBridge API            |
-| `@forgedb/main`     | Main process: SQL, AI, Docker, Keychain services + IPC handlers |
-| `@forgedb/renderer` | Angular 18 UI with standalone components, signals, OnPush CD    |
+| `@joinery/shared`   | Type definitions, IPC channel constants, AI vendor config       |
+| `@joinery/preload`  | Electron preload script with typed contextBridge API            |
+| `@joinery/main`     | Main process: SQL, AI, Docker, Keychain services + IPC handlers |
+| `@joinery/renderer` | Angular 18 UI with standalone components, signals, OnPush CD    |
 
 ## Making Changes
 
@@ -179,7 +179,7 @@ Same as commit format: `type(scope): description`
 ### Electron (Main Process)
 
 - All Node operations in main process — never expose Node APIs to renderer
-- IPC channels typed in `@forgedb/shared`
+- IPC channels typed in `@joinery/shared`
 - Use `invoke/handle` for request-response, `send/on` for streaming
 - Credentials via Keychain only — never in files or logs
 
@@ -204,7 +204,7 @@ Same as commit format: `type(scope): description`
 
 ## Questions?
 
-- **Bugs** — [Open an issue](https://github.com/cadam11/forge/issues)
-- **Ideas** — [Start a discussion](https://github.com/cadam11/forge/discussions)
+- **Bugs** — [Open an issue](https://github.com/cadam11/joinery/issues)
+- **Ideas** — [Start a discussion](https://github.com/cadam11/joinery/discussions)
 
 Thank you for contributing!
