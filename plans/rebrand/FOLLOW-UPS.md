@@ -163,7 +163,31 @@ bug, `git show <pre-migration-sha>:package-lock.json` still has the old resoluti
 
 ---
 
-## 9. Rotate the leaked SQL Server `sa` password
+## 9. SQL dialect conversion needs Python, and says so nowhere
+
+Held out of the sqlglot vendoring PR deliberately (the plan lists these as
+separate tickets). All three are now more visible, because conversion actually
+reaches Python in packaged builds for the first time — previously it failed at
+the missing-script stage on every packaged build, so nobody got far enough to
+hit these.
+
+- **`spawn('python3')` fails on Windows**, where the interpreter is `python` or
+  `py`. `packages/main/src/services/sql/sqlglot/sqlglot-client.ts` takes a
+  `pythonPath` option; nothing probes for a working one.
+- **No setup-instructions UI.** The PG/MySQL backup dialogs already render a
+  guided platform-specific fix when their CLI tools are missing (`cli-deps.ts`);
+  conversion just returns "Python 3 is required for SQL conversion".
+- **The prerequisite is undocumented.** Python 3 plus `pip install sqlglot
+fastapi uvicorn pydantic` appears nowhere in README or CONTRIBUTING, while the
+  README advertises dialect conversion as a headline feature. Either document it
+  or stop advertising it as turnkey.
+
+The integration suite documents the requirement in practice: it skips unless a
+Python with those modules is found, and honours `FORGE_PYTHON` to point at one.
+
+---
+
+## 10. Rotate the leaked SQL Server `sa` password
 
 `mj.config.cjs` was deleted in PR #1, but it contained a plaintext `sa` password
 pointing at an `MJ_5_14_0` database and **remains in git history**. Treat the

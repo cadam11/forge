@@ -1,0 +1,337 @@
+{
+  "_comment": "Golden transpile output recorded from @memberjunction/sqlglot-ts BEFORE it was vendored. Regenerate only with a deliberate decision — these are the proof the vendored client behaves identically.",
+  "capturedFrom": "@memberjunction/sqlglot-ts@5.51.0",
+  "sqlglotVersion": "30.17.0",
+  "capturedOn": "2026-08-15",
+  "cases": [
+    {
+      "id": "top-to-limit",
+      "input": "SELECT TOP 10 * FROM users",
+      "fromDialect": "tsql",
+      "toDialect": "postgres",
+      "success": true,
+      "sql": "SELECT\n  *\nFROM users\nLIMIT 10;",
+      "statements": ["SELECT\n  *\nFROM users\nLIMIT 10"],
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "top-to-limit-mysql",
+      "input": "SELECT TOP 10 * FROM users",
+      "fromDialect": "tsql",
+      "toDialect": "mysql",
+      "success": true,
+      "sql": "SELECT\n  *\nFROM users\nLIMIT 10;",
+      "statements": ["SELECT\n  *\nFROM users\nLIMIT 10"],
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "limit-to-top",
+      "input": "SELECT * FROM users LIMIT 10",
+      "fromDialect": "postgres",
+      "toDialect": "tsql",
+      "success": true,
+      "sql": "SELECT\nTOP 10\n  *\nFROM users;",
+      "statements": ["SELECT\nTOP 10\n  *\nFROM users"],
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "isnull-to-coalesce",
+      "input": "SELECT ISNULL(name, 'unknown') FROM users",
+      "fromDialect": "tsql",
+      "toDialect": "postgres",
+      "success": true,
+      "sql": "SELECT\n  COALESCE(name, 'unknown')\nFROM users;",
+      "statements": ["SELECT\n  COALESCE(name, 'unknown')\nFROM users"],
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "isnull-to-mysql",
+      "input": "SELECT ISNULL(name, 'unknown') FROM users",
+      "fromDialect": "tsql",
+      "toDialect": "mysql",
+      "success": true,
+      "sql": "SELECT\n  COALESCE(name, 'unknown')\nFROM users;",
+      "statements": ["SELECT\n  COALESCE(name, 'unknown')\nFROM users"],
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "coalesce-roundtrip",
+      "input": "SELECT COALESCE(name, 'unknown') FROM users",
+      "fromDialect": "postgres",
+      "toDialect": "tsql",
+      "success": true,
+      "sql": "SELECT\n  COALESCE(name, 'unknown')\nFROM users;",
+      "statements": ["SELECT\n  COALESCE(name, 'unknown')\nFROM users"],
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "getdate-to-postgres",
+      "input": "SELECT GETDATE()",
+      "fromDialect": "tsql",
+      "toDialect": "postgres",
+      "success": true,
+      "sql": "SELECT\n  CURRENT_TIMESTAMP;",
+      "statements": ["SELECT\n  CURRENT_TIMESTAMP"],
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "getdate-to-mysql",
+      "input": "SELECT GETDATE()",
+      "fromDialect": "tsql",
+      "toDialect": "mysql",
+      "success": true,
+      "sql": "SELECT\n  CURRENT_TIMESTAMP();",
+      "statements": ["SELECT\n  CURRENT_TIMESTAMP()"],
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "now-to-tsql",
+      "input": "SELECT NOW()",
+      "fromDialect": "postgres",
+      "toDialect": "tsql",
+      "success": true,
+      "sql": "SELECT\n  GETDATE();",
+      "statements": ["SELECT\n  GETDATE()"],
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "dateadd",
+      "input": "SELECT DATEADD(day, 7, order_date) FROM orders",
+      "fromDialect": "tsql",
+      "toDialect": "postgres",
+      "success": true,
+      "sql": "SELECT\n  order_date + INTERVAL '7 DAY'\nFROM orders;",
+      "statements": ["SELECT\n  order_date + INTERVAL '7 DAY'\nFROM orders"],
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "brackets-to-postgres",
+      "input": "SELECT [user name] FROM [my table]",
+      "fromDialect": "tsql",
+      "toDialect": "postgres",
+      "success": true,
+      "sql": "SELECT\n  \"user name\"\nFROM \"my table\";",
+      "statements": ["SELECT\n  \"user name\"\nFROM \"my table\""],
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "brackets-to-mysql",
+      "input": "SELECT [user name] FROM [my table]",
+      "fromDialect": "tsql",
+      "toDialect": "mysql",
+      "success": true,
+      "sql": "SELECT\n  `user name`\nFROM `my table`;",
+      "statements": ["SELECT\n  `user name`\nFROM `my table`"],
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "quotes-to-tsql",
+      "input": "SELECT \"user name\" FROM \"my table\"",
+      "fromDialect": "postgres",
+      "toDialect": "tsql",
+      "success": true,
+      "sql": "SELECT\n  [user name]\nFROM [my table];",
+      "statements": ["SELECT\n  [user name]\nFROM [my table]"],
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "backticks-to-postgres",
+      "input": "SELECT `user name` FROM `my table`",
+      "fromDialect": "mysql",
+      "toDialect": "postgres",
+      "success": true,
+      "sql": "SELECT\n  \"user name\"\nFROM \"my table\";",
+      "statements": ["SELECT\n  \"user name\"\nFROM \"my table\""],
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "concat-plus",
+      "input": "SELECT first_name + ' ' + last_name FROM users",
+      "fromDialect": "tsql",
+      "toDialect": "postgres",
+      "success": true,
+      "sql": "SELECT\n  first_name + ' ' + last_name\nFROM users;",
+      "statements": ["SELECT\n  first_name + ' ' + last_name\nFROM users"],
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "substring",
+      "input": "SELECT SUBSTRING(name, 1, 3) FROM users",
+      "fromDialect": "tsql",
+      "toDialect": "mysql",
+      "success": true,
+      "sql": "SELECT\n  SUBSTRING(name, 1, 3)\nFROM users;",
+      "statements": ["SELECT\n  SUBSTRING(name, 1, 3)\nFROM users"],
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "len-to-length",
+      "input": "SELECT LEN(name) FROM users",
+      "fromDialect": "tsql",
+      "toDialect": "postgres",
+      "success": true,
+      "sql": "SELECT\n  LENGTH(CAST(name AS TEXT))\nFROM users;",
+      "statements": ["SELECT\n  LENGTH(CAST(name AS TEXT))\nFROM users"],
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "cast-varchar",
+      "input": "SELECT CAST(id AS VARCHAR(50)) FROM users",
+      "fromDialect": "tsql",
+      "toDialect": "postgres",
+      "success": true,
+      "sql": "SELECT\n  CAST(id AS VARCHAR(50))\nFROM users;",
+      "statements": ["SELECT\n  CAST(id AS VARCHAR(50))\nFROM users"],
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "bit-type",
+      "input": "CREATE TABLE t (flag BIT NOT NULL)",
+      "fromDialect": "tsql",
+      "toDialect": "postgres",
+      "success": true,
+      "sql": "CREATE TABLE t (\n  flag BIT NOT NULL\n);",
+      "statements": ["CREATE TABLE t (\n  flag BIT NOT NULL\n)"],
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "identity-column",
+      "input": "CREATE TABLE t (id INT IDENTITY(1,1) PRIMARY KEY)",
+      "fromDialect": "tsql",
+      "toDialect": "postgres",
+      "success": true,
+      "sql": "CREATE TABLE t (\n  id INT GENERATED BY DEFAULT AS IDENTITY (START WITH 1 INCREMENT BY 1) PRIMARY KEY\n);",
+      "statements": [
+        "CREATE TABLE t (\n  id INT GENERATED BY DEFAULT AS IDENTITY (START WITH 1 INCREMENT BY 1) PRIMARY KEY\n)"
+      ],
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "inner-join",
+      "input": "SELECT u.id, o.total FROM users u INNER JOIN orders o ON o.user_id = u.id",
+      "fromDialect": "tsql",
+      "toDialect": "mysql",
+      "success": true,
+      "sql": "SELECT\n  u.id,\n  o.total\nFROM users AS u\nINNER JOIN orders AS o\n  ON o.user_id = u.id;",
+      "statements": [
+        "SELECT\n  u.id,\n  o.total\nFROM users AS u\nINNER JOIN orders AS o\n  ON o.user_id = u.id"
+      ],
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "group-having",
+      "input": "SELECT user_id, COUNT(*) c FROM orders GROUP BY user_id HAVING COUNT(*) > 5",
+      "fromDialect": "postgres",
+      "toDialect": "tsql",
+      "success": true,
+      "sql": "SELECT\n  user_id,\n  COUNT_BIG(*) AS c\nFROM orders\nGROUP BY\n  user_id\nHAVING\n  COUNT_BIG(*) > 5;",
+      "statements": [
+        "SELECT\n  user_id,\n  COUNT_BIG(*) AS c\nFROM orders\nGROUP BY\n  user_id\nHAVING\n  COUNT_BIG(*) > 5"
+      ],
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "cte",
+      "input": "WITH recent AS (SELECT * FROM orders WHERE total > 100) SELECT * FROM recent",
+      "fromDialect": "postgres",
+      "toDialect": "mysql",
+      "success": true,
+      "sql": "WITH recent AS (\n  SELECT\n    *\n  FROM orders\n  WHERE\n    total > 100\n)\nSELECT\n  *\nFROM recent;",
+      "statements": [
+        "WITH recent AS (\n  SELECT\n    *\n  FROM orders\n  WHERE\n    total > 100\n)\nSELECT\n  *\nFROM recent"
+      ],
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "window-fn",
+      "input": "SELECT id, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC) rn FROM orders",
+      "fromDialect": "tsql",
+      "toDialect": "postgres",
+      "success": true,
+      "sql": "SELECT\n  id,\n  ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC NULLS LAST) AS rn\nFROM orders;",
+      "statements": [
+        "SELECT\n  id,\n  ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC NULLS LAST) AS rn\nFROM orders"
+      ],
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "multi-statement",
+      "input": "SELECT 1; SELECT 2;",
+      "fromDialect": "tsql",
+      "toDialect": "postgres",
+      "success": true,
+      "sql": "SELECT\n  1;\nSELECT\n  2;",
+      "statements": ["SELECT\n  1", "SELECT\n  2"],
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "roundtrip-a",
+      "input": "SELECT TOP 5 name FROM users WHERE id > 10",
+      "fromDialect": "tsql",
+      "toDialect": "postgres",
+      "success": true,
+      "sql": "SELECT\n  name\nFROM users\nWHERE\n  id > 10\nLIMIT 5;",
+      "statements": ["SELECT\n  name\nFROM users\nWHERE\n  id > 10\nLIMIT 5"],
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "roundtrip-b",
+      "input": "SELECT name FROM users WHERE id > 10 LIMIT 5",
+      "fromDialect": "postgres",
+      "toDialect": "tsql",
+      "success": true,
+      "sql": "SELECT\nTOP 5\n  name\nFROM users\nWHERE\n  id > 10;",
+      "statements": ["SELECT\nTOP 5\n  name\nFROM users\nWHERE\n  id > 10"],
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "identity-postgres",
+      "input": "SELECT a FROM b WHERE c = 1",
+      "fromDialect": "postgres",
+      "toDialect": "postgres",
+      "success": true,
+      "sql": "SELECT\n  a\nFROM b\nWHERE\n  c = 1;",
+      "statements": ["SELECT\n  a\nFROM b\nWHERE\n  c = 1"],
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "syntax-error",
+      "input": "SELECT FROM WHERE",
+      "fromDialect": "tsql",
+      "toDialect": "postgres",
+      "success": true,
+      "sql": "SELECT\nFROM \nWHERE;",
+      "statements": ["SELECT\nFROM \nWHERE"],
+      "errors": [],
+      "warnings": []
+    }
+  ]
+}

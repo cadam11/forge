@@ -53,7 +53,6 @@
     "@aws-sdk/dsql-signer": "^3.1091.0",
     "@aws/aurora-dsql-node-postgres-connector": "^0.1.9",
     "@azure/msal-node": "^5.1.2",
-    "@memberjunction/sqlglot-ts": "^5.23.0",
     "devicon": "^2.17.0",
     "dockerode": "^4.0.2",
     "electron-store": "^8.2.0",

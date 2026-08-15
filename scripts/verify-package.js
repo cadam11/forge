@@ -39,7 +39,6 @@ const JS_MODULES = [
   'ssh2',
   'uuid',
   '@forgedb/shared',
-  '@memberjunction/sqlglot-ts',
   '@azure/msal-node',
   '@aws-sdk/dsql-signer',
   '@aws-sdk/credential-providers',
@@ -100,6 +99,33 @@ function buildProbeSource(extractDir) {
   `;
 }
 
+/**
+ * The sqlglot server is spawned as an external python3 process, so it must live
+ * OUTSIDE app.asar. An in-asar copy passes Node's existsSync through Electron's
+ * shim but python3 cannot open it, and the failure surfaces as the misleading
+ * "Python 3 is required". Checked here because only a packaged build can show it.
+ */
+function checkExternalResources(asarPath, asarEntries) {
+  const resourcesDir = path.dirname(asarPath);
+  const serverScript = path.join(resourcesDir, 'resources', 'python', 'sqlglot-server.py');
+  let failures = 0;
+
+  if (fs.existsSync(serverScript)) {
+    console.log(`  ok    ${'sqlglot-server.py (outside asar)'.padEnd(44)}`);
+  } else {
+    console.log(`  FAIL  ${'sqlglot-server.py'.padEnd(44)} not found at ${serverScript}`);
+    failures++;
+  }
+
+  const inAsar = asarEntries.filter((f) => f.endsWith('sqlglot-server.py'));
+  if (inAsar.length > 0) {
+    console.log(`  FAIL  ${'sqlglot-server.py'.padEnd(44)} also packed INSIDE the asar: ${inAsar[0]}`);
+    failures++;
+  }
+
+  return failures;
+}
+
 function report(results) {
   let failures = 0;
   for (const r of results) {
@@ -130,6 +156,7 @@ const extractDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'forge-
 let failures = 1;
 try {
   console.log(`Verifying ${path.relative(ROOT_DIR, asarPath)}`);
+  const asarEntries = asar.listPackage(asarPath, { isPack: false });
   asar.extractAll(asarPath, extractDir);
   writeElectronStub(extractDir);
 
@@ -139,6 +166,7 @@ try {
     env: { ...process.env, NODE_PATH: '' },
   });
   failures = report(JSON.parse(stdout.trim().split('\n').pop()));
+  failures += checkExternalResources(asarPath, asarEntries);
 } finally {
   fs.rmSync(extractDir, { recursive: true, force: true });
 }
