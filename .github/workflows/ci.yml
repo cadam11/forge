@@ -39,6 +39,16 @@ jobs:
       - name: Build shared package
         run: pnpm --filter @joinery/shared exec tsc --build
 
+      # Same reason as the step above: dist/ is gitignored, so on a clean checkout there
+      # are no declarations to type-check against. packages/renderer-react imports
+      # `JoineryAPI` from @joinery/preload, which resolves via the package's
+      # "types": "dist/index.d.ts" — absent here until something emits it. The
+      # "Type-check preload" step below cannot serve: it is --noEmit, and it runs after.
+      # Must follow the shared build, because preload's declaration emit is a composite
+      # project referencing packages/shared.
+      - name: Build preload package
+        run: pnpm --filter @joinery/preload run build
+
       - name: Type-check main
         run: pnpm exec tsc --noEmit -p packages/main/tsconfig.json
 
