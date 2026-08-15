@@ -1,5 +1,14 @@
 # Forge - SQL Database Manager for Mac
 
+## Session model: coordinator + Opus subagents (Craig's standing instruction)
+
+- The main Claude Code session in this repo is a **coordinator**: it holds minimal context, does no implementation work itself, and dispatches **Opus subagents** (Agent tool, `model: "opus"`, structured via the superpowers subagent-driven-development skill) for all real work — code, scrubs, UI, tests. It writes briefs, reviews reports, and keeps durable notes current.
+- The coordinator is **restartable at any time**: everything it needs lives in this section, `plans/rebrand/` (esp. `JOINERY-RENAME-PLAN.md` and `FOLLOW-UPS.md`), the SDD ledger under `.superpowers/sdd/`, and the session memory directory. A fresh coordinator should read those before dispatching anything.
+- **Rebrand in progress**: the product's new name is **Joinery** (clean break from MJ Forge / Forge prior art). Brand kit: `docs/brand/`. Naming table and settled decisions: `plans/rebrand/JOINERY-RENAME-PLAN.md`. Repo is already `github.com/cadam11/joinery`.
+- **Priorities to v1**: (1) scrub all MJ / MemberJunction / Forge mentions everywhere, (2) UI overhaul using the brand kit (old UI is janky), (3) verify database querying works end-to-end. Then plan a v1 release.
+- **Docker note**: integration/e2e/visual test tiers need Docker DBs; Craig starts Docker Desktop manually — **ping him before running those tiers**.
+- Solo project: no reviewer besides Craig, and he only reviews high-level architecture/design/security/tradeoffs. PRs still required (never commit to `main`), but the coordinator merges routine PRs after its own subagent review passes.
+
 ## Project Overview
 
 Forge is a native macOS desktop application providing database management workflows for **SQL Server**, **PostgreSQL**, and **MySQL**. Built with Electron + Angular + Node.js.
