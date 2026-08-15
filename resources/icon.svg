@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Joinery app icon</title>
+  <desc id="desc">Three descending fitted bars in oxide, ivory, and signal chartreuse.</desc>
+  <rect x="64" y="64" width="896" height="896" rx="224" fill="#171817" />
+  <rect
+    x="74"
+    y="74"
+    width="876"
+    height="876"
+    rx="214"
+    fill="none"
+    stroke="#272a27"
+    stroke-width="20"
+  />
+  <path d="M260 250H780L710 390H190Z" fill="#d6492f" />
+  <path d="M260 442H660L590 582H190Z" fill="#f2efe7" />
+  <path d="M260 634H540L470 774H190Z" fill="#c8f04a" />
+</svg>

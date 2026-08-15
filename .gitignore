@@ -50,3 +50,5 @@ test-results.package.json.bak
 test-results/
 
 **/*.local.json
+.envrc
+

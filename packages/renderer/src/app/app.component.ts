@@ -80,7 +80,7 @@ export class AppComponent implements OnInit {
 
   // Loading state
   readonly loading = signal(true);
-  readonly loadingMessage = signal('Starting Forge...');
+  readonly loadingMessage = signal('Starting Joinery...');
 
   constructor() {
     // Register custom SVG icons

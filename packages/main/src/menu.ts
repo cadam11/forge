@@ -391,7 +391,7 @@ export function createMenu(): void {
       role: 'help',
       submenu: [
         {
-          label: 'Forge Documentation',
+          label: 'Joinery Documentation',
           click: async () => {
             await shell.openExternal('https://github.com/cadam11/forge/wiki');
           },

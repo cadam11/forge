@@ -139,7 +139,7 @@ import type { ToolCallResult } from '@forgedb/shared';
               <!-- Empty state -->
               <div class="chat-empty">
                 <div class="chat-empty-icon">✨</div>
-                <h4>Forge AI</h4>
+                <h4>Joinery AI</h4>
                 <p>
                   Ask me anything about your database. I can query data, create tables, explore
                   schema, and more.

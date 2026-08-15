@@ -31,7 +31,7 @@ import type { CliInstallInstructions, CliInstallStep, CliToolStatus } from '@for
         <div class="header-text">
           <h3>{{ instructions.title }}</h3>
           <p class="lede">
-            Forge needs the
+            Joinery needs the
             {{ engineLabel() }} command-line tools installed on this machine to back up and restore
             databases. They are not bundled with the app.
           </p>

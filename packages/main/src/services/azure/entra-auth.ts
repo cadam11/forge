@@ -339,7 +339,7 @@ function successPage(): string {
 .card{max-width:420px;margin:auto;background:#fff;padding:28px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
 h2{margin:0 0 12px;font-weight:500}</style></head>
 <body><div class="card"><h2>Signed in to Microsoft Entra ID</h2>
-<p>You can close this window and return to Forge.</p></div></body></html>`;
+<p>You can close this window and return to Joinery.</p></div></body></html>`;
 }
 
 function failurePage(msg: string): string {

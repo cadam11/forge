@@ -64,8 +64,10 @@ import type { DatabaseEngine } from '@forgedb/shared';
       <!-- Header (with padding for macOS traffic lights) -->
       <div class="sidebar-header">
         <div class="logo-area">
-          <img class="app-icon" src="assets/icons/logo.png" alt="Forge" />
-          <span class="logo">Forge</span>
+          <span class="sidebar-joinery-stack" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </span>
+          <span class="logo">Joinery</span>
         </div>
         <button
           mat-icon-button
@@ -380,17 +382,45 @@ import type { DatabaseEngine } from '@forgedb/shared';
         gap: 8px;
       }
 
-      .app-icon {
-        width: 28px;
-        height: 28px;
-        object-fit: contain;
+      .logo {
+        color: #f2efe7;
+        font-family: 'Instrument Sans', 'Inter', sans-serif;
+        font-size: 19px;
+        font-weight: 800;
+        letter-spacing: -0.04em;
       }
 
-      .logo {
-        font-size: 18px;
-        font-weight: 800;
-        color: var(--text-primary);
-        letter-spacing: 0.5px;
+      .sidebar-joinery-stack {
+        position: relative;
+        display: inline-block;
+        width: 27px;
+        height: 27px;
+      }
+
+      .sidebar-joinery-stack span {
+        position: absolute;
+        left: 3px;
+        display: block;
+        height: 6px;
+        transform: skewX(-24deg);
+      }
+
+      .sidebar-joinery-stack span:nth-child(1) {
+        top: 2px;
+        width: 23px;
+        background: #d6492f;
+      }
+
+      .sidebar-joinery-stack span:nth-child(2) {
+        top: 10px;
+        width: 17px;
+        background: #f2efe7;
+      }
+
+      .sidebar-joinery-stack span:nth-child(3) {
+        top: 18px;
+        width: 11px;
+        background: #c8f04a;
       }
 
       .connection-selector,

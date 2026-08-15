@@ -2,7 +2,6 @@ import { Component, inject, OnInit, ViewChild, ElementRef } from '@angular/core'
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
-import { MatCardModule } from '@angular/material/card';
 import { MatDialog } from '@angular/material/dialog';
 import { ConnectionStateService } from '../../core/state/connection.state';
 import { ExplorerStateService } from '../../core/state/explorer.state';
@@ -20,82 +19,62 @@ import type { DockerStatus, DockerContainer } from '@forgedb/shared';
 @Component({
   selector: 'app-welcome',
   standalone: true,
-  imports: [CommonModule, MatIconModule, MatButtonModule, MatCardModule],
+  imports: [CommonModule, MatIconModule, MatButtonModule],
   template: `
     <div class="welcome-container">
-      <div class="welcome-header">
-        <div class="logo-section">
-          <mat-icon class="app-logo">storage</mat-icon>
-          <h1>Forge</h1>
-          <p class="tagline">Multi-engine SQL IDE for macOS &amp; Windows</p>
-        </div>
-      </div>
-
-      <div class="welcome-content">
-        <!-- Quick Actions -->
-        <section class="quick-actions">
-          <h2>Quick Actions</h2>
-          <div class="action-cards">
-            <mat-card
-              class="action-card"
-              tabindex="0"
-              role="button"
-              aria-label="New Connection"
-              (click)="newConnection()"
-              (keydown.enter)="newConnection()"
-              (keydown.space)="newConnection(); $event.preventDefault()"
-            >
-              <mat-icon>add_circle</mat-icon>
-              <h3>New Connection</h3>
-              <p>Connect to a database</p>
-            </mat-card>
-
-            @if (connectionState.hasProfiles()) {
-              <mat-card
-                class="action-card"
-                tabindex="0"
-                role="button"
-                aria-label="Recent Connection"
-                (click)="reconnect()"
-                (keydown.enter)="reconnect()"
-                (keydown.space)="reconnect(); $event.preventDefault()"
-              >
-                <mat-icon>refresh</mat-icon>
-                <h3>Recent Connection</h3>
-                <p>{{ recentConnectionName }}</p>
-              </mat-card>
-            }
-
-            <mat-card
-              class="action-card"
-              tabindex="0"
-              role="button"
-              aria-label="Docker Containers"
-              (click)="openDockerSection()"
-              (keydown.enter)="openDockerSection()"
-              (keydown.space)="openDockerSection(); $event.preventDefault()"
-            >
-              <mat-icon>sailing</mat-icon>
-              <h3>Docker Containers</h3>
-              <p>{{ dockerStatusText }}</p>
-            </mat-card>
-
-            <mat-card
-              class="action-card tour-card"
-              tabindex="0"
-              role="button"
-              aria-label="Take a Tour"
-              (click)="startTour()"
-              (keydown.enter)="startTour()"
-              (keydown.space)="startTour(); $event.preventDefault()"
-            >
-              <mat-icon>explore</mat-icon>
-              <h3>Take a Tour</h3>
-              <p>Learn the basics of Forge</p>
-            </mat-card>
+      <section class="concept-shell joinery-concept" aria-label="Joinery welcome">
+        <header class="concept-nav">
+          <div class="concept-lockup">
+            <span class="joinery-stack-mark" aria-hidden="true">
+              <span></span><span></span><span></span>
+            </span>
+            <strong>Joinery</strong>
           </div>
-        </section>
+          <span class="concept-index">RELATIONAL WORKBENCH / LOCAL DESKTOP</span>
+        </header>
 
+        <div class="concept-hero-grid">
+          <div class="concept-copy">
+            <span class="concept-kicker">SQL SERVER · POSTGRESQL · MYSQL</span>
+            <h1>Your database,<br />fitted to the way<br />you <em>work.</em></h1>
+            <p>
+              Write, understand, and safely operate across every relationship—with AI that reads the
+              schema and shows its work.
+            </p>
+            <div class="concept-cta-row">
+              <button class="concept-primary" (click)="newConnection()">
+                Fit a connection <span>↗</span>
+              </button>
+              <button class="concept-secondary" (click)="startTour()">See how it joins</button>
+            </div>
+          </div>
+
+          <div class="joinery-diagram" aria-hidden="true">
+            <span class="diagram-label">RELATION / 03</span>
+            <div class="relation-node node-a"><b>customers</b><small>id · name</small></div>
+            <div class="relation-link"><span>customer_id</span></div>
+            <div class="relation-node node-b"><b>orders</b><small>id · total</small></div>
+            <div class="join-status">JOIN VERIFIED <b>18 ms</b></div>
+          </div>
+        </div>
+
+        <div class="concept-action-grid">
+          <button (click)="newConnection()">
+            <span>01</span><strong>CONNECT</strong><small>Secure credentials</small>
+          </button>
+          <button (click)="openDockerSection()">
+            <span>02</span><strong>UNDERSTAND</strong><small>{{ dockerStatusText }}</small>
+          </button>
+          <button (click)="openChat()">
+            <span>03</span><strong>QUERY</strong><small>Ask with context</small>
+          </button>
+          <button (click)="startTour()">
+            <span>04</span><strong>VERIFY</strong><small>Inspect every action</small>
+          </button>
+        </div>
+      </section>
+
+      <div class="welcome-content shared-content">
         <!-- Recent Connections -->
         @if (connectionState.hasProfiles()) {
           <section class="recent-connections">
@@ -195,8 +174,8 @@ import type { DockerStatus, DockerContainer } from '@forgedb/shared';
               <div>
                 <h4>Connect to a Database</h4>
                 <p>
-                  Forge speaks SQL Server, PostgreSQL, and MySQL. Make sure your server is reachable
-                  over the network — directly or through an SSH tunnel.
+                  Joinery speaks SQL Server, PostgreSQL, and MySQL. Make sure your server is
+                  reachable over the network — directly or through an SSH tunnel.
                 </p>
               </div>
             </div>
@@ -205,7 +184,7 @@ import type { DockerStatus, DockerContainer } from '@forgedb/shared';
               <div>
                 <h4>Use Docker for Local Development</h4>
                 <p>
-                  Running databases in Docker is the easiest way to develop locally. Forge detects
+                  Running databases in Docker is the easiest way to develop locally. Joinery detects
                   SQL Server, PostgreSQL, and MySQL containers automatically.
                 </p>
               </div>
@@ -241,40 +220,378 @@ import type { DockerStatus, DockerContainer } from '@forgedb/shared';
         overflow-y: auto;
       }
 
-      .welcome-header {
-        text-align: center;
-        padding: var(--spacing-xl) 0;
+      .concept-shell {
+        --concept-bg: #121514;
+        --concept-ink: #f4efe5;
+        --concept-muted: #a5aaa5;
+        --concept-rule: #363c39;
+        --concept-accent: #ff5b35;
+        --concept-signal: #c9ff3f;
+        position: relative;
+        width: min(1120px, 100%);
+        height: max-content;
+        min-height: 704px;
+        margin: 0 auto 48px;
+        padding: 30px 34px 0;
+        overflow: hidden;
+        color: var(--concept-ink);
+        background: var(--concept-bg);
+        border: 1px solid var(--concept-rule);
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.24);
+        font-family: 'IBM Plex Mono', 'JetBrains Mono', monospace;
       }
 
-      .logo-section {
+      .concept-nav,
+      .concept-lockup,
+      .concept-cta-row,
+      .join-status {
+        display: flex;
+        align-items: center;
+      }
+
+      .concept-nav {
+        justify-content: space-between;
+        padding-bottom: 22px;
+        border-bottom: 1px solid var(--concept-rule);
+      }
+
+      .concept-lockup {
+        gap: 12px;
+      }
+
+      .concept-lockup strong {
+        color: var(--concept-ink);
+        font-family: 'Arial Narrow', 'Helvetica Neue', sans-serif;
+        font-size: 22px;
+        font-weight: 800;
+        letter-spacing: -0.04em;
+      }
+
+      .concept-index,
+      .concept-kicker,
+      .diagram-label {
+        color: var(--concept-muted);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.13em;
+      }
+
+      .concept-hero-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.05fr) minmax(340px, 0.95fr);
+        gap: clamp(36px, 7vw, 88px);
+        align-items: center;
+        padding: 54px 4px 48px;
+      }
+
+      .concept-copy h1 {
+        max-width: 650px;
+        margin: 14px 0 18px;
+        color: var(--concept-ink);
+        font-family: 'Arial Narrow', 'Helvetica Neue', sans-serif;
+        font-size: clamp(42px, 5.4vw, 72px);
+        font-stretch: condensed;
+        font-weight: 900;
+        letter-spacing: -0.065em;
+        line-height: 0.9;
+        text-transform: uppercase;
+      }
+
+      .concept-copy h1 em {
+        color: var(--concept-accent);
+        font-style: normal;
+      }
+
+      .concept-copy > p {
+        max-width: 610px;
+        margin: 0;
+        color: var(--concept-muted);
+        font-family: 'Inter', sans-serif;
+        font-size: 14px;
+        line-height: 1.65;
+      }
+
+      .concept-cta-row {
+        gap: 10px;
+        margin-top: 26px;
+      }
+
+      .concept-cta-row button {
+        min-height: 42px;
+        padding: 0 17px;
+        border: 1px solid var(--concept-rule);
+        border-radius: 0;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.035em;
+      }
+
+      .concept-cta-row .concept-primary {
+        display: inline-flex;
+        gap: 22px;
+        align-items: center;
+        color: #fff;
+        background: var(--concept-accent);
+        border-color: var(--concept-accent);
+      }
+
+      .concept-cta-row .concept-secondary {
+        color: var(--concept-ink);
+        background: transparent;
+      }
+
+      .concept-action-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        margin: 0 -34px;
+        border-top: 1px solid var(--concept-rule);
+      }
+
+      .concept-action-grid button {
+        position: relative;
+        display: grid;
+        grid-template-columns: 30px 1fr;
+        grid-template-rows: auto auto;
+        gap: 1px 10px;
+        min-height: 88px;
+        padding: 19px 20px;
+        color: var(--concept-ink);
+        text-align: left;
+        border-right: 1px solid var(--concept-rule);
+        border-radius: 0;
+        transition:
+          background 140ms ease,
+          color 140ms ease;
+      }
+
+      .concept-action-grid button:last-child {
+        border-right: 0;
+      }
+
+      .concept-action-grid button:hover {
+        color: var(--concept-bg);
+        background: var(--concept-signal);
+      }
+
+      .concept-action-grid span {
+        grid-row: 1 / 3;
+        color: var(--concept-accent);
+        font-size: 10px;
+        font-weight: 800;
+      }
+
+      .concept-action-grid button:hover span {
+        color: var(--concept-bg);
+      }
+
+      .concept-action-grid strong {
+        font-size: 12px;
+        letter-spacing: 0.08em;
+      }
+
+      .concept-action-grid small {
+        color: var(--concept-muted);
+        font-family: 'Inter', sans-serif;
+        font-size: 10px;
+      }
+
+      .concept-action-grid button:hover small {
+        color: color-mix(in srgb, var(--concept-bg) 72%, transparent);
+      }
+
+      .joinery-concept {
+        --concept-bg: #f2efe7;
+        --concept-ink: #171817;
+        --concept-muted: #676961;
+        --concept-rule: #b9b8ae;
+        --concept-accent: #d6492f;
+        --concept-signal: #c8f04a;
+        background:
+          linear-gradient(
+            118deg,
+            transparent 0 82%,
+            rgba(214, 73, 47, 0.08) 82% 86%,
+            transparent 86%
+          ),
+          #f2efe7;
+      }
+
+      .joinery-stack-mark {
+        position: relative;
+        display: inline-block;
+        width: 32px;
+        height: 32px;
+      }
+
+      .joinery-stack-mark span {
+        position: absolute;
+        left: 3px;
+        display: block;
+        height: 7px;
+        transform: skewX(-24deg);
+      }
+
+      .joinery-stack-mark span:nth-child(1) {
+        top: 2px;
+        width: 27px;
+        background: var(--concept-accent);
+      }
+
+      .joinery-stack-mark span:nth-child(2) {
+        top: 12px;
+        width: 20px;
+        background: var(--concept-ink);
+      }
+
+      .joinery-stack-mark span:nth-child(3) {
+        top: 22px;
+        width: 13px;
+        background: var(--concept-signal);
+      }
+
+      .joinery-concept .concept-lockup strong {
+        font-family: 'Instrument Sans', 'Inter', sans-serif;
+        font-size: 23px;
+        letter-spacing: -0.05em;
+        text-transform: none;
+      }
+
+      .joinery-diagram {
+        position: relative;
+        min-height: 250px;
+        border: 1px solid var(--concept-rule);
+        background:
+          linear-gradient(rgba(23, 24, 23, 0.06) 1px, transparent 1px) 0 0 / 100% 32px,
+          linear-gradient(90deg, rgba(23, 24, 23, 0.06) 1px, transparent 1px) 0 0 / 32px 100%,
+          #fbfaf5;
+      }
+
+      .diagram-label {
+        position: absolute;
+        top: 15px;
+        left: 17px;
+        color: var(--concept-accent);
+      }
+
+      .relation-node {
+        position: absolute;
+        z-index: 1;
         display: flex;
         flex-direction: column;
-        align-items: center;
-        gap: var(--spacing-sm);
+        width: 142px;
+        padding: 14px;
+        background: #fbfaf5;
+        border: 1px solid var(--concept-ink);
+        box-shadow: 6px 6px 0 rgba(23, 24, 23, 0.12);
+      }
 
-        .app-logo {
-          font-size: 64px;
-          width: 64px;
-          height: 64px;
-          color: var(--status-info);
+      .relation-node b {
+        font-size: 12px;
+      }
+
+      .relation-node small {
+        margin-top: 5px;
+        color: var(--concept-muted);
+        font-size: 9px;
+      }
+
+      .node-a {
+        top: 70px;
+        left: 26px;
+      }
+
+      .node-b {
+        top: 132px;
+        right: 26px;
+      }
+
+      .relation-link {
+        position: absolute;
+        top: 105px;
+        left: 142px;
+        width: 142px;
+        height: 72px;
+        border-top: 3px solid var(--concept-accent);
+        border-right: 3px solid var(--concept-accent);
+      }
+
+      .relation-link span {
+        position: absolute;
+        top: -18px;
+        right: 3px;
+        color: var(--concept-accent);
+        font-size: 8px;
+      }
+
+      .join-status {
+        position: absolute;
+        right: 16px;
+        bottom: 14px;
+        gap: 16px;
+        padding: 7px 10px;
+        color: #171817;
+        background: var(--concept-signal);
+        font-size: 8px;
+        letter-spacing: 0.08em;
+      }
+
+      @media (max-width: 860px) {
+        .concept-shell {
+          padding: 24px 24px 0;
         }
 
-        h1 {
-          font-size: 32px;
-          font-weight: 700;
-          margin: 0;
-          color: var(--text-primary);
+        .concept-index {
+          display: none;
         }
 
-        .tagline {
-          color: var(--text-secondary);
-          margin: 0;
+        .concept-hero-grid {
+          grid-template-columns: 1fr;
+          gap: 34px;
+          padding: 40px 0;
+        }
+
+        .concept-copy h1 {
+          font-size: clamp(38px, 11vw, 62px);
+        }
+
+        .concept-action-grid {
+          grid-template-columns: repeat(2, 1fr);
+          margin: 0 -24px;
+        }
+
+        .concept-action-grid button:nth-child(2) {
+          border-right: 0;
+        }
+
+        .concept-action-grid button:nth-child(-n + 2) {
+          border-bottom: 1px solid var(--concept-rule);
+        }
+      }
+
+      @media (max-width: 520px) {
+        .welcome-container {
+          padding: var(--spacing-md);
+        }
+
+        .concept-cta-row {
+          align-items: stretch;
+          flex-direction: column;
+        }
+
+        .concept-action-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .concept-action-grid button,
+        .concept-action-grid button:nth-child(2) {
+          border-right: 0;
+          border-bottom: 1px solid var(--concept-rule);
         }
       }
 
       .welcome-content {
         flex: 1;
-        max-width: 900px;
+        max-width: 1120px;
         margin: 0 auto;
         width: 100%;
       }
@@ -287,48 +604,6 @@ import type { DockerStatus, DockerContainer } from '@forgedb/shared';
           font-weight: 600;
           color: var(--text-primary);
           margin-bottom: var(--spacing-md);
-        }
-      }
-
-      .action-cards {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: var(--spacing-md);
-      }
-
-      .action-card {
-        padding: var(--spacing-lg);
-        cursor: pointer;
-        transition:
-          background-color var(--transition-fast),
-          transform var(--transition-fast);
-        background-color: var(--bg-secondary);
-        border: 1px solid var(--border-primary);
-
-        &:hover {
-          background-color: var(--bg-hover);
-          transform: translateY(-2px);
-        }
-
-        mat-icon {
-          font-size: 32px;
-          width: 32px;
-          height: 32px;
-          color: var(--status-info);
-          margin-bottom: var(--spacing-sm);
-        }
-
-        h3 {
-          font-size: var(--font-size-md);
-          font-weight: 600;
-          margin: 0 0 var(--spacing-xs);
-          color: var(--text-primary);
-        }
-
-        p {
-          font-size: var(--font-size-sm);
-          color: var(--text-secondary);
-          margin: 0;
         }
       }
 

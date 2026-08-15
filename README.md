@@ -1,4 +1,4 @@
-<h1 align="center">Forge</h1>
+<h1 align="center">Joinery</h1>
 
 <p align="center">
   <strong>An AI-native SQL IDE for SQL Server, PostgreSQL, and MySQL — on macOS & Windows</strong>
@@ -17,7 +17,8 @@
   <a href="#features">Features</a> •
   <a href="#ai-assistant">AI Assistant</a> •
   <a href="#download">Download</a> •
-  <a href="#why-forge">Why Forge?</a> •
+  <a href="#why-joinery">Why Joinery?</a> •
+  <a href="docs/brand/README.md">Brand Kit</a> •
   <a href="#contributing">Contributing</a>
 </p>
 
@@ -31,9 +32,9 @@
 
 ---
 
-## What is Forge?
+## What is Joinery?
 
-Forge is a desktop database IDE with a built-in AI assistant that can query your data, explain schemas, generate SQL, and execute actions — all through natural conversation. It speaks **SQL Server**, **PostgreSQL**, and **MySQL** natively, with engine-aware tools, dialect-aware SQL conversion, and unified workflows across all three.
+Joinery is a desktop database IDE with a built-in AI assistant that can query your data, explain schemas, generate SQL, and execute actions — all through natural conversation. It speaks **SQL Server**, **PostgreSQL**, and **MySQL** natively, with engine-aware tools, dialect-aware SQL conversion, and unified workflows across all three.
 
 Think of it as **SSMS / pgAdmin / Workbench meets Cursor** — a multi-engine database management environment where AI understands your schema and can take action.
 
@@ -43,7 +44,7 @@ Think of it as **SSMS / pgAdmin / Workbench meets Cursor** — a multi-engine da
 
 ### Multi-Engine, One Workflow
 
-Forge speaks three database dialects fluently:
+Joinery speaks three database dialects fluently:
 
 - **SQL Server** (2017+, including Azure SQL Database)
 - **PostgreSQL** (12+)
@@ -130,7 +131,7 @@ See exactly what the optimizer is doing — across **all three engines**. SQL Se
 
 ## AI Assistant
 
-The AI assistant is the heart of Forge. Here's what a typical interaction looks like:
+The AI assistant is the heart of Joinery. Here's what a typical interaction looks like:
 
 **You:** "Show me the top 10 customers by total order value"
 
@@ -184,17 +185,17 @@ The AI has access to these tools — each one is schema-aware and engine-aware:
 
 ### macOS
 
-| Chip          | Installer                                                                       | Portable                                                 |
-| ------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| Apple Silicon | [Forge-\<version\>-arm64.dmg](https://github.com/cadam11/forge/releases/latest) | [.zip](https://github.com/cadam11/forge/releases/latest) |
-| Intel         | [Forge-\<version\>-x64.dmg](https://github.com/cadam11/forge/releases/latest)   | [.zip](https://github.com/cadam11/forge/releases/latest) |
+| Chip          | Installer                                                                         | Portable                                                 |
+| ------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Apple Silicon | [Joinery-\<version\>-arm64.dmg](https://github.com/cadam11/forge/releases/latest) | [.zip](https://github.com/cadam11/forge/releases/latest) |
+| Intel         | [Joinery-\<version\>-x64.dmg](https://github.com/cadam11/forge/releases/latest)   | [.zip](https://github.com/cadam11/forge/releases/latest) |
 
 ### Windows
 
-| Architecture   | Installer                                                                             | Portable                                                 |
-| -------------- | ------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| x64 (most PCs) | [Forge-\<version\>-x64-setup.exe](https://github.com/cadam11/forge/releases/latest)   | [.zip](https://github.com/cadam11/forge/releases/latest) |
-| ARM64          | [Forge-\<version\>-arm64-setup.exe](https://github.com/cadam11/forge/releases/latest) | [.zip](https://github.com/cadam11/forge/releases/latest) |
+| Architecture   | Installer                                                                               | Portable                                                 |
+| -------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| x64 (most PCs) | [Joinery-\<version\>-x64-setup.exe](https://github.com/cadam11/forge/releases/latest)   | [.zip](https://github.com/cadam11/forge/releases/latest) |
+| ARM64          | [Joinery-\<version\>-arm64-setup.exe](https://github.com/cadam11/forge/releases/latest) | [.zip](https://github.com/cadam11/forge/releases/latest) |
 
 All downloads available on the **[Releases page](https://github.com/cadam11/forge/releases/latest)**.
 
@@ -214,24 +215,24 @@ All downloads available on the **[Releases page](https://github.com/cadam11/forg
 
 ---
 
-## Why Forge?
+## Why Joinery?
 
-| Feature                               | Forge | Azure Data Studio | TablePlus | DBeaver | DataGrip |
-| ------------------------------------- | :---: | :---------------: | :-------: | :-----: | :------: |
-| macOS + Windows                       |  ✅   |        ✅         |    ✅     |   ✅    |    ✅    |
-| MSSQL + Postgres + MySQL              |  ✅   |      partial      |    ✅     |   ✅    |    ✅    |
-| Engine-aware AI Chat                  |  ✅   |        ❌         |    ❌     |   ❌    |    ❌    |
-| Agentic Tool Calling                  |  ✅   |        ❌         |    ❌     |   ❌    |    ❌    |
-| Multi-LLM Provider                    |  ✅   |        ❌         |    ❌     |   ❌    |    ❌    |
-| AI sees active editor                 |  ✅   |        ❌         |    ❌     |   ❌    |    ❌    |
-| SSH tunneling w/ auto-reconnect       |  ✅   |      partial      |    ✅     |   ✅    |    ✅    |
-| Entra ID auth (Azure SQL)             |  ✅   |        ✅         |    ❌     | partial |    ✅    |
-| Visual execution plan (all 3 engines) |  ✅   |      partial      |    ❌     | partial |    ✅    |
-| Backup & Restore (per engine)         |  ✅   |      partial      |    ❌     | partial | partial  |
-| Docker container detection            |  ✅   |        ❌         |    ❌     |   ❌    |    ❌    |
-| ERD Visualization                     |  ✅   |        ❌         |    ✅     |   ✅    |    ✅    |
-| Keychain / Credential Store           |  ✅   |      partial      |    ✅     | partial |    ✅    |
-| Open Source                           |  ✅   |        ✅         |    ❌     |   ✅    |    ❌    |
+| Feature                               | Joinery | Azure Data Studio | TablePlus | DBeaver | DataGrip |
+| ------------------------------------- | :-----: | :---------------: | :-------: | :-----: | :------: |
+| macOS + Windows                       |   ✅    |        ✅         |    ✅     |   ✅    |    ✅    |
+| MSSQL + Postgres + MySQL              |   ✅    |      partial      |    ✅     |   ✅    |    ✅    |
+| Engine-aware AI Chat                  |   ✅    |        ❌         |    ❌     |   ❌    |    ❌    |
+| Agentic Tool Calling                  |   ✅    |        ❌         |    ❌     |   ❌    |    ❌    |
+| Multi-LLM Provider                    |   ✅    |        ❌         |    ❌     |   ❌    |    ❌    |
+| AI sees active editor                 |   ✅    |        ❌         |    ❌     |   ❌    |    ❌    |
+| SSH tunneling w/ auto-reconnect       |   ✅    |      partial      |    ✅     |   ✅    |    ✅    |
+| Entra ID auth (Azure SQL)             |   ✅    |        ✅         |    ❌     | partial |    ✅    |
+| Visual execution plan (all 3 engines) |   ✅    |      partial      |    ❌     | partial |    ✅    |
+| Backup & Restore (per engine)         |   ✅    |      partial      |    ❌     | partial | partial  |
+| Docker container detection            |   ✅    |        ❌         |    ❌     |   ❌    |    ❌    |
+| ERD Visualization                     |   ✅    |        ❌         |    ✅     |   ✅    |    ✅    |
+| Keychain / Credential Store           |   ✅    |      partial      |    ✅     | partial |    ✅    |
+| Open Source                           |   ✅    |        ✅         |    ❌     |   ✅    |    ❌    |
 
 ---
 
@@ -240,7 +241,7 @@ All downloads available on the **[Releases page](https://github.com/cadam11/forg
 ### From Release
 
 1. Download the installer for your platform from [Releases](https://github.com/cadam11/forge/releases/latest)
-2. Install and launch Forge
+2. Install and launch Joinery
 3. Click **"Detect Docker Containers"** or **"Add Connection"**
 4. Pick your engine (SQL Server / PostgreSQL / MySQL) and start querying
 
@@ -426,12 +427,13 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instr
 - **Report Bugs** — [Open an issue](https://github.com/cadam11/forge/issues)
 - **Request Features** — [Start a discussion](https://github.com/cadam11/forge/discussions)
 - **Submit PRs** — Fork, branch, and open a pull request
+- **Brand kit** — [Identity, assets, and usage guidance](docs/brand/README.md)
 
 ---
 
 ## Acknowledgments
 
-Forge is an MIT-licensed fork of [MemberJunction/Forge](https://github.com/MemberJunction/Forge).
+Joinery is an MIT-licensed fork of [MemberJunction/Forge](https://github.com/MemberJunction/Forge).
 
 ---
 

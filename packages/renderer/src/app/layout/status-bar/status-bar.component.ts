@@ -192,7 +192,7 @@ import type { DockerStatus, DockerContainer } from '@forgedb/shared';
         }
 
         <div class="status-item version">
-          <span>Forge {{ appVersion() ? 'v' + appVersion() : '' }}</span>
+          <span>Joinery {{ appVersion() ? 'v' + appVersion() : '' }}</span>
         </div>
       </div>
     </div>
