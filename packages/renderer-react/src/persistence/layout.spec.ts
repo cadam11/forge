@@ -150,6 +150,47 @@ describe('layout persistence', () => {
     expect(seeded.snapshot().reactRendererState?.legacyGoldenLayoutConfig).toEqual(GOLDEN_LAYOUT);
   });
 
+  it('refuses to overwrite the Golden Layout config when archiving it fails', async () => {
+    // Otherwise the one authorised destructive act in this task happens with no copy kept — the
+    // report's "nothing a user had is destroyed" claim would be false exactly when it matters.
+    const seeded = createAppStateDouble({ goldenLayoutConfig: GOLDEN_LAYOUT });
+    removeJoineryMock();
+    installJoineryMock({
+      app: {
+        getState: seeded.app.getState,
+        setState: () => Promise.reject(new Error('main process went away')),
+        getLayout: seeded.app.getLayout,
+        saveLayout: seeded.app.saveLayout,
+      },
+    });
+    const layout = createLayoutPersistence(createRendererStatePersistence());
+
+    expect(await layout.save(PAYLOAD)).toBe('failed');
+    expect(seeded.snapshot().goldenLayoutConfig).toEqual(GOLDEN_LAYOUT);
+    expect(seeded.calls.saveLayout).toBe(0);
+  });
+
+  it('retries the archive on the next save rather than giving up on it', async () => {
+    const seeded = createAppStateDouble({ goldenLayoutConfig: GOLDEN_LAYOUT });
+    let failing = true;
+    removeJoineryMock();
+    installJoineryMock({
+      app: {
+        getState: seeded.app.getState,
+        setState: (partial: Parameters<typeof seeded.app.setState>[0]) =>
+          failing ? Promise.reject(new Error('transient')) : seeded.app.setState(partial),
+        getLayout: seeded.app.getLayout,
+        saveLayout: seeded.app.saveLayout,
+      },
+    });
+    const layout = createLayoutPersistence(createRendererStatePersistence());
+
+    expect(await layout.save(PAYLOAD)).toBe('failed');
+    failing = false;
+    expect(await layout.save(PAYLOAD)).toBe('saved');
+    expect(seeded.snapshot().reactRendererState?.legacyGoldenLayoutConfig).toEqual(GOLDEN_LAYOUT);
+  });
+
   it('archives nothing on a fresh install', async () => {
     const layout = createLayoutPersistence(createRendererStatePersistence());
 

@@ -31,9 +31,21 @@ function isProductionSource(path: string): boolean {
   return !path.includes('.spec.') && !path.startsWith('../test/');
 }
 
-const WRITE_CALL = /localStorage\s*\.\s*(setItem|removeItem|clear)\b/g;
+/** `index.html`'s pre-mount script reads the same keys and must stay a reader. Not a module. */
+const preMountScript = Object.values(
+  import.meta.glob<string>('../../index.html', { query: '?raw', import: 'default', eager: true })
+);
+
+const WRITE_CALL = /localStorage\s*\.\s*(setItem|removeItem|clear)\b/;
 /** `localStorage['setItem']` — a computed access defeats the pattern above. */
-const COMPUTED_ACCESS = /localStorage\s*\[/g;
+const COMPUTED_ACCESS = /localStorage\s*\[/;
+/**
+ * The alias escape: `const store = window.localStorage` (or a destructure, or passing it as an
+ * argument) hands the object to code this spec cannot follow, and `store.setItem(…)` then looks
+ * like any other method call. Reaching localStorage is only allowed to happen in place.
+ */
+const ALIASING =
+  /(=\s*(window\s*\.\s*)?localStorage\b)|(\{[^}\n]*\blocalStorage\b[^}\n]*\}\s*=)|([(,]\s*(window\s*\.\s*)?localStorage\s*[,)])/;
 
 function filesMatching(pattern: RegExp): { path: string; hits: string[] }[] {
   return Object.entries(sources)
@@ -67,6 +79,21 @@ describe('no code path may write a localStorage key', () => {
 
   it('has no computed localStorage access, which would sidestep the check above', () => {
     expect(filesMatching(COMPUTED_ACCESS)).toEqual([]);
+  });
+
+  it('never aliases the storage object, which would sidestep it too', () => {
+    expect(filesMatching(ALIASING)).toEqual([]);
+  });
+
+  it('keeps the pre-mount script in index.html a reader', () => {
+    // It runs before any module and is the one place the mirror-then-Angular fallback is duplicated,
+    // so it is outside the glob above and would otherwise never be checked at all.
+    expect(preMountScript).toHaveLength(1);
+    const html = preMountScript[0] ?? '';
+    expect(html).toMatch(/localStorage\s*\.\s*getItem/);
+    expect(html).not.toMatch(WRITE_CALL);
+    expect(html).not.toMatch(COMPUTED_ACCESS);
+    expect(html).not.toMatch(ALIASING);
   });
 
   it('writes a React-owned key, not one of the Angular six', () => {

@@ -200,6 +200,29 @@ function validateSnippets(value: unknown): SqlSnippet[] | undefined {
   return kept;
 }
 
+const THEME_PREFERENCES: readonly ThemePreference[] = ['system', 'light', 'dark'];
+
+/**
+ * Settings get merged over `DEFAULT_SETTINGS` group by group on the way into the store, which is
+ * where a bad *scalar* field ends up replaced by a default — with one exception that has to be
+ * caught here instead.
+ *
+ * `theme` is not just data: `applyThemeAttribute` writes it straight onto `<html>` as `data-theme`,
+ * and the merge would happily carry a hand-edited `"neon"` through to it, where it matches no
+ * selector in `theme.css` and paints an unstyled canvas. So an illegal preference is dropped at the
+ * boundary and the default takes over. Everything else in the object is left alone deliberately —
+ * dropping a stray field would discard data the merge is capable of ignoring.
+ */
+function validateSettings(settings: Record<string, unknown>): PersistedSettings {
+  const theme = settings['theme'];
+  if (theme === undefined || THEME_PREFERENCES.includes(theme as ThemePreference)) {
+    return settings as PersistedSettings;
+  }
+  diagnostics.warn('ignored an unrecognised persisted theme preference', { theme });
+  const { theme: _dropped, ...rest } = settings;
+  return rest as PersistedSettings;
+}
+
 /**
  * Narrows an unknown blob to the sub-object. Exported because both the reader and the specs need
  * the same answer, and because a caller holding a raw `AppState` (Task 7's startup path) should
@@ -213,10 +236,7 @@ export function validateReactRendererState(value: unknown): ReactRendererState {
   if (typeof value['migratedFromLocalStorageAt'] === 'string') {
     validated.migratedFromLocalStorageAt = value['migratedFromLocalStorageAt'];
   }
-  // Settings are merged over DEFAULT_SETTINGS group by group on the way into the store, which is
-  // where a bad field gets replaced by a default; the only thing to check here is that it is an
-  // object at all.
-  if (isRecord(value['settings'])) validated.settings = value['settings'] as PersistedSettings;
+  if (isRecord(value['settings'])) validated.settings = validateSettings(value['settings']);
   if (isStringArray(value['completedTours'])) validated.completedTours = value['completedTours'];
   if (typeof value['welcomeDismissed'] === 'boolean') {
     validated.welcomeDismissed = value['welcomeDismissed'];
@@ -247,15 +267,18 @@ export function createRendererStatePersistence(): RendererStatePersistence {
   /**
    * The serialization point, and the only mutable state in this module. A promise chain rather
    * than a queue: each operation awaits the previous one's settlement before reading, so two
-   * concurrent callers cannot both read a pre-write value and clobber each other. It never
-   * rejects — every link resolves to a result — so one failed write cannot wedge the chain.
+   * concurrent callers cannot both read a pre-write value and clobber each other.
    */
   let tail: Promise<unknown> = Promise.resolve();
 
   /** Appends to the chain. The only way in, so nothing can jump the queue by accident. */
   const enqueue = <T>(operation: () => Promise<T>): Promise<T> => {
     const result = tail.then(operation);
-    tail = result;
+    // The chain must never carry a rejection forward, or one failure wedges every later write. Both
+    // `readState` and `runUpdate` already resolve rather than throw, so this is belt-and-braces —
+    // but it makes "the chain cannot wedge" a property of THIS function rather than a convention two
+    // other functions have to keep. The caller still gets the un-neutered promise.
+    tail = result.catch(() => undefined);
     return result;
   };
 

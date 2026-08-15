@@ -150,6 +150,24 @@ describe('renderer state writer', () => {
       'written'
     );
   });
+
+  it('keeps working after a mutator throws', () => {
+    // `runUpdate` catches, so this cannot reject today — but the chain neutralises rejections on its
+    // own now rather than trusting that, and this is the assertion for it: a thrown mutator must not
+    // wedge every later operation behind a rejected tail.
+    const persistence = createRendererStatePersistence();
+    const thrown = persistence.update(() => {
+      throw new Error('mutator blew up');
+    });
+
+    return expect(thrown)
+      .resolves.toBe('failed')
+      .then(async () => {
+        expect(await persistence.update(current => ({ ...current, welcomeDismissed: true }))).toBe(
+          'written'
+        );
+      });
+  });
 });
 
 describe('validateReactRendererState', () => {
@@ -180,6 +198,22 @@ describe('validateReactRendererState', () => {
     expect(validateReactRendererState(null)).toEqual({});
     expect(validateReactRendererState([1, 2])).toEqual({});
     expect(validateReactRendererState('nope')).toEqual({});
+  });
+
+  it('drops an illegal theme preference but keeps the rest of the settings', () => {
+    // `theme` is the one settings field that is not just data: `applyThemeAttribute` writes it onto
+    // `<html>`, where a hand-edited value matches nothing in theme.css and paints an unstyled canvas.
+    const validated = validateReactRendererState({
+      settings: { theme: 'neon', editor: { fontSize: 18 } },
+    });
+
+    expect(validated.settings).toEqual({ editor: { fontSize: 18 } });
+  });
+
+  it('keeps every legal theme preference', () => {
+    for (const theme of ['system', 'light', 'dark'] as const) {
+      expect(validateReactRendererState({ settings: { theme } }).settings).toEqual({ theme });
+    }
   });
 
   it('accepts a snippet the migration would have accepted', () => {

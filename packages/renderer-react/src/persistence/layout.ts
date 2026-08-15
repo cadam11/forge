@@ -142,11 +142,21 @@ export function createLayoutPersistence(
         if (!archiveSettled) {
           const existing = await ipc().app.getLayout();
           if (isLegacyGoldenLayout(existing)) {
-            await persistence.update(current =>
+            const archived = await persistence.update(current =>
               current.legacyGoldenLayoutConfig
                 ? undefined
                 : { ...current, legacyGoldenLayoutConfig: existing }
             );
+            // `unchanged` means a copy was already there. Anything other than that or a fresh write
+            // means the copy did NOT land, and overwriting anyway would destroy the only remaining
+            // copy of the user's window arrangement — so the layout save is abandoned instead. The
+            // next save retries the archive, because `archiveSettled` stays false.
+            if (archived !== 'written' && archived !== 'unchanged') {
+              diagnostics.error('not overwriting the Golden Layout config: archiving it failed', {
+                result: archived,
+              });
+              return 'failed';
+            }
           }
           archiveSettled = true;
         }
