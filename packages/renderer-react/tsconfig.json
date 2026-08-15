@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "verbatimModuleSyntax": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+
+    "noEmit": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+
+    // Deliberately NOT ["vite/client", "node"]. Electron loads this bundle with
+    // sandbox: true / nodeIntegration: false (packages/main/src/window.ts:59-64),
+    // so omitting @types/node makes any reach for `process`, `require` or a Node
+    // builtin a compile error rather than a runtime crash in the packaged app.
+    "types": ["vite/client"]
+  },
+  // `vite.config.ts` is deliberately outside the program. @vitejs/plugin-react 6
+  // ships `export { viteReactForCjs as "module.exports" }` in its .d.ts, and the
+  // TS 5.4.5 the workspace override pins (pnpm-workspace.yaml, for the Angular 18
+  // toolchain — see plans/renderer-rewrite/PLAN.md 0.6) cannot *parse* that, so it
+  // errors regardless of skipLibCheck. ESLint still covers the file. Pull it back
+  // in when the cutover PR drops the TypeScript pin.
+  "include": ["src"]
+}

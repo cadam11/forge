@@ -5,6 +5,10 @@
  * - Vitest with v8 coverage
  * - Per-package test projects
  * - Shared setup files with timeout configuration
+ *
+ * Two projects, because the two renderers need different environments while they
+ * coexist (plans/renderer-rewrite/PLAN.md §3). Coverage, thresholds and the
+ * reporter stay root-level: they are whole-run concerns, not per-project ones.
  */
 
 import { defineConfig } from 'vitest/config';
@@ -13,19 +17,51 @@ import tsconfigPaths from 'vite-tsconfig-paths';
 export default defineConfig({
   plugins: [tsconfigPaths()],
   test: {
-    // Test discovery
-    include: ['packages/*/src/**/*.{test,spec}.ts'],
-    exclude: ['**/node_modules/**', '**/dist/**'],
+    projects: [
+      {
+        // `extends: true` inherits the root plugins (vite-tsconfig-paths), so
+        // this project resolves modules exactly as the single-project config did.
+        extends: true,
+        test: {
+          name: 'node',
 
-    // Environment
-    environment: 'node',
+          // Test discovery. renderer-react is excluded rather than left to the
+          // `.ts`-only glob: a stray `.spec.ts` there would otherwise run in the
+          // node environment AND load the main-process setup file below.
+          include: ['packages/*/src/**/*.{test,spec}.ts'],
+          exclude: ['**/node_modules/**', '**/dist/**', 'packages/renderer-react/**'],
 
-    // Timeouts
-    testTimeout: 30000,
-    hookTimeout: 30000,
+          // Environment
+          environment: 'node',
 
-    // Setup files
-    setupFiles: ['./packages/main/src/__tests__/setup.ts'],
+          // Timeouts
+          testTimeout: 30000,
+          hookTimeout: 30000,
+
+          // Setup files
+          setupFiles: ['./packages/main/src/__tests__/setup.ts'],
+
+          // Module resolution
+          alias: {
+            '@joinery/shared': new URL('./packages/shared/src', import.meta.url).pathname,
+            keytar: new URL('./packages/main/src/__mocks__/keytar.ts', import.meta.url).pathname,
+            ssh2: new URL('./packages/main/src/__mocks__/ssh2.ts', import.meta.url).pathname,
+          },
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'renderer-react',
+          include: ['packages/renderer-react/src/**/*.{test,spec}.{ts,tsx}'],
+          exclude: ['**/node_modules/**', '**/dist/**'],
+          environment: 'jsdom',
+          testTimeout: 30000,
+          hookTimeout: 30000,
+          setupFiles: ['./packages/renderer-react/src/test/setup.ts'],
+        },
+      },
+    ],
 
     // Coverage — scoped to packages that have tests
     coverage: {
@@ -42,6 +78,7 @@ export default defineConfig({
         '**/__mocks__/**',
         // Exclude packages without tests from coverage thresholds
         'packages/renderer/**',
+        'packages/renderer-react/**',
         'packages/preload/**',
         'packages/cli/**',
       ],
@@ -53,13 +90,6 @@ export default defineConfig({
       },
       reporter: ['text', 'text-summary', 'json', 'html', 'lcov'],
       reportsDirectory: './coverage',
-    },
-
-    // Module resolution
-    alias: {
-      '@joinery/shared': new URL('./packages/shared/src', import.meta.url).pathname,
-      keytar: new URL('./packages/main/src/__mocks__/keytar.ts', import.meta.url).pathname,
-      ssh2: new URL('./packages/main/src/__mocks__/ssh2.ts', import.meta.url).pathname,
     },
 
     // Reporter

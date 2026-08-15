@@ -45,6 +45,9 @@ jobs:
       - name: Type-check renderer
         run: pnpm exec tsc --noEmit -p packages/renderer/tsconfig.json
 
+      - name: Type-check renderer-react
+        run: pnpm exec tsc --noEmit -p packages/renderer-react/tsconfig.json
+
       - name: Type-check preload
         run: pnpm exec tsc --noEmit -p packages/preload/tsconfig.json
 
