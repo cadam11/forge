@@ -34,8 +34,13 @@ export default defineConfig({
     // The mermaid/dagre chain is CJS-only: Angular needed it declared as
     // `allowedCommonJsDependencies` (angular.json:21) and Vite needs it
     // pre-bundled for the same reason. Declared now so the ERD and chat tasks
-    // don't rediscover it. Entries resolve through the hoisted root
-    // node_modules today; the ERD task adds them as direct dependencies.
+    // don't rediscover it.
+    //
+    // All three are direct devDependencies of this package even though nothing
+    // imports them yet. That is load-bearing: Vite hard-errors on a force-included
+    // dep it cannot resolve, and relying on the hoisted root node_modules would
+    // mean the dev server stops booting the moment the cutover PR deletes the
+    // Angular renderer that drags them in.
     include: ['@dagrejs/graphlib', '@dagrejs/dagre', 'nearley'],
   },
 });

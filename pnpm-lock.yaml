@@ -351,6 +351,12 @@ importers:
         specifier: ^19.2.8
         version: 19.2.8(react@19.2.8)
     devDependencies:
+      '@dagrejs/dagre':
+        specifier: ^2.0.3
+        version: 2.0.4
+      '@dagrejs/graphlib':
+        specifier: ^3.0.4
+        version: 3.0.4
       '@eslint/js':
         specifier: ^9.39.0
         version: 9.39.5
@@ -384,6 +390,9 @@ importers:
       globals:
         specifier: ^17.11.0
         version: 17.11.0
+      nearley:
+        specifier: ^2.20.1
+        version: 2.20.1
       typescript:
         specifier: ~5.4.5
         version: 5.4.5

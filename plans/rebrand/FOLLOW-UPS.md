@@ -106,6 +106,7 @@ Minor, same area: mermaid emits two unprefixed global rules per diagram
 - **`pnpm run lint` has never worked.** `packages/renderer/package.json` declares
   `"lint": "ng lint"` but `angular.json` has no lint target. True before the rebrand
   too. The husky/lint-staged pre-commit hook is what actually enforces lint.
+  The renderer rewrite makes this actionable rather than cosmetic — see item 14.
 - **The renderer has no `typecheck` script**, so `pnpm run typecheck` covers only
   main/preload/shared. `ng build` is the only thing that type-checks the renderer.
 - **`tests/regression-suite.md`** documents a `full-audit.spec.ts` that no longer
@@ -249,3 +250,38 @@ only mandated the name change, so the Joinery scrub left it as-is. Fix is one
 line — `"productName": "Joinery"` in the root manifest, or `app.setName('Joinery')`
 before the first `getPath('userData')` call. **Craig's call**, since aligning them
 moves whichever directory is currently in use.
+
+---
+
+## 14. The broken root `lint` target now blocks the renderer rewrite's standard gate
+
+Item 6 records that `pnpm run lint` has never worked. That was cosmetic while nothing
+depended on it. It is not any more: the Angular → React renderer rewrite
+(`plans/renderer-rewrite/PLAN.md`) is 24 tasks whose per-task gate is
+`pnpm run typecheck && pnpm run lint && pnpm test && pnpm run format:check`, and the
+`lint` leg is red before any task starts. `turbo run lint` finds exactly two lint
+scripts in the repo — `@joinery/renderer-react`'s (green) and `@joinery/renderer`'s
+`ng lint` (fails: `Cannot find "lint" target for the specified project`) — and turbo
+aborts the run on the failure, so a green renderer-react lint proves nothing at the
+root. Same story for `format:check`, red on 13 pre-existing files.
+
+Consequence, and the reason this is worth a separate entry: every rewrite task will
+either report a false failure or learn to ignore the `lint` leg, which is how a real
+regression gets waved through.
+
+Stopgap already in place (PR for Task 1): `.github/workflows/ci.yml` gained a
+`Lint renderer-react` step running `pnpm --filter @joinery/renderer-react run lint`,
+so the new package's `react-hooks` / `jsx-a11y` rules are enforced somewhere even
+though the root script is unusable.
+
+Fix, cheapest first:
+
+1. Replace `packages/renderer/package.json`'s `"lint": "ng lint"` with a no-op or
+   delete the script. The Angular renderer is frozen and is deleted at cutover, so
+   installing `@angular-eslint` for it buys nothing. This alone turns root `lint`
+   green and lets the CI step widen to `pnpm run lint`.
+2. Separately, `pnpm run format:check`: `pnpm run format` rewrites 13 files that
+   `prettier` 3.9.6 formats differently (see item 8) — a mechanical, reviewable commit.
+
+Both are deliberately out of scope for the rewrite tasks themselves, which are barred
+from touching `packages/main` / `packages/shared`.
