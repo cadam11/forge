@@ -16,4 +16,12 @@ export type {
   IpcSubscribe,
   IpcUnsubscribe,
 } from './surface';
+export {
+  useIpcMutation,
+  useIpcQuery,
+  type IpcArgs,
+  type IpcResult,
+  type UseIpcMutationOptions,
+  type UseIpcQueryOptions,
+} from './use-ipc-call';
 export { useIpcEvent } from './use-ipc-event';

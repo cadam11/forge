@@ -4,16 +4,13 @@
  * "browser mode" instead of a blank page or a thrown error.
  */
 
-import { useQuery } from '@tanstack/react-query';
-import { ipc, ipcKeys, isIpcAvailable } from '../ipc';
+import { isIpcAvailable, useIpcQuery } from '../ipc';
 
 export function IpcProbe() {
   const available = isIpcAvailable();
-  const version = useQuery({
-    queryKey: ipcKeys.app.key('getVersion'),
-    queryFn: () => ipc().app.getVersion(),
-    enabled: available,
-  });
+  // Also the first real consumer of useIpcQuery: `app.getVersion` takes no arguments, which
+  // is the one case where `keyArgs` may be omitted.
+  const version = useIpcQuery({ namespace: 'app', operation: 'getVersion', enabled: available });
 
   return (
     <dl data-testid="ipc-probe" className="font-mono text-xs text-fg">
