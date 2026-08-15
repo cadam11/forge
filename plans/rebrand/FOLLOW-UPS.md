@@ -157,8 +157,9 @@ Two knock-ons worth knowing:
   baselines are already stale (item 1). Regenerate them on a machine with Docker
   before reading any visual diff as a real regression.
 
-If the drift is ever suspected in a bug, `git show <pre-migration-sha>:package-lock.json`
-still has the old resolution.
+Craig accepted the drift deliberately (2026-08-15) rather than pinning the versions
+back, so this entry is a record, not an action. If the drift is ever suspected in a
+bug, `git show <pre-migration-sha>:package-lock.json` still has the old resolution.
 
 ---
 
