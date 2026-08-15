@@ -1,12 +1,10 @@
 /**
- * Placeholder root. Deliberately unstyled: Tailwind and the brand tokens arrive
- * in Task 2, the typed IPC layer in Task 3, the shell in Task 7.
+ * Root. Renders the Task 2 token preview, which is the entire renderer until the shell
+ * lands in Task 7 — the IPC layer arrives in Task 3 and the primitives in Task 6.
  */
+
+import { TokenPreview } from './dev/token-preview';
+
 export function App() {
-  return (
-    <main data-testid="renderer-react-root">
-      <h1>Joinery renderer-react</h1>
-      <p>Scaffold only — no UI yet.</p>
-    </main>
-  );
+  return <TokenPreview />;
 }
