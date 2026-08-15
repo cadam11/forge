@@ -101,7 +101,13 @@ export interface LayoutTabState {
   isPinned: boolean;
   connectionId?: string;
   databaseName?: string;
-  configuration: Record<string, unknown>;
+  /**
+   * Optional, because this arrives from rehydrated layout JSON. The Angular source guarded it with
+   * `state.configuration?.['content']` even though its own type said otherwise
+   * (`tab.state.ts:686-688`); the type now says what the guard already knew, so a panel persisted
+   * without a configuration block yields `undefined` rather than throwing.
+   */
+  configuration?: Record<string, unknown>;
 }
 
 export interface TabStoreState {
@@ -575,8 +581,8 @@ export function createTabStore() {
             get().updateTab(state.tabId, { isPinned: state.isPinned, title: state.title });
             continue;
           }
-          const content = state.configuration['content'];
-          const autoExecute = state.configuration['autoExecute'];
+          const content = state.configuration?.['content'];
+          const autoExecute = state.configuration?.['autoExecute'];
           const newTab: Tab = {
             id: state.tabId,
             type: state.tabType as TabType,
