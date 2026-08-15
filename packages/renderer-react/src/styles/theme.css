@@ -1,0 +1,339 @@
+/*
+ * Joinery theme — the single source of design tokens for the React renderer.
+ *
+ * Authority for every value below:
+ *   docs/brand/tokens.css              the 8 load-bearing brand colours
+ *   plans/ui-overhaul/PROPOSAL.md §2.2 the 4 derived contrast-safe colours + the
+ *                                      two semantic palettes (ink / ivory)
+ *   plans/ui-overhaul/PROPOSAL.md §2.3 the measured contrast pairs that forced the
+ *                                      derived colours to exist
+ *   plans/ui-overhaul/PROPOSAL.md §2.4 the type / spacing / radius / icon scales
+ *   docs/design/HOUSE-RULES.md         how the `design` skill is amended for a
+ *                                      desktop workbench (12px floor, @container,
+ *                                      manual theme toggle)
+ *
+ * Naming note: PROPOSAL §2.2 spells the brand constants `--j-ivory`, `--j-oxide-deep`,
+ * … Tailwind v4 only mints utilities for variables inside a namespace, so the same
+ * constants are registered here as `--color-j-ivory`, `--color-j-oxide-deep`, … The
+ * mapping is 1:1 — `--j-x` in the proposal is `--color-j-x` here, and Tailwind emits
+ * each one as a real `:root` custom property, so CSS that wants the raw constant can
+ * still say `var(--color-j-oxide)`.
+ *
+ * Ink-first: the unprefixed values ARE the dark theme. The `light` variant carries the
+ * ivory overrides. A renderer that never runs JS therefore paints ink, not white.
+ */
+
+/* Font faces before `@import "tailwindcss"`: @import rules must precede all other
+ * rules, and loading the faces first keeps `--font-*` referring to families the
+ * browser already knows about.
+ *
+ * Only latin subsets are imported for the static face; the variable packages ship
+ * one stylesheet per axis set covering every subset, but each `@font-face` carries a
+ * `unicode-range`, so non-latin woff2 files are declared and never downloaded.
+ * Actual latin cost: archivo 88K + instrument-sans 32K + plex-mono 2x16K = 152K,
+ * inside the ~200-300K PROPOSAL D7 budgeted.
+ *
+ * archivo/wdth.css, not index.css: the display face needs the `wdth` axis to
+ * reproduce Archivo Narrow ExtraBold (PROPOSAL §2.4 — Archivo Narrow itself ships
+ * only 400-700). index.css/standard.css expose `wght` alone.
+ */
+@import '@fontsource-variable/archivo/wdth.css';
+@import '@fontsource-variable/instrument-sans/wght.css';
+@import '@fontsource/ibm-plex-mono/latin-400.css';
+@import '@fontsource/ibm-plex-mono/latin-ext-400.css';
+@import '@fontsource/ibm-plex-mono/latin-500.css';
+@import '@fontsource/ibm-plex-mono/latin-ext-500.css';
+@import 'tailwindcss';
+
+/*
+ * Theme variants. Three states, because the theme control is three-state
+ * (`ThemePreference` = 'system' | 'light' | 'dark', packages/shared/src/types/settings.types.ts:5):
+ *
+ *   data-theme="dark"    always ink
+ *   data-theme="light"   always ivory
+ *   data-theme="system"  follows prefers-color-scheme
+ *   attribute absent     ink (the base values), so a failed pre-mount script degrades
+ *                        to the default canvas instead of to a white flash
+ *
+ * Both spellings are honoured deliberately: whoever writes the attribute may store the
+ * preference verbatim ("system") or the value it resolved to via Electron's nativeTheme
+ * ("dark"/"light", which is what the Angular renderer does at
+ * settings.service.ts:227-229 because prefers-color-scheme is not always reliable
+ * under Electron). Neither choice breaks these variants.
+ */
+@custom-variant dark {
+  &:where([data-theme='dark'], [data-theme='dark'] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where([data-theme='system'], [data-theme='system'] *) {
+      @slot;
+    }
+  }
+}
+
+@custom-variant light {
+  &:where([data-theme='light'], [data-theme='light'] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: light) {
+    &:where([data-theme='system'], [data-theme='system'] *) {
+      @slot;
+    }
+  }
+}
+
+/*
+ * `static` so Tailwind emits every variable below whether or not a utility referenced
+ * it. Tailwind v4 tree-shakes unused theme variables out of `:root` by default, which
+ * would drop the tokens that are read through `var()` from hand-written CSS or through
+ * getComputedStyle (the contrast harness on the token preview page does exactly that).
+ */
+@theme static {
+  /* ---------------------------------------------------------------------------
+   * Layer 1 — brand constants. Never themed, never interpolated, never aliased
+   * to a semantic role at the point of use: components consume Layer 2.
+   * ------------------------------------------------------------------------- */
+
+  /* Closed palette. Clearing the namespace deletes Tailwind's 22 default colour
+   * families, which is the enforcement mechanism for PROPOSAL §2.5 "no blue" and
+   * for the guideline against defaulting to gray/slate/indigo — `bg-blue-500` and
+   * `text-gray-400` now fail to compile instead of shipping. Extend this block;
+   * do not reach for a stock Tailwind colour. */
+  --color-*: initial;
+
+  --color-j-ivory: #f2efe7; /* drafting ivory  — primary light canvas */
+  --color-j-paper: #fbfaf5; /* paper white     — elevated light surface */
+  --color-j-ink: #171817; /* joinery ink     — primary dark canvas and light-mode text */
+  --color-j-charcoal: #272a27; /* charcoal plane  — raised dark surfaces */
+  --color-j-oxide: #d6492f; /* oxide           — brand action */
+  --color-j-chartreuse: #c8f04a; /* signal chartreuse — verification, scarce by rule */
+  --color-j-rule: #b9b8ae; /* rule gray       — drafting lines */
+  --color-j-amber: #e6a23c; /* warning amber   — non-destructive caution */
+
+  /* Derived, contrast-driven (PROPOSAL §2.2-2.3). Ratios re-measured against the
+   * canvas each one is for; see docs/design/HOUSE-RULES.md for where each is legal.
+   *   oxide-lift  on ink    5.42:1   (raw oxide on ink is 4.11:1 — large text/UI only)
+   *   oxide-deep  on ivory  4.93:1   (raw oxide on ivory is 3.77:1)
+   *   white       on oxide-deep fill 5.66:1  (on raw oxide it is 4.33:1)
+   *   amber-deep  on ivory  5.15:1   (raw amber on ivory is 1.90:1 — fill only)
+   *   verify-deep on ivory  4.56:1   (chartreuse on ivory is 1.14:1 and never legal
+   *                                  as a light-mode foreground)
+   *
+   * verify-deep is #4d7811, one step per channel darker than PROPOSAL §2.2's #4e7a12.
+   * §2.3 never tabulated the pair, and the proposal's value measures 4.44:1 on ivory —
+   * 0.06 short of AA body, which defeats the entire purpose of a "derived,
+   * contrast-driven" colour. Its 3.40:1 on ink is irrelevant: under ink, success is
+   * chartreuse at 13.58:1. */
+  --color-j-oxide-deep: #b83c22;
+  --color-j-oxide-lift: #e8654a;
+  --color-j-amber-deep: #8a5a10;
+  --color-j-verify-deep: #4d7811;
+
+  /* Kept from the cleared namespace because PROPOSAL §2.3 measures against them. */
+  --color-white: #ffffff;
+  --color-black: #000000;
+
+  /* ---------------------------------------------------------------------------
+   * Layer 2 — semantic roles, ink values. The `light` block further down mirrors
+   * this list in the same order with the ivory values. Components only ever name
+   * these: bg-canvas, text-fg-muted, border-rule, bg-accent, …
+   * ------------------------------------------------------------------------- */
+
+  --color-canvas: var(--color-j-ink); /* the window's own background */
+  --color-surface: #1e211e; /* rails, wells, sunken panels */
+  --color-chrome: var(--color-j-charcoal); /* toolbars, tab strips, status bar */
+  --color-elevated: #2f332e; /* dialogs, menus, popovers */
+  --color-hover: rgb(242 239 231 / 0.06);
+  --color-active: rgb(232 101 74 / 0.14);
+
+  --color-fg: var(--color-j-ivory); /* 15.50:1 on canvas */
+  --color-fg-muted: #b4b3ab; /*  8.46:1 on canvas */
+  --color-fg-subtle: #85887f; /*  4.94:1 on canvas — metadata, never prose */
+
+  --color-rule: rgb(242 239 231 / 0.12); /* the default hairline */
+  --color-rule-strong: rgb(242 239 231 / 0.22); /* deliberate separation */
+
+  --color-accent: var(--color-j-oxide-lift);
+  --color-accent-strong: var(--color-j-oxide-lift);
+  --color-accent-subtle: rgb(232 101 74 / 0.14);
+  --color-accent-fill-fg: var(--color-j-ink); /* text on an accent fill: 5.42:1 */
+  --color-focus: var(--color-j-oxide-lift);
+
+  --color-success: var(--color-j-chartreuse); /* 13.58:1 on canvas */
+  --color-warning: var(--color-j-amber); /*  8.14:1 on canvas */
+  --color-danger: #f0715a; /*  6.12:1 on canvas */
+  /* PROPOSAL §2.2: `--status-info` exists and is NOT blue — it is the muted foreground.
+   * Defining it makes that a token-system rule rather than a prose one, so `text-info`
+   * is a legal thing to reach for and `text-blue-500` still will not compile. */
+  --color-info: var(--color-fg-muted);
+
+  /* ---------------------------------------------------------------------------
+   * Type. PROPOSAL §2.4. The namespace is cleared so the ladder is closed: only
+   * these rungs exist, which retires the 21 literal px sizes the audit counted and
+   * makes an off-scale `text-4xl` a compile error.
+   * ------------------------------------------------------------------------- */
+  --text-*: initial;
+
+  --text-2xs: 0.625rem; /* 10px — mono uppercase metadata only, never prose */
+  --text-xs: 0.6875rem; /* 11px — status bar, badges, micro-labels */
+  --text-sm: 0.75rem; /* 12px — dense tree / grid rows; the body floor */
+  --text-base: 0.8125rem; /* 13px — default interface text */
+  --text-md: 0.875rem; /* 14px — dialog body, chat prose */
+  --text-lg: 1rem; /* 16px — dialog titles, section heads */
+  --text-xl: 1.25rem; /* 20px — panel headings */
+
+  /* PROPOSAL calls these --display-sm/md/lg; registered under --text-* so the
+   * utilities exist (`text-display-lg`). Welcome + empty states only. Tracking and
+   * leading are baked in per §2.4, so no `leading-*` override is ever needed. */
+  --text-display-sm: 1.75rem; /* 28px */
+  --text-display-sm--line-height: 0.92;
+  --text-display-sm--letter-spacing: -0.03em;
+  --text-display-md: 2.5rem; /* 40px */
+  --text-display-md--line-height: 0.92;
+  --text-display-md--letter-spacing: -0.03em;
+  --text-display-lg: 3.5rem; /* 56px */
+  --text-display-lg--line-height: 0.92;
+  --text-display-lg--letter-spacing: -0.03em;
+
+  /* Mono uppercase eyebrows (§2.4). Replaces `tracking-wide` for that one job. */
+  --tracking-eyebrow: 0.08em;
+
+  /* ---------------------------------------------------------------------------
+   * Faces. `--font-sans` and `--font-mono` are pointed at the brand equivalents so
+   * Tailwind's preflight defaults land on Instrument Sans / IBM Plex Mono without
+   * every component having to opt in. Inter and JetBrains Mono stay declared as
+   * fallbacks (PROPOSAL §2.4) — the Angular renderer still ships them.
+   * ------------------------------------------------------------------------- */
+  --font-*: initial;
+
+  --font-display: 'Archivo Variable', 'Archivo Narrow', 'Arial Narrow', sans-serif;
+  /* Archivo Narrow ExtraBold, reproduced from the variable family. Both axes live in
+   * font-variation-settings rather than one of them in font-weight: `--font-*` only
+   * supports the two `font-*-settings` modifiers, so a `--font-display--font-weight`
+   * would be silently dropped. */
+  --font-display--font-variation-settings: 'wdth' 75, 'wght' 800;
+  --font-interface: 'Instrument Sans Variable', 'Instrument Sans', 'Inter', sans-serif;
+  --font-technical: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace;
+  --font-sans: var(--font-interface);
+  --font-mono: var(--font-technical);
+
+  /* ---------------------------------------------------------------------------
+   * Radius. PROPOSAL §2.1: three rungs, nothing rounder than 6px, dialogs included.
+   * Tailwind's own xs/sm/md are already exactly 2/4/6px, so the ladder keeps its
+   * stock names and everything above md is deleted.
+   * ------------------------------------------------------------------------- */
+  --radius-*: initial;
+
+  --radius-xs: 0.125rem; /* 2px */
+  --radius-sm: 0.25rem; /* 4px */
+  --radius-md: 0.375rem; /* 6px */
+  --radius-full: 9999px; /* pips and pills only */
+
+  /* ---------------------------------------------------------------------------
+   * Shadows. PROPOSAL §2.1: rules replace shadows, and there are no shadows at all
+   * under ink. Clearing the namespace is the whole enforcement — `shadow-sm` and
+   * friends no longer compile.
+   *
+   * The one survivor, `shadow-overlay`, is deliberately NOT a `--shadow-*` theme
+   * variable: Tailwind resolves that namespace at build time and inlines the value
+   * into the utility, so a per-theme override of `--shadow-overlay` would be emitted
+   * into the light block and never read. It is an `@utility` over a plain custom
+   * property instead — see --overlay-shadow below the @theme block.
+   * ------------------------------------------------------------------------- */
+  --shadow-*: initial;
+
+  /* ---------------------------------------------------------------------------
+   * Icons get their own scale (§2.4) so icon sizing stops leaking into the type
+   * scale — the audit found 52 stray 18px font-sizes doing exactly that. These are
+   * the same three values as `size-3.5` / `size-4` / `size-5`; app chrome uses
+   * --icon-md and --icon-lg is nav-list only.
+   * ------------------------------------------------------------------------- */
+  --icon-sm: 0.875rem; /* 14px */
+  --icon-md: 1rem; /* 16px */
+  --icon-lg: 1.25rem; /* 20px */
+
+  /* Retires the four magic 38s and the 36/38 mismatch the audit found in the shell
+   * (PROPOSAL §1.9 / §2.2). --titlebar-height is the macOS traffic-light clearance. */
+  --titlebar-height: 38px;
+  --panel-header-height: 36px;
+
+  /* Spacing is deliberately NOT redefined. Tailwind v4 derives the whole scale from
+   * `--spacing: 0.25rem`, and every rung PROPOSAL §2.4 asks for is already a bare
+   * multiple of it: 2/4/6/8/10/12/16/24/32px = 0.5/1/1.5/2/2.5/3/4/6/8. Adding a
+   * t-shirt-sized alias set would be the parallel token system PLAN §3 warns about;
+   * HOUSE-RULES documents the ladder instead. */
+}
+
+/*
+ * Layer 2, ivory. Same order as the ink block above; every line is an override of a
+ * token declared there. Unlayered, so it beats Tailwind's `theme` layer regardless of
+ * specificity, and scoped to `:root` because the pre-mount script writes `data-theme`
+ * on <html>.
+ */
+:root {
+  color-scheme: dark;
+
+  /* The overlay treatment. A plain custom property, not a `--shadow-*` theme variable,
+   * so the light override below is actually read at paint time (see the shadows note in
+   * @theme). Under ink this is a hairline ring, not a shadow — PROPOSAL §2.1 removes
+   * shadows entirely from the dark theme. */
+  --overlay-shadow: 0 0 0 1px rgb(242 239 231 / 0.1);
+
+  @variant light {
+    color-scheme: light;
+
+    --color-canvas: var(--color-j-ivory);
+    --color-surface: #eae7dd;
+    --color-chrome: #e2ded2; /* MUST stay darker than the canvas — PROPOSAL §1.6 */
+    --color-elevated: var(--color-j-paper);
+    --color-hover: rgb(23 24 23 / 0.05);
+    --color-active: rgb(214 73 47 / 0.1);
+
+    --color-fg: var(--color-j-ink); /* 15.50:1 on canvas */
+    --color-fg-muted: #5a5d57; /*  5.82:1 on canvas */
+    --color-fg-subtle: #7a7d74; /*  3.65:1 — metadata only, see HOUSE-RULES */
+
+    --color-rule: rgb(23 24 23 / 0.1);
+    --color-rule-strong: var(--color-j-rule);
+
+    --color-accent: var(--color-j-oxide);
+    --color-accent-strong: var(--color-j-oxide-deep);
+    --color-accent-subtle: rgb(214 73 47 / 0.1);
+    --color-accent-fill-fg: var(--color-j-paper); /* on oxide-deep fill: 5.42:1 */
+    --color-focus: var(--color-j-oxide-deep);
+
+    --color-success: var(--color-j-verify-deep); /* 4.56:1 on canvas */
+    --color-warning: var(--color-j-amber-deep); /* 5.15:1 on canvas */
+    --color-danger: #a5271b; /* 6.29:1 on canvas */
+    --color-info: var(--color-fg-muted); /* still not blue */
+
+    /* Light mode is the only theme with real elevation (§2.1). */
+    --overlay-shadow: 0 8px 32px rgb(23 24 23 / 0.12);
+  }
+}
+
+/* `@utility`, not a bare class, so the variants still compose (`hover:shadow-overlay`).
+ * This is the only reason `shadow-overlay` survives the cleared `--shadow-*` namespace,
+ * and the only shape in which its two themed values both reach the paint. */
+@utility shadow-overlay {
+  box-shadow: var(--overlay-shadow);
+}
+
+@layer base {
+  /* 13px interface default. Set on body, never on html: rem drives the whole spacing
+   * scale, so moving the root font-size would silently rescale every utility. */
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-fg);
+    font-size: var(--text-base);
+  }
+
+  /* Numeric and ticking values must not reflow as digits change (§2.4). */
+  code,
+  kbd,
+  samp,
+  pre {
+    font-variant-numeric: tabular-nums;
+  }
+}
