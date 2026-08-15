@@ -44,6 +44,25 @@ export default defineConfig({
     // dep it cannot resolve, and relying on the hoisted root node_modules would
     // mean the dev server stops booting the moment the cutover PR deletes the
     // Angular renderer that drags them in.
-    include: ['@dagrejs/graphlib', '@dagrejs/dagre', 'nearley'],
+    include: [
+      '@dagrejs/graphlib',
+      '@dagrejs/dagre',
+      'nearley',
+      // `@joinery/shared` is a linked workspace package, and Vite does not pre-bundle those
+      // by default — which for a CJS package is fatal in dev and only in dev. Its `dist` is
+      // tsc CommonJS whose surface is a chain of `__exportStar(require(…))` calls, so the dev
+      // server's ESM interop cannot see the named exports through it: importing
+      // `DEFAULT_SETTINGS` threw "does not provide an export named" at runtime while both
+      // `vite build` (Rollup's commonjs plugin) and vitest (which aliases the package to its
+      // TypeScript source) were perfectly happy. Task 5 is where this surfaced, because it is
+      // the first task whose code path actually reaches a runtime *value* from the package
+      // rather than a type. Forcing pre-bundling is the documented fix for exactly this case.
+      //
+      // Cost: a change to `packages/shared` needs the dev server restarted (or `--force`) to be
+      // picked up. Cheaper than the alternatives — aliasing the package to its source would
+      // diverge dev from the build, and converting shared to ESM is a `packages/shared` change
+      // this plan puts out of scope (PLAN.md §8).
+      '@joinery/shared',
+    ],
   },
 });
