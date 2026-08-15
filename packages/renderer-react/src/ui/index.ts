@@ -8,6 +8,13 @@
  * through, has a `:focus-visible` treatment if it is interactive, and paints from Layer 2
  * tokens only so both themes follow with no `dark:` variants.
  *
+ * ONE API wrinkle worth knowing before you reach for a form control: `Input`, `Textarea`,
+ * `Select`, `Checkbox` and `Switch` render a label/hint/error wrapper, and their `className`
+ * lands on **the control** — the `<input>`, the `<textarea>`, the select trigger — because that
+ * is what `<Input className="w-40" />` means. The wrapper takes `fieldClassName`. See the header
+ * of `field.tsx` for why the label lives inside the component at all (the Task 20 `getByLabel`
+ * contract depends on it).
+ *
  * `Markdown` is deliberately NOT re-exported here: it lives in `src/markdown/` because that is
  * the only path `eslint.config.js` allows `dangerouslySetInnerHTML` in, and re-exporting it
  * through `ui` would blur where that boundary is. Import it from `../markdown`.

@@ -108,7 +108,10 @@ export function Select({
           <RadixSelect.Content
             position="popper"
             sideOffset={4}
-            className={cn(MENU_CONTENT_CLASSES, 'max-h-64')}
+            // Matches the trigger's width instead of sizing to the longest option. Radix
+            // publishes it as a custom property on the content element; a 200px "Engine" field
+            // whose list is 160px wide reads as a bug.
+            className={cn(MENU_CONTENT_CLASSES, 'max-h-64 min-w-(--radix-select-trigger-width)')}
           >
             <RadixSelect.Viewport>{children}</RadixSelect.Viewport>
           </RadixSelect.Content>

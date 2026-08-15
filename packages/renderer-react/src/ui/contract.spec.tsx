@@ -1,10 +1,28 @@
 import type { ReactElement } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { Check, Database } from 'lucide-react';
+
+import userEvent from '@testing-library/user-event';
 
 import { Button } from './button';
 import { Checkbox } from './checkbox';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from './context-menu';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from './dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from './popover';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './tabs';
+import { Tooltip, TooltipProvider } from './tooltip';
 import { EmptyState } from './empty-state';
 import { Icon } from './icon';
 import { Input } from './input';
@@ -119,6 +137,109 @@ const SOURCES: Readonly<Record<string, string>> = Object.fromEntries(
     .filter(([path]) => !path.includes('.spec.'))
     .map(([path, source]) => [path.replace('./', ''), String(source)])
 );
+
+/**
+ * The compound and portalled primitives, which cannot be covered by the table above because
+ * their styled element only exists once something is open. Their `className` merge is
+ * otherwise unproven — the source scans below check for margins and colours, not for a merge.
+ */
+describe('the portalled primitives merge className too', () => {
+  it('DialogContent', () => {
+    render(
+      <Dialog defaultOpen>
+        <DialogContent className={MARKER} data-testid="subject">
+          <DialogHeader>
+            <DialogTitle>T</DialogTitle>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
+    );
+
+    expect(screen.getByTestId('subject').className).toContain(MARKER);
+  });
+
+  it('DropdownMenuContent', async () => {
+    render(
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button data-testid="trigger">Open</Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className={MARKER} data-testid="subject">
+          <DropdownMenuItem>Item</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+
+    await userEvent.click(screen.getByTestId('trigger'));
+
+    expect(screen.getByTestId('subject').className).toContain(MARKER);
+  });
+
+  it('ContextMenuContent', () => {
+    render(
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <div data-testid="target">Target</div>
+        </ContextMenuTrigger>
+        <ContextMenuContent className={MARKER} data-testid="subject">
+          <ContextMenuItem>Item</ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+    );
+
+    fireEvent.contextMenu(screen.getByTestId('target'));
+
+    expect(screen.getByTestId('subject').className).toContain(MARKER);
+  });
+
+  it('PopoverContent', async () => {
+    render(
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button data-testid="trigger">Open</Button>
+        </PopoverTrigger>
+        <PopoverContent className={MARKER} data-testid="subject" />
+      </Popover>
+    );
+
+    await userEvent.click(screen.getByTestId('trigger'));
+
+    expect(screen.getByTestId('subject').className).toContain(MARKER);
+  });
+
+  it('Tooltip content', async () => {
+    render(
+      <TooltipProvider>
+        <Tooltip content="Tip" className={MARKER} data-testid="subject">
+          <Button data-testid="trigger">Hover</Button>
+        </Tooltip>
+      </TooltipProvider>
+    );
+
+    await userEvent.tab();
+
+    expect(screen.getByTestId('subject').className).toContain(MARKER);
+  });
+
+  it('TabsList, TabsTrigger and TabsContent', () => {
+    render(
+      <Tabs defaultValue="a">
+        <TabsList className={MARKER} data-testid="list">
+          <TabsTrigger value="a" className={MARKER} data-testid="trigger">
+            A
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="a" className={MARKER} data-testid="panel">
+          Panel
+        </TabsContent>
+      </Tabs>
+    );
+
+    for (const testId of ['list', 'trigger', 'panel']) {
+      expect(screen.getByTestId(testId).className).toContain(MARKER);
+    }
+  });
+});
 
 describe('the source scan has something to scan', () => {
   it('found every primitive module', () => {
