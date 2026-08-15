@@ -24,16 +24,16 @@ Thank you for your interest in contributing to Forge! This document provides gui
 ### Prerequisites
 
 - **Node.js** 20 or later
-- **npm** 10 or later
+- **pnpm** 11 or later (`corepack enable pnpm`)
 - **Xcode Command Line Tools** (macOS, for native modules)
 - **Docker** (optional, for local SQL Server testing)
 
 ### Installation
 
 ```bash
-npm install
-npm run build       # Build all packages
-npm run dev         # Development mode with hot reload
+pnpm install
+pnpm run build       # Build all packages
+pnpm run dev         # Development mode with hot reload
 ```
 
 ### Running SQL Server Locally
@@ -46,8 +46,8 @@ docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=YourStrong@Passw0rd" \
 ### Building Installers
 
 ```bash
-npm run package:mac   # macOS DMG (arm64 + x64)
-npm run package       # Current platform
+pnpm run package:mac   # macOS DMG (arm64 + x64)
+pnpm run package       # Current platform
 ```
 
 ## Project Structure
@@ -100,12 +100,12 @@ forge/
 3. Build to check for type errors:
 
    ```bash
-   npm run build
+   pnpm run build
    ```
 
 4. Test your changes manually or with tests:
    ```bash
-   npm test
+   pnpm test
    ```
 
 ## AI Integration Guidelines
@@ -152,7 +152,7 @@ refactor(explorer): migrate to Angular signals
 
 ## Pull Request Process
 
-1. Ensure the build succeeds: `npm run build`
+1. Ensure the build succeeds: `pnpm run build`
 2. Update documentation if your change affects user-facing behavior
 3. Create a PR with a clear description of what and why
 4. Link related issues

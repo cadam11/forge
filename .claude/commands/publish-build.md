@@ -13,7 +13,7 @@ Ask the user:
 
 - Ensure working tree is clean (`git status` — no uncommitted changes)
 - Ensure you're on the `main` branch
-- Confirm all packages build successfully: `npm run build`
+- Confirm all packages build successfully: `pnpm run build`
 - Check the current version in `package.json` and the latest git tag
 
 ### 1a. Run the full regression harness — REQUIRED RELEASE GATE
@@ -21,7 +21,7 @@ Ask the user:
 **This is mandatory for every release. No release proceeds on a red or skipped harness.** Invoke the **forge-regression-harness** skill and run the complete 4-tier pipeline:
 
 - The harness needs the Docker daemon running (it brings up the test Docker Compose stack). If Docker is down, start it and wait for the daemon before running.
-- Run `npm run test:full` — it brings the harness up, runs unit/integration/e2e/visual, writes structured JSON to `tests/reports/.cache/`, and **exits non-zero on any failure**.
+- Run `pnpm run test:full` — it brings the harness up, runs unit/integration/e2e/visual, writes structured JSON to `tests/reports/.cache/`, and **exits non-zero on any failure**.
 - **Gate:** the run must exit 0 (all tiers green). If anything fails, STOP — do not bump, tag, or push. Surface the failures (read `tests/reports/.cache/{tier}.summary.md`), fix or get the user's call, and re-run until green.
 - Only after a green harness do you continue to the version bump.
 
@@ -92,4 +92,4 @@ For a **patch release with no UX changes**, the audit may yield only the `Releas
 
 - **`cpu-features` build failure**: The `scripts/before-build.js` hook removes this incompatible optional module before `@electron/rebuild` runs. If it still fails, check that `before-build.js` exists and is referenced in `electron-builder.yml` under `beforeBuild`.
 - **Missing dependencies in packaged app**: The `beforeBuild` hook MUST return `true`. Returning `false` tells electron-builder that node_modules are handled externally, which excludes all deps from the asar.
-- **Workspace symlink issues**: `scripts/prepare-package.js` replaces the `@forgedb/shared` symlink with a real copy. This runs automatically as part of `npm run package`.
+- **Workspace symlink issues**: `scripts/prepare-package.js` replaces the `@forgedb/shared` symlink with a real copy. This runs automatically as part of `pnpm run package`.

@@ -4,10 +4,10 @@
  * the @forgedb/* workspace symlinks with real copies (asar can't follow
  * symlinks).
  *
- * NOTE: this leaves node_modules in a "packaged" state. Prefer `npm run package`
+ * NOTE: this leaves node_modules in a "packaged" state. Prefer `pnpm run package`
  * (which runs scripts/package.js and restores the symlinks afterward). If you run
  * this directly, restore with `node scripts/restore-package.js` when you're done,
- * or a later `npm run build` / e2e run will load a stale copy.
+ * or a later `pnpm run build` / e2e run will load a stale copy.
  */
 
 const { swapToCopies } = require('./workspace-links');

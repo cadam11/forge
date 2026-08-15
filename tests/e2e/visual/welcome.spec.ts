@@ -4,7 +4,7 @@
  * Snapshots live at tests/__snapshots__/visual/<spec>/<arg>.png and are
  * committed to the repo. Regenerate with:
  *
- *   npm run test:visual:update
+ *   pnpm run test:visual:update
  *
  * Visual specs run macOS-only by design (per-developer M-series Macs all
  * produce the same baselines; CI is intentionally not in scope for this

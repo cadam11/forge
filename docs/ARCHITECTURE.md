@@ -247,9 +247,9 @@ The `before-quit` handler performs ordered cleanup:
 **Framework:** Vitest with @vitest/coverage-v8 (standard Vitest + v8 coverage setup)
 
 ```bash
-npm test              # Run all tests (vitest run)
-npm run test:watch    # Watch mode (vitest watch)
-npm run test:coverage # Run with v8 coverage report
+pnpm test              # Run all tests (vitest run)
+pnpm run test:watch    # Watch mode (vitest watch)
+pnpm run test:coverage # Run with v8 coverage report
 ```
 
 **Test structure:**
@@ -263,7 +263,7 @@ npm run test:coverage # Run with v8 coverage report
 
 **CI:** GitHub Actions runs on every PR to `main`:
 
-- Triggers on changes to `packages/**`, `package-lock.json`, `vitest.config.ts`
+- Triggers on changes to `packages/**`, `pnpm-lock.yaml`, `vitest.config.ts`
 - Type-check all packages (main, renderer, preload)
 - Run full test suite with coverage
 - Coverage artifact uploaded (30-day retention)
@@ -271,11 +271,11 @@ npm run test:coverage # Run with v8 coverage report
 ## Common Commands
 
 ```bash
-npm run dev              # Start in dev mode (hot reload)
-npm run build            # Build for production
-npm run package          # Package as .app
-npm run package:dmg      # Create distributable DMG
-npm test                 # Run all tests
-npm run lint             # Lint all code
-npm run typecheck        # TypeScript check without emit
+pnpm run dev              # Start in dev mode (hot reload)
+pnpm run build            # Build for production
+pnpm run package          # Package as .app
+pnpm run package:dmg      # Create distributable DMG
+pnpm test                 # Run all tests
+pnpm run lint             # Lint all code
+pnpm run typecheck        # TypeScript check without emit
 ```

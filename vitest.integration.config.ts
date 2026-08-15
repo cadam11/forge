@@ -3,9 +3,9 @@
  *
  * Picks up tests under `tests/integration/**` only. These tests require the
  * docker-compose.test.yml network to be running:
- *   npm run test:harness:up
+ *   pnpm run test:harness:up
  *
- * Kept separate from the default `vitest.config.ts` so that `npm run test`
+ * Kept separate from the default `vitest.config.ts` so that `pnpm run test`
  * remains a fast, no-infrastructure unit-test pass.
  */
 

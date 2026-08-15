@@ -4,20 +4,17 @@
   "description": "AI-native SQL Server IDE for macOS and Windows",
   "license": "MIT",
   "private": true,
-  "workspaces": [
-    "packages/*"
-  ],
-  "packageManager": "npm@10.5.0",
+  "packageManager": "pnpm@11.21.0",
   "engines": {
     "node": ">=20.0.0",
-    "npm": ">=10.0.0"
+    "pnpm": ">=11.0.0"
   },
   "scripts": {
     "build": "turbo run build",
     "build:stream": "turbo run build --log-order=stream",
-    "dev": "npm run build && concurrently -k \"npm run dev:renderer\" \"npm run dev:main\"",
-    "dev:renderer": "npm run start --workspace=@forgedb/renderer",
-    "dev:main": "wait-on http://localhost:4200 && unset ELECTRON_RUN_AS_NODE && NODE_ENV=development npm run start --workspace=@forgedb/main",
+    "dev": "pnpm run build && concurrently -k \"pnpm run dev:renderer\" \"pnpm run dev:main\"",
+    "dev:renderer": "pnpm --filter @forgedb/renderer run start",
+    "dev:main": "wait-on http://localhost:4200 && unset ELECTRON_RUN_AS_NODE && NODE_ENV=development pnpm --filter @forgedb/main run start",
     "start": "turbo run start",
     "watch": "turbo run watch",
     "test": "vitest run",
@@ -44,9 +41,10 @@
     "clean": "turbo run clean && rm -rf node_modules",
     "deps:check": "syncpack list-mismatches",
     "deps:fix": "syncpack fix-mismatches",
-    "package": "npm run build && node scripts/package.js",
-    "package:mac": "npm run build && node scripts/package.js --mac",
-    "package:dir": "npm run build && node scripts/package.js --dir",
+    "package": "pnpm run build && node scripts/package.js",
+    "package:mac": "pnpm run build && node scripts/package.js --mac",
+    "package:dir": "pnpm run build && node scripts/package.js --dir",
+    "verify:package": "node scripts/verify-package.js",
     "prepare": "husky"
   },
   "main": "packages/main/dist/index.js",
@@ -74,7 +72,7 @@
     "@vitest/coverage-v8": "^4.1.2",
     "concurrently": "^9.2.1",
     "electron": "^41.0.3",
-    "electron-builder": "26.4.0",
+    "electron-builder": "26.15.3",
     "esbuild": "^0.27.7",
     "eslint": "^8.56.0",
     "eslint-config-prettier": "^9.1.0",
@@ -89,10 +87,6 @@
     "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^4.1.2",
     "wait-on": "^9.0.3"
-  },
-  "overrides": {
-    "@types/node": "^20.14.2",
-    "typescript": "~5.4.5"
   },
   "lint-staged": {
     "*.{ts,tsx}": [

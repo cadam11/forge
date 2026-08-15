@@ -9,7 +9,7 @@ import { defineConfig } from '@playwright/test';
 //   - e2e: functional E2E specs (anything not under tests/e2e/visual/)
 //   - visual: snapshot baselines (anything under tests/e2e/visual/)
 //
-// `npm run test:e2e` and `npm run test:visual` invoke the projects separately
+// `pnpm run test:e2e` and `pnpm run test:visual` invoke the projects separately
 // so the static report and live dashboard can show them as distinct tiers.
 export default defineConfig({
   testDir: './tests/e2e',

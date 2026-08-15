@@ -7,7 +7,7 @@
  *
  * Connection config points at the docker-compose.test.yml services on
  * non-standard host ports. Bring the network up first via:
- *   npm run test:harness:up
+ *   pnpm run test:harness:up
  */
 
 import { randomUUID } from 'node:crypto';

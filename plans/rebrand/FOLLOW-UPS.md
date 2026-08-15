@@ -1,8 +1,8 @@
-# Forge rebrand — follow-up work
+# Forge — follow-up work
 
-Deferred items from the rebrand (PR #1) and the markdown renderer swap (PR #2).
-GitHub issues are disabled on this repo, so this file is the backlog. Delete an
-entry when it lands; delete the file when it is empty.
+Deferred items from the rebrand (PR #1), the markdown renderer swap (PR #2), and
+the pnpm migration (PR #3). GitHub issues are disabled on this repo, so this file
+is the backlog. Delete an entry when it lands; delete the file when it is empty.
 
 Ordered by priority.
 
@@ -15,15 +15,15 @@ PR #1 merged with the baselines in `tests/__snapshots__/visual/` still showing
 unavailable while the rebrand was executed, so they could not be regenerated then.
 
 ```bash
-npm run test:harness:up
-npm run build
-npm run test:visual:update
+pnpm run test:harness:up
+pnpm run build
+pnpm run test:visual:update
 ```
 
 Check the regenerated PNGs before committing. Do not run `:update` reflexively — it
 regenerates from current behaviour whether or not that behaviour is correct.
 
-`npm run test:e2e` was also never run against the rebrand for the same reason.
+`pnpm run test:e2e` was also never run against the rebrand for the same reason.
 
 ---
 
@@ -103,10 +103,10 @@ Minor, same area: mermaid emits two unprefixed global rules per diagram
 
 ## 6. Pre-existing rot, not caused by the rebrand
 
-- **`npm run lint` has never worked.** `packages/renderer/package.json` declares
+- **`pnpm run lint` has never worked.** `packages/renderer/package.json` declares
   `"lint": "ng lint"` but `angular.json` has no lint target. True before the rebrand
   too. The husky/lint-staged pre-commit hook is what actually enforces lint.
-- **The renderer has no `typecheck` script**, so `npm run typecheck` covers only
+- **The renderer has no `typecheck` script**, so `pnpm run typecheck` covers only
   main/preload/shared. `ng build` is the only thing that type-checks the renderer.
 - **`tests/regression-suite.md`** documents a `full-audit.spec.ts` that no longer
   exists. Marked historical in PR #1 rather than deleted — Craig's call whether it goes.
@@ -117,7 +117,53 @@ Minor, same area: mermaid emits two unprefixed global rules per diagram
 
 ---
 
-## 7. Rotate the leaked SQL Server `sa` password
+## 7. Workspace packages import dependencies they do not declare
+
+`packages/main` imports `electron`, `@azure/msal-node`, `pg`, `mysql2`, and the
+AWS SDKs without listing any of them in its own `package.json`. They resolve only
+because they are declared in the ROOT manifest and Node walks up the directory
+tree. Same story for `devicon` in the renderer.
+
+That layout is not accidental: the root package.json _is_ the Electron app
+manifest (`main` points at `packages/main/dist/index.js`), and electron-builder
+collects the app's production dependencies from it. Moving the deps down into
+`packages/main` would drop them out of the asar.
+
+Consequence: the workspace must stay on `nodeLinker: hoisted` (see
+`pnpm-workspace.yaml`). pnpm's default isolated linker would be the stricter,
+better setup — it makes undeclared imports fail loudly — but it cannot be adopted
+until the root-manifest coupling is untangled.
+
+Fix, when someone has the appetite: declare each dependency in the package that
+imports it _while keeping it in the root manifest_, verify the asar is unchanged
+with `pnpm run verify:package`, then flip the linker.
+
+---
+
+## 8. Dependency versions moved during the pnpm migration
+
+pnpm could not reproduce npm's exact tree (`pnpm import` re-resolves rather than
+preserving), so regenerating the lockfile advanced 29 direct dependencies to the
+newest version their existing semver range allows. Nothing was widened; the
+ranges in `package.json` are untouched. Notables: `@memberjunction/sqlglot-ts`
+5.23→5.51, `pg` 8.20→8.23, `mysql2` 3.20→3.23, `electron` 41.0.3→41.10.5,
+`prettier` 3.8.1→3.9.6, `@playwright/test` 1.58.2→1.62.1.
+
+Two knock-ons worth knowing:
+
+- `prettier` 3.9.6 reformats 6 files that 3.8.1 accepted (4 source, 2 plans).
+  They were left alone; the pre-commit hook will rewrite them when next staged.
+- `@playwright/test` 1.62 and `electron` 41.10 both feed the visual tier, whose
+  baselines are already stale (item 1). Regenerate them on a machine with Docker
+  before reading any visual diff as a real regression.
+
+Craig accepted the drift deliberately (2026-08-15) rather than pinning the versions
+back, so this entry is a record, not an action. If the drift is ever suspected in a
+bug, `git show <pre-migration-sha>:package-lock.json` still has the old resolution.
+
+---
+
+## 9. Rotate the leaked SQL Server `sa` password
 
 `mj.config.cjs` was deleted in PR #1, but it contained a plaintext `sa` password
 pointing at an `MJ_5_14_0` database and **remains in git history**. Treat the

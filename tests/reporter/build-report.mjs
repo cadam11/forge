@@ -168,7 +168,7 @@ async function runVitestTier({ label, configFlag, cacheFile }) {
     '--reporter=json',
     `--outputFile=${cacheFile}`,
   ];
-  const { code } = await run('npx', args, REPO_ROOT);
+  const { code } = await run('pnpm', ['exec', ...args], REPO_ROOT);
   const durationMs = Date.now() - startedAt;
 
   if (!existsSync(cacheFile)) {
@@ -223,16 +223,16 @@ async function runPlaywrightTier({ label, project, cacheName }) {
     return {
       label,
       status: 'pending',
-      note: 'Skipped — packages/{main,renderer}/dist not built. Run `npm run build` first.',
+      note: 'Skipped — packages/{main,renderer}/dist not built. Run `pnpm run build` first.',
     };
   }
   const cacheFile = join(CACHE_DIR, cacheName);
   console.log(`▶ Running ${label}…`);
   const startedAt = Date.now();
   const { code } = await run(
-    'npx',
+    'pnpm',
     [
-      'playwright', 'test',
+      'exec', 'playwright', 'test',
       `--project=${project}`,
       `--reporter=list,json`,
       `--output=${join(CACHE_DIR, 'playwright-' + project)}`,

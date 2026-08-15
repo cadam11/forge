@@ -1,0 +1,50 @@
+packages:
+  - 'packages/*'
+
+# A flat, npm-identical node_modules with no symlinks inside dependency trees.
+# Required because electron-builder collects the app's production dependency
+# tree from disk: under pnpm's default isolated layout it silently omitted
+# transitive packages (pg-protocol, pg-pool, denque, ...), producing an app.asar
+# that packaged and signed cleanly but crashed on the first database connection.
+# asar also cannot follow symlinks — see scripts/workspace-links.js.
+#
+# NOTE: pnpm 11 reads these settings ONLY from this file. The same keys in
+# .npmrc are silently ignored (`pnpm config get node-linker` -> undefined).
+nodeLinker: hoisted
+
+# Angular and the Electron toolchain carry loose peer ranges that are warnings
+# rather than real conflicts; failing the install on them blocks CI for no gain.
+strictPeerDependencies: false
+
+# Moved from package.json "overrides" during the npm -> pnpm migration.
+# @types/node is pinned to 20.x to match .nvmrc / CI, and typescript to the
+# version the Angular 18 toolchain supports.
+overrides:
+  '@types/node': ^20.14.2
+  typescript: ~5.4.5
+
+# pnpm does not run dependency lifecycle scripts unless they are listed here.
+# Anything not listed stays blocked, so new install scripts arriving via a
+# transitive bump fail loudly instead of running silently.
+allowBuilds:
+  # Downloads the Electron binary — the app cannot run without it.
+  electron: true
+  # Native modules we actually load at runtime.
+  keytar: true
+  ssh2: true
+  # esbuild links its platform binary; the preload bundle step needs it.
+  esbuild: true
+  # Angular CLI's build cache and its optional accelerators. Not strictly
+  # required, but denying them makes every renderer build slower.
+  lmdb: true
+  msgpackr-extract: true
+  nice-napi: true
+  protobufjs: true
+  # Squirrel.Windows installer support, reached transitively through
+  # electron-builder. Kept enabled so Windows release builds match npm.
+  electron-winstaller: true
+  # Optional ssh2 accelerator that is incompatible with Electron's V8.
+  # scripts/before-build.js deletes it before @electron/rebuild runs and
+  # electron-builder.yml excludes it from the asar, so building it is wasted
+  # work. ssh2 require()s it in a try/catch and degrades cleanly.
+  cpu-features: false

@@ -2,8 +2,8 @@ Run the Playwright UI regression test suite against the Forge Electron app.
 
 ## Steps
 
-1. **Build the project** first with `npx turbo build --force` to ensure latest code is compiled
-2. **Run the full audit**: `npx playwright test e2e/full-audit.spec.ts --reporter=list`
+1. **Build the project** first with `pnpm exec turbo build --force` to ensure latest code is compiled
+2. **Run the full audit**: `pnpm exec playwright test e2e/full-audit.spec.ts --reporter=list`
 3. **Analyze the output** for any failures, issues, or regressions
 4. **Check screenshots** in `e2e/screenshots/audit4/` for visual issues
 5. **Report findings** with:
@@ -23,7 +23,7 @@ Run the Playwright UI regression test suite against the Forge Electron app.
 ## If issues are found
 
 - Fix the underlying code (not just the test)
-- Rebuild with `npx turbo build --force`
+- Rebuild with `pnpm exec turbo build --force`
 - Re-run the affected tests to verify
 - Commit with conventional commit format
 - Push to the current branch

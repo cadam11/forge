@@ -12,7 +12,7 @@
 //
 // Lifecycle:
 //   - Ctrl+C  → stop the vitest watchers and exit. Docker is left running
-//               (use `npm run test:harness:down` when you're done).
+//               (use `pnpm run test:harness:down` when you're done).
 
 import http from 'node:http';
 import os from 'node:os';
@@ -55,11 +55,11 @@ const state = {
     unit: makeTier('Unit', 'Initializing — first run in progress…'),
     integration: makeTier('Integration', 'Initializing — first run in progress…'),
     // E2E + Visual are passive — populated when the user fires the Run
-    // button on the tier or runs the matching `npm run test:e2e:live` /
+    // button on the tier or runs the matching `pnpm run test:e2e:live` /
     // `test:visual:live` command in another terminal. Neither has a
     // dashboard-managed watcher (too heavy to rerun on every save).
-    e2e:    makeTier('E2E (Playwright + Electron)', 'Run via the Run button (or `npm run test:e2e:live`).'),
-    visual: makeTier('Visual regression',           'Run via the Run button (or `npm run test:visual:live`).'),
+    e2e:    makeTier('E2E (Playwright + Electron)', 'Run via the Run button (or `pnpm run test:e2e:live`).'),
+    visual: makeTier('Visual regression',           'Run via the Run button (or `pnpm run test:visual:live`).'),
   },
   // Per-tier opt-out for the file-watch auto-rerun. Only the slow tiers
   // (e2e/visual) get a toggle — unit + integration are sub-second so the
@@ -694,8 +694,8 @@ function spawnOneShotPlaywright(tier, files = []) {
     return;
   }
   const args = ['playwright', 'test', `--project=${tier}`, ...files];
-  console.log(`▶ spawning one-shot playwright (${tier}): npx ${args.join(' ')}`);
-  const child = spawn('npx', args, {
+  console.log(`▶ spawning one-shot playwright (${tier}): pnpm exec ${args.join(' ')}`);
+  const child = spawn('pnpm', ['exec', ...args], {
     stdio: 'inherit',
     cwd: REPO_ROOT,
     env: {
@@ -1265,7 +1265,7 @@ function serializeInfrastructure() {
 
 function spawnVitest(tier, extraArgs) {
   // `--watch` forces watch mode. Vitest's default is "watch if stdin is a TTY"
-  // but when invoked through `npm run` + child_process.spawn the TTY detection
+  // but when invoked through `pnpm run` + child_process.spawn the TTY detection
   // is unreliable, so we make it explicit.
   const args = [
     'vitest',
@@ -1277,7 +1277,7 @@ function spawnVitest(tier, extraArgs) {
     `--outputFile=${join(CACHE_DIR, `${tier}.json`)}`,
   ];
   console.log(`▶ spawning vitest watch for ${tier}`);
-  const child = spawn('npx', args, {
+  const child = spawn('pnpm', ['exec', ...args], {
     stdio: 'inherit',
     cwd: REPO_ROOT,
     env: {

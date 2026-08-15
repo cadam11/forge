@@ -1,7 +1,7 @@
 # Forge regression test infrastructure.
 #
-# Bring up:    npm run test:harness:up
-# Tear down:   npm run test:harness:down
+# Bring up:    pnpm run test:harness:up
+# Tear down:   pnpm run test:harness:down
 # Status:      docker compose -f tests/docker-compose.test.yml ps
 #
 # All host ports are deliberately non-standard to avoid clashing with

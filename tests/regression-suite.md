@@ -12,22 +12,22 @@ Automated Playwright tests for the Forge Electron app. Tests launch the full Ele
 
 ## Prerequisites
 
-- **Node.js 20+** and npm
+- **Node.js 20+** and pnpm
 - **Docker** with SQL Server container running on `localhost:1433`
 - **MJ_5_14_0 database** with MemberJunction schema (`__mj` schema)
-- **Playwright** installed: `npm install`
+- **Playwright** installed: `pnpm install`
 
 ## Running Tests
 
 ```bash
 # Full audit suite (31 tests, ~1.5 min)
-npx playwright test e2e/full-audit.spec.ts --reporter=list
+pnpm exec playwright test e2e/full-audit.spec.ts --reporter=list
 
 # Run specific test by name
-npx playwright test e2e/full-audit.spec.ts -g "07 – Execute query"
+pnpm exec playwright test e2e/full-audit.spec.ts -g "07 – Execute query"
 
 # Run first N tests
-npx playwright test e2e/full-audit.spec.ts -g "01|02|03|04|05"
+pnpm exec playwright test e2e/full-audit.spec.ts -g "01|02|03|04|05"
 ```
 
 ## Test Suite: Full Audit (31 tests)

@@ -16,17 +16,17 @@ Two ways to run the suite. Pick by workflow:
 ### Live dashboard (for active dev)
 
 ```bash
-npm run test:dashboard      # opens http://127.0.0.1:5188
+pnpm run test:dashboard      # opens http://127.0.0.1:5188
 ```
 
 Brings the harness up, runs `vitest --watch` for both tiers, and serves a live-updating dashboard. Edit code → vitest reruns affected tests → dashboard updates via Server-Sent Events. Per-file state is merged across runs so a single-file rerun doesn't blank out the rest of the suite.
 
-Pair with `npm run dev` in another terminal so you have the app running and the test dashboard updating side-by-side. Ctrl+C to stop the watchers; Docker stays up.
+Pair with `pnpm run dev` in another terminal so you have the app running and the test dashboard updating side-by-side. Ctrl+C to stop the watchers; Docker stays up.
 
 ### One-shot static report (for CI / agents / pre-release)
 
 ```bash
-npm run test:full           # runs everything once, writes HTML, exits
+pnpm run test:full           # runs everything once, writes HTML, exits
 ```
 
 Self-contained HTML report at `tests/reports/latest.html` (timestamped copy alongside). Reports are gitignored — local-only.
@@ -34,15 +34,15 @@ Self-contained HTML report at `tests/reports/latest.html` (timestamped copy alon
 ### Piecewise (manual)
 
 ```bash
-npm run test                  # unit tier only (no infrastructure)
-npm run test:harness:up       # start the Docker network
-npm run test:integration      # run integration tier once
-npm run test:harness:down     # tear down when done
+pnpm run test                  # unit tier only (no infrastructure)
+pnpm run test:harness:up       # start the Docker network
+pnpm run test:integration      # run integration tier once
+pnpm run test:harness:down     # tear down when done
 ```
 
 ## The report
 
-`npm run test:full` produces a single self-contained HTML file styled to match Forge's purple-tinted theme.
+`pnpm run test:full` produces a single self-contained HTML file styled to match Forge's purple-tinted theme.
 
 - **Hero counters** — passed / failed / skipped / duration
 - **Synopsis** — one-line business-language summary
@@ -53,21 +53,21 @@ npm run test:harness:down     # tear down when done
 
 ## Available scripts
 
-| Script                           | What it does                                                             |
-| -------------------------------- | ------------------------------------------------------------------------ |
-| `npm run test`                   | Unit tier only (no infrastructure required)                              |
-| `npm run test:integration`       | Integration tier — requires harness up                                   |
-| `npm run test:integration:watch` | Integration in watch mode for active dev                                 |
-| `npm run test:full`              | All tiers + HTML report. Brings harness up automatically.                |
-| `npm run test:dashboard`         | Live HTML dashboard at http://127.0.0.1:5188, vitest watch on both tiers |
-| `npm run test:visual`            | Capture/compare visual regression baselines (one-shot)                   |
-| `npm run test:visual:live`       | Same, but stream events to the dashboard                                 |
-| `npm run test:visual:update`     | Re-capture all visual baselines (use after intentional UI changes)       |
-| `npm run test:harness:up`        | Start docker-compose network, generate SSH keypair if needed             |
-| `npm run test:harness:down`      | Stop network and remove volumes                                          |
-| `npm run test:harness:status`    | Show compose service health                                              |
+| Script                            | What it does                                                             |
+| --------------------------------- | ------------------------------------------------------------------------ |
+| `pnpm run test`                   | Unit tier only (no infrastructure required)                              |
+| `pnpm run test:integration`       | Integration tier — requires harness up                                   |
+| `pnpm run test:integration:watch` | Integration in watch mode for active dev                                 |
+| `pnpm run test:full`              | All tiers + HTML report. Brings harness up automatically.                |
+| `pnpm run test:dashboard`         | Live HTML dashboard at http://127.0.0.1:5188, vitest watch on both tiers |
+| `pnpm run test:visual`            | Capture/compare visual regression baselines (one-shot)                   |
+| `pnpm run test:visual:live`       | Same, but stream events to the dashboard                                 |
+| `pnpm run test:visual:update`     | Re-capture all visual baselines (use after intentional UI changes)       |
+| `pnpm run test:harness:up`        | Start docker-compose network, generate SSH keypair if needed             |
+| `pnpm run test:harness:down`      | Stop network and remove volumes                                          |
+| `pnpm run test:harness:status`    | Show compose service health                                              |
 
-`test:full` accepts flags via `npm run test:full -- <flag>`:
+`test:full` accepts flags via `pnpm run test:full -- <flag>`:
 
 - `--no-harness` skip the integration tier (unit-only run)
 - `--teardown` tear the harness down at the end
@@ -129,13 +129,13 @@ Helper for this is coming in Phase 2.
 - **Phase 3** — LLM mock + cassette replay for deterministic AI tests.
 - **Phase 4** — Playwright E2E suite covering everything from `regression-suite.md` (the legacy MSSQL audit) plus PG, MySQL, AI chat.
 - **Phase 5** ✓ — Visual regression baselines under `tests/__snapshots__/visual/` (macOS-only by design — re-capture with `test:visual:update` if the host machine changes).
-- **Phase 6** — `npm run test:full` (one-shot CI-style) ✓ and `npm run test:smoke` (fast subset for the agent loop) — pending.
+- **Phase 6** — `pnpm run test:full` (one-shot CI-style) ✓ and `pnpm run test:smoke` (fast subset for the agent loop) — pending.
 
 ## Troubleshooting
 
 **`test:harness:up` fails on macOS** — Docker Desktop must be running. The MSSQL image needs ~2GB RAM allocated to Docker.
 
-**`Connection refused` on first integration run** — `--wait` should gate on health checks but MSSQL can take ~20s after "healthy" to actually accept logins. If it fails, retry once or `npm run test:harness:status` to confirm all services are healthy.
+**`Connection refused` on first integration run** — `--wait` should gate on health checks but MSSQL can take ~20s after "healthy" to actually accept logins. If it fails, retry once or `pnpm run test:harness:status` to confirm all services are healthy.
 
 **SSH key generation fails** — `ssh-keygen` is required (ships with macOS). If missing, install OpenSSH via Homebrew.
 

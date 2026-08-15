@@ -5,7 +5,7 @@
  * electron-builder's asar cannot follow symlinks, so before packaging we
  * replace the node_modules/@forgedb/<pkg> workspace symlinks with real copies
  * (`swapToCopies`). After packaging we put the symlinks back (`restoreSymlinks`)
- * so a later `npm run build` / e2e run doesn't load a stale packaged copy — that
+ * so a later `pnpm run build` / e2e run doesn't load a stale packaged copy — that
  * staleness has previously crashed the built app on startup.
  *
  * Both functions are parameterised on their target dirs so the round-trip can be
@@ -72,7 +72,7 @@ function swapToCopies(options = {}) {
   }
 }
 
-/** Restore each workspace symlink the way npm would. Idempotent. */
+/** Restore each workspace symlink the way pnpm would. Idempotent. */
 function restoreSymlinks(options = {}) {
   const { scopeDir = DEFAULT_SCOPE_DIR, packagesRoot = DEFAULT_PACKAGES_ROOT, packages = WORKSPACE_PACKAGES } = options;
 
@@ -92,7 +92,7 @@ function restoreSymlinks(options = {}) {
 
     fs.mkdirSync(path.dirname(destDir), { recursive: true });
     // Windows junctions need an absolute target and no admin rights; POSIX uses
-    // a relative symlink, matching how npm links workspaces (../../packages/<pkg>).
+    // a relative symlink, matching how pnpm links workspaces (../../packages/<pkg>).
     if (process.platform === 'win32') {
       fs.symlinkSync(target, destDir, 'junction');
     } else {
