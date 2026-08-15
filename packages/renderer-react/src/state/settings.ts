@@ -7,27 +7,41 @@
  * consumer already used `SettingsService` directly, so its only real contribution was the
  * three-state cycle order, which survives as `nextThemePreference` below.
  *
- * ── Persistence (Task 5 owns migration; this reads what Angular writes) ─────────────────────
+ * ── Persistence (Task 5 moved this; Task 4's version read localStorage directly) ────────────
  *
- * One key, `joinery-settings`, holding the whole `AppSettings` object, merged over
- * `DEFAULT_SETTINGS` group by group on read exactly as `settings.service.ts:127-145` did. Same
- * key, same shape, same merge — a user moving between the two renderers keeps their settings, and
- * `index.html`'s pre-mount script reads the same `.theme` field.
+ * Settings live in main-process `AppState`, under the one key the React renderer owns
+ * (`persistence/renderer-state.ts`). This store no longer reads or writes `joinery-settings` at
+ * all: it starts at `DEFAULT_SETTINGS` — bar the theme, which is seeded from the React-owned mirror
+ * so the pre-mount paint is not undone (see the initial state below) — and `hydrate()`, called once
+ * from `persistence/hydrate.ts` after the one-shot localStorage migration, merges the persisted
+ * object over the defaults group by group, exactly as `settings.service.ts:127-145` did.
  *
- * ── Two side effects, on purpose ─────────────────────────────────────────────────────────────
+ * `hydrate()` also decides whether the write path is open at all: writing a DEFAULT-derived settings
+ * object into `AppState` before the migration has settled would permanently poison the migration's
+ * precedence rule. `SettingsHydration.persistWrites` documents that failure in full.
  *
- * Writing settings writes localStorage, and changing the resolved theme writes `[data-theme]` on
- * `<html>`. Both happen synchronously inside the action rather than in a subscriber effect,
+ * Not writing `joinery-settings` is a coexistence rule, not an aesthetic one. The Angular renderer
+ * is still shipping and still owns that key; if this store wrote it, a settings change made here
+ * would clobber a settings change made there after the migration ran. React reads Angular's
+ * localStorage (once, in the migration) and never writes it.
+ *
+ * ── Three side effects, on purpose ───────────────────────────────────────────────────────────
+ *
+ * A settings write (a) mirrors the theme preference to one small React-owned localStorage key for
+ * the pre-mount FOUC script, (b) writes `[data-theme]` on `<html>`, and (c) fires an async write to
+ * `AppState`. (a) and (b) are synchronous inside the action rather than in a subscriber effect,
  * because effects run after commit: a component that measures a resolved token value in its own
  * effect would otherwise read the previous theme for one frame. That is the flash the pre-mount
- * script exists to eliminate, and re-introducing it one layer down would be silly.
+ * script exists to eliminate, and re-introducing it one layer down would be silly. (c) cannot be
+ * synchronous — it is IPC — which is exactly why (a) exists; see `persistence/theme-mirror.ts` for
+ * the full argument and the rejected alternative.
  *
  * ── What is written, and how it meets the pre-mount script ──────────────────────────────────
  *
- * This store writes the RESOLVED theme (`dark` | `light`), never the literal `system`, which is
- * what `settings.service.ts:220-231` did and for the reason documented there: `prefers-color-scheme`
+ * The DOM gets the RESOLVED theme (`dark` | `light`), never the literal `system`, which is what
+ * `settings.service.ts:220-231` did and for the reason documented there: `prefers-color-scheme`
  * is not reliable inside Electron, so `system` is resolved through `nativeTheme` over IPC instead.
- * `index.html` writes the preference verbatim before the bundle loads (so `data-theme="system"`
+ * `index.html` writes the *preference* verbatim before the bundle loads (so `data-theme="system"`
  * paints the right canvas via the media query), and this store replaces it with the resolved value
  * on mount. `theme.css` honours both spellings deliberately, so the handover is not a flash.
  */
@@ -37,42 +51,38 @@ import { create } from 'zustand';
 import { DEFAULT_SETTINGS } from '@joinery/shared';
 import type { AppSettings, ThemePreference } from '@joinery/shared';
 import { isIpcAvailable, useIpcEvent, useIpcQuery } from '../ipc';
+// The leaf persistence modules, never the `persistence/` barrel — see the note in that barrel.
+import {
+  rendererStatePersistence,
+  type PersistedSettings,
+  type RendererStatePersistence,
+} from '../persistence/renderer-state';
+import {
+  readMirroredThemePreference,
+  writeMirroredThemePreference,
+} from '../persistence/theme-mirror';
 import { diagnostics } from './diagnostics';
 
-/** PLAN.md 0.5's first localStorage key, and the one the pre-mount script reads. */
-const STORAGE_KEY = 'joinery-settings';
 const THEME_ATTRIBUTE = 'data-theme';
 const DARK_MEDIA_QUERY = '(prefers-color-scheme: dark)';
 
 export type ResolvedTheme = 'dark' | 'light';
 
-function loadSettings(): AppSettings {
-  try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored) as Partial<AppSettings>;
-      // Group-by-group merge so a settings object written by an older version — or with a group
-      // missing entirely — still yields every field.
-      return {
-        ...DEFAULT_SETTINGS,
-        ...parsed,
-        editor: { ...DEFAULT_SETTINGS.editor, ...parsed.editor },
-        query: { ...DEFAULT_SETTINGS.query, ...parsed.query },
-        grid: { ...DEFAULT_SETTINGS.grid, ...parsed.grid },
-      };
-    }
-  } catch (error) {
-    diagnostics.error('failed to load settings', error);
-  }
-  return DEFAULT_SETTINGS;
-}
-
-function saveSettings(settings: AppSettings): void {
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-  } catch (error) {
-    diagnostics.error('failed to save settings', error);
-  }
+/**
+ * Merges a persisted settings object over the defaults, group by group, so an object written by an
+ * older version — or with a group missing entirely, or with a group replaced by a non-object by a
+ * hand edit — still yields every field. Exported because `hydrate()` is not the only future caller:
+ * a settings import/export surface needs the identical merge.
+ */
+export function mergePersistedSettings(persisted: PersistedSettings | undefined): AppSettings {
+  if (!persisted) return DEFAULT_SETTINGS;
+  return {
+    ...DEFAULT_SETTINGS,
+    ...persisted,
+    editor: { ...DEFAULT_SETTINGS.editor, ...persisted.editor },
+    query: { ...DEFAULT_SETTINGS.query, ...persisted.query },
+    grid: { ...DEFAULT_SETTINGS.grid, ...persisted.grid },
+  };
 }
 
 /**
@@ -104,6 +114,31 @@ export function applyThemeAttribute(resolved: ResolvedTheme): void {
   document.documentElement.setAttribute(THEME_ATTRIBUTE, resolved);
 }
 
+/**
+ * What `hydrate()` is handed. Two fields, because adopting the persisted values and *unlocking the
+ * write path* are different decisions and only the caller knows the second one.
+ */
+export interface SettingsHydration {
+  /** The persisted settings, or `undefined` for "there are none" / "they could not be read". */
+  readonly settings: PersistedSettings | undefined;
+  /**
+   * Whether this store may write to `AppState` from now on.
+   *
+   * FALSE when the localStorage migration has not settled — it failed, or there is no bridge. This
+   * is not caution for its own sake; it closes a permanent, silent data loss. The migration runs at
+   * most once, so a `settings` object that lands in `AppState` before it has had its turn competes
+   * with the user's real Angular settings for the one chance they had of being lifted: boot 1
+   * migration fails → the user nudges any setting → a DEFAULT-derived object lands in `AppState` →
+   * boot 2 migrates, sets the marker, and those Angular settings are never lifted and never can be.
+   *
+   * The gate is the fix at the source: no such object is written in the first place. It is also what
+   * makes the provenance stamp honest — every settings value this store persists is written *after*
+   * this flag opened, which is precisely what `settingsAuthoredByReactAt` claims about it, and what
+   * `migration.ts` relies on to tell a considered choice from a default-derived one.
+   */
+  readonly persistWrites: boolean;
+}
+
 export interface SettingsStoreState {
   readonly settings: AppSettings;
   /** The OS theme as reported by Electron's `nativeTheme`, or by `matchMedia` outside Electron. */
@@ -114,6 +149,13 @@ export interface SettingsStoreState {
   readonly open: () => void;
   readonly close: () => void;
   readonly toggle: () => void;
+
+  /**
+   * Adopts the persisted settings and decides whether the write path is open. Called once, from
+   * `persistence/hydrate.ts`, after the one-shot localStorage migration. Idempotent, and it does NOT
+   * write back to `AppState` — hydration is a read.
+   */
+  readonly hydrate: (hydration: SettingsHydration) => void;
 
   readonly updateSettings: (partial: Partial<AppSettings>) => void;
   readonly updateTheme: (theme: ThemePreference) => void;
@@ -138,23 +180,85 @@ export interface SettingsStoreState {
 
 export type SettingsStore = ReturnType<typeof createSettingsStore>;
 
-export function createSettingsStore() {
+export function createSettingsStore(
+  persistence: RendererStatePersistence = rendererStatePersistence
+) {
   return create<SettingsStoreState>()((set, get) => {
-    /** Persist, then re-apply the attribute. One place, so no write path can forget either. */
+    /**
+     * Whether `AppState` writes are allowed yet. Closed until `hydrate()` opens it — see
+     * `SettingsHydration.persistWrites` for the data loss that shuts. A closure variable rather than
+     * store state: nothing renders it, and no component may flip it.
+     */
+    let writesUnlocked = false;
+
+    /**
+     * The one write path. Mirror the theme (synchronous, for the next boot's pre-mount script),
+     * set the state, re-apply the attribute, then persist to `AppState` (async, error-logged
+     * inside the persistence layer). One place, so no caller can forget a step.
+     *
+     * The `AppState` write is fire-and-forget by design: a settings change must land in the UI on
+     * the same tick, and `update()` already serializes concurrent writes and reports its own
+     * failures. `void` rather than a floating promise so that is legible at the call site.
+     */
     const commit = (settings: AppSettings): void => {
-      saveSettings(settings);
+      writeMirroredThemePreference(settings.theme);
       set({ settings });
       applyThemeAttribute(resolveTheme(settings.theme, get().nativeTheme));
+
+      if (!writesUnlocked) {
+        // Never silent. The change is live in the UI and in the theme mirror; it is only the
+        // `AppState` write that is withheld, and hydration is about to replace this object anyway.
+        diagnostics.warn('settings changed before hydration; not persisting to AppState', {
+          reason:
+            'the localStorage migration has not settled — see SettingsHydration.persistWrites',
+        });
+        return;
+      }
+      // The stamp travels with the value, in the same write, and says who authored it. Reaching this
+      // line means hydration confirmed the migration settled, so this IS a considered choice — and
+      // `migration.ts` can only know that from the stamp: neither the absence of the migration marker
+      // nor the shape of the object tells it (see `ReactRendererState.settingsAuthoredByReactAt`).
+      void persistence.update(current => ({
+        ...current,
+        settings,
+        settingsAuthoredByReactAt: new Date().toISOString(),
+      }));
     };
 
     return {
-      settings: loadSettings(),
+      // Not the persisted settings: `AppState` is only reachable over async IPC, so the store cannot
+      // be constructed from it, and `hydrate()` replaces this a tick later.
+      //
+      // The theme is the one field that cannot wait for that tick. `useNativeThemeSync` applies the
+      // resolved theme on mount, so a store that started at the DEFAULT `system` would paint the OS
+      // theme over the preference `index.html` had already resolved — light → dark → light for a
+      // light-preferring user on a dark OS, which is the exact flash the pre-mount script exists to
+      // kill. So the initial theme comes from the same synchronous source that script reads: the
+      // React-owned mirror, falling back to Angular's settings object. Read-only, and the only
+      // localStorage this store touches.
+      settings: { ...DEFAULT_SETTINGS, theme: readMirroredThemePreference() },
       nativeTheme: detectInitialNativeTheme(),
       isOpen: false,
 
       open: () => set({ isOpen: true }),
       close: () => set({ isOpen: false }),
       toggle: () => set(state => ({ isOpen: !state.isOpen })),
+
+      /**
+       * Not `commit`: hydration must not write back what it just read. It still mirrors the theme
+       * and applies the attribute, so a user whose preference came from the migration gets a
+       * flash-free *next* boot without having to touch the settings panel first.
+       */
+      hydrate: ({ settings: persisted, persistWrites }) => {
+        writesUnlocked = persistWrites;
+        // No persisted object means either a fresh install or a read that failed, and this cannot
+        // tell them apart — so the theme already in the store (seeded from the mirror) is kept
+        // rather than stamped back to `system`. On a genuine fresh install those are the same value.
+        const settings = mergePersistedSettings(persisted ?? { theme: get().settings.theme });
+        writeMirroredThemePreference(settings.theme);
+        set({ settings });
+        applyThemeAttribute(resolveTheme(settings.theme, get().nativeTheme));
+      },
 
       /**
        * One deliberate divergence from the Angular original: it re-applied the theme only from

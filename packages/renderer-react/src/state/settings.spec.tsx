@@ -13,10 +13,14 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { DEFAULT_SETTINGS } from '@joinery/shared';
 import { createIpcQueryClient } from '../ipc/query-provider';
 import { installJoineryMock, recordSubscription, removeJoineryMock } from '../test/joinery-mock';
+import { createAppStateDouble } from '../test/app-state-double';
+import { createRendererStatePersistence } from '../persistence/renderer-state';
+import { THEME_MIRROR_KEY } from '../persistence/theme-mirror';
 import { createSettingsStore, nextThemePreference, useNativeThemeSync } from './settings';
 import { setDiagnosticsSink } from './diagnostics';
 
-const STORAGE_KEY = 'joinery-settings';
+/** Angular-owned, and the point of the first test below: this store must never write it. */
+const ANGULAR_STORAGE_KEY = 'joinery-settings';
 
 /** A controllable `prefers-color-scheme: dark` media query. Returns the flip handle. */
 function stubMatchMedia(initialMatches: boolean): { flip: (matches: boolean) => void } {
@@ -78,43 +82,197 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/*
+ * Task 5 moved this store's persistence from `localStorage['joinery-settings']` to main-process
+ * `AppState`. The round trip, the migration and the group-by-group merge are proved in
+ * `src/persistence/*.spec.ts`; what belongs here is the store's half of the contract — it starts at
+ * the defaults, it adopts what hydration hands it, and it writes to `AppState` and the theme mirror
+ * and to nothing else.
+ */
 describe('settings store — persistence', () => {
-  it('reads the same localStorage key and shape the Angular renderer writes', () => {
-    // Exactly what settings.service.ts:149 produces, with one group partially specified.
-    window.localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ theme: 'light', editor: { fontSize: 18 } })
-    );
+  it('starts at the defaults for everything except the theme', () => {
     stubMatchMedia(true);
+    window.localStorage.setItem(
+      ANGULAR_STORAGE_KEY,
+      JSON.stringify({ theme: 'system', editor: { fontSize: 18 } })
+    );
 
+    // `AppState` is not read at construction — it cannot be, it is async — so nothing but the
+    // theme (see the next describe block) can come from persistence yet.
+    expect(createSettingsStore().getState().settings).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it('adopts hydrated settings, merged group by group over the defaults', () => {
+    stubMatchMedia(true);
     const store = createSettingsStore();
+
+    store.getState().hydrate({
+      settings: { theme: 'light', editor: { fontSize: 18 } },
+      persistWrites: true,
+    });
 
     expect(store.getState().settings.theme).toBe('light');
     expect(store.getState().settings.editor.fontSize).toBe(18);
     // Merged group-by-group over the defaults, so a field the stored object omits still exists.
     expect(store.getState().settings.editor.tabSize).toBe(DEFAULT_SETTINGS.editor.tabSize);
     expect(store.getState().settings.grid).toEqual(DEFAULT_SETTINGS.grid);
+    // Hydration is a read: it must not write back what it was handed.
+    expect(themeAttribute()).toBe('light');
   });
 
-  it('falls back to defaults on corrupt JSON without throwing', () => {
-    window.localStorage.setItem(STORAGE_KEY, '{not json');
-    stubMatchMedia(false);
-
-    expect(createSettingsStore().getState().settings).toEqual(DEFAULT_SETTINGS);
-  });
-
-  it('writes the whole settings object back under the same key', () => {
+  it('hydrating nothing leaves the defaults in place', () => {
     stubMatchMedia(false);
     const store = createSettingsStore();
 
-    store.getState().updateGridSetting('copyFormat', 'csv');
+    store.getState().hydrate({ settings: undefined, persistWrites: true });
 
-    const written = JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? '{}') as {
-      grid: { copyFormat: string };
-      theme: string;
-    };
-    expect(written.grid.copyFormat).toBe('csv');
-    expect(written.theme).toBe(DEFAULT_SETTINGS.theme);
+    expect(store.getState().settings).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it('hydrating nothing keeps the theme the mirror seeded, rather than stamping `system`', () => {
+    // `settings: undefined` cannot tell a fresh install from a `getState` that failed. Resetting the
+    // theme would turn a transient read failure into a visible theme change — and on a genuine
+    // fresh install the mirror says `system` anyway, so keeping it costs nothing.
+    window.localStorage.setItem(THEME_MIRROR_KEY, 'dark');
+    stubMatchMedia(false);
+    const store = createSettingsStore();
+
+    store.getState().hydrate({ settings: undefined, persistWrites: true });
+
+    expect(store.getState().settings.theme).toBe('dark');
+    expect(store.getState().settings.editor).toEqual(DEFAULT_SETTINGS.editor);
+  });
+
+  it('writes the whole settings object into AppState, under the React-owned key', async () => {
+    stubMatchMedia(false);
+    const bridge = createAppStateDouble();
+    teardowns.push(installJoineryMock({ app: bridge.app }));
+    const persistence = createRendererStatePersistence();
+    const store = createSettingsStore(persistence);
+    store.getState().hydrate({ settings: undefined, persistWrites: true });
+
+    store.getState().updateGridSetting('copyFormat', 'csv');
+    await persistence.read(); // flushes the store's unawaited write
+
+    const written = bridge.snapshot().reactRendererState?.settings;
+    expect(written?.grid?.copyFormat).toBe('csv');
+    expect(written?.theme).toBe(DEFAULT_SETTINGS.theme);
+  });
+
+  it('mirrors the theme preference for the pre-mount script, and writes no Angular key', () => {
+    // The FOUC source, and the coexistence rule in one assertion: the Angular settings object is
+    // byte-identical after a write that changes both the theme and an editor setting.
+    stubMatchMedia(false);
+    const angular = JSON.stringify({ theme: 'system', editor: { fontSize: 11 } });
+    window.localStorage.setItem(ANGULAR_STORAGE_KEY, angular);
+    const store = createSettingsStore();
+
+    store.getState().updateTheme('dark');
+    store.getState().updateEditorSetting('fontSize', 20);
+
+    expect(window.localStorage.getItem(THEME_MIRROR_KEY)).toBe('dark');
+    expect(window.localStorage.getItem(ANGULAR_STORAGE_KEY)).toBe(angular);
+  });
+
+  it('does not fail a settings change when there is no bridge to persist to', () => {
+    stubMatchMedia(false);
+    const store = createSettingsStore();
+
+    store.getState().updateGridSetting('rowHeight', 32);
+
+    expect(store.getState().settings.grid.rowHeight).toBe(32);
+  });
+});
+
+/*
+ * The write gate. `SettingsHydration.persistWrites` spells out the data loss; these are the two
+ * halves of it that the store owns. The end-to-end sequence — failed migration, settings change,
+ * next boot — is in `persistence/hydrate.spec.ts`.
+ */
+describe('settings store — the write gate', () => {
+  it('does not write to AppState before hydration', async () => {
+    stubMatchMedia(false);
+    const bridge = createAppStateDouble();
+    teardowns.push(installJoineryMock({ app: bridge.app }));
+    const persistence = createRendererStatePersistence();
+    const store = createSettingsStore(persistence);
+
+    // A theme toggle from a shell that rendered before hydration resolved.
+    store.getState().updateTheme('dark');
+    await persistence.read();
+
+    // Live in the UI and in the mirror, absent from AppState.
+    expect(store.getState().settings.theme).toBe('dark');
+    expect(themeAttribute()).toBe('dark');
+    expect(window.localStorage.getItem(THEME_MIRROR_KEY)).toBe('dark');
+    expect(bridge.snapshot().reactRendererState).toBeUndefined();
+    expect(bridge.calls.setState).toBe(0);
+  });
+
+  it('stays shut when hydration says the migration has not settled', async () => {
+    stubMatchMedia(false);
+    const bridge = createAppStateDouble();
+    teardowns.push(installJoineryMock({ app: bridge.app }));
+    const persistence = createRendererStatePersistence();
+    const store = createSettingsStore(persistence);
+
+    store.getState().hydrate({ settings: undefined, persistWrites: false });
+    store.getState().updateGridSetting('rowHeight', 32);
+    await persistence.read();
+
+    expect(bridge.snapshot().reactRendererState).toBeUndefined();
+  });
+
+  it('opens once hydration says the migration settled', async () => {
+    stubMatchMedia(false);
+    const bridge = createAppStateDouble();
+    teardowns.push(installJoineryMock({ app: bridge.app }));
+    const persistence = createRendererStatePersistence();
+    const store = createSettingsStore(persistence);
+
+    store.getState().hydrate({ settings: { theme: 'light' }, persistWrites: true });
+    store.getState().updateGridSetting('rowHeight', 32);
+    await persistence.read();
+
+    expect(bridge.snapshot().reactRendererState?.settings?.grid?.rowHeight).toBe(32);
+    expect(bridge.snapshot().reactRendererState?.settings?.theme).toBe('light');
+  });
+});
+
+/*
+ * The pre-mount handover. PLAN.md 0.7's whole point is that `index.html` paints `data-theme` before
+ * the bundle loads; a store that then applied a DEFAULT-derived theme on mount would put the flash
+ * back one layer down, which is what these two assert against.
+ */
+describe('settings store — no flash at mount', () => {
+  it('seeds its theme from the mirror the pre-mount script read', () => {
+    window.localStorage.setItem(THEME_MIRROR_KEY, 'light');
+    stubMatchMedia(true); // …on a dark OS, so a default `system` would resolve the other way.
+
+    expect(createSettingsStore().getState().settings.theme).toBe('light');
+  });
+
+  it('falls back to the Angular settings object when the mirror is absent', () => {
+    // The first React launch for a user coming from Angular: the migration has not run yet.
+    window.localStorage.setItem(ANGULAR_STORAGE_KEY, JSON.stringify({ theme: 'light' }));
+    stubMatchMedia(true);
+
+    expect(createSettingsStore().getState().settings.theme).toBe('light');
+  });
+
+  it('does not repaint the resolved OS theme over the pre-mount value on mount', async () => {
+    // The flash itself: preference `light`, OS dark, hydration still in flight. Before the seed
+    // above, `useNativeThemeSync`'s mount effect resolved DEFAULT `system` against the dark OS and
+    // wrote `dark` — light → dark → light once hydrate() landed.
+    window.localStorage.setItem(THEME_MIRROR_KEY, 'light');
+    stubMatchMedia(true);
+    document.documentElement.setAttribute('data-theme', 'light'); // as index.html left it
+    const store = createSettingsStore();
+
+    renderSync(store);
+
+    await waitFor(() => expect(store.getState().nativeTheme).toBe('dark'));
+    expect(themeAttribute()).toBe('light');
   });
 });
 

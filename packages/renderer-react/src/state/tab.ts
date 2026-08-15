@@ -22,6 +22,11 @@
 import { create } from 'zustand';
 import type { TabState as PersistedTab } from '@joinery/shared';
 import { ipc, isIpcAvailable } from '../ipc';
+// The leaf persistence module, never the `persistence/` barrel — see the note in that barrel.
+import {
+  rendererStatePersistence,
+  type RendererStatePersistence,
+} from '../persistence/renderer-state';
 import { diagnostics } from './diagnostics';
 
 export type TabType = 'query' | 'results' | 'object' | 'welcome' | 'erd' | 'chat';
@@ -39,9 +44,6 @@ export interface Tab {
   autoExecute?: boolean; // For query tabs, execute immediately when opened
   metadata?: Record<string, unknown>;
 }
-
-/** One of the six localStorage keys PLAN.md 0.5 inventories. Task 5 owns migrating it. */
-const WELCOME_DISMISSED_KEY = 'joinery:welcomeDismissed';
 
 const MAX_QUERY_TABS = 20;
 const SAVE_DEBOUNCE_MS = 500;
@@ -169,39 +171,39 @@ export interface TabStoreState {
   readonly saveTabs: () => Promise<void>;
   readonly restoreTabs: (connectionId: string) => Promise<void>;
   readonly syncTabsFromLayout: (layoutTabStates: readonly LayoutTabState[]) => void;
+
+  /**
+   * Adopts the persisted welcome-dismissed flag. Called once from `persistence/hydrate.ts`, which
+   * is where that flag now comes from — Task 4 read `joinery:welcomeDismissed` at construction, and
+   * Task 5 moved it into main-process `AppState` with the other five keys.
+   *
+   * Adds the Welcome tab when the flag is false, rather than removing it when true, because a store
+   * cannot be constructed from async state: the workspace starts empty and gains Welcome a tick
+   * later. The other order would show a returning user the Welcome tab and then snatch it away.
+   * Idempotent — it never adds a second Welcome tab.
+   */
+  readonly hydrateWelcome: (dismissed: boolean) => void;
 }
 
 export type TabStore = ReturnType<typeof createTabStore>;
 
-function readWelcomeDismissed(): boolean {
-  try {
-    return window.localStorage.getItem(WELCOME_DISMISSED_KEY) === 'true';
-  } catch (error) {
-    // Storage can be blocked. "Not dismissed" is the safe answer — the user sees Welcome.
-    diagnostics.warn('could not read the welcome-dismissed flag', error);
-    return false;
-  }
-}
-
-function writeWelcomeDismissed(dismissed: boolean): void {
-  try {
-    if (dismissed) {
-      window.localStorage.setItem(WELCOME_DISMISSED_KEY, 'true');
-    } else {
-      window.localStorage.removeItem(WELCOME_DISMISSED_KEY);
-    }
-  } catch (error) {
-    diagnostics.warn('could not persist the welcome-dismissed flag', error);
-  }
-}
-
-export function createTabStore() {
+export function createTabStore(persistence: RendererStatePersistence = rendererStatePersistence) {
   // See the module comment: these three are per-store resources, not rendered state.
   const contentMap = new Map<string, string>();
   const cleanContentMap = new Map<string, string>();
   let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 
-  const welcomeDismissed = readWelcomeDismissed();
+  /**
+   * Fire-and-forget: closing the Welcome tab must not wait on IPC, and `update()` serializes and
+   * reports its own failures. `void` so the floating promise is visible rather than accidental.
+   */
+  const persistWelcomeDismissed = (dismissed: boolean): void => {
+    void persistence.update(current =>
+      current.welcomeDismissed === dismissed
+        ? undefined
+        : { ...current, welcomeDismissed: dismissed }
+    );
+  };
 
   return create<TabStoreState>()((set, get) => {
     const scheduleSave = (): void => {
@@ -220,8 +222,10 @@ export function createTabStore() {
     };
 
     return {
-      tabs: welcomeDismissed ? [] : [WELCOME_TAB],
-      activeTabId: welcomeDismissed ? '' : WELCOME_TAB.id,
+      // Empty, not `[WELCOME_TAB]`: whether Welcome belongs here is persisted state, and persisted
+      // state arrives over IPC. `hydrateWelcome` settles it. See its doc comment.
+      tabs: [],
+      activeTabId: '',
 
       openTab: tab => {
         const id = `tab-${crypto.randomUUID()}`;
@@ -240,7 +244,7 @@ export function createTabStore() {
         if (index === -1) return;
 
         if (tabs[index]?.type === 'welcome') {
-          writeWelcomeDismissed(true);
+          persistWelcomeDismissed(true);
         }
         forgetTabContent(tabId);
 
@@ -439,8 +443,18 @@ export function createTabStore() {
           set({ activeTabId: existing.id });
           return;
         }
-        writeWelcomeDismissed(false);
+        persistWelcomeDismissed(false);
         set(state => ({ tabs: [WELCOME_TAB, ...state.tabs], activeTabId: WELCOME_TAB.id }));
+      },
+
+      hydrateWelcome: dismissed => {
+        if (dismissed || get().tabs.some(t => t.type === 'welcome')) return;
+        set(state => ({
+          tabs: [WELCOME_TAB, ...state.tabs],
+          // Only take focus if nothing has it. Hydration races nothing today, but a tab opened by
+          // a deep link or a restored session must not lose focus to the Welcome tab.
+          activeTabId: state.activeTabId === '' ? WELCOME_TAB.id : state.activeTabId,
+        }));
       },
 
       closeTabsForDatabase: (connectionId, databaseName) => {

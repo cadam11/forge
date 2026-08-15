@@ -2,52 +2,31 @@
  * The three-state theme control, minimal edition.
  *
  * Deliberately local to src/dev/: Task 4 owns the real `settings` store (theme
- * resolution plus the Electron `nativeTheme` IPC) and Task 5 owns the localStorage
- * migration. This hook exists so the token preview page can prove both themes render
- * and that the pre-mount writer in index.html actually survives a reload — nothing
- * else should import it.
+ * resolution plus the Electron `nativeTheme` IPC). This hook exists so the token preview
+ * page can prove both themes render and that the pre-mount writer in index.html actually
+ * survives a reload — nothing else should import it.
+ *
+ * Task 5 changed where it persists to. It used to write the theme field of the Angular
+ * `joinery-settings` object; it now writes only the React-owned mirror key, because a dev
+ * preview page must not be able to overwrite a user's Angular settings. Reads still fall
+ * back to the Angular key, exactly as the pre-mount script and the real store do.
  */
 
 import { useCallback, useEffect, useState } from 'react';
+import {
+  readMirroredThemePreference,
+  writeMirroredThemePreference,
+} from '../persistence/theme-mirror';
 
-const STORAGE_KEY = 'joinery-settings';
 const THEME_ATTRIBUTE = 'data-theme';
 
 export const THEME_PREFERENCES = ['system', 'light', 'dark'] as const;
 export type ThemePreference = (typeof THEME_PREFERENCES)[number];
 export type ResolvedTheme = 'light' | 'dark';
 
-function isThemePreference(value: unknown): value is ThemePreference {
-  return typeof value === 'string' && (THEME_PREFERENCES as readonly string[]).includes(value);
-}
-
-/** Mirrors the inline reader in index.html — same key, same field, same fallback. */
+/** Mirrors the inline reader in index.html — mirror key first, Angular settings as fallback. */
 export function readPersistedTheme(): ThemePreference {
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    const stored: unknown = raw === null ? null : JSON.parse(raw).theme;
-    if (isThemePreference(stored)) return stored;
-  } catch (error) {
-    // Dev-only surface; Task 7 brings the real logging bridge. Silence here would hide
-    // corrupt persisted settings entirely.
-    // eslint-disable-next-line no-console
-    console.warn('[joinery] could not read the persisted theme:', error);
-  }
-  return 'system';
-}
-
-/** Writes the theme field without disturbing the rest of the persisted settings. */
-function persistTheme(preference: ThemePreference): void {
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    const existing: unknown = raw === null ? {} : JSON.parse(raw);
-    const settings = typeof existing === 'object' && existing !== null ? existing : {};
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...settings, theme: preference }));
-  } catch (error) {
-    // See above.
-    // eslint-disable-next-line no-console
-    console.warn('[joinery] could not persist the theme:', error);
-  }
+  return readMirroredThemePreference();
 }
 
 function resolve(preference: ThemePreference, prefersDark: boolean): ResolvedTheme {
@@ -86,7 +65,7 @@ export function usePreviewTheme(): PreviewTheme {
 
   const setPreference = useCallback((next: ThemePreference): void => {
     document.documentElement.setAttribute(THEME_ATTRIBUTE, next);
-    persistTheme(next);
+    writeMirroredThemePreference(next);
     setPreferenceState(next);
   }, []);
 

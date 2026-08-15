@@ -299,6 +299,22 @@ Angular has none, which is why `.github/workflows/ci.yml:45-46` carries a hand-w
 `setupFiles: ['./packages/main/src/__tests__/setup.ts']` currently runs for renderer specs too.
 `vitest.integration.config.ts` is **not touched**, per the constraint.
 
+**The cutover PR also (persistence, from Task 5):** deletes the six localStorage keys 0.5
+inventories — `joinery-settings`, `joinery:completed-tours`, `joinery:welcomeDismissed`,
+`joinery-snippets`, `joinery-ctrl-e-execute-confirmed`, `joinery-flyway-placeholder-values` — which
+Task 5 deliberately left in place because the Angular renderer still reads them, and which
+`src/persistence/legacy-local-storage.ts` (plus its one-shot migration and the
+`migratedFromLocalStorageAt` marker) exists only to read. Deleting them retires that whole module.
+It also settles the **`joinery:theme-preference` mirror**: with Angular gone the mirror can drop its
+`joinery-settings` fallback, and `no-local-storage-writes.spec.ts` — which today permits exactly one
+`setItem` in the package — becomes the place to state whether the mirror stays at all (it must, or
+the pre-mount FOUC script in `index.html` has no synchronous source; see `persistence/theme-mirror.ts`
+for the rejected alternatives). Finally it drops **`optimizeDeps.include: ['@joinery/shared']`** from
+`packages/renderer-react/vite.config.ts`: that entry exists because `packages/shared` emits tsc
+CommonJS whose `__exportStar` chain the dev server's ESM interop cannot see through (Task 5 hit it on
+the first import of a runtime value), so the real fix — **emitting ESM from `packages/shared`** — lands
+here, and the workaround goes with it.
+
 **The cutover PR also:** deletes `packages/renderer`; drops the `typescript: ~5.4.5` override and
 the four Angular-CLI accelerators (`lmdb`, `msgpackr-extract`, `nice-napi`, `protobufjs`) from
 `pnpm-workspace.yaml` `allowBuilds` (0.6); fixes the `strictPeerDependencies` comment, which
