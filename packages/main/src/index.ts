@@ -142,14 +142,21 @@ if (!gotTheLock) {
     }
     log.info('Shutdown: aborted active AI streams');
 
+    // Fire-and-forget: this handler is synchronous by design (see above), so the
+    // stop cannot be awaited. The client also SIGTERMs the child on process
+    // 'exit', so a slow stop here cannot orphan the Python process.
     try {
       SQLConverterService.getInstance()
         .stop()
-        .catch(() => {});
+        .catch(err =>
+          log.warn(
+            `Shutdown: sqlglot microservice stop failed: ${err instanceof Error ? err.message : String(err)}`
+          )
+        );
     } catch {
       /* singleton may not exist */
     }
-    log.info('Shutdown: stopped sqlglot microservice');
+    log.info('Shutdown: requested sqlglot microservice stop');
 
     // Flush debounced store writes so nothing persisted-in-memory is lost.
     try {
