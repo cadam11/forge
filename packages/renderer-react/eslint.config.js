@@ -5,6 +5,55 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import prettier from 'eslint-config-prettier';
 import tseslint from 'typescript-eslint';
 
+// `dangerouslySetInnerHTML` is banned outside src/markdown/. The Angular renderer bound
+// unsanitized strings to `[innerHTML]` in several places; CLAUDE.md's AI rules answer that
+// with exactly one sanctioned path — a single component that parses with `marked` and
+// sanitizes with DOMPurify. src/markdown/ (Task 6) is that component's home and the only
+// place the escape hatch is allowed; the ban lands now so nothing can grow a second one
+// before it exists.
+//
+// Two selectors because the property reaches JSX through two different AST node types:
+// `JSXIdentifier` for `<div dangerouslySetInnerHTML={…}>`, and `Identifier` for every
+// other route — an object literal handed to `createElement`, a spread prop, a variable
+// built up and passed along.
+const NO_INNER_HTML = ['JSXIdentifier', 'Identifier'].map(nodeType => ({
+  selector: `${nodeType}[name="dangerouslySetInnerHTML"]`,
+  message:
+    'dangerouslySetInnerHTML is banned outside src/markdown/. Render untrusted or ' +
+    'AI-generated content through the markdown component, which sanitizes with DOMPurify.',
+}));
+
+// `window.joinery` is reachable from anywhere, and importing `JoineryAPI` makes it
+// *type-clean* to reach: preload ships `declare global { interface Window { joinery:
+// JoineryAPI } }`, so `window.joinery.query.execute(…)` compiles anywhere in the package
+// with no availability guard and no query key. src/ipc/ is the one boundary that may read
+// it (api.ts:findJoineryApi), and this turns that from a convention into a gate.
+//
+// Three selectors, because one is trivially bypassed and each of the first two was measured
+// against a real bypass attempt before the next was added:
+//
+//  1. the canonical `window.joinery`, which carries the blame precisely;
+//  2. the bare identifier, because `(window as SomeCast).joinery` is a TSAsExpression whose
+//     `object.name` is not `window` — a cast defeats selector 1, and a cast is exactly what
+//     someone working around the guard reaches for. This also covers `const { joinery } =
+//     window`;
+//  3. the computed form, because `(window as Cast)['joinery']` has a string Literal for its
+//     property and so defeats BOTH of the above. Verified: before this selector existed that
+//     line linted clean.
+//
+// `Object.defineProperty(window, 'joinery', …)` is deliberately still allowed — it is a
+// CallExpression, not a member access, and it is how src/test/joinery-mock.ts installs the
+// bridge for tests. A plain `window.joinery` trips selectors 1 and 2 and reports twice; that
+// is noise on a line which must not exist at all.
+const NO_BRIDGE_BYPASS = [
+  'MemberExpression[object.name="window"][property.name="joinery"]',
+  'Identifier[name="joinery"]',
+  'MemberExpression[computed=true][property.value="joinery"]',
+].map(selector => ({
+  selector,
+  message: 'Reach the bridge through src/ipc (ipc() / findJoineryApi()), never window.joinery.',
+}));
+
 // Flat config, and therefore ESLint 9 pinned to this package rather than the
 // repo-root ESLint 8 + .eslintrc.json. The root config stays authoritative for
 // every other package until the Angular renderer is deleted at cutover.
@@ -36,6 +85,23 @@ export default tseslint.config(
     files: ['vite.config.ts', 'eslint.config.js'],
     languageOptions: { globals: globals.node },
   },
+  // The two bans, and the ORDER AND SHAPE OF THESE THREE BLOCKS IS LOAD-BEARING.
+  //
+  // `no-restricted-syntax` options do NOT merge across flat-config objects: for a given
+  // file, the last matching object replaces the rule's options wholesale. So the obvious
+  // spelling — one block per ban, each with its own `ignores` — silently deletes the first
+  // ban everywhere the second block also matches. That was measured, not assumed: with a
+  // second `{ ignores: ['src/ipc/**'], rules: { 'no-restricted-syntax': [bridge] } }` block
+  // appended, a fixture containing BOTH violations reported zero errors.
+  //
+  // So the file sets are partitioned instead, and each block states the complete rule for
+  // the files it matches. src/markdown/ and src/ipc/ do not overlap, so every file resolves
+  // to exactly one of these three. `ban-rules.spec.ts` asserts all four quadrants.
+  { rules: { 'no-restricted-syntax': ['error', ...NO_INNER_HTML, ...NO_BRIDGE_BYPASS] } },
+  // Task 6's sanitizing markdown component: may use innerHTML, may not touch the bridge.
+  { files: ['src/markdown/**'], rules: { 'no-restricted-syntax': ['error', ...NO_BRIDGE_BYPASS] } },
+  // The IPC boundary: may read the bridge, may not use innerHTML.
+  { files: ['src/ipc/**'], rules: { 'no-restricted-syntax': ['error', ...NO_INNER_HTML] } },
   // Last: turns off everything Prettier already owns.
   prettier
 );
