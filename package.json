@@ -89,8 +89,13 @@
   },
   "lint-staged": {
     "*.{ts,tsx}": [
-      "prettier --write",
+      "prettier --write"
+    ],
+    "!(packages/renderer-react/**)*.{ts,tsx}": [
       "eslint --fix"
+    ],
+    "packages/renderer-react/**/*.{ts,tsx}": [
+      "pnpm --filter @joinery/renderer-react exec eslint --fix"
     ],
     "*.{json,md,scss,css,html}": [
       "prettier --write"
