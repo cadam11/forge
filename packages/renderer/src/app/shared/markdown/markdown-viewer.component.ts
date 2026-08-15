@@ -10,6 +10,8 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { firstValueFrom } from 'rxjs';
+import { IpcService } from '../../core/services/ipc.service';
 import { renderMarkdown, sanitizeDiagramSvg } from './markdown-renderer';
 
 /** How many diagrams one message may render. Model output is not a trusted bound. */
@@ -36,20 +38,21 @@ let mermaidModule: MermaidApi | null = null;
  * diagrams whose source is model-authored.
  */
 async function loadMermaid(theme: MermaidTheme): Promise<MermaidApi> {
-  if (mermaidModule) {
-    return mermaidModule;
+  if (!mermaidModule) {
+    const { default: mermaid } = await import('mermaid');
+    mermaidModule = mermaid as unknown as MermaidApi;
   }
-  const { default: mermaid } = await import('mermaid');
-  const api = mermaid as unknown as MermaidApi;
-  api.initialize({
+  // Initialise on every call, not just the first. Caching the module but skipping
+  // this would let whichever component rendered the first diagram pin the theme
+  // for the rest of the process, quietly making mermaidTheme a no-op.
+  mermaidModule.initialize({
     startOnLoad: false,
     theme,
     securityLevel: 'strict',
     fontFamily: 'inherit',
     suppressErrorRendering: true,
   });
-  mermaidModule = api;
-  return api;
+  return mermaidModule;
 }
 
 /**
@@ -57,7 +60,7 @@ async function loadMermaid(theme: MermaidTheme): Promise<MermaidApi> {
  * live DOM is never touched. Input is already DOMPurify output; assigning it to an
  * inert template neither executes script nor fetches subresources.
  */
-function addCopyButtons(html: string): string {
+export function addCopyButtons(html: string): string {
   const template = document.createElement('template');
   template.innerHTML = html;
   for (const pre of Array.from(template.content.querySelectorAll('pre'))) {
@@ -89,8 +92,8 @@ function addCopyButtons(html: string): string {
       [innerHTML]="safeHtml()"
       (click)="onContainerClick($event)"
     ></div>
-    @if (copyError() || diagramError()) {
-      <p class="markdown-copy-error" role="alert">{{ copyError() || diagramError() }}</p>
+    @for (message of errors(); track message) {
+      <p class="markdown-error" role="alert">{{ message }}</p>
     }
   `,
   styles: [
@@ -99,7 +102,7 @@ function addCopyButtons(html: string): string {
         position: relative;
       }
 
-      .markdown-copy-error {
+      .markdown-error {
         margin: 4px 0 0;
         color: var(--status-error);
         font-size: var(--font-size-sm, 12px);
@@ -110,6 +113,7 @@ function addCopyButtons(html: string): string {
 export class MarkdownViewerComponent implements AfterViewChecked {
   private readonly sanitizer = inject(DomSanitizer);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly ipc = inject(IpcService);
 
   private readonly _data = signal('');
   private readonly _enableMermaid = signal(false);
@@ -171,6 +175,9 @@ export class MarkdownViewerComponent implements AfterViewChecked {
   readonly copyError = this._copyError.asReadonly();
   readonly diagramError = this._diagramError.asReadonly();
 
+  /** Both errors, so a copy failure cannot mask a diagram failure. */
+  readonly errors = computed(() => [this._copyError(), this._diagramError()].filter(Boolean));
+
   /**
    * Mermaid renders against the live DOM, so it can only run once the innerHTML
    * binding has been applied. The source guard keeps this to one pass per distinct
@@ -185,9 +192,11 @@ export class MarkdownViewerComponent implements AfterViewChecked {
       return;
     }
     this.lastDiagramSource = html;
+    // New content, so any error from the previous message no longer applies.
+    this._diagramError.set('');
     this.renderDiagrams().catch((error: unknown) => {
       const reason = error instanceof Error ? error.message : String(error);
-      this._diagramError.set(`Diagram rendering failed: ${reason}`);
+      this._diagramError.set(`Diagram failed to render: ${reason}`);
     });
   }
 
@@ -197,6 +206,13 @@ export class MarkdownViewerComponent implements AfterViewChecked {
    */
   async onContainerClick(event: MouseEvent): Promise<void> {
     const target = event.target as HTMLElement | null;
+
+    const link = target?.closest?.('a[href]');
+    if (link) {
+      await this.openLinkExternally(event, link.getAttribute('href') ?? '');
+      return;
+    }
+
     const button = target?.closest?.('.code-copy-btn');
     if (!button) {
       return;
@@ -209,6 +225,30 @@ export class MarkdownViewerComponent implements AfterViewChecked {
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       this._copyError.set(`Copy failed: ${reason}`);
+    }
+  }
+
+  /**
+   * Model-authored links must never navigate the app window.
+   *
+   * The main process installs no `will-navigate` guard and the preload exposes
+   * `window.forge` on every document load, so letting the default action run would
+   * hand the whole IPC surface to whatever page the link pointed at. Sanitization
+   * has already reduced the scheme space to http/https/mailto; anything else that
+   * reaches here is simply dropped.
+   */
+  private async openLinkExternally(event: MouseEvent, href: string): Promise<void> {
+    event.preventDefault();
+
+    if (!/^(https?|mailto):/i.test(href)) {
+      return;
+    }
+
+    try {
+      await firstValueFrom(this.ipc.openExternal(href));
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      this._copyError.set(`Could not open link: ${reason}`);
     }
   }
 

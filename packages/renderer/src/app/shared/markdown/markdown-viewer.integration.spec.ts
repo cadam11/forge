@@ -2,24 +2,30 @@
 import '@angular/compiler';
 import 'zone.js';
 import 'zone.js/testing';
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { Component, ChangeDetectionStrategy, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import {
   BrowserDynamicTestingModule,
   platformBrowserDynamicTesting,
 } from '@angular/platform-browser-dynamic/testing';
+import { of } from 'rxjs';
+import { IpcService } from '../../core/services/ipc.service';
 import { MarkdownViewerComponent } from './markdown-viewer.component';
 
 /**
- * The one thing the class-level specs cannot reach: real change detection, and the
- * `[innerHTML]` binding actually landing in the DOM.
+ * What these DO test: that the `[innerHTML]` binding lands in a real DOM under a
+ * real change-detection pass, across the many small input changes that streaming
+ * produces, and that no executable payload survives into the live document.
  *
- * The component this replaces rendered asynchronously and had to call
- * `markForCheck()` afterwards or streamed output froze under OnPush. This
- * implementation renders through `computed()` signals read in the template, so the
- * view is marked dirty structurally and there is no call to forget. These tests
- * drive an OnPush host the way streaming does and assert the DOM keeps up.
+ * What they do NOT test, stated plainly: they are not evidence that the signal
+ * implementation is what keeps streaming alive. A mutant with every signal removed
+ * — plain fields and plain getters, no `computed`, no `markForCheck` — passes all
+ * of these. That is structural: `fixture.detectChanges()` marks an OnPush child
+ * dirty whenever a bound `@Input` changes, so an input-driven render keeps up
+ * either way. The failure mode the old component actually had was an
+ * *asynchronous* render completing outside the CD pass, which nothing here
+ * simulates.
  */
 
 /** Stands in for the chat panel: OnPush, feeding a signal into [data]. */
@@ -40,6 +46,15 @@ class StreamingHostComponent {
 
 beforeAll(() => {
   TestBed.initTestEnvironment(BrowserDynamicTestingModule, platformBrowserDynamicTesting());
+});
+
+beforeEach(() => {
+  // Vitest does not wire Angular's per-test hooks, so the module must be reset
+  // explicitly or the second configureTestingModule call throws.
+  TestBed.resetTestingModule();
+  TestBed.configureTestingModule({
+    providers: [{ provide: IpcService, useValue: { openExternal: () => of(undefined) } }],
+  });
 });
 
 describe('MarkdownViewerComponent under OnPush change detection', () => {

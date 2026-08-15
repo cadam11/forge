@@ -1102,6 +1102,10 @@ import type { ToolCallResult } from '@forgedb/shared';
         margin: 4px 0;
       }
       :host ::ng-deep .chat-md pre .code-copy-btn {
+        /* The button lives inside <pre>, so without this its label lands in any
+           hand-made selection of the code. opacity: 0 does not exclude text from
+           a selection — only user-select does. */
+        user-select: none;
         position: absolute;
         top: 6px;
         right: 6px;

@@ -484,8 +484,6 @@ export class AIAnalysisPanelComponent {
     },
   ];
 
-  // Computed formatted content (basic markdown to HTML)
-
   toggleCollapsed(): void {
     this.collapsed.update(c => !c);
   }

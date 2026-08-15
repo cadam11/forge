@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 import '@angular/compiler';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ElementRef, Injector, runInInjectionContext } from '@angular/core';
 import { DomSanitizer } from '@angular/platform-browser';
-import { MarkdownViewerComponent } from './markdown-viewer.component';
+import { of } from 'rxjs';
+import { IpcService } from '../../core/services/ipc.service';
+import { MarkdownViewerComponent, addCopyButtons } from './markdown-viewer.component';
 
 /**
  * Class-level tests — no TestBed, matching the other specs in this package. The
@@ -21,6 +23,7 @@ function makeComponent(): MarkdownViewerComponent {
         useValue: { bypassSecurityTrustHtml: (value: string) => value },
       },
       { provide: ElementRef, useValue: new ElementRef(document.createElement('div')) },
+      { provide: IpcService, useValue: { openExternal: () => of(undefined) } },
     ],
   });
   return runInInjectionContext(injector, () => new MarkdownViewerComponent());
@@ -65,27 +68,50 @@ describe('MarkdownViewerComponent', () => {
 
 describe('MarkdownViewerComponent — copy to clipboard', () => {
   let component: MarkdownViewerComponent;
+  const originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
 
   beforeEach(() => {
     component = makeComponent();
     component.enableCodeCopy = true;
   });
 
-  /** Builds a <pre><code> and a click event targeting the copy button inside it. */
+  afterEach(() => {
+    // navigator is a shared jsdom global; leaving a stub on it makes later specs
+    // in this file order-dependent.
+    if (originalClipboard) {
+      Object.defineProperty(navigator, 'clipboard', originalClipboard);
+    } else {
+      delete (navigator as { clipboard?: unknown }).clipboard;
+    }
+    document.body.innerHTML = '';
+  });
+
+  /**
+   * Builds the click event from the component's OWN `addCopyButtons` output rather
+   * than a hand-made DOM. Hand-building it hid a total breakage: moving the button
+   * from inside <pre> to after it makes every copy write the empty string, and a
+   * hand-made fixture still passed.
+   */
   function clickEventOnCopyButton(codeText: string): MouseEvent {
-    const pre = document.createElement('pre');
-    const code = document.createElement('code');
-    code.textContent = codeText;
-    const button = document.createElement('button');
-    button.className = 'code-copy-btn';
-    pre.appendChild(code);
-    pre.appendChild(button);
-    document.body.appendChild(pre);
+    const host = document.createElement('div');
+    host.innerHTML = addCopyButtons(`<pre><code>${codeText}</code></pre>`);
+    document.body.appendChild(host);
+
+    const button = host.querySelector('.code-copy-btn');
+    expect(button, 'addCopyButtons must place a .code-copy-btn in the markup').not.toBeNull();
 
     const event = new MouseEvent('click', { bubbles: true });
     Object.defineProperty(event, 'target', { value: button });
     return event;
   }
+
+  it('places the copy button inside the pre it copies from', () => {
+    // `button.closest('pre')` is how the handler finds the code. If the button
+    // ends up outside the <pre>, copying silently yields ''.
+    const host = document.createElement('div');
+    host.innerHTML = addCopyButtons('<pre><code>SELECT 1;</code></pre>');
+    expect(host.querySelector('pre > .code-copy-btn')).not.toBeNull();
+  });
 
   it('copies the code block text when the copy button is clicked', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);

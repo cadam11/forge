@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
-import { renderMarkdown } from './markdown-renderer';
+import { renderMarkdown, sanitizeDiagramSvg } from './markdown-renderer';
 
 /**
  * These tests are the contract for the only path that turns LLM output into HTML.
@@ -97,6 +97,83 @@ describe('renderMarkdown — XSS', () => {
   });
 });
 
+describe('renderMarkdown — interactive controls', () => {
+  it('keeps GFM task-list checkboxes', () => {
+    const html = renderMarkdown('- [x] done');
+    expect(html).toMatch(/<input[^>]*type="checkbox"/);
+  });
+
+  it('forces task-list checkboxes to be disabled', () => {
+    const html = renderMarkdown('- [ ] todo');
+    expect(html).toMatch(/<input[^>]*disabled/);
+  });
+
+  it('drops non-checkbox inputs', () => {
+    // input type=image is an outbound GET at render time, and a text field inside
+    // the app's own chrome is a credible spoof even when inert.
+    const html = renderMarkdown('<input type="text" value="password">');
+    expect(html).not.toMatch(/<input/i);
+  });
+
+  it('drops the rest of the form-control kit', () => {
+    const html = renderMarkdown(
+      '<button>Approve</button><select><option>a</option></select><textarea>x</textarea><label>L</label>'
+    );
+    expect(html).not.toMatch(/<button/i);
+    expect(html).not.toMatch(/<select/i);
+    expect(html).not.toMatch(/<option/i);
+    expect(html).not.toMatch(/<textarea/i);
+    expect(html).not.toMatch(/<label/i);
+  });
+});
+
+describe('sanitizeDiagramSvg', () => {
+  it('strips script from diagram SVG', () => {
+    const svg = sanitizeDiagramSvg('<svg><script>alert(1)</script><rect/></svg>');
+    expect(svg).not.toMatch(/<script/i);
+  });
+
+  it('strips event handlers on SVG elements', () => {
+    const svg = sanitizeDiagramSvg('<svg><rect onclick="alert(1)" /></svg>');
+    expect(svg).not.toMatch(/\son\w+\s*=/i);
+  });
+
+  it('strips animation elements that can rewrite attributes', () => {
+    // <animate attributeName="href" to="javascript:..."> is the classic.
+    const svg = sanitizeDiagramSvg(
+      '<svg><a><animate attributeName="href" to="javascript:alert(1)"/></a></svg>'
+    );
+    expect(svg).not.toMatch(/<animate/i);
+    expect(svg).not.toMatch(/javascript:/i);
+  });
+
+  it('strips foreignObject, which reintroduces arbitrary HTML', () => {
+    const svg = sanitizeDiagramSvg(
+      '<svg><foreignObject><body><img src=x onerror=alert(1)></body></foreignObject></svg>'
+    );
+    expect(svg).not.toMatch(/foreignObject/i);
+    expect(svg).not.toMatch(/onerror/i);
+  });
+
+  it('strips href on use and image elements', () => {
+    const svg = sanitizeDiagramSvg(
+      '<svg><use href="#x"/><image href="https://evil.example/p.png"/></svg>'
+    );
+    expect(svg).not.toMatch(/href=/i);
+  });
+
+  it('DOCUMENTS A KNOWN LIMITATION: style survives', () => {
+    // A <style> inside an inline SVG joins the document stylesheet set, so CSS
+    // that escapes the diagram can restyle the whole app. It cannot be forbidden
+    // without losing every mermaid diagram colour. Mermaid at securityLevel
+    // 'strict' id-prefixes its selectors and rejects themeCSS/classDef escapes, so
+    // no model-authored CSS is known to reach here. This test exists so the
+    // limitation is visible and a future scoping fix has something to flip.
+    const svg = sanitizeDiagramSvg('<svg><style>.x{fill:red}</style></svg>');
+    expect(svg).toMatch(/<style/i);
+  });
+});
+
 describe('renderMarkdown — fidelity', () => {
   it('renders GFM tables', () => {
     const html = renderMarkdown(['| a | b |', '| - | - |', '| 1 | 2 |'].join('\n'));
@@ -112,9 +189,9 @@ describe('renderMarkdown — fidelity', () => {
   });
 
   it('renders fenced code with a language- class', () => {
-    // The language- class is what the code styling hangs off. DOMPurify drops
-    // `class` unless it is explicitly allowed, so this is the canary for an
-    // over-tight sanitizer config.
+    // The language- class is what the code styling hangs off, so this is the
+    // canary for an over-tight sanitizer config. (`class` is in DOMPurify's html
+    // profile already — the explicit ADD_ATTR is belt-and-braces, not load-bearing.)
     const html = renderMarkdown('```sql\nSELECT 1;\n```');
     expect(html).toMatch(/<pre/);
     expect(html).toMatch(/<code[^>]*class="[^"]*language-sql/);
