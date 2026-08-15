@@ -383,7 +383,11 @@ import type { DatabaseEngine } from '@joinery/shared';
       }
 
       .logo {
-        color: #f2efe7;
+        /* Theme token, not the brand ivory: .sidebar-header sits on
+           --bg-tertiary, which is #e6e6f0 in light mode — a hardcoded ivory
+           wordmark is invisible there. The priority-2 UI overhaul will restyle
+           this properly. */
+        color: var(--text-primary);
         font-family: 'Instrument Sans', 'Inter', sans-serif;
         font-size: 19px;
         font-weight: 800;

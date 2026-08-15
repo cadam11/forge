@@ -23,7 +23,7 @@ const TEST_MSSQL = { host: '127.0.0.1', port: 11433, user: 'sa' } as const;
 
 async function openConnectionDialog(window: Page) {
   await expect(window.locator('app-root')).toBeVisible({ timeout: 15000 });
-  await window.locator('mat-card[aria-label="New Connection"]').click();
+  await window.locator('[data-testid="welcome-new-connection"]').click();
   const dialog = window.locator('mat-dialog-container');
   await expect(dialog).toBeVisible({ timeout: 10000 });
   return dialog;

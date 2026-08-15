@@ -18,7 +18,7 @@ test.describe('Joinery — visual baselines', () => {
   test('welcome screen', async () => {
     await withJoinery(async ({ window }) => {
       await expect(window.locator('app-root')).toBeVisible({ timeout: 15000 });
-      await expect(window.locator('mat-card[aria-label="New Connection"]')).toBeVisible({
+      await expect(window.locator('[data-testid="welcome-new-connection"]')).toBeVisible({
         timeout: 10000,
       });
       // Settle: wait briefly for any post-render layout / fade-in animations.
@@ -30,7 +30,7 @@ test.describe('Joinery — visual baselines', () => {
   test('connection dialog', async () => {
     await withJoinery(async ({ window }) => {
       await expect(window.locator('app-root')).toBeVisible({ timeout: 15000 });
-      await window.locator('mat-card[aria-label="New Connection"]').click();
+      await window.locator('[data-testid="welcome-new-connection"]').click();
       const dialog = window.locator('mat-dialog-container');
       await expect(dialog).toBeVisible({ timeout: 10000 });
       // Wait for dialog enter animation to finish.

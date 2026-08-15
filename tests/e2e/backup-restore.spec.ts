@@ -308,7 +308,7 @@ async function assertMysqlDatabaseHasSeed(name: string): Promise<void> {
 
 async function connectToTestMysql(window: Page): Promise<void> {
   await expect(window.locator('app-root')).toBeVisible({ timeout: 15_000 });
-  await window.locator('mat-card[aria-label="New Connection"]').click();
+  await window.locator('[data-testid="welcome-new-connection"]').click();
   const dialog = window.locator('mat-dialog-container');
   await expect(dialog).toBeVisible({ timeout: 10_000 });
 

@@ -17,18 +17,19 @@ test('app launches and shows the welcome screen', async () => {
     const title = await window.title();
     expect(title.toLowerCase()).toContain('joinery');
 
-    // The welcome view's "New Connection" action card. (There's also a
-    // sidebar mat-icon-button with the same label; we target the card.)
-    const newConnectionCard = window.locator('mat-card[aria-label="New Connection"]');
-    await expect(newConnectionCard).toBeVisible({ timeout: 10000 });
+    // The welcome view's primary "new connection" CTA. Targeted by
+    // data-testid because the sidebar carries a mat-icon-button with the
+    // same accessible label.
+    const newConnectionButton = window.locator('[data-testid="welcome-new-connection"]');
+    await expect(newConnectionButton).toBeVisible({ timeout: 10000 });
   });
 });
 
-test('clicking the New Connection action card opens the connection dialog', async () => {
+test('clicking the welcome new-connection button opens the connection dialog', async () => {
   await withJoinery(async ({ window }) => {
     await expect(window.locator('app-root')).toBeVisible({ timeout: 15000 });
 
-    await window.locator('mat-card[aria-label="New Connection"]').click();
+    await window.locator('[data-testid="welcome-new-connection"]').click();
 
     // The connection dialog is a Material dialog (CDK overlay).
     const dialog = window.locator('mat-dialog-container');

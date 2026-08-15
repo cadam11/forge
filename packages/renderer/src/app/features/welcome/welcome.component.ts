@@ -42,8 +42,15 @@ import type { DockerStatus, DockerContainer } from '@joinery/shared';
               schema and shows its work.
             </p>
             <div class="concept-cta-row">
-              <button class="concept-primary" (click)="newConnection()">
-                Fit a connection <span>↗</span>
+              <!-- data-testid is the e2e hook for "open the New Connection
+                   dialog from the welcome screen". Keep it stable across UI
+                   restyles; tests/helpers/joinery-actions.ts depends on it. -->
+              <button
+                class="concept-primary"
+                data-testid="welcome-new-connection"
+                (click)="newConnection()"
+              >
+                Fit a connection <span aria-hidden="true">↗</span>
               </button>
               <button class="concept-secondary" (click)="startTour()">See how it joins</button>
             </div>
@@ -838,11 +845,6 @@ export class WelcomeComponent implements OnInit {
   dockerStatus: DockerStatus | null = null;
   sqlContainers: DockerContainer[] = [];
 
-  get recentConnectionName(): string {
-    const profiles = this.connectionState.profiles();
-    return profiles.length > 0 ? profiles[0].name : 'None';
-  }
-
   get dockerStatusText(): string {
     if (!this.dockerStatus) return 'Checking...';
     if (!this.dockerStatus.isAvailable) return 'Docker not available';
@@ -874,13 +876,6 @@ export class WelcomeComponent implements OnInit {
       width: '540px',
       maxHeight: '90vh',
     });
-  }
-
-  reconnect(): void {
-    const profiles = this.connectionState.profiles();
-    if (profiles.length > 0) {
-      this.connectTo(profiles[0].id);
-    }
   }
 
   quickConnect(profile: { id: string }): void {

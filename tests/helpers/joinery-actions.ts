@@ -88,14 +88,15 @@ export async function fillField(
 }
 
 /**
- * Open Joinery's New Connection dialog from the welcome screen, fill it
+ * Open Joinery's New Connection dialog from the welcome screen (via the
+ * welcome view's data-testid CTA hook), fill it
  * with the test PG container's credentials, click Connect, and wait for
  * the connected-state sidebar to appear. Dismisses the connect snackbar
  * before returning so visual captures aren't flaked by it.
  */
 export async function connectToTestPostgres(window: Page): Promise<void> {
   await expect(window.locator('app-root')).toBeVisible({ timeout: 15000 });
-  await window.locator('mat-card[aria-label="New Connection"]').click();
+  await window.locator('[data-testid="welcome-new-connection"]').click();
   const dialog = window.locator('mat-dialog-container');
   await expect(dialog).toBeVisible({ timeout: 10000 });
 
