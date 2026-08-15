@@ -54,6 +54,30 @@ const NO_BRIDGE_BYPASS = [
   message: 'Reach the bridge through src/ipc (ipc() / findJoineryApi()), never window.joinery.',
 }));
 
+// `ipcKeys.<ns>.key(op, …args)` is the query-key door that bypasses `useIpcQuery`'s required,
+// separately-supplied `keyArgs` — the rule that keeps the three passwords `connection.test` takes,
+// and the API keys `ai.setApiKey` takes, out of the query cache. It accepts any argument list, which
+// is correct for invalidation (a partial key is the point there) and is exactly what a hand-rolled
+// `useQuery({ queryKey: ipcKeys.x.key(…), queryFn: … })` would use to route around the discipline.
+//
+// Task 4's nine stores established that nothing outside this directory needs it: they hold their own
+// state and call `ipc()` directly, so `key()` has no consumer except invalidation — and invalidation
+// now has its own typed door, `useInvalidateIpc`. So the identifier is banned everywhere except
+// `src/ipc/`, where `keys.ts`, `use-ipc-call.ts` and `use-invalidate-ipc.ts` live.
+//
+// One selector is enough here, unlike the bridge ban: `ipcKeys` is an imported binding rather than a
+// global, so there is no cast or computed-access route to it — a file that does not name it in an
+// import statement cannot reach it at all, and the import statement's specifier is an `Identifier`
+// this catches.
+const NO_KEY_FACTORY = [
+  {
+    selector: 'Identifier[name="ipcKeys"]',
+    message:
+      'ipcKeys is confined to src/ipc/. Invalidate with useInvalidateIpc(); read with useIpcQuery, ' +
+      'which builds its own key from the keyArgs you supply.',
+  },
+];
+
 // Flat config, and therefore ESLint 9 pinned to this package rather than the
 // repo-root ESLint 8 + .eslintrc.json. The root config stays authoritative for
 // every other package until the Angular renderer is deleted at cutover.
@@ -85,7 +109,7 @@ export default tseslint.config(
     files: ['vite.config.ts', 'eslint.config.js'],
     languageOptions: { globals: globals.node },
   },
-  // The two bans, and the ORDER AND SHAPE OF THESE THREE BLOCKS IS LOAD-BEARING.
+  // The three bans, and the ORDER AND SHAPE OF THESE THREE BLOCKS IS LOAD-BEARING.
   //
   // `no-restricted-syntax` options do NOT merge across flat-config objects: for a given
   // file, the last matching object replaces the rule's options wholesale. So the obvious
@@ -97,10 +121,17 @@ export default tseslint.config(
   // So the file sets are partitioned instead, and each block states the complete rule for
   // the files it matches. src/markdown/ and src/ipc/ do not overlap, so every file resolves
   // to exactly one of these three. `ban-rules.spec.ts` asserts all four quadrants.
-  { rules: { 'no-restricted-syntax': ['error', ...NO_INNER_HTML, ...NO_BRIDGE_BYPASS] } },
-  // Task 6's sanitizing markdown component: may use innerHTML, may not touch the bridge.
-  { files: ['src/markdown/**'], rules: { 'no-restricted-syntax': ['error', ...NO_BRIDGE_BYPASS] } },
-  // The IPC boundary: may read the bridge, may not use innerHTML.
+  {
+    rules: {
+      'no-restricted-syntax': ['error', ...NO_INNER_HTML, ...NO_BRIDGE_BYPASS, ...NO_KEY_FACTORY],
+    },
+  },
+  // Task 6's sanitizing markdown component: may use innerHTML, may not touch the bridge or its keys.
+  {
+    files: ['src/markdown/**'],
+    rules: { 'no-restricted-syntax': ['error', ...NO_BRIDGE_BYPASS, ...NO_KEY_FACTORY] },
+  },
+  // The IPC boundary: may read the bridge and own its query keys, may not use innerHTML.
   { files: ['src/ipc/**'], rules: { 'no-restricted-syntax': ['error', ...NO_INNER_HTML] } },
   // Last: turns off everything Prettier already owns.
   prettier

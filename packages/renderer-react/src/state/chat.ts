@@ -1,0 +1,472 @@
+/**
+ * AI chat: conversations, messages, the streaming assembly, tool-call confirmation, and the UI
+ * actions the model can request.
+ *
+ * ── Why this is one file and not two ────────────────────────────────────────────────────────
+ *
+ * The brief allows a merge where two Angular files are so entangled that keeping them apart costs
+ * more than it explains, and `chat.state.ts` (384) / `chat-instance.state.ts` (354) are the case
+ * it was written for. They are the same store twice: `setupStreamListener`, `newConversation`,
+ * `selectConversation`, `deleteConversation`, `sendMessage`, `confirmToolCall`,
+ * `renameConversation`, `cancelStream`, `consumeUiAction` and `handleUiAction` are duplicated
+ * character-for-character, because Angular's `providedIn: 'root'` could not express "one of these
+ * per chat tab" and a second, hand-copied class was the workaround. The only real differences are
+ * that the side panel also owns `tools` and its open/closed flag, and that an instance may be
+ * constructed pointing at an existing conversation.
+ *
+ * The store conventions already answer this properly: `createChatStore()` is the per-instance
+ * store, and the side panel is one instance of it. Task 17 creates one per chat tab and calls
+ * `destroy()` when the tab closes. Copying 300 lines to preserve a file boundary that only
+ * existed to work around dependency injection would be porting the workaround, not the behaviour.
+ *
+ * Ported from both files. Conventions: `capabilities.ts`. Consumer: Task 17.
+ */
+
+import { create } from 'zustand';
+import type {
+  ChatMessage,
+  ChatStreamChunk,
+  Conversation,
+  ToolCallResult,
+  ToolDefinition,
+} from '@joinery/shared';
+import { ipc, isIpcAvailable } from '../ipc';
+import { capabilitiesStore, selectVariantFor, type CapabilitiesStore } from './capabilities';
+import { connectionStore, selectProfileFor, type ConnectionStore } from './connection';
+import { diagnostics } from './diagnostics';
+import { selectActiveTab, tabStore, type TabStore } from './tab';
+
+/** How much of the first user message becomes the conversation title. */
+const TITLE_MAX_LENGTH = 50;
+
+export type ChatUiAction = NonNullable<ChatStreamChunk['uiAction']>;
+
+export interface ChatStoreState {
+  readonly conversations: readonly Conversation[];
+  readonly activeConversationId: string | null;
+  readonly messages: readonly ChatMessage[];
+  readonly streaming: boolean;
+  readonly streamingContent: string;
+  /** Tool definitions for the confirmation UI. Only the panel instance loads them. */
+  readonly tools: readonly ToolDefinition[];
+  readonly conversationsExpanded: boolean;
+  /** A dialog-opening action the model asked for, waiting for a component to act on it. */
+  readonly pendingUiAction: ChatUiAction | null;
+  /** Side-panel visibility. Meaningful on the panel instance; inert on chat-tab instances. */
+  readonly panelOpen: boolean;
+
+  readonly togglePanel: () => void;
+  readonly openPanel: () => void;
+  readonly closePanel: () => void;
+  readonly toggleConversations: () => void;
+
+  readonly initialize: () => Promise<void>;
+  readonly newConversation: () => Promise<void>;
+  readonly selectConversation: (id: string) => Promise<void>;
+  readonly deleteConversation: (id: string) => Promise<void>;
+  readonly renameConversation: (id: string, title: string) => Promise<void>;
+
+  readonly sendMessage: (
+    content: string,
+    vendorId?: string,
+    modelApiName?: string
+  ) => Promise<void>;
+  readonly confirmToolCall: (toolCallId: string, confirmed: boolean) => Promise<void>;
+  readonly cancelStream: () => void;
+  readonly consumeUiAction: () => ChatUiAction | null;
+
+  /** Tears down this instance's stream subscription. Call when the chat tab closes. */
+  readonly destroy: () => void;
+}
+
+export interface ChatStoreDeps {
+  readonly connection: ConnectionStore;
+  readonly tab: TabStore;
+  readonly capabilities: CapabilitiesStore;
+}
+
+export interface ChatStoreOptions {
+  /** Start pointed at an existing conversation — a chat tab restored with a conversation id. */
+  readonly initialConversationId?: string;
+  /**
+   * Load the tool catalogue during `initialize()`. True for the side panel, which renders tool
+   * confirmations; false for chat tabs, which is why this is a flag rather than an unconditional
+   * fetch — `chat-instance.state.ts` deliberately did not make that call.
+   */
+  readonly loadTools?: boolean;
+}
+
+/**
+ * Replace the trailing assistant message, which is where every streaming update lands. Returns
+ * the list unchanged when the last message is not an assistant message, exactly as the Angular
+ * original did — a chunk that arrives after the placeholder is gone is dropped rather than
+ * rewriting a user message.
+ */
+function patchLastAssistantMessage(
+  messages: readonly ChatMessage[],
+  patch: (last: ChatMessage) => ChatMessage
+): readonly ChatMessage[] {
+  const last = messages[messages.length - 1];
+  if (last?.role !== 'assistant') return messages;
+  return [...messages.slice(0, -1), patch(last)];
+}
+
+export type ChatStore = ReturnType<typeof createChatStore>;
+
+export function createChatStore(deps: ChatStoreDeps, options: ChatStoreOptions = {}) {
+  let streamCleanup: (() => void) | null = null;
+
+  const store = create<ChatStoreState>()((set, get) => {
+    const handleUiAction = (action: ChatUiAction): void => {
+      const params = action.params ?? {};
+      switch (action.type) {
+        case 'open-query-tab': {
+          const connectionId = deps.connection.getState().focusedConnectionId();
+          const database =
+            (params['database'] as string | undefined) ??
+            deps.connection.getState().focusedDatabaseName();
+          if (connectionId && database) {
+            deps.tab
+              .getState()
+              .openQueryTab(
+                connectionId,
+                database,
+                params['sql'] as string | undefined,
+                (params['autoExecute'] as boolean | undefined) ?? false
+              );
+          }
+          break;
+        }
+        case 'navigate-database': {
+          const focused = deps.connection.getState().focusedConnectionId();
+          if (params['database'] && focused) {
+            deps.connection.getState().selectDatabase(focused, params['database'] as string);
+          }
+          break;
+        }
+        default:
+          // open-settings / open-create-db-dialog / open-backup-dialog: a component owns the
+          // dialog, so the action is parked for it to consume.
+          set({ pendingUiAction: action });
+          break;
+      }
+    };
+
+    const applyChunk = (chunk: ChatStreamChunk): void => {
+      // One bridge subscription serves every instance, so each one filters by conversation. This
+      // is what keeps two open chat tabs from writing each other's tokens.
+      if (chunk.conversationId !== get().activeConversationId) return;
+
+      if (chunk.delta) {
+        set(state => ({ streamingContent: state.streamingContent + chunk.delta }));
+      }
+
+      if (chunk.toolCall) {
+        // Either awaiting confirmation or already running; `success` flips when the result lands.
+        const toolEntry: ToolCallResult = {
+          id: chunk.toolCall.id,
+          toolName: chunk.toolCall.toolName,
+          args: chunk.toolCall.args,
+          success: false,
+          pendingConfirmation: chunk.toolCall.pendingConfirmation || false,
+        };
+        set(state => ({
+          messages: patchLastAssistantMessage(state.messages, last => ({
+            ...last,
+            toolCalls: [...(last.toolCalls ?? []), toolEntry],
+          })),
+        }));
+      }
+
+      const toolResult = chunk.toolResult;
+      if (toolResult) {
+        set(state => ({
+          messages: patchLastAssistantMessage(state.messages, last => {
+            const toolCalls = (last.toolCalls ?? []).map(tc =>
+              tc.id === toolResult.id ? toolResult : tc
+            );
+            // Auto-executed tools never announced themselves as a toolCall first.
+            if (!toolCalls.some(tc => tc.id === toolResult.id)) toolCalls.push(toolResult);
+            return { ...last, toolCalls };
+          }),
+        }));
+      }
+
+      if (chunk.uiAction) handleUiAction(chunk.uiAction);
+
+      if (chunk.done) {
+        // Finalize the placeholder and always clear the streaming flag, even if no delta arrived.
+        const content = get().streamingContent;
+        set(state => ({
+          messages: patchLastAssistantMessage(state.messages, last =>
+            last.streaming ? { ...last, content: content || last.content, streaming: false } : last
+          ),
+          streaming: false,
+          streamingContent: '',
+        }));
+      }
+    };
+
+    if (isIpcAvailable()) {
+      streamCleanup = ipc().chat.onStreamChunk(applyChunk);
+    }
+
+    return {
+      conversations: [],
+      activeConversationId: options.initialConversationId ?? null,
+      messages: [],
+      streaming: false,
+      streamingContent: '',
+      tools: [],
+      conversationsExpanded: false,
+      pendingUiAction: null,
+      panelOpen: false,
+
+      togglePanel: () => set(state => ({ panelOpen: !state.panelOpen })),
+      openPanel: () => set({ panelOpen: true }),
+      closePanel: () => set({ panelOpen: false }),
+      toggleConversations: () =>
+        set(state => ({ conversationsExpanded: !state.conversationsExpanded })),
+
+      initialize: async () => {
+        if (!isIpcAvailable()) return;
+        try {
+          const [tools, conversations] = await Promise.all([
+            options.loadTools ? ipc().chat.getTools() : Promise.resolve<ToolDefinition[]>([]),
+            ipc().chat.listConversations(),
+          ]);
+          set({ tools, conversations });
+
+          // A tab restored against an existing conversation loads its transcript.
+          const activeId = get().activeConversationId;
+          if (activeId) {
+            const conversation = await ipc().chat.getConversation(activeId);
+            if (conversation) set({ messages: conversation.messages });
+          }
+        } catch (error) {
+          diagnostics.error('failed to initialize chat state', error);
+        }
+      },
+
+      newConversation: async () => {
+        if (!isIpcAvailable()) return;
+        try {
+          const conversation = await ipc().chat.createConversation();
+          set(state => ({
+            conversations: [conversation, ...state.conversations],
+            activeConversationId: conversation.id,
+            messages: [],
+            streamingContent: '',
+          }));
+        } catch (error) {
+          diagnostics.error('failed to create conversation', error);
+        }
+      },
+
+      selectConversation: async id => {
+        if (!isIpcAvailable()) return;
+        // Set first: chunks for the newly selected conversation must not be filtered out while
+        // its transcript is still loading.
+        set({ activeConversationId: id });
+        try {
+          const conversation = await ipc().chat.getConversation(id);
+          if (conversation) set({ messages: conversation.messages });
+        } catch (error) {
+          diagnostics.error('failed to load conversation', error);
+        }
+      },
+
+      deleteConversation: async id => {
+        if (!isIpcAvailable()) return;
+        try {
+          await ipc().chat.deleteConversation(id);
+          set(state => ({
+            conversations: state.conversations.filter(c => c.id !== id),
+            ...(state.activeConversationId === id
+              ? { activeConversationId: null, messages: [] }
+              : {}),
+          }));
+        } catch (error) {
+          diagnostics.error('failed to delete conversation', error);
+        }
+      },
+
+      renameConversation: async (id, title) => {
+        if (!isIpcAvailable()) return;
+        // Optimistic: the list updates before the round-trip so the rename feels immediate.
+        set(state => ({
+          conversations: state.conversations.map(c => (c.id === id ? { ...c, title } : c)),
+        }));
+        try {
+          await ipc().chat.renameConversation(id, title);
+        } catch (error) {
+          diagnostics.error('failed to rename conversation', error);
+        }
+      },
+
+      sendMessage: async (content, vendorId, modelApiName) => {
+        if (!isIpcAvailable() || !content.trim()) return;
+
+        let conversationId = get().activeConversationId;
+        if (!conversationId) {
+          await get().newConversation();
+          conversationId = get().activeConversationId;
+        }
+        if (!conversationId) return;
+
+        const timestamp = new Date().toISOString();
+        const userMessage: ChatMessage = {
+          id: crypto.randomUUID(),
+          role: 'user',
+          content: content.trim(),
+          timestamp,
+        };
+        // The placeholder the stream fills in.
+        const assistantMessage: ChatMessage = {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: '',
+          timestamp,
+          streaming: true,
+          toolCalls: [],
+        };
+
+        const title =
+          content.substring(0, TITLE_MAX_LENGTH) + (content.length > TITLE_MAX_LENGTH ? '...' : '');
+
+        set(state => ({
+          messages: [...state.messages, userMessage, assistantMessage],
+          streaming: true,
+          streamingContent: '',
+          conversations: state.conversations.map(c =>
+            c.id === conversationId ? { ...c, title, updatedAt: timestamp } : c
+          ),
+        }));
+
+        // Context the model gets for free: the connection, database, engine, and whatever SQL the
+        // user is looking at.
+        const connection = deps.connection.getState();
+        const focusedConnectionId = connection.focusedConnectionId();
+        const tabs = deps.tab.getState();
+        const activeTab = selectActiveTab(tabs);
+        const activeEditorContent =
+          activeTab?.type === 'query' ? tabs.getTabContent(activeTab.id) : undefined;
+
+        try {
+          await ipc().chat.sendMessage({
+            conversationId,
+            message: content.trim(),
+            connectionId: focusedConnectionId ?? undefined,
+            databaseName: connection.focusedDatabaseName() ?? undefined,
+            databaseEngine: selectProfileFor(focusedConnectionId)(connection)?.engine ?? undefined,
+            engineVariant: selectVariantFor(focusedConnectionId ?? undefined)(
+              deps.capabilities.getState()
+            ),
+            activeEditorContent: activeEditorContent || undefined,
+            vendorId: vendorId || undefined,
+            modelApiName: modelApiName || undefined,
+          });
+        } catch (error) {
+          diagnostics.error('failed to send message', error);
+          set(state => ({
+            streaming: false,
+            messages: patchLastAssistantMessage(state.messages, last =>
+              last.streaming
+                ? {
+                    ...last,
+                    content: 'Failed to get a response. Please try again.',
+                    streaming: false,
+                  }
+                : last
+            ),
+          }));
+        }
+      },
+
+      confirmToolCall: async (toolCallId, confirmed) => {
+        const conversationId = get().activeConversationId;
+        if (!conversationId || !isIpcAvailable()) return;
+
+        // Only the decline path patches locally: an accepted call's outcome arrives as a
+        // toolResult chunk, and pre-empting it would show a result the tool never produced.
+        if (!confirmed) {
+          set(state => ({
+            messages: patchLastAssistantMessage(state.messages, last => ({
+              ...last,
+              toolCalls: (last.toolCalls ?? []).map(tc =>
+                tc.id === toolCallId
+                  ? {
+                      ...tc,
+                      pendingConfirmation: false,
+                      success: false,
+                      error: 'Cancelled by user',
+                    }
+                  : tc
+              ),
+            })),
+          }));
+        }
+
+        try {
+          await ipc().chat.confirmTool(conversationId, toolCallId, confirmed);
+        } catch (error) {
+          diagnostics.error('failed to confirm tool call', error);
+        }
+      },
+
+      cancelStream: () => {
+        const conversationId = get().activeConversationId;
+        if (!conversationId || !isIpcAvailable()) return;
+        // Fire-and-forget, but never silent: the local flags clear immediately so the UI stops
+        // showing a spinner even if the main process is slow to acknowledge.
+        ipc()
+          .chat.cancelStream(conversationId)
+          .catch(error => diagnostics.warn('failed to cancel chat stream', error));
+        set({ streaming: false, streamingContent: '' });
+      },
+
+      consumeUiAction: () => {
+        const action = get().pendingUiAction;
+        set({ pendingUiAction: null });
+        return action;
+      },
+
+      destroy: () => {
+        streamCleanup?.();
+        streamCleanup = null;
+      },
+    };
+  });
+
+  return store;
+}
+
+/**
+ * The side panel's instance. Created at module scope, which is where its bridge subscription
+ * starts — the same point Angular's root-provided `ChatStateService` subscribed. Deferring the
+ * subscription to first use was considered and rejected: `sendMessage` can create its own
+ * conversation, so a lazy listener could miss the opening chunks of the first message.
+ */
+export const chatPanelStore = createChatStore(
+  { connection: connectionStore, tab: tabStore, capabilities: capabilitiesStore },
+  { loadTools: true }
+);
+export const useChatPanelStore = chatPanelStore;
+
+/** One chat-tab instance. Task 17 owns the tab-id → store map and the `destroy()` on close. */
+export function createChatTabStore(initialConversationId?: string): ChatStore {
+  return createChatStore(
+    { connection: connectionStore, tab: tabStore, capabilities: capabilitiesStore },
+    { initialConversationId }
+  );
+}
+
+export function selectActiveConversation(
+  state: Pick<ChatStoreState, 'conversations' | 'activeConversationId'>
+): Conversation | null {
+  return state.conversations.find(c => c.id === state.activeConversationId) ?? null;
+}
+
+export function selectHasConversations(state: Pick<ChatStoreState, 'conversations'>): boolean {
+  return state.conversations.length > 0;
+}

@@ -15,9 +15,11 @@
     "@fontsource-variable/archivo": "^5.3.0",
     "@fontsource-variable/instrument-sans": "^5.3.0",
     "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@joinery/shared": "workspace:*",
     "@tanstack/react-query": "^5.101.4",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@dagrejs/dagre": "^2.0.3",
