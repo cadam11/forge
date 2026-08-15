@@ -45,8 +45,19 @@ jobs:
       - name: Type-check renderer
         run: pnpm exec tsc --noEmit -p packages/renderer/tsconfig.json
 
+      - name: Type-check renderer-react
+        run: pnpm exec tsc --noEmit -p packages/renderer-react/tsconfig.json
+
       - name: Type-check preload
         run: pnpm exec tsc --noEmit -p packages/preload/tsconfig.json
+
+      # Scoped to renderer-react on purpose. Root `pnpm run lint` (turbo) is red on
+      # main because packages/renderer declares `ng lint` with no Angular lint target
+      # (plans/rebrand/FOLLOW-UPS.md items 6 and 14), so it cannot gate CI. Without
+      # this step nothing enforces react-hooks / jsx-a11y for the whole rewrite.
+      # Widen to the root script once that target is fixed or removed.
+      - name: Lint renderer-react
+        run: pnpm --filter @joinery/renderer-react run lint
 
       - name: Run tests with coverage
         run: pnpm run test:coverage

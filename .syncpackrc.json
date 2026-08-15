@@ -17,6 +17,12 @@
       "packages": ["**"],
       "dependencies": ["@angular/*"],
       "policy": "sameRange"
+    },
+    {
+      "label": "ESLint majors coexist until the Angular renderer is deleted",
+      "packages": ["**"],
+      "dependencies": ["eslint", "eslint-config-prettier"],
+      "isIgnored": true
     }
   ],
   "semverGroups": [
