@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "lib": ["ES2022"],
+    "moduleResolution": "node",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "noImplicitReturns": true,
+    "noImplicitOverride": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "baseUrl": ".",
+    "paths": {
+      "@joinery/main": ["packages/main/src/index.ts"],
+      "@joinery/main/*": ["packages/main/src/*"],
+      "@joinery/renderer": ["packages/renderer/src/index.ts"],
+      "@joinery/renderer/*": ["packages/renderer/src/*"],
+      "@joinery/preload": ["packages/preload/src/index.ts"],
+      "@joinery/preload/*": ["packages/preload/src/*"],
+      "@joinery/shared": ["packages/shared/src/index.ts"],
+      "@joinery/shared/*": ["packages/shared/src/*"]
+    }
+  },
+  "exclude": ["node_modules", "dist", "build", ".turbo"]
+}

@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'packages/**'
+      - 'vitest.config.ts'
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    name: Type-check & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Reads the version from the root package.json "packageManager" field.
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared package
+        run: pnpm --filter @joinery/shared exec tsc --build
+
+      - name: Type-check main
+        run: pnpm exec tsc --noEmit -p packages/main/tsconfig.json
+
+      - name: Type-check renderer
+        run: pnpm exec tsc --noEmit -p packages/renderer/tsconfig.json
+
+      - name: Type-check preload
+        run: pnpm exec tsc --noEmit -p packages/preload/tsconfig.json
+
+      - name: Run tests with coverage
+        run: pnpm run test:coverage
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 30

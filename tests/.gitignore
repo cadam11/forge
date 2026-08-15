@@ -1,0 +1,7 @@
+# Generated SSH keypair for the test bastion. Per-developer; not committed.
+.ssh/
+
+# Vitest / Playwright artifacts that may land here
+coverage/
+test-results/
+playwright-report/

@@ -1,0 +1,201 @@
+/**
+ * Credential Store - Securely stores passwords in macOS Keychain
+ * Uses a single JSON blob to minimize keychain access (only once at startup)
+ */
+
+import * as keytar from 'keytar';
+import { APP_ID } from '@joinery/shared';
+import { BaseSingleton } from '../../utils/singleton';
+import { createLogger } from '../../utils/logger';
+
+const log = createLogger('CredentialStore');
+
+const SERVICE_NAME = APP_ID;
+const CREDENTIALS_KEY = 'credentials-vault';
+
+interface CredentialsVault {
+  [key: string]: string;
+}
+
+export class CredentialStore extends BaseSingleton {
+  // In-memory cache - all credentials loaded from single keychain entry
+  private cache: Map<string, string> = new Map();
+  private cacheLoaded = false;
+  private keychainAvailable = true;
+  /** In-flight load, so concurrent callers share one keychain read. */
+  private loadInFlight: Promise<void> | null = null;
+
+  /**
+   * Load all credentials from keychain into memory cache. Startup kicks this
+   * off without awaiting (window creation is no longer gated on the
+   * keychain); every accessor awaits it internally, and concurrent calls
+   * coalesce onto a single keychain read.
+   */
+  loadAllIntoCache(): Promise<void> {
+    if (this.cacheLoaded) return Promise.resolve();
+    if (this.loadInFlight) return this.loadInFlight;
+
+    this.loadInFlight = this.loadVault().finally(() => {
+      this.loadInFlight = null;
+    });
+    return this.loadInFlight;
+  }
+
+  private async loadVault(): Promise<void> {
+    log.info('Loading credentials vault from keychain...');
+    try {
+      // First, try to load the new single-entry vault
+      const vaultJson = await keytar.getPassword(SERVICE_NAME, CREDENTIALS_KEY);
+
+      if (vaultJson) {
+        // Parse the JSON vault
+        const vault: CredentialsVault = JSON.parse(vaultJson);
+        for (const [key, value] of Object.entries(vault)) {
+          this.cache.set(key, value);
+        }
+        log.info(`Loaded ${this.cache.size} credentials from vault`);
+      } else {
+        // Migration: Check for old individual entries and migrate them
+        log.info('No vault found, checking for legacy credentials...');
+        const legacyCredentials = await keytar.findCredentials(SERVICE_NAME);
+        const nonVaultCredentials = legacyCredentials.filter(c => c.account !== CREDENTIALS_KEY);
+
+        if (nonVaultCredentials.length > 0) {
+          log.info(`Migrating ${nonVaultCredentials.length} legacy credentials...`);
+          for (const cred of nonVaultCredentials) {
+            this.cache.set(cred.account, cred.password);
+          }
+          // Save to new vault format
+          await this.saveVault();
+          // Clean up old individual entries
+          for (const cred of nonVaultCredentials) {
+            await keytar.deletePassword(SERVICE_NAME, cred.account);
+          }
+          log.info('Migration complete');
+        }
+      }
+
+      this.cacheLoaded = true;
+    } catch (error) {
+      // Keychain access denied or unavailable - app will continue without saved credentials
+      this.keychainAvailable = false;
+      this.cacheLoaded = true;
+      log.warn(
+        'Keychain access unavailable - saved credentials will not be loaded. Grant keychain access to enable credential storage.'
+      );
+      log.debug('Keychain error details:', error);
+    }
+  }
+
+  /**
+   * Save the entire vault to keychain (debounced to batch rapid updates)
+   */
+  private async saveVault(): Promise<void> {
+    const vault: CredentialsVault = Object.fromEntries(this.cache);
+    const vaultJson = JSON.stringify(vault);
+    await keytar.setPassword(SERVICE_NAME, CREDENTIALS_KEY, vaultJson);
+    log.debug(`Saved vault with ${this.cache.size} credentials`);
+  }
+
+  /**
+   * Store a password for a connection
+   */
+  async set(connectionId: string, password: string): Promise<void> {
+    log.debug(`Storing password for: ${connectionId}`);
+    try {
+      // Ensure cache is loaded first
+      if (!this.cacheLoaded) {
+        await this.loadAllIntoCache();
+      }
+
+      // Update cache (always store in memory even if keychain is unavailable)
+      this.cache.set(connectionId, password);
+
+      // Only attempt to persist if keychain is available
+      if (this.keychainAvailable) {
+        await this.saveVault();
+        log.debug(`Stored password for: ${connectionId}`);
+      } else {
+        log.warn(`Password cached in memory for: ${connectionId} (keychain unavailable)`);
+      }
+    } catch (error) {
+      // Keychain became unavailable - mark it and keep in memory cache
+      this.keychainAvailable = false;
+      log.warn(
+        `Failed to persist credential for ${connectionId} - keychain access denied. Cached in memory for this session.`
+      );
+      log.debug('Keychain error details:', error);
+    }
+  }
+
+  /**
+   * Retrieve a password for a connection (uses cache after initial load)
+   */
+  async get(connectionId: string): Promise<string | null> {
+    // Ensure cache is loaded
+    if (!this.cacheLoaded) {
+      await this.loadAllIntoCache();
+    }
+
+    // Return from cache
+    const cached = this.cache.get(connectionId);
+    if (cached !== undefined) {
+      log.debug(`Cache hit for: ${connectionId}`);
+      return cached;
+    }
+
+    log.debug(`Cache miss for: ${connectionId}`);
+    return null;
+  }
+
+  /**
+   * Delete a password for a connection
+   */
+  async delete(connectionId: string): Promise<boolean> {
+    try {
+      // Ensure cache is loaded first
+      if (!this.cacheLoaded) {
+        await this.loadAllIntoCache();
+      }
+
+      // Remove from cache
+      const existed = this.cache.has(connectionId);
+      this.cache.delete(connectionId);
+
+      // Save updated vault to keychain (only if available)
+      if (existed && this.keychainAvailable) {
+        await this.saveVault();
+      }
+
+      return existed;
+    } catch (error) {
+      // Keychain became unavailable - still removed from memory cache
+      this.keychainAvailable = false;
+      log.warn('Failed to persist deletion - keychain unavailable');
+      return true; // Still removed from memory
+    }
+  }
+
+  /**
+   * Check if keychain access is available
+   */
+  isKeychainAvailable(): boolean {
+    return this.keychainAvailable;
+  }
+
+  /**
+   * Find all stored credentials for this app (uses cache after initial load)
+   */
+  async findAll(): Promise<Array<{ account: string; password: string }>> {
+    // Ensure cache is loaded
+    if (!this.cacheLoaded) {
+      await this.loadAllIntoCache();
+    }
+
+    // Return from cache
+    return Array.from(this.cache.entries()).map(([account, password]) => ({
+      account,
+      password,
+    }));
+  }
+}

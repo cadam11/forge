@@ -1,0 +1,33 @@
+{
+  "name": "@joinery/main",
+  "version": "1.0.0",
+  "description": "Electron main process for Joinery",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "start": "unset ELECTRON_RUN_AS_NODE && electron .",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
+  },
+  "dependencies": {
+    "@joinery/shared": "workspace:*",
+    "dockerode": "^4.0.2",
+    "electron-store": "^8.2.0",
+    "keytar": "^7.9.0",
+    "mssql": "^11.0.1",
+    "ssh2": "^1.17.0",
+    "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "@types/dockerode": "^3.3.31",
+    "@types/mssql": "^9.1.5",
+    "@types/ssh2": "^1.15.5",
+    "@types/uuid": "^10.0.0",
+    "typescript": "~5.4.5"
+  }
+}

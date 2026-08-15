@@ -1,0 +1,1376 @@
+@use '@angular/material' as mat;
+
+/* ag-Grid theming - import base styles then customize with CSS variables */
+@import 'ag-grid-community/styles/ag-grid.css';
+@import 'ag-grid-community/styles/ag-theme-quartz.css';
+
+/* Golden Layout base styles - required for proper layout */
+@import 'golden-layout/dist/css/goldenlayout-base.css';
+
+/* Devicon — technology brand logos (MySQL, PostgreSQL, Azure, AWS, Docker, etc.) */
+@import 'devicon/devicon.min.css';
+
+// Custom color palette — purple-tinted theme
+$primary-palette: (
+  50: #f0edff,
+  100: #ddd8ff,
+  200: #c4baff,
+  300: #a99cff,
+  400: #9b8ff8,
+  500: #7c6ef6,
+  600: #6b5de0,
+  700: #5a4dc6,
+  800: #4a3dab,
+  900: #362d80,
+  contrast: (
+    50: rgba(black, 0.87),
+    100: rgba(black, 0.87),
+    200: rgba(black, 0.87),
+    300: rgba(black, 0.87),
+    400: white,
+    500: white,
+    600: white,
+    700: white,
+    800: white,
+    900: white,
+  ),
+);
+
+$accent-palette: (
+  50: #e8faf0,
+  100: #bbf0d5,
+  200: #86e4b2,
+  300: #4ade80,
+  400: #22d360,
+  500: #16a34a,
+  600: #15803d,
+  700: #166534,
+  800: #14532d,
+  900: #0f3d21,
+  contrast: (
+    50: rgba(black, 0.87),
+    100: rgba(black, 0.87),
+    200: rgba(black, 0.87),
+    300: rgba(black, 0.87),
+    400: rgba(black, 0.87),
+    500: white,
+    600: white,
+    700: white,
+    800: white,
+    900: white,
+  ),
+);
+
+// Define theme
+$joinery-primary: mat.m2-define-palette($primary-palette);
+$joinery-accent: mat.m2-define-palette($accent-palette);
+$joinery-theme: mat.m2-define-dark-theme(
+  (
+    color: (
+      primary: $joinery-primary,
+      accent: $joinery-accent,
+    ),
+    typography: mat.m2-define-typography-config(
+        $font-family: 'Inter, sans-serif',
+      ),
+    density: -1,
+  )
+);
+
+@include mat.core();
+@include mat.all-component-themes($joinery-theme);
+
+// CSS Variables for theming - Light mode (default for system preference)
+:root {
+  // Sizing (constant across themes)
+  --tab-height: 36px;
+  --status-bar-height: 24px;
+  --toolbar-height: 40px;
+
+  // Spacing (constant across themes)
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+
+  // Typography (constant across themes)
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-md: 13px;
+  --font-size-lg: 14px;
+  --font-size-xl: 16px;
+
+  // Border radius (constant across themes)
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+
+  // Transitions (constant across themes)
+  --transition-fast: 100ms ease;
+  --transition-normal: 200ms ease;
+  --transition-slow: 300ms ease;
+}
+
+// Dark theme colors — rich purple-tinted palette
+@mixin dark-theme {
+  // Base colors
+  --bg-primary: #1e1e2e;
+  --bg-secondary: #262637;
+  --bg-tertiary: #2a2a3d;
+  --bg-elevated: #32324a;
+  --bg-hover: #32324a;
+  --bg-active: #3a3a55;
+
+  // Text colors
+  --text-primary: #e0e0f0;
+  --text-secondary: #a0a0c0;
+  --text-muted: #666690;
+  --text-accent: #9b8ff8;
+
+  // Border colors
+  --border-primary: #3a3a55;
+  --border-secondary: #4a4a65;
+  --border-focus: #7c6ef6;
+
+  // Accent
+  --accent: #7c6ef6;
+  --accent-light: #9b8ff8;
+  --accent-subtle: rgba(124, 110, 246, 0.15);
+
+  // Status colors
+  --status-success: #4ade80;
+  --status-warning: #fbbf24;
+  --status-error: #f87171;
+  --status-info: #60a5fa;
+
+  // Syntax highlighting (for query editor)
+  --syntax-keyword: #c792ea;
+  --syntax-string: #c3e88d;
+  --syntax-number: #f78c6c;
+  --syntax-comment: #666690;
+  --syntax-function: #82aaff;
+  --syntax-type: #4ade80;
+
+  // Shadows
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.5);
+
+  // Monaco editor theme
+  --monaco-theme: vs-dark;
+
+  // Grid/Table colors
+  --grid-row-odd: #1e1e2e;
+  --grid-row-even: #232336;
+  --grid-row-hover: #2a2d3e;
+  --grid-row-selected: rgba(124, 110, 246, 0.2);
+  --grid-range-selection: rgba(124, 110, 246, 0.3);
+  --grid-range-border: #7c6ef6;
+  --grid-header-bg: #262637;
+  --grid-cell-border: #2a2a3d;
+}
+
+// Light theme colors — refined with purple accents
+@mixin light-theme {
+  // Base colors
+  --bg-primary: #fafafe;
+  --bg-secondary: #f0f0f8;
+  --bg-tertiary: #e6e6f0;
+  --bg-elevated: #ffffff;
+  --bg-hover: #e8e8f4;
+  --bg-active: #ddd8ff;
+
+  // Text colors
+  --text-primary: #1e1e2e;
+  --text-secondary: #555570;
+  --text-muted: #9090a8;
+  --text-accent: #6356e0;
+
+  // Border colors
+  --border-primary: #dddde8;
+  --border-secondary: #c8c8d8;
+  --border-focus: #7c6ef6;
+
+  // Accent
+  --accent: #7c6ef6;
+  --accent-light: #9b8ff8;
+  --accent-subtle: rgba(124, 110, 246, 0.1);
+
+  // Status colors
+  --status-success: #16a34a;
+  --status-warning: #d97706;
+  --status-error: #dc2626;
+  --status-info: #2563eb;
+
+  // Syntax highlighting (for query editor)
+  --syntax-keyword: #7c3aed;
+  --syntax-string: #16a34a;
+  --syntax-number: #d97706;
+  --syntax-comment: #9090a8;
+  --syntax-function: #2563eb;
+  --syntax-type: #0891b2;
+
+  // Shadows
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.14);
+
+  // Monaco editor theme
+  --monaco-theme: vs;
+
+  // Grid/Table colors
+  --grid-row-odd: #fafafe;
+  --grid-row-even: #f4f4fc;
+  --grid-row-hover: #eae8ff;
+  --grid-row-selected: rgba(124, 110, 246, 0.12);
+  --grid-range-selection: rgba(124, 110, 246, 0.18);
+  --grid-range-border: #7c6ef6;
+  --grid-header-bg: #f0f0f8;
+  --grid-cell-border: #dddde8;
+}
+
+// Apply dark theme by default (most dev tools are dark)
+:root {
+  @include dark-theme;
+}
+
+// Light theme when system prefers light
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    @include light-theme;
+  }
+}
+
+// Manual theme override classes
+:root[data-theme='light'] {
+  @include light-theme;
+}
+
+:root[data-theme='dark'] {
+  @include dark-theme;
+}
+
+// Reset and base styles
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  font-family: var(--font-family);
+  font-size: var(--font-size-md);
+  line-height: 1.5;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+// Scrollbar styling
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-secondary);
+  border-radius: var(--radius-sm);
+
+  &:hover {
+    background: var(--text-secondary);
+  }
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--bg-secondary);
+}
+
+// Selection
+::selection {
+  background-color: var(--bg-active);
+  color: var(--text-primary);
+}
+
+// Focus visible
+:focus-visible {
+  outline: 1px solid var(--border-focus);
+  outline-offset: -1px;
+}
+
+// Link styles
+a {
+  color: var(--text-accent);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+// Button reset
+button {
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+}
+
+// Input reset
+input,
+textarea,
+select {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+
+  &:focus {
+    border-color: var(--border-focus);
+    outline: none;
+  }
+
+  &::placeholder {
+    color: var(--text-muted);
+  }
+}
+
+// Code/monospace
+code,
+pre {
+  font-family: var(--font-mono);
+}
+
+// Utility classes
+.text-muted {
+  color: var(--text-muted);
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+.text-accent {
+  color: var(--text-accent);
+}
+
+.text-success {
+  color: var(--status-success);
+}
+
+.text-warning {
+  color: var(--status-warning);
+}
+
+.text-error {
+  color: var(--status-error);
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+// Flex utilities
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  flex-direction: column;
+}
+
+.flex-1 {
+  flex: 1;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.gap-xs {
+  gap: var(--spacing-xs);
+}
+
+.gap-sm {
+  gap: var(--spacing-sm);
+}
+
+.gap-md {
+  gap: var(--spacing-md);
+}
+
+// Common component patterns
+.panel {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background-color: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+
+  &:hover {
+    background-color: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  &:active {
+    background-color: var(--bg-active);
+  }
+
+  &.active {
+    background-color: var(--bg-active);
+    color: var(--text-primary);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+// ============================================
+// Material Component Overrides
+// ============================================
+
+// Snackbar / Toast notifications
+.mat-mdc-snack-bar-container {
+  --mdc-snackbar-container-color: var(--bg-elevated);
+  --mdc-snackbar-supporting-text-color: var(--text-primary);
+}
+
+// ---- Dialog / Modal Overrides ----
+.cdk-overlay-dark-backdrop {
+  background-color: rgba(0, 0, 0, 0.6) !important;
+  backdrop-filter: blur(2px);
+}
+
+.mat-mdc-dialog-container {
+  --mdc-dialog-container-color: var(--bg-primary);
+
+  .mdc-dialog__surface {
+    border-radius: var(--radius-lg) !important;
+    border: 1px solid var(--border-secondary) !important;
+    box-shadow:
+      0 16px 48px rgba(0, 0, 0, 0.4),
+      0 4px 12px rgba(0, 0, 0, 0.3) !important;
+    overflow: hidden !important;
+  }
+}
+
+// Prevent dialog overlay pane from exceeding the dialog surface
+.cdk-overlay-pane.mat-mdc-dialog-panel {
+  max-width: 100vw !important;
+}
+
+// Dialog title
+.mat-mdc-dialog-title {
+  padding: 20px 24px 12px !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+  color: var(--text-primary) !important;
+  border-bottom: 1px solid var(--border-primary);
+  background-color: var(--bg-secondary);
+  margin: 0 !important;
+}
+
+// Dialog content
+.mat-mdc-dialog-content {
+  padding: 20px 24px !important;
+  color: var(--text-primary) !important;
+  overflow-y: auto !important;
+
+  // Use thin scrollbar in dialogs to prevent gutter from creating a visual strip
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--text-muted);
+    border-radius: 3px;
+  }
+}
+
+// Dialog actions (footer buttons) — Windows-style: primary action left, Cancel right
+.mat-mdc-dialog-actions {
+  padding: 12px 16px 16px !important;
+  margin: 0 !important;
+  border-top: 1px solid var(--border-primary);
+  background-color: var(--bg-secondary);
+  gap: 8px !important;
+  min-height: unset !important;
+  justify-content: flex-start !important;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+// ---- Form Field Overrides ----
+.mat-mdc-form-field {
+  --mdc-filled-text-field-input-text-color: var(--text-primary);
+  --mdc-outlined-text-field-input-text-color: var(--text-primary);
+  --mdc-filled-text-field-label-text-color: var(--text-secondary);
+  --mdc-outlined-text-field-label-text-color: var(--text-secondary);
+  --mdc-outlined-text-field-disabled-input-text-color: var(--text-muted);
+  --mdc-outlined-text-field-disabled-label-text-color: var(--text-muted);
+  --mdc-outlined-text-field-disabled-outline-color: var(--border-primary);
+  --mdc-filled-text-field-disabled-input-text-color: var(--text-muted);
+  --mdc-filled-text-field-disabled-label-text-color: var(--text-muted);
+  --mdc-outlined-text-field-outline-color: var(--border-primary);
+  --mdc-outlined-text-field-hover-outline-color: var(--border-secondary);
+  --mdc-outlined-text-field-focus-outline-color: var(--border-focus);
+  --mdc-outlined-text-field-container-shape: var(--radius-md);
+  --mat-form-field-container-text-size: 13px;
+  --mat-form-field-subscript-text-size: 11px;
+
+  .mdc-text-field--outlined .mdc-notched-outline {
+    .mdc-notched-outline__leading,
+    .mdc-notched-outline__trailing,
+    .mdc-notched-outline__notch {
+      border-color: var(--border-primary);
+    }
+  }
+
+  .mat-mdc-form-field-hint {
+    color: var(--text-muted);
+    font-size: 11px;
+  }
+}
+
+// Select dropdown
+.mat-mdc-select {
+  --mat-select-enabled-trigger-text-color: var(--text-primary);
+  --mat-select-trigger-text-color: var(--text-primary);
+  --mat-select-disabled-trigger-text-color: var(--text-muted);
+  --mat-select-placeholder-text-color: var(--text-muted);
+  --mat-select-enabled-arrow-color: var(--text-secondary);
+  --mat-select-disabled-arrow-color: var(--text-muted);
+  --mat-select-focused-arrow-color: var(--accent);
+}
+
+.mat-mdc-select-panel {
+  background-color: var(--bg-elevated) !important;
+  border: 1px solid var(--border-secondary) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+.mat-mdc-option {
+  --mat-option-label-text-color: var(--text-primary);
+  --mat-option-hover-state-layer-color: var(--bg-hover);
+  --mat-option-selected-state-layer-color: var(--bg-active);
+  font-size: 13px !important;
+  min-height: 36px !important;
+}
+
+// Checkbox
+.mat-mdc-checkbox {
+  --mdc-checkbox-unselected-icon-color: var(--text-secondary);
+  --mdc-checkbox-selected-checkmark-color: #fff;
+  --mdc-checkbox-selected-icon-color: var(--accent);
+  --mdc-checkbox-selected-hover-icon-color: var(--accent-light);
+  --mdc-checkbox-selected-focus-icon-color: var(--accent);
+
+  .mdc-label {
+    color: var(--text-primary);
+    font-size: 13px;
+  }
+}
+
+// Divider
+.mat-divider {
+  border-top-color: var(--border-primary) !important;
+}
+
+// ---- Button Overrides ----
+.mat-mdc-button {
+  --mdc-text-button-label-text-color: var(--text-primary);
+  border-radius: var(--radius-md) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+
+.mat-mdc-outlined-button,
+.mat-mdc-stroked-button {
+  --mdc-outlined-button-outline-color: var(--border-secondary);
+  --mdc-outlined-button-label-text-color: var(--text-primary);
+  border-radius: var(--radius-md) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+
+.mat-mdc-unelevated-button,
+.mat-mdc-raised-button {
+  --mdc-filled-button-label-text-color: white;
+  border-radius: var(--radius-md) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  box-shadow: none !important;
+}
+
+// Light theme: dialog and form field contrast improvements
+@mixin light-dialog-overrides {
+  .mat-mdc-dialog-container .mdc-dialog__surface {
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.12),
+      0 2px 8px rgba(0, 0, 0, 0.08) !important;
+  }
+
+  // Stronger outline borders for form fields in light mode
+  .mat-mdc-form-field {
+    --mdc-outlined-text-field-outline-color: #c0c0d0;
+    --mdc-outlined-text-field-hover-outline-color: #a0a0b8;
+    --mdc-outlined-text-field-disabled-outline-color: #d0d0dc;
+  }
+}
+
+// Light theme: ensure primary-colored buttons are legible
+@mixin light-button-overrides {
+  .mat-mdc-unelevated-button.mat-primary {
+    --mdc-filled-button-container-color: var(--accent);
+    --mdc-filled-button-label-text-color: white;
+  }
+
+  .mat-mdc-outlined-button.mat-primary,
+  .mat-mdc-stroked-button.mat-primary {
+    --mdc-outlined-button-label-text-color: var(--text-primary);
+    --mdc-outlined-button-outline-color: var(--border-secondary);
+  }
+
+  // Disabled button states — ensure visible contrast in light mode
+  .mat-mdc-unelevated-button,
+  .mat-mdc-raised-button {
+    --mdc-filled-button-disabled-container-color: var(--bg-hover);
+    --mdc-filled-button-disabled-label-text-color: var(--text-muted);
+  }
+
+  .mat-mdc-outlined-button,
+  .mat-mdc-stroked-button {
+    --mdc-outlined-button-disabled-label-text-color: var(--text-muted);
+    --mdc-outlined-button-disabled-outline-color: var(--border-primary);
+  }
+
+  .mat-mdc-button {
+    --mdc-text-button-disabled-label-text-color: var(--text-muted);
+  }
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    @include light-button-overrides;
+    @include light-dialog-overrides;
+  }
+}
+
+:root[data-theme='light'] {
+  @include light-button-overrides;
+  @include light-dialog-overrides;
+}
+
+// Material Icons need line-height:1 so the glyph box matches the em-square.
+// Without this, inherited line-height (typically 1.5) makes the box taller
+// than the font, dropping the glyph below center.
+mat-icon {
+  line-height: 1 !important;
+}
+
+// Icon buttons.
+//
+// Centering Material Icons (font-based) inside a custom-sized icon button
+// is fiddly: the button has padding, the icon has its own font-metric
+// baseline that's not the visual center, and component-level overrides
+// (e.g., .small-btn setting width: 28px) compete with Material's defaults.
+// Brute-force fix: absolutely position the <mat-icon> dead-center via
+// top:50% / left:50% / translate(-50%, -50%). This bypasses flex/grid/
+// text-rendering entirely. Material's persistent-ripple, focus-indicator,
+// touch-target are already position:absolute so they're unaffected.
+.mat-mdc-icon-button {
+  --mdc-icon-button-icon-color: var(--text-secondary);
+  --mdc-icon-button-disabled-icon-color: var(--text-muted);
+
+  position: relative !important;
+
+  > mat-icon,
+  > .mat-icon {
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    margin: 0 !important;
+  }
+
+  // Material's default state-layer color is too dark against our dark
+  // surfaces — it ends up looking like a solid disc. Override the
+  // persistent-ripple element directly so hover/focus/pressed states
+  // render as a soft wash that works on both light and dark themes.
+  .mat-mdc-button-persistent-ripple::before {
+    background-color: var(--text-primary);
+  }
+  &:hover .mat-mdc-button-persistent-ripple::before {
+    opacity: 0.06;
+  }
+  &:focus-visible .mat-mdc-button-persistent-ripple::before {
+    opacity: 0.1;
+  }
+  &:active .mat-mdc-button-persistent-ripple::before {
+    opacity: 0.14;
+  }
+  // Click ripple
+  --mat-mdc-button-ripple-color: rgba(255, 255, 255, 0.12);
+
+  // Hovered icon should pop (darker grey → primary text)
+  &:hover {
+    --mdc-icon-button-icon-color: var(--text-primary);
+  }
+}
+
+// ---- Tab Group Overrides ----
+.mat-mdc-tab-group {
+  --mdc-tab-indicator-active-indicator-color: var(--accent);
+  --mat-tab-header-active-label-text-color: var(--accent);
+  --mat-tab-header-active-focus-label-text-color: var(--accent);
+  --mat-tab-header-active-hover-label-text-color: var(--accent);
+  --mat-tab-header-inactive-label-text-color: var(--text-secondary);
+  --mat-tab-header-inactive-focus-label-text-color: var(--text-secondary);
+  --mat-tab-header-inactive-hover-label-text-color: var(--text-primary);
+  --mat-tab-header-active-ripple-color: transparent;
+  --mat-tab-header-inactive-ripple-color: transparent;
+}
+
+// ---- Expansion Panel Overrides ----
+.mat-expansion-panel {
+  --mat-expansion-container-background-color: var(--bg-secondary);
+  --mat-expansion-container-text-color: var(--text-primary);
+  --mat-expansion-header-text-color: var(--text-primary);
+  --mat-expansion-header-description-color: var(--text-secondary);
+  --mat-expansion-header-indicator-color: var(--text-secondary);
+  box-shadow: none !important;
+  border: 1px solid var(--border-primary) !important;
+  border-radius: var(--radius-md) !important;
+
+  &:not(:first-child) {
+    margin-top: 8px;
+  }
+}
+
+// Menu panels
+.mat-mdc-menu-panel {
+  --mat-menu-container-color: var(--bg-elevated);
+  border: 1px solid var(--border-secondary) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+.mat-mdc-menu-item {
+  --mat-menu-item-label-text-color: var(--text-primary);
+  --mat-menu-item-icon-color: var(--text-secondary);
+  --mat-menu-item-hover-state-layer-color: var(--bg-hover);
+  font-size: 13px !important;
+  min-height: 36px !important;
+}
+
+// Tooltip
+.mat-mdc-tooltip {
+  --mdc-plain-tooltip-container-color: var(--bg-elevated);
+  --mdc-plain-tooltip-supporting-text-color: var(--text-primary);
+
+  .mdc-tooltip__surface {
+    border: 1px solid var(--border-secondary);
+    border-radius: var(--radius-md) !important;
+    font-size: 12px !important;
+  }
+}
+
+// Progress spinner - match theme accent
+.mat-mdc-progress-spinner {
+  --mdc-circular-progress-active-indicator-color: var(--border-focus);
+}
+
+// ============================================
+// Golden Layout Styles
+// ============================================
+
+// Ensure GL root container fills available space
+.lm_goldenlayout {
+  width: 100% !important;
+  height: 100% !important;
+  background: var(--bg-primary) !important;
+}
+
+// Ensure the root layout item fills space
+.lm_root {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+// Ensure proper box-sizing for all GL layout elements
+.lm_item,
+.lm_content,
+.lm_stack,
+.lm_row,
+.lm_column {
+  box-sizing: border-box !important;
+}
+
+// Ensure layout items don't overflow
+.lm_item {
+  overflow: hidden !important;
+}
+
+// Fix for .lm_items - the content container inside stacks
+.lm_items {
+  width: 100% !important;
+  height: calc(100% - 38px) !important;
+  box-sizing: border-box !important;
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+// When tabs are maximized, no header visible
+.lm_stack.lm_maximised > .lm_items {
+  height: 100% !important;
+}
+
+// Target the anonymous ComponentItem div inside lm_items
+.lm_items > div {
+  width: 100% !important;
+  height: 100% !important;
+  flex: 1 !important;
+  box-sizing: border-box !important;
+  flex-direction: column !important;
+  min-height: 0 !important; // Critical for flex children to shrink properly
+}
+
+// Only apply flex display to the active/visible tab content div
+.lm_items > div:not([style*='display: none']) {
+  display: flex !important;
+}
+
+// Clearfix for float-based row layout
+.lm_row::after {
+  content: '' !important;
+  display: table !important;
+  clear: both !important;
+}
+
+// Force content children to respect parent bounds
+.lm_content > * {
+  max-width: 100% !important;
+  width: 100% !important;
+}
+
+.lm_content {
+  background: var(--bg-primary) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  width: 100% !important;
+}
+
+.lm_item_container {
+  background: var(--bg-primary) !important;
+}
+
+// Tab content wrapper - ensure proper height propagation for AG-Grid
+.tab-content-wrapper {
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 !important;
+  min-height: 0 !important; // Critical for flex children to shrink properly
+
+  // Ensure Angular component hosts fill the container
+  > * {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    width: 100% !important;
+  }
+}
+
+// Tab content container created by GoldenLayout
+.tab-content-container {
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+}
+
+// Tab header styling
+.lm_header {
+  height: 36px !important;
+  padding: 0 !important;
+  padding-left: 2px !important;
+  background: var(--bg-tertiary) !important;
+  border-bottom: 1px solid var(--border-primary) !important;
+  overflow: visible !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  align-items: flex-end !important;
+}
+
+.lm_tabs {
+  height: 35px !important;
+  display: flex !important;
+  align-items: flex-end !important;
+  gap: 1px !important;
+}
+
+// Hide Golden Layout window controls
+.lm_controls {
+  display: none !important;
+}
+
+// Tab styling — compact, professional design
+.lm_header .lm_tab {
+  padding: 0 12px 0 10px !important;
+  padding-right: 26px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  height: 32px !important;
+  box-sizing: border-box !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  background: var(--bg-secondary) !important;
+  border: 1px solid transparent !important;
+  border-bottom: 1px solid var(--border-primary) !important;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0 !important;
+  transition: all 0.12s ease !important;
+  position: relative !important;
+  z-index: 1 !important;
+  color: var(--text-secondary) !important;
+  max-width: 180px !important;
+  min-width: 0 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  display: inline-flex !important;
+  align-items: center !important;
+
+  .lm_title,
+  span,
+  * {
+    color: inherit !important;
+  }
+
+  .lm_title {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    line-height: 32px !important;
+  }
+
+  // Tab icon injected by applyTabStyles
+  .tab-icon {
+    font-size: 14px !important;
+    width: 14px !important;
+    height: 14px !important;
+    line-height: 1 !important;
+    margin-right: 5px !important;
+    opacity: 0.7 !important;
+    flex-shrink: 0 !important;
+  }
+}
+
+// Hover state
+.lm_header .lm_tab:hover {
+  background: var(--bg-hover) !important;
+  color: var(--text-primary) !important;
+}
+
+.lm_header .lm_tab:hover .lm_close_tab {
+  opacity: 0.7 !important;
+}
+
+// Active tab styling — prominent, connected to content
+.lm_header .lm_tab.lm_active {
+  background: var(--bg-primary) !important;
+  height: 34px !important;
+  margin-bottom: -1px !important;
+  border: 1px solid var(--border-primary) !important;
+  border-bottom-color: var(--bg-primary) !important;
+  z-index: 2 !important;
+  color: var(--text-primary) !important;
+  font-weight: 600 !important;
+
+  .tab-icon {
+    opacity: 1 !important;
+    color: var(--border-focus) !important;
+  }
+}
+
+// Active tab accent bar
+.lm_header .lm_tab.lm_active::after {
+  content: '' !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: 2px !important;
+  background: var(--border-focus) !important;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0 !important;
+}
+
+// Tab title styling
+.lm_title {
+  cursor: pointer !important;
+  user-select: none !important;
+  color: inherit !important;
+}
+
+// Close button — hidden by default, visible on hover
+// NOTE: Golden Layout renders .lm_close_tab as an empty div that expects a
+// background-image from a theme CSS. Since we only load the base CSS (no theme),
+// we use an inline SVG data-uri to render the "x" icon ourselves.
+.lm_close_tab {
+  position: absolute !important;
+  right: 5px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 16px !important;
+  height: 16px !important;
+  cursor: pointer !important;
+  opacity: 0 !important;
+  transition: all 0.12s ease !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 3px !important;
+  background-color: transparent !important;
+  background-size: 9px 9px !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 3L13 13M13 3L3 13' stroke='%23cccccc' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") !important;
+}
+
+.lm_close_tab:hover {
+  opacity: 1 !important;
+  background-color: rgba(241, 76, 76, 0.12) !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 3L13 13M13 3L3 13' stroke='%23f14c4c' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") !important;
+}
+
+.lm_header .lm_tab:hover .lm_close_tab {
+  opacity: 0.6 !important;
+}
+
+// Light theme: darker X icon for visibility
+:root[data-theme='light'] .lm_close_tab {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 3L13 13M13 3L3 13' stroke='%23424242' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") !important;
+}
+
+:root[data-theme='light'] .lm_close_tab:hover {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 3L13 13M13 3L3 13' stroke='%23d13438' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") !important;
+}
+
+// Dirty (unsaved changes) indicator — small dot before the title
+.lm_header .lm_tab .dirty-indicator {
+  display: inline-block !important;
+  width: 6px !important;
+  height: 6px !important;
+  border-radius: 50% !important;
+  background-color: var(--border-focus) !important;
+  margin-right: 5px !important;
+  flex-shrink: 0 !important;
+  vertical-align: middle !important;
+}
+
+.lm_header .lm_tab.pinned .lm_close_tab {
+  display: none !important;
+}
+
+.lm_active .lm_close_tab {
+  opacity: 0.3 !important;
+}
+
+.lm_active:hover .lm_close_tab {
+  opacity: 0.7 !important;
+}
+
+// Splitter/drag handles styling
+.lm_splitter {
+  background: var(--border-primary) !important;
+  opacity: 1 !important;
+}
+
+.lm_splitter:hover {
+  background: var(--border-focus) !important;
+}
+
+// Drag proxy — floating tab preview
+.lm_dragProxy {
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border-focus) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.25),
+    0 2px 8px rgba(0, 0, 0, 0.15) !important;
+  opacity: 0.92 !important;
+  z-index: 9999 !important;
+
+  .lm_header {
+    border-radius: var(--radius-md) var(--radius-md) 0 0 !important;
+  }
+
+  .lm_tab {
+    background: var(--bg-primary) !important;
+    color: var(--text-primary) !important;
+    font-weight: 600 !important;
+  }
+}
+
+// Drop target highlight — clear visual indicator
+.lm_dropTargetIndicator {
+  background: rgba(38, 139, 210, 0.15) !important;
+  border: 2px dashed var(--border-focus) !important;
+  border-radius: var(--radius-md) !important;
+  transition: all 0.15s ease !important;
+
+  @supports (background: color-mix(in srgb, red 50%, blue)) {
+    background: color-mix(in srgb, var(--border-focus) 15%, transparent) !important;
+  }
+}
+
+// Tab drop placeholder — insertion marker
+.lm_tabDropPlaceholder {
+  background: rgba(38, 139, 210, 0.25) !important;
+  border: 2px solid var(--border-focus) !important;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0 !important;
+  min-width: 40px !important;
+  margin: 0 2px !important;
+
+  @supports (background: color-mix(in srgb, red 50%, blue)) {
+    background: color-mix(in srgb, var(--border-focus) 25%, transparent) !important;
+  }
+}
+
+// Dim other tabs while dragging for focus
+.lm_dragging .lm_tab:not(.lm_active) {
+  opacity: 0.5 !important;
+}
+
+// ============================================
+// Monaco Editor Find Widget Styling
+// ============================================
+
+// Find widget container - match our theme
+.monaco-editor .find-widget {
+  background-color: var(--bg-elevated) !important;
+  border: 1px solid var(--border-secondary) !important;
+  border-radius: 0 0 var(--radius-md) var(--radius-md) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  padding: 4px 8px !important;
+
+  // Input fields
+  .input {
+    background-color: var(--bg-primary) !important;
+    border: 1px solid var(--border-primary) !important;
+    border-radius: var(--radius-sm) !important;
+    color: var(--text-primary) !important;
+    font-family: var(--font-mono) !important;
+
+    &:focus-within {
+      border-color: var(--border-focus) !important;
+    }
+  }
+
+  // Toggle buttons (Regex, Case, Whole Word)
+  .button.toggle {
+    border-radius: var(--radius-sm) !important;
+
+    &.checked {
+      background-color: var(--border-focus) !important;
+      color: white !important;
+    }
+  }
+
+  // Match count label
+  .matchesCount {
+    color: var(--text-secondary) !important;
+    font-size: var(--font-size-xs) !important;
+    min-width: 60px !important;
+  }
+
+  // Replace input row
+  .replace-input {
+    background-color: var(--bg-primary) !important;
+  }
+}
+
+// Selection highlight (matching occurrences)
+.monaco-editor .selectionHighlight {
+  background-color: rgba(255, 215, 0, 0.15) !important;
+  border: 1px solid rgba(255, 215, 0, 0.3) !important;
+  border-radius: 2px !important;
+}
+
+// Find match highlight
+.monaco-editor .findMatch {
+  background-color: rgba(255, 150, 50, 0.3) !important;
+  border: 1px solid rgba(255, 150, 50, 0.5) !important;
+}
+
+// Current find match (focused)
+.monaco-editor .currentFindMatch {
+  background-color: rgba(255, 215, 0, 0.4) !important;
+  border: 2px solid var(--border-focus) !important;
+}
+
+// Ensure CDK overlay (mat-select dropdowns, tooltips, etc.) appears above everything
+// including the settings panel (z-index: 10002) and other high-z panels
+.cdk-overlay-container {
+  z-index: 10100 !important;
+}
+
+// ===== Global Animations & Transitions =====
+
+// Smooth dialog open animation
+.cdk-overlay-pane {
+  animation: fadeSlideIn 0.15s ease-out;
+}
+
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// Panel slide-in from right
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+// Panel slide-in from left
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+// Subtle fade in
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+// Focus visible ring for all buttons (keyboard-only)
+button:focus-visible,
+[role='button']:focus-visible {
+  outline: 2px solid var(--status-info);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+// Notification snackbar color variants
+.notification-success .mdc-snackbar__surface {
+  background-color: var(--bg-tertiary) !important;
+  border-left: 3px solid var(--status-success) !important;
+  .mdc-snackbar__label {
+    color: var(--text-primary) !important;
+  }
+  .mat-mdc-button.mat-mdc-snack-bar-action {
+    color: var(--status-success) !important;
+  }
+}
+
+.notification-error .mdc-snackbar__surface {
+  background-color: var(--bg-tertiary) !important;
+  border-left: 3px solid var(--status-error) !important;
+  .mdc-snackbar__label {
+    color: var(--text-primary) !important;
+  }
+  .mat-mdc-button.mat-mdc-snack-bar-action {
+    color: var(--status-error) !important;
+  }
+}
+
+.notification-warning .mdc-snackbar__surface {
+  background-color: var(--bg-tertiary) !important;
+  border-left: 3px solid var(--status-warning) !important;
+  .mdc-snackbar__label {
+    color: var(--text-primary) !important;
+  }
+  .mat-mdc-button.mat-mdc-snack-bar-action {
+    color: var(--status-warning) !important;
+  }
+}
+
+.notification-info .mdc-snackbar__surface {
+  background-color: var(--bg-tertiary) !important;
+  border-left: 3px solid var(--status-info) !important;
+  .mdc-snackbar__label {
+    color: var(--text-primary) !important;
+  }
+  .mat-mdc-button.mat-mdc-snack-bar-action {
+    color: var(--status-info) !important;
+  }
+}

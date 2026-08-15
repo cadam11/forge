@@ -1,0 +1,1499 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Joinery — AI Features Prototype</title>
+    <style>
+      :root {
+        --bg-primary: #1e1e2e;
+        --bg-secondary: #262637;
+        --bg-tertiary: #2a2a3d;
+        --bg-hover: #32324a;
+        --bg-active: #3a3a55;
+        --text-primary: #e0e0f0;
+        --text-secondary: #a0a0c0;
+        --text-muted: #666690;
+        --border-primary: #3a3a55;
+        --border-focus: #7c6ef6;
+        --accent: #7c6ef6;
+        --accent-light: #9b8ff8;
+        --success: #4ade80;
+        --error: #f87171;
+        --warning: #fbbf24;
+        --info: #60a5fa;
+        --user-bubble: #4a4a70;
+        --assistant-bg: transparent;
+        --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        --mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+        --radius: 8px;
+        --radius-sm: 4px;
+        --radius-lg: 12px;
+        --sidebar-width: 240px;
+        --chat-panel-width: 400px;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: var(--font-family);
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        height: 100vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* ===== TOP BAR ===== */
+      .top-bar {
+        display: flex;
+        align-items: center;
+        height: 38px;
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border-primary);
+        padding: 0 12px;
+        gap: 8px;
+        -webkit-app-region: drag;
+      }
+      .top-bar .logo {
+        font-weight: 700;
+        font-size: 13px;
+        color: var(--accent);
+      }
+      .top-bar .tabs {
+        display: flex;
+        gap: 1px;
+        flex: 1;
+        -webkit-app-region: no-drag;
+      }
+      .tab {
+        padding: 6px 14px;
+        font-size: 12px;
+        background: var(--bg-tertiary);
+        border-radius: 6px 6px 0 0;
+        cursor: pointer;
+        color: var(--text-secondary);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .tab.active {
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        border-bottom: 2px solid var(--accent);
+      }
+      .tab .icon {
+        font-size: 14px;
+      }
+
+      /* ===== MAIN LAYOUT ===== */
+      .main {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+      }
+
+      /* ===== SIDEBAR ===== */
+      .sidebar {
+        width: var(--sidebar-width);
+        background: var(--bg-secondary);
+        border-right: 1px solid var(--border-primary);
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+      }
+      .sidebar-header {
+        padding: 12px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .sidebar-item {
+        padding: 6px 12px 6px 20px;
+        font-size: 13px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--text-secondary);
+      }
+      .sidebar-item:hover {
+        background: var(--bg-hover);
+        color: var(--text-primary);
+      }
+      .sidebar-item .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--success);
+      }
+
+      /* ===== EDITOR AREA ===== */
+      .editor-area {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .editor-toolbar {
+        display: flex;
+        align-items: center;
+        padding: 6px 12px;
+        gap: 8px;
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border-primary);
+      }
+      .toolbar-btn {
+        background: none;
+        border: 1px solid var(--border-primary);
+        color: var(--text-secondary);
+        padding: 4px 10px;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .toolbar-btn:hover {
+        background: var(--bg-hover);
+        color: var(--text-primary);
+      }
+      .toolbar-btn.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: white;
+      }
+      .toolbar-btn.primary:hover {
+        background: var(--accent-light);
+      }
+
+      .editor-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+      }
+      .code-editor {
+        flex: 1;
+        background: var(--bg-primary);
+        padding: 12px;
+        font-family: var(--mono);
+        font-size: 13px;
+        line-height: 1.6;
+        color: var(--text-primary);
+        position: relative;
+        min-height: 200px;
+      }
+      .code-line {
+        display: flex;
+      }
+      .line-num {
+        color: var(--text-muted);
+        width: 35px;
+        text-align: right;
+        margin-right: 12px;
+        user-select: none;
+        flex-shrink: 0;
+      }
+      .keyword {
+        color: #c792ea;
+      }
+      .func {
+        color: #82aaff;
+      }
+      .string {
+        color: #c3e88d;
+      }
+      .comment {
+        color: var(--text-muted);
+        font-style: italic;
+      }
+      .ghost-text {
+        color: var(--text-muted);
+        opacity: 0.5;
+      }
+
+      /* ===== RESULTS GRID ===== */
+      .results-area {
+        height: 200px;
+        border-top: 1px solid var(--border-primary);
+        display: flex;
+        flex-direction: column;
+      }
+      .results-tabs {
+        display: flex;
+        padding: 4px 8px;
+        gap: 4px;
+        background: var(--bg-secondary);
+      }
+      .result-tab {
+        padding: 4px 10px;
+        font-size: 11px;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        color: var(--text-secondary);
+      }
+      .result-tab.active {
+        background: var(--bg-primary);
+        color: var(--text-primary);
+      }
+      .results-grid {
+        flex: 1;
+        overflow: auto;
+      }
+      .results-grid table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+        font-family: var(--mono);
+      }
+      .results-grid th {
+        background: var(--bg-tertiary);
+        padding: 6px 10px;
+        text-align: left;
+        font-weight: 500;
+        color: var(--text-secondary);
+        border-bottom: 1px solid var(--border-primary);
+        position: sticky;
+        top: 0;
+      }
+      .results-grid td {
+        padding: 4px 10px;
+        border-bottom: 1px solid var(--border-primary);
+        color: var(--text-primary);
+      }
+      .results-grid tr:hover td {
+        background: var(--bg-hover);
+      }
+
+      /* ===== CHAT PANEL ===== */
+      .chat-panel {
+        width: var(--chat-panel-width);
+        background: var(--bg-secondary);
+        border-left: 1px solid var(--border-primary);
+        display: flex;
+        flex-direction: column;
+        transition: width 0.2s ease;
+      }
+      .chat-panel.collapsed {
+        width: 0;
+        overflow: hidden;
+      }
+
+      .chat-header {
+        display: flex;
+        align-items: center;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--border-primary);
+        gap: 8px;
+      }
+      .chat-header h3 {
+        font-size: 13px;
+        font-weight: 600;
+        flex: 1;
+      }
+      .chat-header .badge {
+        background: var(--accent);
+        color: white;
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 10px;
+        font-weight: 600;
+      }
+      .chat-header-btn {
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        cursor: pointer;
+        font-size: 16px;
+        padding: 2px;
+      }
+      .chat-header-btn:hover {
+        color: var(--text-primary);
+      }
+
+      .chat-conversations {
+        border-bottom: 1px solid var(--border-primary);
+        max-height: 120px;
+        overflow-y: auto;
+      }
+      .conv-item {
+        padding: 8px 14px;
+        font-size: 12px;
+        cursor: pointer;
+        color: var(--text-secondary);
+        display: flex;
+        justify-content: space-between;
+      }
+      .conv-item:hover {
+        background: var(--bg-hover);
+      }
+      .conv-item.active {
+        background: var(--bg-active);
+        color: var(--text-primary);
+      }
+      .conv-item .date {
+        font-size: 10px;
+        color: var(--text-muted);
+      }
+      .new-chat-btn {
+        padding: 8px 14px;
+        font-size: 12px;
+        cursor: pointer;
+        color: var(--accent);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        border-bottom: 1px solid var(--border-primary);
+      }
+      .new-chat-btn:hover {
+        background: var(--bg-hover);
+      }
+
+      .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .message {
+        display: flex;
+        flex-direction: column;
+        max-width: 100%;
+      }
+      .message.user {
+        align-items: flex-end;
+      }
+      .message.assistant {
+        align-items: flex-start;
+      }
+
+      .message-bubble {
+        padding: 10px 14px;
+        border-radius: var(--radius-lg);
+        font-size: 13px;
+        line-height: 1.5;
+        max-width: 90%;
+      }
+      .message.user .message-bubble {
+        background: var(--user-bubble);
+        border-bottom-right-radius: var(--radius-sm);
+      }
+      .message.assistant .message-bubble {
+        background: var(--assistant-bg);
+        border: 1px solid var(--border-primary);
+        border-bottom-left-radius: var(--radius-sm);
+      }
+      .message-bubble code {
+        background: var(--bg-tertiary);
+        padding: 1px 4px;
+        border-radius: 3px;
+        font-family: var(--mono);
+        font-size: 12px;
+      }
+      .message-bubble pre {
+        background: var(--bg-primary);
+        border: 1px solid var(--border-primary);
+        border-radius: var(--radius);
+        padding: 10px;
+        margin: 8px 0;
+        overflow-x: auto;
+        font-family: var(--mono);
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .tool-card {
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-primary);
+        border-radius: var(--radius);
+        margin: 8px 0;
+        overflow: hidden;
+        max-width: 90%;
+      }
+      .tool-card-header {
+        display: flex;
+        align-items: center;
+        padding: 8px 12px;
+        gap: 8px;
+        font-size: 11px;
+        color: var(--text-secondary);
+        border-bottom: 1px solid var(--border-primary);
+        cursor: pointer;
+      }
+      .tool-card-header .tool-icon {
+        color: var(--accent);
+        font-size: 14px;
+      }
+      .tool-card-header .tool-name {
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+      .tool-card-header .tool-status {
+        margin-left: auto;
+      }
+      .tool-card-header .tool-status.success {
+        color: var(--success);
+      }
+      .tool-card-body {
+        padding: 10px 12px;
+        font-size: 12px;
+      }
+      .tool-card-body table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .tool-card-body th {
+        text-align: left;
+        padding: 4px 8px;
+        color: var(--text-secondary);
+        border-bottom: 1px solid var(--border-primary);
+        font-size: 11px;
+      }
+      .tool-card-body td {
+        padding: 4px 8px;
+        font-size: 12px;
+      }
+
+      .confirm-card {
+        background: var(--bg-tertiary);
+        border: 1px solid var(--warning);
+        border-radius: var(--radius);
+        padding: 12px;
+        margin: 8px 0;
+        max-width: 90%;
+      }
+      .confirm-card p {
+        font-size: 12px;
+        margin-bottom: 8px;
+        color: var(--text-secondary);
+      }
+      .confirm-card .confirm-actions {
+        display: flex;
+        gap: 8px;
+      }
+      .confirm-card .btn-confirm {
+        background: var(--accent);
+        color: white;
+        border: none;
+        padding: 5px 14px;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        font-size: 12px;
+      }
+      .confirm-card .btn-cancel {
+        background: none;
+        color: var(--text-secondary);
+        border: 1px solid var(--border-primary);
+        padding: 5px 14px;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        font-size: 12px;
+      }
+
+      .typing-indicator {
+        display: flex;
+        gap: 4px;
+        padding: 10px 14px;
+      }
+      .typing-indicator span {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--text-muted);
+        animation: typing 1.4s infinite both;
+      }
+      .typing-indicator span:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+      .typing-indicator span:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+      @keyframes typing {
+        0%,
+        60%,
+        100% {
+          transform: translateY(0);
+          opacity: 0.4;
+        }
+        30% {
+          transform: translateY(-4px);
+          opacity: 1;
+        }
+      }
+
+      .chat-input-area {
+        border-top: 1px solid var(--border-primary);
+        padding: 10px 14px;
+        display: flex;
+        gap: 8px;
+        align-items: flex-end;
+      }
+      .chat-input {
+        flex: 1;
+        background: var(--bg-primary);
+        border: 1px solid var(--border-primary);
+        border-radius: var(--radius);
+        padding: 8px 12px;
+        color: var(--text-primary);
+        font-family: var(--font-family);
+        font-size: 13px;
+        resize: none;
+        max-height: 100px;
+        outline: none;
+      }
+      .chat-input:focus {
+        border-color: var(--accent);
+      }
+      .chat-input::placeholder {
+        color: var(--text-muted);
+      }
+      .send-btn {
+        background: var(--accent);
+        border: none;
+        color: white;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        flex-shrink: 0;
+      }
+      .send-btn:hover {
+        background: var(--accent-light);
+      }
+
+      .context-badge {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 8px;
+        background: var(--bg-tertiary);
+        border-radius: 12px;
+        font-size: 10px;
+        color: var(--text-secondary);
+        margin-bottom: 6px;
+      }
+      .context-badge .ctx-dot {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--success);
+      }
+
+      /* ===== STATUS BAR ===== */
+      .status-bar {
+        display: flex;
+        align-items: center;
+        height: 24px;
+        background: var(--bg-secondary);
+        border-top: 1px solid var(--border-primary);
+        padding: 0 12px;
+        font-size: 11px;
+        color: var(--text-muted);
+        gap: 16px;
+      }
+      .status-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .status-item.clickable {
+        cursor: pointer;
+      }
+      .status-item.clickable:hover {
+        color: var(--text-primary);
+      }
+      .status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+      }
+      .status-dot.green {
+        background: var(--success);
+      }
+      .status-dot.blue {
+        background: var(--info);
+      }
+
+      /* ===== AI SETUP DIALOG ===== */
+      .dialog-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+      }
+      .dialog-overlay.hidden {
+        display: none;
+      }
+      .dialog {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-primary);
+        border-radius: var(--radius-lg);
+        width: 520px;
+        max-height: 80vh;
+        overflow-y: auto;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+      }
+      .dialog-header {
+        padding: 20px 24px 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .dialog-header h2 {
+        font-size: 18px;
+        font-weight: 600;
+      }
+      .dialog-header .sparkle {
+        font-size: 24px;
+      }
+      .dialog-body {
+        padding: 16px 24px;
+      }
+      .dialog-footer {
+        padding: 16px 24px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        border-top: 1px solid var(--border-primary);
+      }
+
+      .provider-cards {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin: 12px 0;
+      }
+      .provider-card {
+        border: 1px solid var(--border-primary);
+        border-radius: var(--radius);
+        padding: 14px;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .provider-card:hover {
+        border-color: var(--accent);
+        background: var(--bg-hover);
+      }
+      .provider-card.selected {
+        border-color: var(--accent);
+        background: var(--bg-active);
+        box-shadow: 0 0 0 1px var(--accent);
+      }
+      .provider-card h4 {
+        font-size: 13px;
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+      .provider-card p {
+        font-size: 11px;
+        color: var(--text-secondary);
+      }
+      .provider-card .recommended {
+        font-size: 10px;
+        background: var(--accent);
+        color: white;
+        padding: 1px 6px;
+        border-radius: 8px;
+        margin-left: 6px;
+      }
+
+      .form-group {
+        margin: 14px 0;
+      }
+      .form-group label {
+        display: block;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--text-secondary);
+        margin-bottom: 6px;
+      }
+      .form-input {
+        width: 100%;
+        background: var(--bg-primary);
+        border: 1px solid var(--border-primary);
+        border-radius: var(--radius-sm);
+        padding: 8px 12px;
+        color: var(--text-primary);
+        font-family: var(--mono);
+        font-size: 13px;
+        outline: none;
+      }
+      .form-input:focus {
+        border-color: var(--accent);
+      }
+      .form-select {
+        width: 100%;
+        background: var(--bg-primary);
+        border: 1px solid var(--border-primary);
+        border-radius: var(--radius-sm);
+        padding: 8px 12px;
+        color: var(--text-primary);
+        font-size: 13px;
+        outline: none;
+        cursor: pointer;
+        -webkit-appearance: none;
+      }
+
+      .validation-badge {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 8px;
+        font-size: 12px;
+      }
+      .validation-badge.success {
+        color: var(--success);
+      }
+      .validation-badge.error {
+        color: var(--error);
+      }
+
+      .dialog-btn {
+        padding: 8px 18px;
+        border-radius: var(--radius-sm);
+        font-size: 13px;
+        cursor: pointer;
+        border: none;
+      }
+      .dialog-btn.primary {
+        background: var(--accent);
+        color: white;
+      }
+      .dialog-btn.primary:hover {
+        background: var(--accent-light);
+      }
+      .dialog-btn.secondary {
+        background: none;
+        color: var(--text-secondary);
+        border: 1px solid var(--border-primary);
+      }
+      .dialog-btn.secondary:hover {
+        background: var(--bg-hover);
+      }
+
+      /* ===== ONBOARDING OVERLAY ===== */
+      .tour-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 200;
+        pointer-events: none;
+      }
+      .tour-overlay.hidden {
+        display: none;
+      }
+      .tour-spotlight {
+        position: absolute;
+        box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6);
+        border-radius: var(--radius);
+        pointer-events: none;
+        transition: all 0.3s ease;
+      }
+      .tour-popover {
+        position: absolute;
+        background: var(--bg-secondary);
+        border: 1px solid var(--accent);
+        border-radius: var(--radius-lg);
+        padding: 16px 20px;
+        max-width: 300px;
+        pointer-events: all;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      }
+      .tour-popover h4 {
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 6px;
+      }
+      .tour-popover p {
+        font-size: 12px;
+        color: var(--text-secondary);
+        line-height: 1.5;
+        margin-bottom: 12px;
+      }
+      .tour-popover .tour-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .tour-popover .tour-step {
+        font-size: 11px;
+        color: var(--text-muted);
+      }
+      .tour-popover .tour-next {
+        background: var(--accent);
+        color: white;
+        border: none;
+        padding: 5px 14px;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        font-size: 12px;
+      }
+      .tour-popover .tour-skip {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        font-size: 11px;
+      }
+      .tour-popover .arrow {
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--accent);
+        transform: rotate(45deg);
+      }
+      .tour-popover .arrow.top {
+        top: -6px;
+        left: 30px;
+        border-bottom: none;
+        border-right: none;
+      }
+      .tour-popover .arrow.left {
+        left: -6px;
+        top: 20px;
+        border-top: none;
+        border-right: none;
+      }
+
+      /* ===== WELCOME AI CARD ===== */
+      .ai-setup-card {
+        background: linear-gradient(135deg, rgba(124, 110, 246, 0.1), rgba(124, 110, 246, 0.05));
+        border: 1px solid rgba(124, 110, 246, 0.3);
+        border-radius: var(--radius-lg);
+        padding: 20px 24px;
+        margin: 16px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+      .ai-setup-card .ai-icon {
+        font-size: 36px;
+        flex-shrink: 0;
+      }
+      .ai-setup-card h3 {
+        font-size: 15px;
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+      .ai-setup-card p {
+        font-size: 12px;
+        color: var(--text-secondary);
+        line-height: 1.5;
+      }
+      .ai-setup-card .ai-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      /* Interactive demo state */
+      .demo-note {
+        position: fixed;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--accent);
+        color: white;
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-size: 11px;
+        z-index: 300;
+        font-weight: 500;
+      }
+      .view-switcher {
+        position: fixed;
+        bottom: 40px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 4px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-primary);
+        border-radius: var(--radius);
+        padding: 4px;
+        z-index: 300;
+      }
+      .view-btn {
+        padding: 6px 14px;
+        font-size: 12px;
+        border: none;
+        background: none;
+        color: var(--text-secondary);
+        cursor: pointer;
+        border-radius: var(--radius-sm);
+      }
+      .view-btn.active {
+        background: var(--accent);
+        color: white;
+      }
+      .view-btn:hover:not(.active) {
+        background: var(--bg-hover);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="demo-note">Joinery AI Features Prototype — Click views below to explore</div>
+
+    <!-- VIEW SWITCHER -->
+    <div class="view-switcher">
+      <button class="view-btn active" onclick="showView('chat')">Chat Agent</button>
+      <button class="view-btn" onclick="showView('autocomplete')">Smart Autocomplete</button>
+      <button class="view-btn" onclick="showView('setup')">AI Setup Dialog</button>
+      <button class="view-btn" onclick="showView('onboarding')">Onboarding Tour</button>
+      <button class="view-btn" onclick="showView('welcome')">Welcome + AI Card</button>
+    </div>
+
+    <!-- ==================== MAIN APP SHELL ==================== -->
+    <div class="top-bar">
+      <span class="logo">Joinery</span>
+      <div class="tabs">
+        <div class="tab"><span class="icon">🏠</span> Welcome</div>
+        <div class="tab active"><span class="icon">📝</span> Query 1</div>
+        <div class="tab"><span class="icon">📝</span> CustomerOrders</div>
+      </div>
+    </div>
+
+    <div class="main">
+      <!-- SIDEBAR -->
+      <div class="sidebar">
+        <div class="sidebar-header">Explorer</div>
+        <div class="sidebar-item"><span class="dot"></span> Local Docker SQL</div>
+        <div class="sidebar-item" style="padding-left: 32px">📁 AdventureWorks</div>
+        <div class="sidebar-item" style="padding-left: 44px">📋 Tables</div>
+        <div class="sidebar-item" style="padding-left: 56px; color: var(--text-primary)">
+          dbo.Customers
+        </div>
+        <div class="sidebar-item" style="padding-left: 56px">dbo.Orders</div>
+        <div class="sidebar-item" style="padding-left: 56px">dbo.Products</div>
+        <div class="sidebar-item" style="padding-left: 56px">dbo.OrderItems</div>
+        <div class="sidebar-item" style="padding-left: 56px">dbo.Categories</div>
+        <div class="sidebar-item" style="padding-left: 44px">👁 Views</div>
+        <div class="sidebar-item" style="padding-left: 44px">⚡ Procedures</div>
+      </div>
+
+      <!-- EDITOR -->
+      <div class="editor-area" id="editorArea">
+        <div class="editor-toolbar">
+          <button class="toolbar-btn primary">▶ Execute</button>
+          <button class="toolbar-btn">⏹ Cancel</button>
+          <span style="flex: 1"></span>
+          <button class="toolbar-btn" id="aiChatToggle" onclick="toggleChat()">✨ AI Chat</button>
+        </div>
+        <div class="editor-content">
+          <div class="code-editor" id="codeEditor">
+            <!-- Default: chat view -->
+            <div class="code-line">
+              <span class="line-num">1</span><span class="keyword">SELECT</span> c.CustomerName,
+              c.Email,
+            </div>
+            <div class="code-line">
+              <span class="line-num">2</span> <span class="func">COUNT</span>(o.OrderID)
+              <span class="keyword">AS</span> TotalOrders,
+            </div>
+            <div class="code-line">
+              <span class="line-num">3</span> <span class="func">SUM</span>(o.TotalAmount)
+              <span class="keyword">AS</span> LifetimeValue
+            </div>
+            <div class="code-line">
+              <span class="line-num">4</span><span class="keyword">FROM</span> dbo.Customers c
+            </div>
+            <div class="code-line">
+              <span class="line-num">5</span><span class="keyword">LEFT JOIN</span> dbo.Orders o
+              <span class="keyword">ON</span> c.CustomerID = o.CustomerID
+            </div>
+            <div class="code-line">
+              <span class="line-num">6</span><span class="keyword">GROUP BY</span> c.CustomerName,
+              c.Email
+            </div>
+            <div class="code-line">
+              <span class="line-num">7</span><span class="keyword">ORDER BY</span> LifetimeValue
+              <span class="keyword">DESC</span>
+            </div>
+          </div>
+          <div class="results-area">
+            <div class="results-tabs">
+              <div class="result-tab active">Result 1 (847 rows)</div>
+              <div class="result-tab">Messages</div>
+            </div>
+            <div class="results-grid">
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>CustomerName</th>
+                    <th>Email</th>
+                    <th>TotalOrders</th>
+                    <th>LifetimeValue</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>1</td>
+                    <td>Acme Corp</td>
+                    <td>billing@acme.com</td>
+                    <td>156</td>
+                    <td>$2,847,320.00</td>
+                  </tr>
+                  <tr>
+                    <td>2</td>
+                    <td>TechStart Inc</td>
+                    <td>orders@techstart.io</td>
+                    <td>89</td>
+                    <td>$1,234,100.00</td>
+                  </tr>
+                  <tr>
+                    <td>3</td>
+                    <td>Global Foods</td>
+                    <td>procurement@gfoods.com</td>
+                    <td>234</td>
+                    <td>$987,650.00</td>
+                  </tr>
+                  <tr>
+                    <td>4</td>
+                    <td>DataFlow LLC</td>
+                    <td>finance@dataflow.co</td>
+                    <td>67</td>
+                    <td>$756,200.00</td>
+                  </tr>
+                  <tr>
+                    <td>5</td>
+                    <td>Bright Ideas</td>
+                    <td>hello@brightideas.com</td>
+                    <td>45</td>
+                    <td>$534,890.00</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CHAT PANEL -->
+      <div class="chat-panel" id="chatPanel">
+        <div class="chat-header">
+          <span style="font-size: 16px">✨</span>
+          <h3>AI Assistant</h3>
+          <span class="badge">Gemini Flash</span>
+          <button class="chat-header-btn" onclick="toggleChat()">✕</button>
+        </div>
+
+        <div class="new-chat-btn">+ New Chat</div>
+        <div class="chat-conversations">
+          <div class="conv-item active">
+            <span>Database exploration</span>
+            <span class="date">Now</span>
+          </div>
+          <div class="conv-item">
+            <span>Create orders schema</span>
+            <span class="date">Yesterday</span>
+          </div>
+          <div class="conv-item">
+            <span>Index optimization</span>
+            <span class="date">Mar 20</span>
+          </div>
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+          <div class="context-badge">
+            <span class="ctx-dot"></span>
+            Connected: Local Docker SQL → AdventureWorks
+          </div>
+
+          <div class="message user">
+            <div class="message-bubble">Show me all the tables in this database</div>
+          </div>
+
+          <div class="message assistant">
+            <div class="tool-card">
+              <div class="tool-card-header">
+                <span class="tool-icon">⚡</span>
+                <span class="tool-name">list_tables</span>
+                <span>AdventureWorks</span>
+                <span class="tool-status success">✓</span>
+              </div>
+              <div class="tool-card-body">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Schema</th>
+                      <th>Table</th>
+                      <th>Rows</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>dbo</td>
+                      <td>Customers</td>
+                      <td>12,847</td>
+                    </tr>
+                    <tr>
+                      <td>dbo</td>
+                      <td>Orders</td>
+                      <td>89,234</td>
+                    </tr>
+                    <tr>
+                      <td>dbo</td>
+                      <td>Products</td>
+                      <td>1,456</td>
+                    </tr>
+                    <tr>
+                      <td>dbo</td>
+                      <td>OrderItems</td>
+                      <td>312,567</td>
+                    </tr>
+                    <tr>
+                      <td>dbo</td>
+                      <td>Categories</td>
+                      <td>42</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="message-bubble">
+              Your <strong>AdventureWorks</strong> database has <strong>5 tables</strong>. The
+              largest is <code>OrderItems</code> with 312K rows. Want me to look at any of these in
+              more detail?
+            </div>
+          </div>
+
+          <div class="message user">
+            <div class="message-bubble">
+              Create a new table called CustomerSegments with columns for SegmentID, Name, MinSpend,
+              MaxSpend, and Description
+            </div>
+          </div>
+
+          <div class="message assistant">
+            <div class="message-bubble">
+              I'll create that table for you. Here's the SQL I'll execute:
+            </div>
+            <div class="message-bubble">
+              <pre><span class="keyword">CREATE TABLE</span> dbo.CustomerSegments (
+    SegmentID <span class="func">INT</span> <span class="keyword">IDENTITY</span>(1,1) <span class="keyword">PRIMARY KEY</span>,
+    Name <span class="func">NVARCHAR</span>(100) <span class="keyword">NOT NULL</span>,
+    MinSpend <span class="func">DECIMAL</span>(18,2),
+    MaxSpend <span class="func">DECIMAL</span>(18,2),
+    Description <span class="func">NVARCHAR</span>(500)
+);</pre>
+            </div>
+            <div class="confirm-card">
+              <p>⚠️ This will execute DDL on <strong>AdventureWorks</strong>. Proceed?</p>
+              <div class="confirm-actions">
+                <button class="btn-confirm">Execute</button>
+                <button class="btn-cancel">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="chat-input-area">
+          <textarea class="chat-input" rows="1" placeholder="Ask about your database..."></textarea>
+          <button class="send-btn">↑</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <div class="status-item"><span class="status-dot green"></span> Local Docker SQL</div>
+      <div class="status-item">📦 AdventureWorks</div>
+      <div class="status-item" style="margin-left: auto">Ln 7, Col 32</div>
+      <div class="status-item clickable" onclick="showView('setup')">✨ AI: Gemini Flash</div>
+      <div class="status-item">Joinery v0.1.0</div>
+    </div>
+
+    <!-- ==================== AI SETUP DIALOG ==================== -->
+    <div class="dialog-overlay hidden" id="setupDialog">
+      <div class="dialog">
+        <div class="dialog-header">
+          <span class="sparkle">✨</span>
+          <h2>Set Up AI Features</h2>
+        </div>
+        <div class="dialog-body">
+          <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 16px">
+            Choose an AI provider to enable smart autocomplete, chat assistant, and result analysis.
+          </p>
+
+          <label
+            style="
+              font-size: 12px;
+              font-weight: 500;
+              color: var(--text-secondary);
+              display: block;
+              margin-bottom: 8px;
+            "
+          >
+            Choose Provider
+          </label>
+          <div class="provider-cards">
+            <div class="provider-card selected" onclick="selectProvider(this)">
+              <h4>Google Gemini <span class="recommended">Recommended</span></h4>
+              <p>Fast, affordable. Great for autocomplete and chat.</p>
+            </div>
+            <div class="provider-card" onclick="selectProvider(this)">
+              <h4>OpenAI</h4>
+              <p>GPT-4o, GPT-4o-mini. Industry standard.</p>
+            </div>
+            <div class="provider-card" onclick="selectProvider(this)">
+              <h4>Anthropic</h4>
+              <p>Claude Sonnet/Haiku. Excellent reasoning.</p>
+            </div>
+            <div class="provider-card" onclick="selectProvider(this)">
+              <h4>Groq</h4>
+              <p>Ultra-fast inference. Free tier available.</p>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>API Key</label>
+            <input
+              class="form-input"
+              type="password"
+              placeholder="Enter your Google Gemini API key"
+              value="AIzaSy••••••••••••••••••Gk"
+            />
+            <div class="validation-badge success">✓ Key validated successfully</div>
+          </div>
+
+          <div class="form-group">
+            <label>Default Model</label>
+            <select class="form-select">
+              <option>Gemini 2.0 Flash Lite — Fast, economical (recommended)</option>
+              <option>Gemini 2.0 Flash — Balanced performance</option>
+              <option>Gemini 2.0 Pro — High quality</option>
+            </select>
+          </div>
+
+          <div
+            style="
+              background: var(--bg-tertiary);
+              border-radius: var(--radius);
+              padding: 12px;
+              margin-top: 12px;
+            "
+          >
+            <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px">
+              Features Enabled:
+            </div>
+            <div
+              style="
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+                font-size: 12px;
+                color: var(--text-secondary);
+              "
+            >
+              <div>✅ Smart SQL Autocomplete</div>
+              <div>✅ AI Chat Assistant with tool calling</div>
+              <div>✅ Query result analysis</div>
+              <div>✅ Intelligent tab renaming</div>
+            </div>
+          </div>
+        </div>
+        <div class="dialog-footer">
+          <button class="dialog-btn secondary" onclick="hideSetup()">Cancel</button>
+          <button class="dialog-btn primary" onclick="hideSetup()">Enable AI</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== ONBOARDING TOUR OVERLAY ==================== -->
+    <div class="tour-overlay hidden" id="tourOverlay">
+      <div
+        class="tour-spotlight"
+        id="tourSpotlight"
+        style="top: 38px; left: 0; width: 240px; height: 300px"
+      ></div>
+      <div class="tour-popover" id="tourPopover" style="top: 80px; left: 260px">
+        <div class="arrow left"></div>
+        <h4>Object Explorer</h4>
+        <p>
+          Browse your database objects here — tables, views, stored procedures. Right-click any
+          table and choose "Show Relationships" to see a visual ERD diagram.
+        </p>
+        <div class="tour-actions">
+          <span class="tour-step">3 of 7</span>
+          <div>
+            <button class="tour-skip" onclick="hideTour()">Skip tour</button>
+            <button class="tour-next" onclick="nextTourStep()">Next →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let currentView = 'chat';
+
+      function showView(view) {
+        currentView = view;
+        document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+        event.target.classList.add('active');
+
+        // Reset all
+        document.getElementById('chatPanel').classList.remove('collapsed');
+        document.getElementById('setupDialog').classList.add('hidden');
+        document.getElementById('tourOverlay').classList.add('hidden');
+
+        const editor = document.getElementById('codeEditor');
+
+        switch (view) {
+          case 'chat':
+            // Default state — chat open
+            break;
+          case 'autocomplete':
+            document.getElementById('chatPanel').classList.add('collapsed');
+            editor.innerHTML = `
+          <div class="code-line"><span class="line-num">1</span><span class="keyword">SELECT</span> c.CustomerName, c.Email,</div>
+          <div class="code-line"><span class="line-num">2</span>       o.OrderDate, o.TotalAmount</div>
+          <div class="code-line"><span class="line-num">3</span><span class="keyword">FROM</span> dbo.Customers c</div>
+          <div class="code-line"><span class="line-num">4</span><span class="keyword">JOIN</span> dbo.Orders o <span class="keyword">ON</span> c.CustomerID = o.CustomerID</div>
+          <div class="code-line"><span class="line-num">5</span><span class="keyword">WHERE</span> o.TotalAmount > 1000</div>
+          <div class="code-line"><span class="line-num">6</span><span class="keyword">ORDER BY</span> <span class="ghost-text">o.OrderDate DESC</span></div>
+          <div class="code-line"><span class="line-num">7</span><span class="ghost-text">OFFSET 0 ROWS FETCH NEXT 50 ROWS ONLY;</span></div>
+          <div style="position: absolute; bottom: 12px; right: 12px; background: var(--bg-tertiary); border: 1px solid var(--border-primary); border-radius: 6px; padding: 8px 14px; font-size: 11px; color: var(--text-muted);">
+            <span style="color: var(--accent);">✨ AI Suggestion</span> — Press <kbd style="background:var(--bg-active);padding:1px 5px;border-radius:3px;border:1px solid var(--border-primary);">Tab</kbd> to accept, <kbd style="background:var(--bg-active);padding:1px 5px;border-radius:3px;border:1px solid var(--border-primary);">Esc</kbd> to dismiss
+          </div>
+        `;
+            break;
+          case 'setup':
+            document.getElementById('chatPanel').classList.add('collapsed');
+            document.getElementById('setupDialog').classList.remove('hidden');
+            break;
+          case 'onboarding':
+            document.getElementById('chatPanel').classList.add('collapsed');
+            document.getElementById('tourOverlay').classList.remove('hidden');
+            break;
+          case 'welcome':
+            document.getElementById('chatPanel').classList.add('collapsed');
+            editor.innerHTML = `
+          <div style="display:flex;flex-direction:column;align-items:center;padding:40px;text-align:center;">
+            <div style="font-size:48px;margin-bottom:16px;">📦</div>
+            <h2 style="font-size:24px;font-weight:700;margin-bottom:4px;">Joinery</h2>
+            <p style="color:var(--text-secondary);margin-bottom:30px;">SQL Server Management for macOS</p>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;max-width:600px;width:100%;margin-bottom:24px;">
+              <div style="background:var(--bg-secondary);border:1px solid var(--border-primary);border-radius:8px;padding:16px;cursor:pointer;">
+                <div style="font-size:24px;margin-bottom:6px;">➕</div>
+                <div style="font-size:13px;font-weight:600;">New Connection</div>
+                <div style="font-size:11px;color:var(--text-secondary);">Connect to SQL Server</div>
+              </div>
+              <div style="background:var(--bg-secondary);border:1px solid var(--border-primary);border-radius:8px;padding:16px;cursor:pointer;">
+                <div style="font-size:24px;margin-bottom:6px;">🔄</div>
+                <div style="font-size:13px;font-weight:600;">Recent Connection</div>
+                <div style="font-size:11px;color:var(--text-secondary);">Local Docker SQL</div>
+              </div>
+              <div style="background:var(--bg-secondary);border:1px solid var(--border-primary);border-radius:8px;padding:16px;cursor:pointer;">
+                <div style="font-size:24px;margin-bottom:6px;">🐳</div>
+                <div style="font-size:13px;font-weight:600;">Docker Containers</div>
+                <div style="font-size:11px;color:var(--text-secondary);">1/1 running</div>
+              </div>
+            </div>
+
+            <div class="ai-setup-card" style="max-width:600px;width:100;">
+              <div class="ai-icon">✨</div>
+              <div style="text-align:left;">
+                <h3>Enable AI Features</h3>
+                <p>Supercharge your workflow with AI-powered autocomplete, a chat assistant that can manage your databases, and intelligent result analysis.</p>
+                <div class="ai-actions">
+                  <button class="dialog-btn primary" onclick="showView('setup')">Set Up AI →</button>
+                  <button class="dialog-btn secondary">Maybe Later</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+            break;
+        }
+      }
+
+      function toggleChat() {
+        document.getElementById('chatPanel').classList.toggle('collapsed');
+      }
+
+      function hideSetup() {
+        document.getElementById('setupDialog').classList.add('hidden');
+      }
+
+      function hideTour() {
+        document.getElementById('tourOverlay').classList.add('hidden');
+      }
+
+      function selectProvider(el) {
+        document.querySelectorAll('.provider-card').forEach(c => c.classList.remove('selected'));
+        el.classList.add('selected');
+      }
+
+      let tourStep = 3;
+      const tourSteps = [
+        {
+          title: 'Connect to SQL Server',
+          desc: 'Click here to add your first database connection. Credentials are stored securely in macOS Keychain.',
+          spot: { top: 38, left: 0, w: 240, h: 50 },
+          pop: { top: 100, left: 10 },
+        },
+        {
+          title: 'Select a Database',
+          desc: 'After connecting, choose which database to explore and query.',
+          spot: { top: 38, left: 0, w: 240, h: 90 },
+          pop: { top: 140, left: 10 },
+        },
+        {
+          title: 'Object Explorer',
+          desc: 'Browse your database objects here — tables, views, stored procedures. Right-click any table and choose "Show Relationships" to see a visual ERD.',
+          spot: { top: 38, left: 0, w: 240, h: 300 },
+          pop: { top: 80, left: 260 },
+        },
+        {
+          title: 'Write SQL Queries',
+          desc: 'Open a new query editor with ⌘N. Execute queries with ⌘↵. Results appear below with export options.',
+          spot: { top: 38, left: 240, w: 500, h: 42 },
+          pop: { top: 90, left: 300 },
+        },
+        {
+          title: 'AI Assistant',
+          desc: 'Click here to open the AI chat panel. Ask questions, create tables, write queries — all in natural language.',
+          spot: { top: 38, left: 600, w: 100, h: 42 },
+          pop: { top: 90, left: 520 },
+        },
+      ];
+
+      function nextTourStep() {
+        tourStep = (tourStep + 1) % tourSteps.length;
+        const step = tourSteps[tourStep];
+        const spotlight = document.getElementById('tourSpotlight');
+        const popover = document.getElementById('tourPopover');
+
+        spotlight.style.top = step.spot.top + 'px';
+        spotlight.style.left = step.spot.left + 'px';
+        spotlight.style.width = step.spot.w + 'px';
+        spotlight.style.height = step.spot.h + 'px';
+
+        popover.style.top = step.pop.top + 'px';
+        popover.style.left = step.pop.left + 'px';
+        popover.querySelector('h4').textContent = step.title;
+        popover.querySelector('p').textContent = step.desc;
+        popover.querySelector('.tour-step').textContent = `${tourStep + 1} of ${tourSteps.length}`;
+      }
+    </script>
+  </body>
+</html>

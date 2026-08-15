@@ -1,0 +1,30 @@
+{
+  "versionGroups": [
+    {
+      "label": "TypeScript should be pinned",
+      "packages": ["**"],
+      "dependencies": ["typescript"],
+      "pinVersion": "~5.4.5"
+    },
+    {
+      "label": "Use consistent Electron version",
+      "packages": ["**"],
+      "dependencies": ["electron"],
+      "policy": "sameRange"
+    },
+    {
+      "label": "Use consistent Angular versions",
+      "packages": ["**"],
+      "dependencies": ["@angular/*"],
+      "policy": "sameRange"
+    }
+  ],
+  "semverGroups": [
+    {
+      "range": "",
+      "dependencyTypes": ["prod", "dev"],
+      "dependencies": ["**"],
+      "packages": ["**"]
+    }
+  ]
+}

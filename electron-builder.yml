@@ -1,0 +1,122 @@
+appId: ca.adam11.joinery
+productName: Joinery
+copyright: Copyright © 2026 Craig Adam
+
+# Directories
+directories:
+  output: release
+  buildResources: resources
+
+# Main entry point
+extends: null
+
+# Files to include in asar
+files:
+  - packages/main/dist/**/*
+  - packages/main/package.json
+  - packages/preload/dist/**/*
+  - packages/preload/package.json
+  - packages/renderer/dist/browser/**/*
+  - packages/shared/dist/**/*
+  - packages/shared/package.json
+  - package.json
+  - node_modules/**/*
+  # Map workspace package to node_modules location
+  - from: packages/shared
+    to: node_modules/@joinery/shared
+    filter:
+      - dist/**/*
+      - package.json
+  # Exclusions
+  - "!node_modules/.cache"
+  - "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}"
+  - "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}"
+  - "!**/node_modules/.bin"
+  - "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}"
+  - "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}"
+  - "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}"
+  - "!**/{appveyor.yml,.travis.yml,circle.yml}"
+  - "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
+  - "!**/node_modules/cpu-features/**"
+  - "!**/node_modules/@angular-devkit/**"
+  - "!**/node_modules/@angular/cli/**"
+  - "!**/node_modules/typescript/**"
+  - "!**/node_modules/karma*/**"
+  - "!**/node_modules/jasmine*/**"
+
+# Extra resources (outside asar)
+extraResources:
+  - from: resources/
+    to: resources/
+    filter:
+      - "**/*"
+      - "!*.plist"
+
+# macOS configuration
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+    - target: zip
+      arch:
+        - x64
+        - arm64
+  icon: resources/icon.icns
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: resources/entitlements.mac.plist
+  entitlementsInherit: resources/entitlements.mac.plist
+  darkModeSupport: true
+  extendInfo:
+    NSRequiresAquaSystemAppearance: false
+
+# DMG options
+dmg:
+  artifactName: "${productName}-${version}-${arch}.dmg"
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+  window:
+    width: 540
+    height: 380
+
+# Windows configuration
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+        - arm64
+    - target: zip
+      arch:
+        - x64
+        - arm64
+  icon: resources/icon.png
+
+# NSIS installer options
+nsis:
+  artifactName: "${productName}-${version}-${arch}-setup.exe"
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+
+# Don't publish to any providers
+publish: null
+
+# Rebuild native modules (beforeBuild removes cpu-features which is incompatible)
+npmRebuild: true
+nodeGypRebuild: false
+beforeBuild: scripts/before-build.js
+
+# Use asar archive
+asar: true
+asarUnpack:
+  - "**/*.node"
+  - "**/keytar/**/*"

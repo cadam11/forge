@@ -1,0 +1,14 @@
+:root {
+  --joinery-drafting-ivory: #f2efe7;
+  --joinery-ink: #171817;
+  --joinery-oxide: #d6492f;
+  --joinery-charcoal-plane: #272a27;
+  --joinery-signal-chartreuse: #c8f04a;
+  --joinery-rule-gray: #b9b8ae;
+  --joinery-paper-white: #fbfaf5;
+  --joinery-warning-amber: #e6a23c;
+
+  --joinery-font-display: 'Archivo Narrow', 'Arial Narrow', sans-serif;
+  --joinery-font-interface: 'Instrument Sans', 'Inter', sans-serif;
+  --joinery-font-technical: 'IBM Plex Mono', 'JetBrains Mono', monospace;
+}

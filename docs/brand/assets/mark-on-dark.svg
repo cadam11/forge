@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Joinery mark for dark backgrounds</title>
+  <desc id="desc">Three descending fitted bars in oxide, drafting ivory, and signal chartreuse.</desc>
+  <path d="M14 8H56L51 19H9Z" fill="#D6492F" />
+  <path d="M14 26H46L41 37H9Z" fill="#F2EFE7" />
+  <path d="M14 44H37L32 55H9Z" fill="#C8F04A" />
+</svg>

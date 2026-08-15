@@ -1,0 +1,48 @@
+<div class="erd-section">
+  @if (showHeader) {
+    <div class="section-header">
+      <h3>{{ headerTitle }}</h3>
+      <div class="erd-controls">
+        <button class="control-btn" (click)="zoomIn()" matTooltip="Zoom In">
+          <mat-icon>zoom_in</mat-icon>
+        </button>
+        <button class="control-btn" (click)="zoomOut()" matTooltip="Zoom Out">
+          <mat-icon>zoom_out</mat-icon>
+        </button>
+        <button class="control-btn" (click)="resetZoom()" matTooltip="Reset Zoom">
+          <mat-icon>fit_screen</mat-icon>
+        </button>
+        <button class="control-btn" (click)="zoomToFit()" matTooltip="Fit to View">
+          <mat-icon>fullscreen</mat-icon>
+        </button>
+        <button
+          class="control-btn"
+          (click)="refresh(); refreshRequested.emit()"
+          matTooltip="Refresh Diagram"
+        >
+          <mat-icon>refresh</mat-icon>
+        </button>
+      </div>
+    </div>
+  }
+  <div class="erd-container" #erdContainer>
+    @if (isRefreshing) {
+      <div class="loading-overlay">
+        <div class="loading-content">
+          <div class="loading-spinner">
+            <div class="spinner-ring"></div>
+            <div class="spinner-ring"></div>
+            <div class="spinner-ring"></div>
+          </div>
+          <div class="loading-text">Loading diagram...</div>
+        </div>
+      </div>
+    }
+    @if (nodes.length === 0 && !isRefreshing) {
+      <div class="empty-state">
+        <mat-icon>account_tree</mat-icon>
+        <p>No entities to display</p>
+      </div>
+    }
+  </div>
+</div>
