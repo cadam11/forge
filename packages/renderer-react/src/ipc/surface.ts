@@ -13,6 +13,20 @@
  * `contextBridge.exposeInMainWorld` at module scope and imports `electron`, neither of
  * which can exist in the renderer bundle. `verbatimModuleSyntax` guarantees the statement
  * is erased rather than emitted.
+ *
+ * ONE KNOWN HOLE, for whoever builds the file-dialog surface. Three `app` members are typed
+ * with Electron's global namespace — `showOpenDialog(options: Electron.OpenDialogOptions)`,
+ * `showSaveDialog`, and both of their return types (`preload/src/index.ts:353-358`). This
+ * package's tsconfig sets `"types": ["vite/client"]` on purpose, so Electron's global
+ * declarations are never loaded, and `skipLibCheck` swallows the resulting unresolved
+ * reference inside preload's `.d.ts`. The effect is that those parameter and return types
+ * silently degrade to error types, which behave like `any`: measured, not assumed —
+ * `const s: string = {} as Parameters<JoineryAPI['app']['showOpenDialog']>[0]` compiles.
+ * So those three signatures give you NO argument checking. `app.saveToFile` is unaffected,
+ * because preload declares its options inline rather than borrowing Electron's. Type the
+ * dialog options locally at that call site, or add the electron types to this tsconfig
+ * (which contradicts the sandbox rationale in the comment there) — but do not assume the
+ * compiler is checking them today.
  */
 
 import type { JoineryAPI } from '@joinery/preload';
@@ -36,7 +50,7 @@ export type IpcSubscribe<TPayload> = (callback: (payload: TPayload) => void) => 
  * Parameters are contravariant, so a `never` parameter is assignable to *any* callback
  * signature — which is what lets one predicate match both arities the bridge actually
  * uses: `(callback: (chunk: ChatStreamChunk) => void) => () => void` (payload events) and
- * `(callback: () => void) => () => void` (the 33 `menu.on*` commands). A `unknown`
+ * `(callback: () => void) => () => void` (the 31 `menu.on*` commands). A `unknown`
  * payload matches the first and rejects the second. Request/response members are excluded
  * because `Promise<T>` is not assignable to `() => void`.
  */

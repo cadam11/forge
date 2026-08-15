@@ -45,7 +45,7 @@ function keyFactory<N extends IpcNamespace>(namespace: N): IpcKeyFactory<N> {
  * a namespace added to `JoineryAPI` and not added here is a compile error, so this object
  * cannot drift out of date the way a hand-maintained list would.
  *
- * `menu` is included for that exhaustiveness and is deliberately inert — all 33 of its
+ * `menu` is included for that exhaustiveness and is deliberately inert — all 31 of its
  * members are `on*` commands, so `IpcOperation<'menu'>` is `never` and `ipcKeys.menu.key()`
  * will not typecheck with any argument. Use `useIpcEvent` for those. `theme` is the mixed
  * case: `getNative` is keyable, `onChanged` is not.

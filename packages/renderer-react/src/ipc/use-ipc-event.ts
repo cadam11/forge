@@ -3,13 +3,13 @@
  * rather than requests and therefore have nothing to do with TanStack Query (PLAN.md §2 —
  * "event channels stay imperative subscriptions").
  *
- * The bridge exposes 39 of them, all with the same `(callback) => unsubscribe` contract:
+ * The bridge exposes 37 of them, all with the same `(callback) => unsubscribe` contract:
  * six carry payloads — `backup.onProgress`, `restore.onProgress`, `chat.onStreamChunk`,
- * `logs.onEntry`, `workspace.onFileChanged`, `theme.onChanged` — and 33 are payload-less
- * `menu.on*` commands. One hook covers all 39 because the shapes are derived, not listed.
+ * `logs.onEntry`, `workspace.onFileChanged`, `theme.onChanged` — and 31 are payload-less
+ * `menu.on*` commands. One hook covers all 37 because the shapes are derived, not listed.
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { findJoineryApi } from './api';
 import type {
   IpcEventName,
@@ -39,7 +39,12 @@ export function useIpcEvent<N extends IpcEventNamespace, E extends IpcEventName<
 ): void {
   const handlerRef = useRef(handler);
 
-  useEffect(() => {
+  // `useLayoutEffect`, not `useEffect`. Passive effects are flushed *after* paint, so an
+  // event arriving between commit and that flush would be handled by the previous render's
+  // closure — reading stale props or stale state. Bridge events are pushed from the main
+  // process at arbitrary times, including inside that window. Layout effects run
+  // synchronously before the browser can yield, which closes it.
+  useLayoutEffect(() => {
     handlerRef.current = handler;
   }, [handler]);
 
