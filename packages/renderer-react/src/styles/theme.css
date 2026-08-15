@@ -45,6 +45,14 @@
 @import '@fontsource/ibm-plex-mono/latin-ext-500.css';
 @import 'tailwindcss';
 
+/* Prose styling for sanitized markdown (Task 6). Imported here rather than from the
+ * component, and specifically AFTER `tailwindcss`, because it defines an `@utility` and uses
+ * `--spacing()` / `var(--color-*)`: both need it to be part of this Tailwind root. A separate
+ * CSS entry imported from a .tsx file would be compiled by a Tailwind instance that has never
+ * seen these tokens. It stays inside the @import block so the file remains valid CSS — @import
+ * rules must precede every other rule. */
+@import '../markdown/markdown.css';
+
 /*
  * Theme variants. Three states, because the theme control is three-state
  * (`ThemePreference` = 'system' | 'light' | 'dark', packages/shared/src/types/settings.types.ts:5):
