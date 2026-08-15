@@ -192,3 +192,60 @@ Python with those modules is found, and honours `JOINERY_PYTHON` to point at one
 `mj.config.cjs` was deleted in PR #1, but it contained a plaintext `sa` password
 pointing at an `MJ_5_14_0` database and **remains in git history**. Treat the
 credential as leaked and rotate it independently. No history rewrite was attempted.
+
+---
+
+## 11. Ten command-palette events are dispatched with no listener
+
+`packages/renderer/src/app/shared/components/command-palette/command-palette.component.ts`
+dispatches these `CustomEvent`s, and nothing in the renderer listens for any of
+them — the palette entries are dead:
+
+`joinery:toggle-sidebar`, `joinery:toggle-results`, `joinery:execute-query`,
+`joinery:format-sql`, `joinery:cancel-query`, `joinery:refresh-explorer`,
+`joinery:open-settings`, `joinery:open-backup`, `joinery:open-restore`,
+`joinery:save-snippet`.
+
+Pre-existing — the Joinery rename only changed the `forge:` prefix to
+`joinery:`. The other palette events in the same file (`open-object-search`,
+`open-snippets`, `insert-snippet`, `show-shortcuts`, `cursor-position`,
+`menu-copy`) do have listeners, so the pattern itself works.
+
+Resolve during the priority-2 UI overhaul: either wire each event to its owner
+component or drop the palette entry. Recorded here because
+`plans/rebrand/scan-2-renderer-ui.md`, which originally noted it, was deleted
+under decision J11.
+
+---
+
+## 12. `assets/icons/logo.png` is updated but unreferenced
+
+`packages/renderer/src/assets/icons/logo.png` was replaced with the Joinery mark
+during the brand-kit pass, but nothing in the renderer imports or `<img>`s it —
+the sidebar and welcome wordmarks are both CSS-drawn (`.sidebar-joinery-stack`,
+`.joinery-stack-mark`). The UI overhaul should either adopt it (it is a real
+raster asset, useful where CSS shapes are awkward) or delete it.
+
+Related, same area: the sidebar stack mark's middle bar is hardcoded `#f2efe7`
+(brand ivory) against a `--bg-tertiary` header, which is `#e6e6f0` in light mode
+— that stripe is effectively invisible there. The wordmark beside it was moved to
+`var(--text-primary)` as an interim fix; the mark's brand colours were left alone
+because changing them is a design decision, not a bug fix.
+
+---
+
+## 13. dev and packaged builds disagree on the userData directory case
+
+Root `package.json` has no `productName` and `packages/main/src/index.ts` never
+calls `app.setName`, so Electron derives the dev userData dir from `name`:
+`~/Library/Application Support/joinery`. Packaged builds use
+`electron-builder.yml`'s `productName: Joinery`, giving
+`~/Library/Application Support/Joinery`. Saved profiles, query history, and
+snapshots therefore live in two different directories depending on how the app
+was launched.
+
+This asymmetry predates the rename (it was `forge` vs `Forge`), and decision J6
+only mandated the name change, so the Joinery scrub left it as-is. Fix is one
+line — `"productName": "Joinery"` in the root manifest, or `app.setName('Joinery')`
+before the first `getPath('userData')` call. **Craig's call**, since aligning them
+moves whichever directory is currently in use.
