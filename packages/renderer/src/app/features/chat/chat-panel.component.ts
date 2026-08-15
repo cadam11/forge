@@ -20,7 +20,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
-import { MarkdownModule } from '@memberjunction/ng-markdown';
+import { MarkdownViewerComponent } from '../../shared/markdown/markdown-viewer.component';
 import { ChatStateService } from '../../core/state/chat.state';
 import { ChatInstanceState } from '../../core/state/chat-instance.state';
 import { ConnectionStateService } from '../../core/state/connection.state';
@@ -34,7 +34,7 @@ import type { ToolCallResult } from '@forgedb/shared';
 @Component({
   selector: 'app-chat-panel',
   standalone: true,
-  imports: [CommonModule, FormsModule, MarkdownModule],
+  imports: [CommonModule, FormsModule, MarkdownViewerComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div
@@ -238,25 +238,25 @@ import type { ToolCallResult } from '@forgedb/shared';
                 @if (msg.streaming) {
                   @if (state.streamingContent()) {
                     <div class="message-bubble streaming-bubble">
-                      <mj-markdown
+                      <app-markdown
                         [data]="state.streamingContent()"
                         [enableMermaid]="false"
                         [enableCodeCopy]="false"
                         [mermaidTheme]="'dark'"
                         containerClass="chat-md"
-                      ></mj-markdown>
+                      ></app-markdown>
                     </div>
                   }
                   <div class="typing-indicator"><span></span><span></span><span></span></div>
                 } @else if (msg.content) {
                   <div class="message-bubble">
-                    <mj-markdown
+                    <app-markdown
                       [data]="msg.content"
                       [enableMermaid]="true"
                       [enableCodeCopy]="true"
                       [mermaidTheme]="'dark'"
                       containerClass="chat-md"
-                    ></mj-markdown>
+                    ></app-markdown>
                   </div>
                 }
               } @else {
@@ -1012,6 +1012,7 @@ import type { ToolCallResult } from '@forgedb/shared';
         margin-bottom: 0;
       }
       :host ::ng-deep .chat-md pre {
+        position: relative;
         background: rgba(0, 0, 0, 0.25);
         border: 1px solid var(--border-primary);
         border-radius: 6px;
@@ -1088,11 +1089,38 @@ import type { ToolCallResult } from '@forgedb/shared';
         margin: 8px 0;
         color: var(--text-secondary);
       }
-      :host ::ng-deep .chat-md .mermaid {
+      :host ::ng-deep .chat-md .mermaid-diagram {
         margin: 8px 0;
       }
-      .streaming-bubble :host ::ng-deep .chat-md pre {
+      :host ::ng-deep .chat-md .mermaid-error {
+        margin: 8px 0;
+        white-space: pre-wrap;
+        font-family: var(--font-mono, monospace);
+        color: var(--status-error);
+      }
+      :host ::ng-deep .streaming-bubble .chat-md pre {
         margin: 4px 0;
+      }
+      :host ::ng-deep .chat-md pre .code-copy-btn {
+        /* The button lives inside <pre>, so without this its label lands in any
+           hand-made selection of the code. opacity: 0 does not exclude text from
+           a selection — only user-select does. */
+        user-select: none;
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        padding: 2px 8px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        background: var(--bg-secondary);
+        color: var(--text-secondary);
+        font-size: 11px;
+        cursor: pointer;
+        opacity: 0;
+        transition: opacity 0.15s ease-in-out;
+      }
+      :host ::ng-deep .chat-md pre:hover .code-copy-btn {
+        opacity: 1;
       }
     `,
   ],

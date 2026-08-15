@@ -120,7 +120,7 @@ If you're working on AI features, follow these rules:
 
 4. **Model/vendor config** lives in `packages/shared/src/config/ai-vendors.json`. User preferences are stored in app state.
 
-5. **Use `@memberjunction/ng-markdown`** for rendering AI-generated content in the renderer.
+5. **Use `<app-markdown>`** (`packages/renderer/src/app/shared/markdown/`) for rendering AI-generated content in the renderer. It sanitizes with DOMPurify — never bind an unsanitized string to `[innerHTML]`.
 
 ## Commit Guidelines
 
