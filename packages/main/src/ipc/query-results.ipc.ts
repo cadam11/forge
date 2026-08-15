@@ -3,7 +3,7 @@
  * Handles persistence and comparison of query result snapshots
  */
 
-import { IPC_CHANNELS } from '@forgedb/shared';
+import { IPC_CHANNELS } from '@joinery/shared';
 import type {
   QueryResultSnapshot,
   QueryResultHistoryFilter,
@@ -14,7 +14,7 @@ import type {
   ResultDiff,
   DiffOptions,
   QueryResult,
-} from '@forgedb/shared';
+} from '@joinery/shared';
 import { QueryResultsStore } from '../services/config/query-results-store';
 import { safeHandle } from './safe-handle';
 

@@ -16,7 +16,7 @@ import Fuse from 'fuse.js';
 import { ConnectionStateService } from '../../../core/state/connection.state';
 import { TabStateService } from '../../../core/state/tab.state';
 import { IpcService } from '../../../core/services/ipc.service';
-import type { ObjectMetadata } from '@forgedb/shared';
+import type { ObjectMetadata } from '@joinery/shared';
 import { firstValueFrom } from 'rxjs';
 
 interface SearchableObject {
@@ -316,12 +316,12 @@ export class ObjectSearchComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     document.addEventListener('keydown', this.keydownHandler);
-    window.addEventListener('forge:open-object-search', this.openEventHandler);
+    window.addEventListener('joinery:open-object-search', this.openEventHandler);
   }
 
   ngOnDestroy(): void {
     document.removeEventListener('keydown', this.keydownHandler);
-    window.removeEventListener('forge:open-object-search', this.openEventHandler);
+    window.removeEventListener('joinery:open-object-search', this.openEventHandler);
   }
 
   toggle(): void {

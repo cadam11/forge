@@ -1,7 +1,7 @@
 /**
  * Types for the backup/restore CLI dependency check.
  *
- * Forge's PG and MySQL backup services shell out to the host-installed
+ * Joinery's PG and MySQL backup services shell out to the host-installed
  * `pg_dump` / `pg_restore` / `mysqldump` / `mysql` binaries (they aren't
  * bundled with the app — see CLAUDE.md for the rationale). The renderer
  * checks for the right binaries before showing the backup/restore form;
@@ -13,7 +13,7 @@ export type CliEngine = 'postgresql' | 'mysql';
 
 /**
  * The platforms we ship setup instructions for. macOS and Windows are
- * the only Forge build targets in `electron-builder.yml`. Linux + others
+ * the only Joinery build targets in `electron-builder.yml`. Linux + others
  * fall through to a generic instruction block — see
  * `cli-install-instructions.ts`.
  */

@@ -7,23 +7,23 @@
  */
 
 import { expect, test } from '@playwright/test';
-import { withForge } from '../helpers/electron-app';
+import { withJoinery } from '../helpers/electron-app';
 import {
   connectToTestPostgres,
-  ensureForgeTestSeeded,
+  ensureJoineryTestSeeded,
   executeQuery,
   openNewQueryTab,
   selectDatabase,
   typeInEditor,
-} from '../helpers/forge-actions';
+} from '../helpers/joinery-actions';
 
-test.beforeAll(ensureForgeTestSeeded);
+test.beforeAll(ensureJoineryTestSeeded);
 
-test.describe('Forge — query editor', () => {
+test.describe('Joinery — query editor', () => {
   test('opens a new query tab via menu:new-query', async () => {
-    await withForge(async ({ app, window }) => {
+    await withJoinery(async ({ app, window }) => {
       await connectToTestPostgres(window);
-      await selectDatabase(window, 'forge_test');
+      await selectDatabase(window, 'joinery_test');
       await openNewQueryTab(app, window);
 
       // Monaco editor visible.
@@ -34,9 +34,9 @@ test.describe('Forge — query editor', () => {
   });
 
   test('executes a SELECT and renders the result grid', async () => {
-    await withForge(async ({ app, window }) => {
+    await withJoinery(async ({ app, window }) => {
       await connectToTestPostgres(window);
-      await selectDatabase(window, 'forge_test');
+      await selectDatabase(window, 'joinery_test');
       await openNewQueryTab(app, window);
       await typeInEditor(window, 'SELECT id, sku, name, price_cents FROM products ORDER BY id;');
       await executeQuery(window);
@@ -52,20 +52,20 @@ test.describe('Forge — query editor', () => {
   });
 
   test('displays an error message on invalid SQL', async () => {
-    await withForge(async ({ app, window }) => {
+    await withJoinery(async ({ app, window }) => {
       await connectToTestPostgres(window);
-      await selectDatabase(window, 'forge_test');
+      await selectDatabase(window, 'joinery_test');
       await openNewQueryTab(app, window);
       await typeInEditor(window, 'SELECT * FROM definitely_not_a_table;');
       await executeQuery(window);
 
-      // PG raises 'relation "X" does not exist' which Forge surfaces in
+      // PG raises 'relation "X" does not exist' which Joinery surfaces in
       // the result area below the editor.
       await expect(window.getByText(/does not exist/i).first()).toBeVisible({ timeout: 10000 });
     });
   });
 
-  // Multi-statement query test was removed: Forge surfaces an error for
+  // Multi-statement query test was removed: Joinery surfaces an error for
   // semicolon-separated statements on PostgreSQL (the underlying pg driver
   // requires one statement per query unless you use the simple-query
   // protocol). The legacy regression-suite assertion (#9) was MSSQL-shaped
@@ -73,9 +73,9 @@ test.describe('Forge — query editor', () => {
   // case engine-gated.
 
   test('Cmd+Shift+F formats SQL (lowercase → SELECT uppercase)', async () => {
-    await withForge(async ({ app, window }) => {
+    await withJoinery(async ({ app, window }) => {
       await connectToTestPostgres(window);
-      await selectDatabase(window, 'forge_test');
+      await selectDatabase(window, 'joinery_test');
       await openNewQueryTab(app, window);
       // Type unformatted lowercase SQL.
       await typeInEditor(window, 'select id, name from products where id = 1');
@@ -86,7 +86,7 @@ test.describe('Forge — query editor', () => {
         BrowserWindow.getAllWindows()[0]?.webContents.send('menu:format-sql');
       });
       await window.waitForTimeout(800);
-      // Forge's formatter uppercases keywords and reflows whitespace. Read
+      // Joinery's formatter uppercases keywords and reflows whitespace. Read
       // the editor's rendered text and assert SELECT is now uppercase.
       const editorText = (await window.locator('.monaco-editor .view-line').allTextContents()).join(
         '\n'
@@ -97,9 +97,9 @@ test.describe('Forge — query editor', () => {
   });
 
   test('execution persists a result snapshot visible in the history tab', async () => {
-    await withForge(async ({ app, window }) => {
+    await withJoinery(async ({ app, window }) => {
       await connectToTestPostgres(window);
-      await selectDatabase(window, 'forge_test');
+      await selectDatabase(window, 'joinery_test');
       await openNewQueryTab(app, window);
       await typeInEditor(window, 'SELECT id, sku FROM products ORDER BY id;');
       await executeQuery(window);

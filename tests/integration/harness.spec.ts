@@ -39,7 +39,7 @@ describe.each(ENGINES)('regression harness — %s', engine => {
   it('withFreshDatabase creates, schema-loads, and drops cleanly', async () => {
     const observed = await withFreshDatabase(engine, async db => {
       expect(db.engine).toBe(engine);
-      expect(db.databaseName).toMatch(/^forge_t_[a-f0-9]{16}$/);
+      expect(db.databaseName).toMatch(/^joinery_t_[a-f0-9]{16}$/);
       // Schema must be present and empty after applyFixture('schema').
       expect(await databaseExists(engine, db.databaseName)).toBe(true);
       const counts = await countTables(engine, db.databaseName);

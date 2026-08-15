@@ -6,7 +6,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import type * as mssql from 'mssql';
-import type { QueryRequest, QueryResult, ResultSet, ColumnMetadata } from '@forgedb/shared';
+import type { QueryRequest, QueryResult, ResultSet, ColumnMetadata } from '@joinery/shared';
 import { BaseSingleton } from '../../utils/singleton';
 import { createLogger } from '../../utils/logger';
 import { ConnectionPoolManager } from './connection-pool';

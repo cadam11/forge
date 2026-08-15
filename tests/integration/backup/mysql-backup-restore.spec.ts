@@ -37,7 +37,7 @@ vi.mock('electron', () => ({
   },
 }));
 
-vi.mock('@forgedb/main/services/config/connection-profiles', () => ({
+vi.mock('@joinery/main/services/config/connection-profiles', () => ({
   ConnectionProfilesStore: {
     getInstance: () => ({
       getById: (id: string) => fakeProfiles.get(id),
@@ -46,7 +46,7 @@ vi.mock('@forgedb/main/services/config/connection-profiles', () => ({
   },
 }));
 
-import { MySQLBackupService } from '@forgedb/main/services/sql/mysql-backup';
+import { MySQLBackupService } from '@joinery/main/services/sql/mysql-backup';
 
 describe('mysql backup/restore round-trip', () => {
   const tmpFiles: string[] = [];
@@ -95,7 +95,7 @@ describe('mysql backup/restore round-trip', () => {
       });
       fakePasswords.set(connectionId, c.password);
 
-      const backupPath = join(tmpdir(), `forge-mysql-backup-${connectionId}.sql`);
+      const backupPath = join(tmpdir(), `joinery-mysql-backup-${connectionId}.sql`);
       tmpFiles.push(backupPath);
 
       const service = MySQLBackupService.getInstance();
@@ -194,7 +194,7 @@ describe('mysql backup/restore round-trip', () => {
       });
       fakePasswords.set(connectionId, c.password);
 
-      const backupPath = join(tmpdir(), `forge-mysql-newdb-${connectionId}.sql`);
+      const backupPath = join(tmpdir(), `joinery-mysql-newdb-${connectionId}.sql`);
       tmpFiles.push(backupPath);
 
       const service = MySQLBackupService.getInstance();
@@ -209,7 +209,7 @@ describe('mysql backup/restore round-trip', () => {
       expect(backupResult.success, `backup failed: ${backupResult.error}`).toBe(true);
 
       // Restore into a database name that doesn't exist yet on the server.
-      const newDb = `forge_restore_${randomUUID().slice(0, 8).replace(/-/g, '')}`;
+      const newDb = `joinery_restore_${randomUUID().slice(0, 8).replace(/-/g, '')}`;
 
       const restoreOpId = await service.startRestore({
         connectionId,
@@ -259,9 +259,9 @@ describe('mysql backup/restore round-trip', () => {
       engine: 'mysql',
       server: '127.0.0.1',
       port: 13306,
-      username: 'forge',
+      username: 'joinery',
     });
-    fakePasswords.set(connectionId, 'forge');
+    fakePasswords.set(connectionId, 'joinery');
 
     const service = MySQLBackupService.getInstance();
 
@@ -275,7 +275,7 @@ describe('mysql backup/restore round-trip', () => {
   });
 
   // An empty .sql file is the simplest happy-path-ish shape that still
-  // exercises the restore pipeline end-to-end. Forge's prepended
+  // exercises the restore pipeline end-to-end. Joinery's prepended
   // CREATE DATABASE IF NOT EXISTS + USE makes the target exist regardless
   // of whether the dump has content; an empty file should restore to an
   // empty-but-present database. This pins the contract: empty dump =>
@@ -292,12 +292,12 @@ describe('mysql backup/restore round-trip', () => {
     });
     fakePasswords.set(connectionId, c.password);
 
-    const dumpPath = join(tmpdir(), `forge-mysql-empty-${connectionId}.sql`);
+    const dumpPath = join(tmpdir(), `joinery-mysql-empty-${connectionId}.sql`);
     tmpFiles.push(dumpPath);
     const fs = await import('node:fs/promises');
     await fs.writeFile(dumpPath, '', 'utf8');
 
-    const newDb = `forge_empty_${randomUUID().slice(0, 8).replace(/-/g, '')}`;
+    const newDb = `joinery_empty_${randomUUID().slice(0, 8).replace(/-/g, '')}`;
     const service = MySQLBackupService.getInstance();
 
     try {
@@ -345,9 +345,9 @@ describe('mysql backup/restore round-trip', () => {
   // prior code reported success based purely on exit code 0. The new
   // verifyDatabaseExists step queries information_schema on a fresh
   // connection after mysql exits and turns "exit 0 but db missing" into
-  // a clear failure pointing at the likely cause. The forge test mysql
-  // container ships with a `forge`/`forge` user that has rights only on
-  // forge_test; trying to CREATE a new database as that user should
+  // a clear failure pointing at the likely cause. The joinery test mysql
+  // container ships with a `joinery`/`joinery` user that has rights only on
+  // joinery_test; trying to CREATE a new database as that user should
   // fail at minimum at the verify step.
   it('reports failure when target db is missing after mysql exits (low-priv user)', async () => {
     const c = TEST_CONNECTIONS.mysql;
@@ -357,19 +357,19 @@ describe('mysql backup/restore round-trip', () => {
       engine: 'mysql',
       server: c.host,
       port: c.port,
-      username: 'forge', // limited user; rights only on forge_test
+      username: 'joinery', // limited user; rights only on joinery_test
     });
-    fakePasswords.set(connectionId, 'forge');
+    fakePasswords.set(connectionId, 'joinery');
 
     // Empty dump — the only statements mysql sees are our prepended
     // CREATE DATABASE / USE, both of which the limited user can't run
     // against a brand-new schema.
-    const dumpPath = join(tmpdir(), `forge-mysql-noperm-${connectionId}.sql`);
+    const dumpPath = join(tmpdir(), `joinery-mysql-noperm-${connectionId}.sql`);
     tmpFiles.push(dumpPath);
     const fs = await import('node:fs/promises');
     await fs.writeFile(dumpPath, '', 'utf8');
 
-    const newDb = `forge_noperm_${randomUUID().slice(0, 8).replace(/-/g, '')}`;
+    const newDb = `joinery_noperm_${randomUUID().slice(0, 8).replace(/-/g, '')}`;
     const service = MySQLBackupService.getInstance();
 
     const restoreOpId = await service.startRestore({

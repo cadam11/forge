@@ -2,24 +2,24 @@
  * Tab management E2E specs — adapted from the legacy 31-test audit's
  * "Tab management" + "Multiple result sets" cases (test 26).
  *
- * Forge uses Golden Layout for its tab system; tabs are .lm_tab elements
+ * Joinery uses Golden Layout for its tab system; tabs are .lm_tab elements
  * with .lm_active marking the focused one. Welcome is always tab 0.
  */
 
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
-import { withForge } from '../helpers/electron-app';
+import { withJoinery } from '../helpers/electron-app';
 import {
   connectToTestPostgres,
-  ensureForgeTestSeeded,
+  ensureJoineryTestSeeded,
   openNewQueryTab,
   selectDatabase,
   typeInEditor,
-} from '../helpers/forge-actions';
+} from '../helpers/joinery-actions';
 
-test.beforeAll(ensureForgeTestSeeded);
+test.beforeAll(ensureJoineryTestSeeded);
 
 /**
- * Forge's openQueryTab dedupes against existing empty tabs for the same
+ * Joinery's openQueryTab dedupes against existing empty tabs for the same
  * connection+database, so calling menu:new-query twice in a row only opens
  * one tab. To get multiple tabs, type something into the active editor
  * first so it's no longer "empty", then open another.
@@ -29,11 +29,11 @@ async function openAdditionalQueryTab(app: ElectronApplication, window: Page, sq
   await openNewQueryTab(app, window);
 }
 
-test.describe('Forge — tab management', () => {
+test.describe('Joinery — tab management', () => {
   test('opens multiple query tabs alongside Welcome', async () => {
-    await withForge(async ({ app, window }) => {
+    await withJoinery(async ({ app, window }) => {
       await connectToTestPostgres(window);
-      await selectDatabase(window, 'forge_test');
+      await selectDatabase(window, 'joinery_test');
 
       await openNewQueryTab(app, window); // Query 1
       await openAdditionalQueryTab(app, window, '-- one\n'); // Query 2
@@ -48,9 +48,9 @@ test.describe('Forge — tab management', () => {
   });
 
   test('clicking a tab makes it active', async () => {
-    await withForge(async ({ app, window }) => {
+    await withJoinery(async ({ app, window }) => {
       await connectToTestPostgres(window);
-      await selectDatabase(window, 'forge_test');
+      await selectDatabase(window, 'joinery_test');
       await openNewQueryTab(app, window);
       await openAdditionalQueryTab(app, window, '-- one\n');
 
@@ -63,9 +63,9 @@ test.describe('Forge — tab management', () => {
   });
 
   test('closing a tab removes it from the strip', async () => {
-    await withForge(async ({ app, window }) => {
+    await withJoinery(async ({ app, window }) => {
       await connectToTestPostgres(window);
-      await selectDatabase(window, 'forge_test');
+      await selectDatabase(window, 'joinery_test');
       await openNewQueryTab(app, window);
       await openAdditionalQueryTab(app, window, '-- one\n');
 

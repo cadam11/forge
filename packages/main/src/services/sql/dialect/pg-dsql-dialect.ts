@@ -13,7 +13,7 @@ import type {
   RenameDatabaseOptions,
   DeleteDatabaseOptions,
   EngineVariant,
-} from '@forgedb/shared';
+} from '@joinery/shared';
 import { PgDialect } from './pg-dialect';
 
 export class PgDsqlDialect extends PgDialect {

@@ -18,7 +18,7 @@ import { NotificationService } from '../../core/services/notification.service';
 import { ConfirmDialogComponent } from '../../shared/components/dialog/confirm-dialog.component';
 import { PasswordHygieneWarningComponent } from '../../shared/components/password-hygiene-warning/password-hygiene-warning.component';
 import { TestResultPanelComponent } from '../../shared/components/test-result-panel/test-result-panel.component';
-import type { ConnectionProfile, AuthenticationType, TestConnectionResult } from '@forgedb/shared';
+import type { ConnectionProfile, AuthenticationType, TestConnectionResult } from '@joinery/shared';
 
 @Component({
   selector: 'app-connections',

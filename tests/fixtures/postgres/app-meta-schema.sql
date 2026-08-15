@@ -4,7 +4,7 @@
 -- fields, relationships, applications, users, audit logs, etc. For the
 -- harness we only need enough to exercise:
 --
---   • Forge's awareness of a non-public schema (explorer tree, queries)
+--   • Joinery's awareness of a non-public schema (explorer tree, queries)
 --   • The two regression tests from the legacy 31-suite:
 --       #22  app_meta.entity with a JOIN — 20+ rows expected
 --       #23  app_meta.application — 10+ rows expected

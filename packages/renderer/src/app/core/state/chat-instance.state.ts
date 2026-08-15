@@ -6,7 +6,7 @@
 
 import { signal, computed } from '@angular/core';
 import { v4 as uuidv4 } from 'uuid';
-import type { ChatMessage, ChatStreamChunk, Conversation, ToolCallResult } from '@forgedb/shared';
+import type { ChatMessage, ChatStreamChunk, Conversation, ToolCallResult } from '@joinery/shared';
 import { IpcService } from '../services/ipc.service';
 import { ConnectionStateService } from './connection.state';
 import { TabStateService } from './tab.state';

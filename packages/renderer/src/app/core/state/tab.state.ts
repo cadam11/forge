@@ -2,7 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { v4 as uuidv4 } from 'uuid';
 import { IpcService } from '../services/ipc.service';
-import type { TabState } from '@forgedb/shared';
+import type { TabState } from '@joinery/shared';
 import { firstValueFrom } from 'rxjs';
 
 export type TabType = 'query' | 'results' | 'object' | 'welcome' | 'erd' | 'chat';
@@ -29,7 +29,7 @@ export class TabStateService {
    * Whether the user has explicitly dismissed the welcome tab.
    * Persisted in localStorage so we don't re-add it on every launch.
    */
-  private welcomeDismissed = localStorage.getItem('forge:welcomeDismissed') === 'true';
+  private welcomeDismissed = localStorage.getItem('joinery:welcomeDismissed') === 'true';
 
   private readonly _tabs = signal<Tab[]>(
     this.welcomeDismissed
@@ -114,7 +114,7 @@ export class TabStateService {
     const closingTab = tabs[index];
     if (closingTab.type === 'welcome') {
       this.welcomeDismissed = true;
-      localStorage.setItem('forge:welcomeDismissed', 'true');
+      localStorage.setItem('joinery:welcomeDismissed', 'true');
     }
 
     this._tabs.update(currentTabs => currentTabs.filter(t => t.id !== tabId));
@@ -462,7 +462,7 @@ export class TabStateService {
 
     // Re-add welcome tab and clear dismissed flag
     this.welcomeDismissed = false;
-    localStorage.removeItem('forge:welcomeDismissed');
+    localStorage.removeItem('joinery:welcomeDismissed');
 
     const welcomeTab: Tab = { id: 'welcome', type: 'welcome', title: 'Welcome', icon: 'home' };
     this._tabs.update(tabs => [welcomeTab, ...tabs]);

@@ -63,7 +63,7 @@ export class MenuService implements OnDestroy {
   }
 
   private setupMenuListeners(): void {
-    const menu = window.forge?.menu;
+    const menu = window.joinery?.menu;
     if (!menu) {
       console.warn('MenuService: Menu API not available');
       return;
@@ -294,12 +294,12 @@ export class MenuService implements OnDestroy {
   // results grid (which honors a per-user TSV/CSV/JSON Copy Format
   // setting). We now forward the event to the renderer and let any
   // component that wants the keystroke claim it via the
-  // `forge:menu-copy` CustomEvent (call event.preventDefault()). If
+  // `joinery:menu-copy` CustomEvent (call event.preventDefault()). If
   // nothing claims it, we fall back to document.execCommand('copy'),
   // which mirrors the original role:'copy' behavior for native text
   // selections.
   private handleMenuCopy(): void {
-    const event = new CustomEvent('forge:menu-copy', { cancelable: true });
+    const event = new CustomEvent('joinery:menu-copy', { cancelable: true });
     window.dispatchEvent(event);
     if (event.defaultPrevented) return;
     document.execCommand('copy');

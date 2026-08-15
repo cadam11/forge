@@ -2,7 +2,7 @@
  * Database IPC Handlers
  */
 
-import { IPC_CHANNELS } from '@forgedb/shared';
+import { IPC_CHANNELS } from '@joinery/shared';
 import type {
   DatabaseInfo,
   CreateDatabaseOptions,
@@ -11,7 +11,7 @@ import type {
   RenameDatabaseResult,
   DeleteDatabaseOptions,
   DeleteDatabaseResult,
-} from '@forgedb/shared';
+} from '@joinery/shared';
 import { ConnectionPoolManager } from '../services/sql/connection-pool';
 import { MetadataService } from '../services/sql/metadata';
 import { createLogger } from '../utils/logger';
@@ -86,7 +86,7 @@ export function registerDatabaseHandlers(): void {
       const sql = dialect.dropDatabaseSQL(options);
       // Diagnostic logging — useful for tracking down "delete went to the
       // wrong server" complaints. Reports the routing decision (engine
-      // resolved from the connection profile) and the SQL Forge ran.
+      // resolved from the connection profile) and the SQL Joinery ran.
       const log = createLogger('IPC:Database');
       log.info(
         `delete database: connectionId=${connectionId} engine=${engine} target=${options.name}`
@@ -94,7 +94,7 @@ export function registerDatabaseHandlers(): void {
       log.debug(`delete database SQL: ${sql}`);
 
       try {
-        // Forge's own pool may be holding the target database open (an
+        // Joinery's own pool may be holding the target database open (an
         // expanded explorer node or open query window keeps a live pool),
         // which blocks DROP DATABASE even after the SQL kicks external
         // sessions. Release our grip first. Reconnects lazily, so no restart.

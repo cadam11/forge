@@ -7,7 +7,7 @@ import type {
   RenameDatabaseOptions,
   DeleteDatabaseOptions,
   BackupType,
-} from '@forgedb/shared';
+} from '@joinery/shared';
 
 /**
  * Internal options for backup T-SQL generation (no connectionId needed)

@@ -4,8 +4,8 @@
  */
 
 import { BrowserWindow } from 'electron';
-import { CHAT_IPC_CHANNELS } from '@forgedb/shared';
-import type { ChatRequest } from '@forgedb/shared';
+import { CHAT_IPC_CHANNELS } from '@joinery/shared';
+import type { ChatRequest } from '@joinery/shared';
 import { ChatService } from '../services/ai/chat-service';
 import { safeHandle } from './safe-handle';
 

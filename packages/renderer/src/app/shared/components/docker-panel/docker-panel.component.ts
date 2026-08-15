@@ -10,7 +10,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { firstValueFrom } from 'rxjs';
 import { IpcService } from '../../../core/services/ipc.service';
 import { NotificationService } from '../../../core/services/notification.service';
-import type { DockerStatus, DockerContainer } from '@forgedb/shared';
+import type { DockerStatus, DockerContainer } from '@joinery/shared';
 import { Router } from '@angular/router';
 
 @Component({

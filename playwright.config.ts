@@ -1,6 +1,6 @@
 import { defineConfig } from '@playwright/test';
 
-// Playwright + Electron config for the Forge regression harness.
+// Playwright + Electron config for the Joinery regression harness.
 //
 // Specs live under tests/e2e/. Each test launches its own Electron instance
 // via tests/helpers/electron-app.ts.
@@ -36,7 +36,7 @@ export default defineConfig({
   reporter: [
     ['list'],
     // Custom reporter posts per-test events to the live dashboard when
-    // FORGE_LIVE_REPORTER_URL is set. No-op otherwise — safe in CI.
+    // JOINERY_LIVE_REPORTER_URL is set. No-op otherwise — safe in CI.
     ['./tests/reporter/playwright-live-reporter.mjs'],
   ],
   use: {

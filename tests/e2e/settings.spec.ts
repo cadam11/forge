@@ -1,7 +1,7 @@
 /**
  * Settings panel E2E spec — covers the legacy 31-test audit's test 14.
  *
- * Forge has a single settings panel reachable via Cmd+, or the
+ * Joinery has a single settings panel reachable via Cmd+, or the
  * `menu:open-settings` IPC channel. We verify that the panel opens and
  * that the major sections are present (theme, font/typography, default
  * tab on launch) — not their exact values, since those depend on user
@@ -9,11 +9,11 @@
  */
 
 import { expect, test } from '@playwright/test';
-import { withForge } from '../helpers/electron-app';
+import { withJoinery } from '../helpers/electron-app';
 
-test.describe('Forge — settings panel', () => {
+test.describe('Joinery — settings panel', () => {
   test('opens via menu:open-settings and shows theme + font controls', async () => {
-    await withForge(async ({ app, window }) => {
+    await withJoinery(async ({ app, window }) => {
       await expect(window.locator('app-root')).toBeVisible({ timeout: 15000 });
       await app.evaluate(({ BrowserWindow }) => {
         BrowserWindow.getAllWindows()[0]?.webContents.send('menu:open-settings');

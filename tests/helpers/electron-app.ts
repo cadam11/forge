@@ -1,10 +1,10 @@
 /**
  * Electron launch helper for E2E tests.
  *
- * Spins up the built Forge app via Playwright's Electron driver, waits for
+ * Spins up the built Joinery app via Playwright's Electron driver, waits for
  * the renderer to load, and returns the app + first window. Each test should
- * call `launchForge()` and `await app.close()` (or use the helper's
- * `withForge` form for guaranteed teardown).
+ * call `launchJoinery()` and `await app.close()` (or use the helper's
+ * `withJoinery` form for guaranteed teardown).
  *
  * Requires `pnpm run build` to have produced packages/main/dist/index.js and
  * packages/renderer/dist/browser/index.html.
@@ -24,20 +24,20 @@ const RENDERER_INDEX = join(REPO_ROOT, 'packages', 'renderer', 'dist', 'browser'
 export interface LaunchedApp {
   app: ElectronApplication;
   window: Page;
-  /** Per-launch userData dir (isolated tmp). Cleaned up by withForge. */
+  /** Per-launch userData dir (isolated tmp). Cleaned up by withJoinery. */
   userDataDir: string;
 }
 
 export interface LaunchOptions {
   /**
-   * Extra env vars to merge over the default Forge launch env. Useful
+   * Extra env vars to merge over the default Joinery launch env. Useful
    * for tests that need to perturb the host (e.g. restricting PATH so
    * the CLI dep probe fails and the missing-tools view renders).
    */
   envOverrides?: Record<string, string>;
 }
 
-export async function launchForge(options: LaunchOptions = {}): Promise<LaunchedApp> {
+export async function launchJoinery(options: LaunchOptions = {}): Promise<LaunchedApp> {
   if (!existsSync(MAIN_ENTRY)) {
     throw new Error(
       `[electron-app] expected built main process at ${MAIN_ENTRY}. ` +
@@ -56,16 +56,16 @@ export async function launchForge(options: LaunchOptions = {}): Promise<Launched
   // welcome screen baseline once a saved profile starts showing up there).
   // The --user-data-dir flag is honored by Electron and routes both
   // electron-store and the keychain credential namespace into the temp dir.
-  const userDataDir = mkdtempSync(join(tmpdir(), 'forge-test-userdata-'));
+  const userDataDir = mkdtempSync(join(tmpdir(), 'joinery-test-userdata-'));
 
   const app = await electron.launch({
     args: [MAIN_ENTRY, `--user-data-dir=${userDataDir}`],
     cwd: REPO_ROOT,
     env: {
       ...process.env,
-      // FORGE_TEST signals the main process to skip non-essential startup
+      // JOINERY_TEST signals the main process to skip non-essential startup
       // (currently: keep the window hidden so it doesn't flash during tests).
-      FORGE_TEST: '1',
+      JOINERY_TEST: '1',
       // Force production mode so the main process loads the built renderer
       // from disk instead of trying to connect to localhost:4200.
       NODE_ENV: 'production',
@@ -103,29 +103,29 @@ export async function launchForge(options: LaunchOptions = {}): Promise<Launched
 /**
  * Convenience wrapper that guarantees teardown even if the test body throws.
  *
- * `optionsOrFn` keeps the original 1-arg form (`withForge(fn)`) working
- * while letting newer tests pass launch options too: `withForge({
+ * `optionsOrFn` keeps the original 1-arg form (`withJoinery(fn)`) working
+ * while letting newer tests pass launch options too: `withJoinery({
  * envOverrides }, fn)`.
  */
-export async function withForge<T>(fn: (launched: LaunchedApp) => Promise<T>): Promise<T>;
-export async function withForge<T>(
+export async function withJoinery<T>(fn: (launched: LaunchedApp) => Promise<T>): Promise<T>;
+export async function withJoinery<T>(
   options: LaunchOptions,
   fn: (launched: LaunchedApp) => Promise<T>
 ): Promise<T>;
-export async function withForge<T>(
+export async function withJoinery<T>(
   optionsOrFn: LaunchOptions | ((launched: LaunchedApp) => Promise<T>),
   maybeFn?: (launched: LaunchedApp) => Promise<T>
 ): Promise<T> {
   const [options, fn]: [LaunchOptions, (launched: LaunchedApp) => Promise<T>] =
     typeof optionsOrFn === 'function' ? [{}, optionsOrFn] : [optionsOrFn, maybeFn!];
-  const launched = await launchForge(options);
+  const launched = await launchJoinery(options);
   try {
     return await fn(launched);
   } finally {
     try {
       await launched.app.close();
     } catch (err) {
-      console.error('[electron-app] failed to close Forge cleanly:', err);
+      console.error('[electron-app] failed to close Joinery cleanly:', err);
     }
     try {
       rmSync(launched.userDataDir, { recursive: true, force: true });

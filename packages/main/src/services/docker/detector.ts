@@ -11,7 +11,7 @@ import type {
   StartContainerResult,
   PathTranslation,
   ContainerState,
-} from '@forgedb/shared';
+} from '@joinery/shared';
 import { BaseSingleton } from '../../utils/singleton';
 
 export class DockerDetector extends BaseSingleton {

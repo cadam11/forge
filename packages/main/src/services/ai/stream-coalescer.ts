@@ -9,7 +9,7 @@
  * pending text for that conversation is flushed first so ordering holds.
  */
 
-import type { ChatStreamChunk } from '@forgedb/shared';
+import type { ChatStreamChunk } from '@joinery/shared';
 
 /** Force a flush once a buffer grows past this, interval notwithstanding. */
 const MAX_BUFFERED_CHARS = 64 * 1024;

@@ -1,7 +1,7 @@
 /**
  * SSH tunnel happy-path test.
  *
- * Verifies that Forge's `SshTunnelManager` opens a tunnel through the bastion
+ * Verifies that Joinery's `SshTunnelManager` opens a tunnel through the bastion
  * container to `postgres-private` (which is only reachable on the private
  * network) and that PostgreSQL traffic flows through cleanly.
  *
@@ -15,8 +15,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client as PgClient } from 'pg';
 
-import { SshTunnelManager } from '@forgedb/main/services/ssh/ssh-tunnel-manager';
-import type { SshTunnelConfig } from '@forgedb/shared';
+import { SshTunnelManager } from '@joinery/main/services/ssh/ssh-tunnel-manager';
+import type { SshTunnelConfig } from '@joinery/shared';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PRIVATE_KEY = join(HERE, '..', '..', '.ssh', 'id_test');
@@ -26,7 +26,7 @@ const SSH_CONFIG: SshTunnelConfig = {
   enabled: true,
   host: '127.0.0.1',
   port: 12222,
-  username: 'forge',
+  username: 'joinery',
   authType: 'privateKey',
   privateKeyPath: PRIVATE_KEY,
 };
@@ -63,14 +63,14 @@ describe('ssh tunnel — bastion to postgres-private', () => {
     const client = new PgClient({
       host: endpoint.localHost,
       port: endpoint.localPort,
-      user: 'forge',
-      password: 'forge',
-      database: 'forge_private',
+      user: 'joinery',
+      password: 'joinery',
+      database: 'joinery_private',
     });
     await client.connect();
     try {
       const dbRow = (await client.query<{ db: string }>('SELECT current_database() AS db')).rows[0];
-      expect(dbRow.db).toBe('forge_private');
+      expect(dbRow.db).toBe('joinery_private');
       const oneRow = (await client.query<{ one: number }>('SELECT 1 AS one')).rows[0];
       expect(oneRow.one).toBe(1);
     } finally {

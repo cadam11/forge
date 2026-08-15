@@ -25,7 +25,7 @@ export interface Tour {
   steps: TourStep[];
 }
 
-const STORAGE_KEY = 'forge:completed-tours';
+const STORAGE_KEY = 'joinery:completed-tours';
 
 @Injectable({ providedIn: 'root' })
 export class OnboardingService {
@@ -64,19 +64,22 @@ export class OnboardingService {
         {
           target: '.sidebar',
           title: 'Object Explorer',
-          description: 'Browse your databases, tables, views, and stored procedures in the sidebar.',
+          description:
+            'Browse your databases, tables, views, and stored procedures in the sidebar.',
           placement: 'right',
         },
         {
           target: '.content-area',
           title: 'Query Editor',
-          description: 'Write and execute SQL queries here. Use Cmd+Enter to run, or highlight text and press Cmd+Shift+Enter to run a selection.',
+          description:
+            'Write and execute SQL queries here. Use Cmd+Enter to run, or highlight text and press Cmd+Shift+Enter to run a selection.',
           placement: 'bottom',
         },
         {
           target: '.status-bar',
           title: 'Status Bar',
-          description: 'See your connection status, running queries, theme toggle, and Docker containers at a glance.',
+          description:
+            'See your connection status, running queries, theme toggle, and Docker containers at a glance.',
           placement: 'top',
         },
       ],
@@ -88,19 +91,22 @@ export class OnboardingService {
         {
           target: '.ai-toggle',
           title: 'AI Chat Assistant',
-          description: 'Click here to open the AI chat panel. Ask it to write queries, explain data, or manage your databases.',
+          description:
+            'Click here to open the AI chat panel. Ask it to write queries, explain data, or manage your databases.',
           placement: 'left',
         },
         {
           target: '.content-area',
           title: 'Smart Autocomplete',
-          description: 'As you type SQL, AI suggests completions. Press Tab to accept, Escape to dismiss.',
+          description:
+            'As you type SQL, AI suggests completions. Press Tab to accept, Escape to dismiss.',
           placement: 'bottom',
         },
         {
           target: '.status-bar',
           title: 'Result Analysis',
-          description: 'After running a query, click the sparkle icon on results to get AI-powered insights.',
+          description:
+            'After running a query, click the sparkle icon on results to get AI-powered insights.',
           placement: 'top',
         },
       ],

@@ -2,13 +2,13 @@
  * AI IPC Handlers
  */
 
-import { IPC_CHANNELS } from '@forgedb/shared';
+import { IPC_CHANNELS } from '@joinery/shared';
 import type {
   AISettings,
   TabRenameRequest,
   AnalysisRequest,
   SQLGenerationRequest,
-} from '@forgedb/shared';
+} from '@joinery/shared';
 import { AIService } from '../services/ai/ai-service';
 import { safeHandle } from './safe-handle';
 

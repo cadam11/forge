@@ -14,8 +14,8 @@ import type {
   RestoreRequest,
   RestoreProgress,
   RestoreResult,
-} from '@forgedb/shared';
-import { IPC_CHANNELS } from '@forgedb/shared';
+} from '@joinery/shared';
+import { IPC_CHANNELS } from '@joinery/shared';
 import { BaseSingleton } from '../../utils/singleton';
 import { TsqlBuilder } from '../../utils/tsql-builder';
 import { createLogger } from '../../utils/logger';
@@ -271,9 +271,7 @@ export class BackupRestoreService extends BaseSingleton {
       fileMoves,
       recoveryState: (request.recoveryState?.toLowerCase() ||
         (request.withNoRecovery ? 'norecovery' : 'recovery')) as
-        | 'recovery'
-        | 'norecovery'
-        | 'standby',
+        'recovery' | 'norecovery' | 'standby',
     });
 
     // Start progress monitoring
@@ -298,7 +296,7 @@ export class BackupRestoreService extends BaseSingleton {
 
     try {
       // RESTORE … WITH REPLACE needs exclusive access to the target database.
-      // If Forge has it open (explorer node expanded or a query window on it),
+      // If Joinery has it open (explorer node expanded or a query window on it),
       // our own pool holds connections that make SQL Server refuse with
       // "Exclusive access could not be obtained because the database is in
       // use." Release our grip first; the pool reconnects lazily afterward.

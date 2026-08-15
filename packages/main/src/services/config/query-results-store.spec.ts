@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { QueryResult } from '@forgedb/shared';
+import type { QueryResult } from '@joinery/shared';
 import { QueryResultsStore } from './query-results-store';
 
 function makeResult(rows: number): QueryResult {
@@ -25,7 +25,7 @@ describe('QueryResultsStore (file-backed)', () => {
   let store: QueryResultsStore;
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'forge-qrs-'));
+    dir = mkdtempSync(join(tmpdir(), 'joinery-qrs-'));
     store = new QueryResultsStore(dir);
   });
 

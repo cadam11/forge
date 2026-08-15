@@ -1,5 +1,5 @@
 /**
- * Vitest Configuration — Forge
+ * Vitest Configuration — Joinery
  *
  * Follows a standard Vitest monorepo testing pattern:
  * - Vitest with v8 coverage
@@ -57,7 +57,7 @@ export default defineConfig({
 
     // Module resolution
     alias: {
-      '@forgedb/shared': new URL('./packages/shared/src', import.meta.url).pathname,
+      '@joinery/shared': new URL('./packages/shared/src', import.meta.url).pathname,
       keytar: new URL('./packages/main/src/__mocks__/keytar.ts', import.meta.url).pathname,
       ssh2: new URL('./packages/main/src/__mocks__/ssh2.ts', import.meta.url).pathname,
     },

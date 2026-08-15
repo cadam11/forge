@@ -14,8 +14,8 @@ import type {
   AnalysisResponse,
   SQLGenerationRequest,
   SQLGenerationResponse,
-} from '@forgedb/shared';
-import { DEFAULT_AI_SETTINGS } from '@forgedb/shared';
+} from '@joinery/shared';
+import { DEFAULT_AI_SETTINGS } from '@joinery/shared';
 import { IpcService } from '../services/ipc.service';
 import { NotificationService } from '../services/notification.service';
 import { firstValueFrom } from 'rxjs';

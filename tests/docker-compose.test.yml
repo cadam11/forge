@@ -1,4 +1,4 @@
-# Forge regression test infrastructure.
+# Joinery regression test infrastructure.
 #
 # Bring up:    pnpm run test:harness:up
 # Tear down:   pnpm run test:harness:down
@@ -6,15 +6,15 @@
 #
 # All host ports are deliberately non-standard to avoid clashing with
 # any database engines a developer may already have running locally.
-name: forge-test
+name: joinery-test
 
 services:
   mssql:
     image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: forge-test-mssql
+    container_name: joinery-test-mssql
     environment:
       ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "ForgeTest!Pa55"
+      MSSQL_SA_PASSWORD: "JoineryTest!Pa55"
       MSSQL_PID: "Developer"
     ports:
       - "11433:1433"
@@ -22,7 +22,7 @@ services:
     healthcheck:
       test:
         - "CMD-SHELL"
-        - "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'ForgeTest!Pa55' -C -Q 'SELECT 1' || exit 1"
+        - "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'JoineryTest!Pa55' -C -Q 'SELECT 1' || exit 1"
       interval: 5s
       timeout: 5s
       retries: 30
@@ -30,33 +30,33 @@ services:
 
   postgres:
     image: postgres:16-alpine
-    container_name: forge-test-postgres
+    container_name: joinery-test-postgres
     environment:
-      POSTGRES_USER: forge
-      POSTGRES_PASSWORD: forge
-      POSTGRES_DB: forge_test
+      POSTGRES_USER: joinery
+      POSTGRES_PASSWORD: joinery
+      POSTGRES_DB: joinery_test
     ports:
       - "15432:5432"
     networks: [testnet]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U forge -d forge_test"]
+      test: ["CMD-SHELL", "pg_isready -U joinery -d joinery_test"]
       interval: 3s
       timeout: 3s
       retries: 30
 
   mysql:
     image: mysql:8
-    container_name: forge-test-mysql
+    container_name: joinery-test-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: forge
-      MYSQL_DATABASE: forge_test
-      MYSQL_USER: forge
-      MYSQL_PASSWORD: forge
+      MYSQL_ROOT_PASSWORD: joinery
+      MYSQL_DATABASE: joinery_test
+      MYSQL_USER: joinery
+      MYSQL_PASSWORD: joinery
     ports:
       - "13306:3306"
     networks: [testnet]
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uforge", "-pforge"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-ujoinery", "-pjoinery"]
       interval: 3s
       timeout: 3s
       retries: 30
@@ -64,14 +64,14 @@ services:
   # Postgres reachable ONLY through the bastion. No host port published.
   postgres-private:
     image: postgres:16-alpine
-    container_name: forge-test-postgres-private
+    container_name: joinery-test-postgres-private
     environment:
-      POSTGRES_USER: forge
-      POSTGRES_PASSWORD: forge
-      POSTGRES_DB: forge_private
+      POSTGRES_USER: joinery
+      POSTGRES_PASSWORD: joinery
+      POSTGRES_DB: joinery_private
     networks: [bastionnet]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U forge -d forge_private"]
+      test: ["CMD-SHELL", "pg_isready -U joinery -d joinery_private"]
       interval: 3s
       timeout: 3s
       retries: 30
@@ -81,11 +81,11 @@ services:
   # tunnel to postgres-private:5432.
   bastion:
     image: linuxserver/openssh-server:latest
-    container_name: forge-test-bastion
+    container_name: joinery-test-bastion
     environment:
       PUID: "1000"
       PGID: "1000"
-      USER_NAME: forge
+      USER_NAME: joinery
       PASSWORD_ACCESS: "false"
       SUDO_ACCESS: "false"
       PUBLIC_KEY_FILE: /pubkey/id_test.pub

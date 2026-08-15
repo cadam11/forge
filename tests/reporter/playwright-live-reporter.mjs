@@ -1,16 +1,16 @@
-// Custom Playwright reporter that POSTs per-test events to the Forge live
+// Custom Playwright reporter that POSTs per-test events to the Joinery live
 // dashboard server. Uses the same /_event protocol as the Vitest reporter
 // so the server treats Playwright runs uniformly with the Vitest tiers.
 //
-// Activated by setting FORGE_LIVE_REPORTER_URL in the environment when
+// Activated by setting JOINERY_LIVE_REPORTER_URL in the environment when
 // invoking Playwright. When the env var is missing this reporter no-ops,
 // so the same playwright.config.ts is safe in CI / one-shot scenarios.
 //
-// Tier defaults to 'e2e' but can be overridden with FORGE_LIVE_REPORTER_TIER
+// Tier defaults to 'e2e' but can be overridden with JOINERY_LIVE_REPORTER_TIER
 // for future sub-tier splits (e.g., 'visual').
 
-const URL = process.env.FORGE_LIVE_REPORTER_URL;
-const DEFAULT_TIER = process.env.FORGE_LIVE_REPORTER_TIER || 'e2e';
+const URL = process.env.JOINERY_LIVE_REPORTER_URL;
+const DEFAULT_TIER = process.env.JOINERY_LIVE_REPORTER_TIER || 'e2e';
 
 // Visual baselines live under tests/e2e/visual/ — route them to the
 // dedicated 'visual' tier so the dashboard shows them as a distinct row.
@@ -36,7 +36,7 @@ function fullNameOf(test) {
   return test.titlePath().slice(1).filter(Boolean).join(' > ') || test.title;
 }
 
-export default class ForgePlaywrightLiveReporter {
+export default class JoineryPlaywrightLiveReporter {
   constructor() {
     // Tracks which tiers actually started in this run, so onEnd only flushes
     // run-end events for tiers that had a run-start. Avoids flipping an idle

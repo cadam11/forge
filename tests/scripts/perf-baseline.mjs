@@ -1,13 +1,13 @@
 /**
  * Perf baseline harness (Phase 0 of the perf-tuning plan).
  *
- * Launches the built Forge app N times against a fresh, isolated user-data
+ * Launches the built Joinery app N times against a fresh, isolated user-data
  * dir and reports cold-start timings plus post-settle memory. Not a CI gate —
  * run manually before/after perf work and compare:
  *
  *   node tests/scripts/perf-baseline.mjs [--runs=3] [--hidden]
  *
- * --hidden sets FORGE_TEST=1 (window stays hidden; skips paint cost, useful
+ * --hidden sets JOINERY_TEST=1 (window stays hidden; skips paint cost, useful
  * on CI). Default is a visible window, closest to what a user experiences.
  *
  * Caveat: a fresh user-data dir measures the empty-profile floor. Real-world
@@ -35,7 +35,7 @@ function parseArgs(argv) {
 }
 
 async function measureOnce({ hidden }) {
-  const userDataDir = mkdtempSync(join(tmpdir(), 'forge-perf-'));
+  const userDataDir = mkdtempSync(join(tmpdir(), 'joinery-perf-'));
   const t0 = performance.now();
   const app = await electron.launch({
     args: [MAIN_ENTRY, `--user-data-dir=${userDataDir}`],
@@ -43,7 +43,7 @@ async function measureOnce({ hidden }) {
     env: {
       ...process.env,
       NODE_ENV: 'production',
-      ...(hidden ? { FORGE_TEST: '1' } : {}),
+      ...(hidden ? { JOINERY_TEST: '1' } : {}),
     },
   });
   try {

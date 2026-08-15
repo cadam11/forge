@@ -9,14 +9,14 @@
  */
 
 import { expect, test } from '@playwright/test';
-import { withForge } from '../helpers/electron-app';
-import { connectToTestPostgres, ensureForgeTestSeeded } from '../helpers/forge-actions';
+import { withJoinery } from '../helpers/electron-app';
+import { connectToTestPostgres, ensureJoineryTestSeeded } from '../helpers/joinery-actions';
 
-test.beforeAll(ensureForgeTestSeeded);
+test.beforeAll(ensureJoineryTestSeeded);
 
-test.describe('Forge — shell chrome', () => {
+test.describe('Joinery — shell chrome', () => {
   test('connection button opens the connection mat-menu', async () => {
-    await withForge(async ({ window }) => {
+    await withJoinery(async ({ window }) => {
       await connectToTestPostgres(window);
       // The sidebar's connection-button is a mat-menu trigger. Clicking
       // should reveal the menu panel; we don't assert specific options
@@ -31,7 +31,7 @@ test.describe('Forge — shell chrome', () => {
   });
 
   test('sidebar resize handle changes the sidebar width on drag', async () => {
-    await withForge(async ({ window }) => {
+    await withJoinery(async ({ window }) => {
       await expect(window.locator('app-root')).toBeVisible({ timeout: 15000 });
       // app-shell renders a vertical resize handle between sidebar + main.
       // Filter to :visible because chat-panel and query.component each
@@ -45,7 +45,7 @@ test.describe('Forge — shell chrome', () => {
 
       const handleBox = await handle.boundingBox();
       if (!handleBox) throw new Error('resize handle has no bounding box');
-      // Drag the handle ~80px to the right. Forge clamps to a min/max
+      // Drag the handle ~80px to the right. Joinery clamps to a min/max
       // width so the actual delta may be smaller — we just want to know
       // the width changed in response to the drag.
       const startX = handleBox.x + handleBox.width / 2;

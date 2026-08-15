@@ -9,7 +9,7 @@ import type {
   CreateDatabaseOptions,
   RenameDatabaseOptions,
   DeleteDatabaseOptions,
-} from '@forgedb/shared';
+} from '@joinery/shared';
 import { SQLDialect } from './sql-dialect';
 
 export class MySQLDialect extends SQLDialect {

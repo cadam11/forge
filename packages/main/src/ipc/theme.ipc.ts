@@ -6,7 +6,7 @@
  */
 
 import { nativeTheme, BrowserWindow } from 'electron';
-import { IPC_CHANNELS } from '@forgedb/shared';
+import { IPC_CHANNELS } from '@joinery/shared';
 import { safeHandle } from './safe-handle';
 
 export function registerThemeHandlers(): void {

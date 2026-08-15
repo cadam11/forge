@@ -2,14 +2,14 @@
  * Theme switch E2E spec — adapted from the legacy 31-test audit's tests
  * 29 + 30 ("Theme: dark switch — verifies DOM class change").
  *
- * Forge writes the chosen theme to `<html data-theme="…">`. Light + dark
+ * Joinery writes the chosen theme to `<html data-theme="…">`. Light + dark
  * mode toggle the CSS-variable cascade in styles.scss. We open settings
  * via the menu IPC, switch theme via the mat-select, and assert the DOM
  * attribute updates.
  */
 
 import { expect, test, type Page } from '@playwright/test';
-import { withForge } from '../helpers/electron-app';
+import { withJoinery } from '../helpers/electron-app';
 
 async function openSettingsAndSelectTheme(window: Page, themeLabel: 'Light' | 'Dark' | 'System') {
   const panel = window.locator('app-settings-panel .settings-panel').first();
@@ -29,9 +29,9 @@ async function openSettingsAndSelectTheme(window: Page, themeLabel: 'Light' | 'D
   );
 }
 
-test.describe('Forge — theme switching', () => {
+test.describe('Joinery — theme switching', () => {
   test('selecting Light writes data-theme="light" to <html>', async () => {
-    await withForge(async ({ app, window }) => {
+    await withJoinery(async ({ app, window }) => {
       await expect(window.locator('app-root')).toBeVisible({ timeout: 15000 });
       await app.evaluate(({ BrowserWindow }) => {
         BrowserWindow.getAllWindows()[0]?.webContents.send('menu:open-settings');
@@ -41,7 +41,7 @@ test.describe('Forge — theme switching', () => {
   });
 
   test('selecting Dark writes data-theme="dark" to <html>', async () => {
-    await withForge(async ({ app, window }) => {
+    await withJoinery(async ({ app, window }) => {
       await expect(window.locator('app-root')).toBeVisible({ timeout: 15000 });
       await app.evaluate(({ BrowserWindow }) => {
         BrowserWindow.getAllWindows()[0]?.webContents.send('menu:open-settings');

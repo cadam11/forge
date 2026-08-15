@@ -11,8 +11,8 @@ import { configCommand } from './commands/config';
 const program = new Command();
 
 program
-  .name('forge')
-  .description('Forge CLI - SQL Server management from the command line')
+  .name('joinery')
+  .description('Joinery CLI - SQL Server management from the command line')
   .version('0.1.0');
 
 // Add commands
@@ -27,7 +27,7 @@ program.action(() => {
   console.log(
     chalk.cyan(`
   ╔═══════════════════════════════════════════╗
-  ║           ${chalk.bold('Forge CLI')}                       ║
+  ║           ${chalk.bold('Joinery CLI')}                       ║
   ║     SQL Server Management Tool            ║
   ╚═══════════════════════════════════════════╝
   `)

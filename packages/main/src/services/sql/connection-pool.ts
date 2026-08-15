@@ -10,8 +10,8 @@ import { AuroraDSQLPool } from '@aws/aurora-dsql-node-postgres-connector';
 import mysql from 'mysql2/promise';
 import type { Pool as MySQLPool } from 'mysql2/promise';
 import { acquireTokenInteractive } from '../azure/entra-auth';
-import type { ConnectionProfile, TestConnectionResult, DatabaseEngine } from '@forgedb/shared';
-import { describePasswordHygiene } from '@forgedb/shared';
+import type { ConnectionProfile, TestConnectionResult, DatabaseEngine } from '@joinery/shared';
+import { describePasswordHygiene } from '@joinery/shared';
 import { BaseSingleton } from '../../utils/singleton';
 import { createLogger } from '../../utils/logger';
 import { ConnectionProfilesStore } from '../config/connection-profiles';
@@ -1034,14 +1034,14 @@ export class ConnectionPoolManager extends BaseSingleton {
   }
 
   /**
-   * Release Forge's own pooled connections to a single database on a profile,
+   * Release Joinery's own pooled connections to a single database on a profile,
    * without tearing down the rest of the profile's pools or its SSH tunnel.
    *
    * This is the missing piece behind "can't delete/restore a database that's
    * expanded in the explorer or has query windows open": those affordances
    * keep a live pool to the target database, and DROP DATABASE / RESTORE WITH
    * REPLACE both require exclusive access. The drop/restore SQL kicks
-   * *external* sessions, but not Forge's own pool — so we must let go here
+   * *external* sessions, but not Joinery's own pool — so we must let go here
    * first. Every pool reconnects lazily on next use, so this is non-destructive
    * from the user's perspective (no app restart needed).
    *

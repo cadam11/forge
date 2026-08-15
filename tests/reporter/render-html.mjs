@@ -5,7 +5,7 @@
 //
 // Aesthetic: "Vital Signs Telemetry" — a warm-dark mission-control cockpit
 // in IBM Plex (Sans + Sans Condensed + Mono) with a phosphor-amber accent
-// and engine-tinted indicators. Extends the Forge identity into its own
+// and engine-tinted indicators. Extends the Joinery identity into its own
 // dedicated dev-tool surface; deliberately distinct from the app's purple
 // theme so the dashboard reads as instrument panel, not application chrome.
 
@@ -72,7 +72,7 @@ function buildSynopsis(report) {
 
 function copyPayloadForTier(report, tier) {
   const lines = [
-    `# Forge regression / ${tier.label} tier`,
+    `# Joinery regression / ${tier.label} tier`,
     `git: ${report.git.branch}@${report.git.commit}${report.git.dirty ? ' (dirty)' : ''}`,
     `run: ${fmtTimestamp(report.startedAt)}`,
     `result: ${tier.totals.passed}/${tier.totals.total} passed (${fmtDuration(tier.durationMs)})`,
@@ -94,7 +94,7 @@ function copyPayloadForTier(report, tier) {
 
 function copyPayloadForSuite(report, tier, suite) {
   const lines = [
-    `# Forge regression / ${tier.label} / ${suite.name}`,
+    `# Joinery regression / ${tier.label} / ${suite.name}`,
     `git: ${report.git.branch}@${report.git.commit}${report.git.dirty ? ' (dirty)' : ''}`,
     `result: ${suite.totals.passed}/${suite.totals.total} passed (${fmtDuration(suite.durationMs)})`,
   ];
@@ -117,7 +117,7 @@ function copyPayloadForSuite(report, tier, suite) {
 
 function copyPayloadForFailure(report, tier, suite, test) {
   return [
-    `# Forge regression failure`,
+    `# Joinery regression failure`,
     `tier: ${tier.label}`,
     `suite: ${suite.name}`,
     `test: ${test.fullName}`,
@@ -568,7 +568,7 @@ const STYLES = /* css */ `
   --ink-muted: #54546a;
   --ink-faint: #36364a;
 
-  /* Forge brand purple — matches packages/renderer/src/styles.scss --accent */
+  /* Joinery brand purple — matches packages/renderer/src/styles.scss --accent */
   --accent: #7c6ef6;
   --accent-light: #9b8ff8;
   --accent-soft: rgba(124, 110, 246, 0.12);
@@ -1399,7 +1399,7 @@ pre {
    stays visible. Force it explicitly. */
 .ctrl-btn[hidden] { display: none !important; }
 
-/* Run — Forge brand purple, primary action. Material play_arrow icon. */
+/* Run — Joinery brand purple, primary action. Material play_arrow icon. */
 .ctrl-run {
   font-size: 11px;
   letter-spacing: 0.04em;
@@ -2070,14 +2070,14 @@ export function renderReportHtml(report) {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Forge — regression report (${escapeHtml(fmtTimestamp(report.startedAt))})</title>
+<title>Joinery — regression report (${escapeHtml(fmtTimestamp(report.startedAt))})</title>
 ${FONT_LINKS}
 <style>${STYLES}</style>
 </head>
 <body>
 <main>
   <header class="header">
-    <h1><span class="accent">Forge</span> Regression Report</h1>
+    <h1><span class="accent">Joinery</span> Regression Report</h1>
     <div class="header-meta">
       <span class="label">Repo</span>
       <span class="value">${escapeHtml(report.git.branch)}@${escapeHtml(report.git.commit)} ${dirtyMark}</span>

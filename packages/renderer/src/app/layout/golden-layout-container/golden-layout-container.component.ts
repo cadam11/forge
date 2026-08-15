@@ -31,7 +31,7 @@ import { QueryComponent } from '../../features/query/query.component';
 import { ExplorerComponent } from '../../features/explorer/explorer.component';
 import { ErdComponent } from '../../features/erd/erd.component';
 import { ChatPanelComponent } from '../../features/chat/chat-panel.component';
-import type { LayoutConfig } from '@forgedb/shared';
+import type { LayoutConfig } from '@joinery/shared';
 
 /**
  * Container for Golden Layout tabs with dockable panel support.

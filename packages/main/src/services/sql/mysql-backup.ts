@@ -2,7 +2,7 @@
  * MySQL Backup/Restore Service
  *
  * Uses mysqldump and mysql CLI tools (not SQL commands).
- * Requires mysqldump/mysql to be installed on the machine running Forge.
+ * Requires mysqldump/mysql to be installed on the machine running Joinery.
  */
 
 import { spawn } from 'child_process';
@@ -16,8 +16,8 @@ import type {
   BackupRequest,
   RestoreProgress,
   RestoreRequest,
-} from '@forgedb/shared';
-import { IPC_CHANNELS } from '@forgedb/shared';
+} from '@joinery/shared';
+import { IPC_CHANNELS } from '@joinery/shared';
 import { BaseSingleton } from '../../utils/singleton';
 import { createLogger } from '../../utils/logger';
 import { ConnectionProfilesStore } from '../config/connection-profiles';
@@ -159,7 +159,7 @@ export class MySQLBackupService extends BaseSingleton {
     // CREATE DATABASE we prepend) and a positional arg path. Only allow
     // names that are safe in both contexts; anything else suggests a typo
     // or an attempt to inject. MySQL identifiers permit much more, but
-    // this is a Forge-managed flow with a freshly-typed value — we can
+    // this is a Joinery-managed flow with a freshly-typed value — we can
     // afford to be conservative.
     if (!/^[A-Za-z0-9_]+$/.test(targetDb)) {
       throw new Error(

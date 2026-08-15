@@ -54,7 +54,7 @@ export async function executeQuery(
   maxRows?: number
 ): Promise<sql.IRecordSet<Record<string, unknown>>[]> {
   if (!currentPool) {
-    throw new Error('Not connected to a database. Use "forge connect" first.');
+    throw new Error('Not connected to a database. Use "joinery connect" first.');
   }
 
   const request = currentPool.request();

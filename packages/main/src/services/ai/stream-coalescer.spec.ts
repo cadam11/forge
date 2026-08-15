@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ChatStreamChunk } from '@forgedb/shared';
+import type { ChatStreamChunk } from '@joinery/shared';
 import { createStreamCoalescer } from './stream-coalescer';
 
 describe('createStreamCoalescer', () => {

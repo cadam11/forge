@@ -8,7 +8,7 @@ import type {
   ServerFileEntry,
   ServerDefaultPaths,
   BackupHistoryEntry,
-} from '@forgedb/shared';
+} from '@joinery/shared';
 import { BaseSingleton } from '../../utils/singleton';
 import { createLogger } from '../../utils/logger';
 import { ConnectionPoolManager } from './connection-pool';

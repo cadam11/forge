@@ -2,12 +2,12 @@
  * Types for the sqlglot microservice client.
  *
  * Vendored from @memberjunction/sqlglot-ts (ISC licensed, MemberJunction),
- * trimmed to the surface Forge actually uses. The underlying transpiler is
+ * trimmed to the surface Joinery actually uses. The underlying transpiler is
  * Python's sqlglot by Toby Mao (MIT) — https://github.com/tobymao/sqlglot.
  */
 
 /**
- * Dialect names as sqlglot spells them. Forge only maps its three engines
+ * Dialect names as sqlglot spells them. Joinery only maps its three engines
  * (tsql / postgres / mysql); the rest are accepted because the server does.
  */
 export type SQLDialect =

@@ -11,7 +11,7 @@ import type {
   Conversation,
   ToolCallResult,
   ToolDefinition,
-} from '@forgedb/shared';
+} from '@joinery/shared';
 import { IpcService } from '../services/ipc.service';
 import { ConnectionStateService } from './connection.state';
 import { TabStateService } from './tab.state';

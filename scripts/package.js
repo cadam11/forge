@@ -3,7 +3,7 @@
  * Packaging orchestrator: swap workspace symlinks → real copies, run
  * electron-builder, then ALWAYS restore the symlinks — on success and on
  * failure alike. Restoring in a `finally` is what keeps a failed (or even a
- * successful) package run from leaving a stale @forgedb/* copy behind that a
+ * successful) package run from leaving a stale @joinery/* copy behind that a
  * later `pnpm run build` / e2e run would load and crash on.
  *
  * Usage: node scripts/package.js [electron-builder args...]

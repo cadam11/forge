@@ -46,11 +46,11 @@ const fixtureFile = JSON.parse(readFileSync(FIXTURES_PATH, 'utf8')) as {
 };
 
 /**
- * Find an interpreter with the required modules. FORGE_PYTHON lets a developer
+ * Find an interpreter with the required modules. JOINERY_PYTHON lets a developer
  * point at a venv; otherwise the usual names are tried.
  */
 function findPython(): string | null {
-  const candidates = [process.env.FORGE_PYTHON, 'python3', 'python'].filter(Boolean) as string[];
+  const candidates = [process.env.JOINERY_PYTHON, 'python3', 'python'].filter(Boolean) as string[];
   for (const candidate of candidates) {
     try {
       execFileSync(candidate, ['-c', 'import sqlglot, fastapi, uvicorn, pydantic'], {
@@ -81,7 +81,7 @@ const describeIfPython = python ? describe : describe.skip;
 if (!python) {
   console.warn(
     '[sqlglot] skipping equivalence tests — no Python with sqlglot/fastapi/uvicorn/pydantic found. ' +
-      'Set FORGE_PYTHON to an interpreter that has them.'
+      'Set JOINERY_PYTHON to an interpreter that has them.'
   );
 }
 

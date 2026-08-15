@@ -3,7 +3,7 @@
  * Provides get/set for application settings persisted via electron-store
  */
 
-import { IPC_CHANNELS } from '@forgedb/shared';
+import { IPC_CHANNELS } from '@joinery/shared';
 import { AppStateStore } from '../services/config/app-state';
 import { safeHandle } from './safe-handle';
 

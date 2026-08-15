@@ -9,23 +9,23 @@
  */
 
 import { expect, test } from '@playwright/test';
-import { withForge } from '../helpers/electron-app';
+import { withJoinery } from '../helpers/electron-app';
 import {
   connectToTestPostgres,
-  ensureForgeTestSeeded,
+  ensureJoineryTestSeeded,
   executeQuery,
   openNewQueryTab,
   selectDatabase,
   typeInEditor,
-} from '../helpers/forge-actions';
+} from '../helpers/joinery-actions';
 
-test.beforeAll(ensureForgeTestSeeded);
+test.beforeAll(ensureJoineryTestSeeded);
 
-test.describe('Forge — query toolbar', () => {
+test.describe('Joinery — query toolbar', () => {
   test('toolbar mounts with the expected controls when a query tab is open', async () => {
-    await withForge(async ({ app, window }) => {
+    await withJoinery(async ({ app, window }) => {
       await connectToTestPostgres(window);
-      await selectDatabase(window, 'forge_test');
+      await selectDatabase(window, 'joinery_test');
       await openNewQueryTab(app, window);
 
       // Filter to :visible — every previously-opened query tab keeps its
@@ -47,9 +47,9 @@ test.describe('Forge — query toolbar', () => {
   });
 
   test('export menu opens with CSV / JSON / SQL options', async () => {
-    await withForge(async ({ app, window }) => {
+    await withJoinery(async ({ app, window }) => {
       await connectToTestPostgres(window);
-      await selectDatabase(window, 'forge_test');
+      await selectDatabase(window, 'joinery_test');
       await openNewQueryTab(app, window);
       // Export only makes sense with results to export. Run a tiny query
       // so the export menu item isn't gated to disabled.
@@ -65,7 +65,7 @@ test.describe('Forge — query toolbar', () => {
       const exportTrigger = toolbar.locator('button:has(mat-icon:text-is("download"))').first();
       await exportTrigger.click({ timeout: 5000 });
 
-      // Forge wires three options: csv / json / sql. Match by accessible
+      // Joinery wires three options: csv / json / sql. Match by accessible
       // text rather than DOM position — they live in a mat-menu overlay.
       await expect(window.getByRole('menuitem', { name: /csv/i }).first()).toBeVisible({
         timeout: 5000,

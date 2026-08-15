@@ -21,7 +21,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { LoadingComponent } from '../loading/loading.component';
 import { MarkdownViewerComponent } from '../../markdown/markdown-viewer.component';
 import { AIStateService } from '../../../core/state/ai.state';
-import type { ResultSet } from '@forgedb/shared';
+import type { ResultSet } from '@joinery/shared';
 
 interface QuickAction {
   id: string;

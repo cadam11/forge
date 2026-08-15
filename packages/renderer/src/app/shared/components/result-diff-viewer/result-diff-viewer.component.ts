@@ -5,7 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatChipsModule } from '@angular/material/chips';
-import type { ResultDiff, RowDiff } from '@forgedb/shared';
+import type { ResultDiff, RowDiff } from '@joinery/shared';
 
 type ViewMode = 'side-by-side' | 'unified';
 

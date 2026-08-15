@@ -328,7 +328,7 @@ export class CommandPaletteComponent implements OnInit, OnDestroy {
         shortcut: '⌘B',
         action: () => {
           // Emit event to toggle sidebar
-          window.dispatchEvent(new CustomEvent('forge:toggle-sidebar'));
+          window.dispatchEvent(new CustomEvent('joinery:toggle-sidebar'));
         },
       },
       {
@@ -338,7 +338,7 @@ export class CommandPaletteComponent implements OnInit, OnDestroy {
         icon: 'view_stream',
         category: 'view',
         action: () => {
-          window.dispatchEvent(new CustomEvent('forge:toggle-results'));
+          window.dispatchEvent(new CustomEvent('joinery:toggle-results'));
         },
       },
 
@@ -351,7 +351,7 @@ export class CommandPaletteComponent implements OnInit, OnDestroy {
         category: 'query',
         shortcut: '⌘E',
         action: () => {
-          window.dispatchEvent(new CustomEvent('forge:execute-query'));
+          window.dispatchEvent(new CustomEvent('joinery:execute-query'));
         },
         isEnabled: () => this.connectionState.hasAnyConnection(),
       },
@@ -363,7 +363,7 @@ export class CommandPaletteComponent implements OnInit, OnDestroy {
         category: 'edit',
         shortcut: '⇧⌘F',
         action: () => {
-          window.dispatchEvent(new CustomEvent('forge:format-sql'));
+          window.dispatchEvent(new CustomEvent('joinery:format-sql'));
         },
       },
       {
@@ -373,7 +373,7 @@ export class CommandPaletteComponent implements OnInit, OnDestroy {
         icon: 'stop',
         category: 'query',
         action: () => {
-          window.dispatchEvent(new CustomEvent('forge:cancel-query'));
+          window.dispatchEvent(new CustomEvent('joinery:cancel-query'));
         },
       },
       {
@@ -408,7 +408,7 @@ export class CommandPaletteComponent implements OnInit, OnDestroy {
         icon: 'refresh',
         category: 'connection',
         action: () => {
-          window.dispatchEvent(new CustomEvent('forge:refresh-explorer'));
+          window.dispatchEvent(new CustomEvent('joinery:refresh-explorer'));
         },
         isEnabled: () => this.connectionState.hasAnyConnection(),
       },
@@ -422,7 +422,7 @@ export class CommandPaletteComponent implements OnInit, OnDestroy {
         category: 'settings',
         shortcut: '⌘,',
         action: () => {
-          window.dispatchEvent(new CustomEvent('forge:open-settings'));
+          window.dispatchEvent(new CustomEvent('joinery:open-settings'));
         },
       },
       {
@@ -507,7 +507,7 @@ export class CommandPaletteComponent implements OnInit, OnDestroy {
         category: 'file',
         shortcut: '⌘P',
         action: () => {
-          window.dispatchEvent(new CustomEvent('forge:open-object-search'));
+          window.dispatchEvent(new CustomEvent('joinery:open-object-search'));
         },
       },
 
@@ -520,7 +520,7 @@ export class CommandPaletteComponent implements OnInit, OnDestroy {
         category: 'query',
         shortcut: '⇧⌘S',
         action: () => {
-          window.dispatchEvent(new CustomEvent('forge:open-snippets'));
+          window.dispatchEvent(new CustomEvent('joinery:open-snippets'));
         },
       },
 
@@ -532,7 +532,7 @@ export class CommandPaletteComponent implements OnInit, OnDestroy {
         icon: 'backup',
         category: 'connection',
         action: () => {
-          window.dispatchEvent(new CustomEvent('forge:open-backup'));
+          window.dispatchEvent(new CustomEvent('joinery:open-backup'));
         },
         isEnabled: () => this.connectionState.hasAnyConnection(),
       },
@@ -543,7 +543,7 @@ export class CommandPaletteComponent implements OnInit, OnDestroy {
         icon: 'restore',
         category: 'connection',
         action: () => {
-          window.dispatchEvent(new CustomEvent('forge:open-restore'));
+          window.dispatchEvent(new CustomEvent('joinery:open-restore'));
         },
         isEnabled: () => this.connectionState.hasAnyConnection(),
       },
@@ -586,7 +586,7 @@ export class CommandPaletteComponent implements OnInit, OnDestroy {
         icon: 'content_paste',
         category: 'edit',
         action: () => {
-          window.dispatchEvent(new CustomEvent('forge:open-snippets'));
+          window.dispatchEvent(new CustomEvent('joinery:open-snippets'));
         },
       },
       {
@@ -596,7 +596,7 @@ export class CommandPaletteComponent implements OnInit, OnDestroy {
         icon: 'bookmark_add',
         category: 'edit',
         action: () => {
-          window.dispatchEvent(new CustomEvent('forge:save-snippet'));
+          window.dispatchEvent(new CustomEvent('joinery:save-snippet'));
         },
         isEnabled: () => this.connectionState.hasAnyConnection(),
       },
@@ -624,7 +624,7 @@ export class CommandPaletteComponent implements OnInit, OnDestroy {
         category: 'help',
         shortcut: '⌘K ⌘S',
         action: () => {
-          window.dispatchEvent(new CustomEvent('forge:show-shortcuts'));
+          window.dispatchEvent(new CustomEvent('joinery:show-shortcuts'));
         },
       },
     ];

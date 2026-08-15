@@ -1,14 +1,14 @@
-# Forge Regression Test Suite
+# Joinery Regression Test Suite
 
 > **Historical.** This document describes a legacy MSSQL audit suite
 > (`full-audit.spec.ts`) that no longer exists in the repo, run against a
 > MemberJunction database. It is kept for reference only — the current test
 > harness is documented in `tests/README.md`. The `__mj` references below
-> describe that old fixture, not anything Forge still ships.
+> describe that old fixture, not anything Joinery still ships.
 
 ## Overview
 
-Automated Playwright tests for the Forge Electron app. Tests launch the full Electron app, connect to a local SQL Server Docker instance, and exercise every major feature area.
+Automated Playwright tests for the Joinery Electron app. Tests launch the full Electron app, connect to a local SQL Server Docker instance, and exercise every major feature area.
 
 ## Prerequisites
 
@@ -34,11 +34,11 @@ pnpm exec playwright test e2e/full-audit.spec.ts -g "01|02|03|04|05"
 
 ### Connection & Setup (Tests 1-3)
 
-| #   | Test                  | What it checks                                                     |
-| --- | --------------------- | ------------------------------------------------------------------ |
-| 01  | Welcome screen        | App launches, Forge branding visible, New Connection button exists |
-| 02  | Connect to SQL Server | Connects via saved profile or creates new (localhost:1433, sa)     |
-| 03  | Database dropdown     | Sidebar database dropdown works, selects MJ_5_14_0                 |
+| #   | Test                  | What it checks                                                       |
+| --- | --------------------- | -------------------------------------------------------------------- |
+| 01  | Welcome screen        | App launches, Joinery branding visible, New Connection button exists |
+| 02  | Connect to SQL Server | Connects via saved profile or creates new (localhost:1433, sa)       |
+| 03  | Database dropdown     | Sidebar database dropdown works, selects MJ_5_14_0                   |
 
 ### Explorer Tree (Tests 4-5)
 

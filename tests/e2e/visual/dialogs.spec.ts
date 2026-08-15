@@ -1,17 +1,17 @@
 /**
  * Visual baselines — settings + keyboard shortcuts dialogs.
  *
- * Both are wired only through Forge's macOS app menu (no keyboard binding
+ * Both are wired only through Joinery's macOS app menu (no keyboard binding
  * exists). Tests fire the same IPC channel the menu uses
  * (`menu:open-settings` / `menu:show-shortcuts`) directly via the main
  * process, which is what the menu items themselves do.
  */
 
 import { expect, test } from '@playwright/test';
-import { launchForge } from '../../helpers/electron-app';
+import { launchJoinery } from '../../helpers/electron-app';
 
 async function fireMenuChannel(
-  app: Awaited<ReturnType<typeof launchForge>>['app'],
+  app: Awaited<ReturnType<typeof launchJoinery>>['app'],
   channel: string
 ) {
   await app.evaluate(({ BrowserWindow }, ch) => {
@@ -20,9 +20,9 @@ async function fireMenuChannel(
   }, channel);
 }
 
-test.describe('Forge — dialog visual baselines', () => {
+test.describe('Joinery — dialog visual baselines', () => {
   test('settings panel', async () => {
-    const launched = await launchForge();
+    const launched = await launchJoinery();
     try {
       const { app, window } = launched;
       await expect(window.locator('app-root')).toBeVisible({ timeout: 15000 });
@@ -39,7 +39,7 @@ test.describe('Forge — dialog visual baselines', () => {
   });
 
   test('keyboard shortcuts dialog', async () => {
-    const launched = await launchForge();
+    const launched = await launchJoinery();
     try {
       const { app, window } = launched;
       await expect(window.locator('app-root')).toBeVisible({ timeout: 15000 });

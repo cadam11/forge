@@ -16,8 +16,8 @@
  */
 
 import { expect, test, type Page } from '@playwright/test';
-import { withForge } from '../helpers/electron-app';
-import { fillField, TEST_PG } from '../helpers/forge-actions';
+import { withJoinery } from '../helpers/electron-app';
+import { fillField, TEST_PG } from '../helpers/joinery-actions';
 
 const TEST_MSSQL = { host: '127.0.0.1', port: 11433, user: 'sa' } as const;
 
@@ -36,9 +36,9 @@ async function selectEngine(window: Page, label: string) {
   await window.waitForTimeout(300);
 }
 
-test.describe('Forge — inline test-connection feedback', () => {
+test.describe('Joinery — inline test-connection feedback', () => {
   test('artifact-bearing password shows the live warning; clean password does not', async () => {
-    await withForge(async ({ window }) => {
+    await withJoinery(async ({ window }) => {
       const dialog = await openConnectionDialog(window);
       const banner = dialog.locator('app-password-hygiene-warning .password-warning');
 
@@ -59,7 +59,7 @@ test.describe('Forge — inline test-connection feedback', () => {
   });
 
   test('failed MSSQL test (ELOGIN) renders AUTH_FAILED guidance with hygiene lines inline', async () => {
-    await withForge(async ({ window }) => {
+    await withJoinery(async ({ window }) => {
       const dialog = await openConnectionDialog(window);
 
       await fillField(dialog, 'Connection Name', 'Bad MSSQL');
@@ -87,7 +87,7 @@ test.describe('Forge — inline test-connection feedback', () => {
   });
 
   test('failed PostgreSQL test renders auth guidance with hygiene lines inline', async () => {
-    await withForge(async ({ window }) => {
+    await withJoinery(async ({ window }) => {
       const dialog = await openConnectionDialog(window);
       await selectEngine(window, 'PostgreSQL');
 
@@ -96,7 +96,7 @@ test.describe('Forge — inline test-connection feedback', () => {
       await fillField(dialog, 'Port', String(TEST_PG.port));
       await fillField(dialog, 'Username', TEST_PG.user);
       await fillField(dialog, 'Password', 'wrongpass ');
-      // Stock dev PG image doesn't speak SSL; Forge defaults to encrypt-on.
+      // Stock dev PG image doesn't speak SSL; Joinery defaults to encrypt-on.
       await dialog
         .locator('mat-checkbox')
         .filter({ hasText: 'Encrypt Connection' })

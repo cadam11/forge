@@ -4,7 +4,7 @@
 
 import * as fs from 'fs/promises';
 import { app, shell, dialog } from 'electron';
-import { IPC_CHANNELS, type AppState, type TabState, type LayoutConfig } from '@forgedb/shared';
+import { IPC_CHANNELS, type AppState, type TabState, type LayoutConfig } from '@joinery/shared';
 import { AppStateStore } from '../services/config/app-state';
 import { safeHandle } from './safe-handle';
 

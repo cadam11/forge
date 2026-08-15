@@ -11,7 +11,7 @@ import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatButtonModule } from '@angular/material/button';
-import type { DatabaseEngine } from '@forgedb/shared';
+import type { DatabaseEngine } from '@joinery/shared';
 
 /** Normalized plan node used for rendering */
 export interface PlanNode {

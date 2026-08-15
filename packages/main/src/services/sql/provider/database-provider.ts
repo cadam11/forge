@@ -7,7 +7,7 @@
  *   DatabaseProvider (abstract) → MSSQLProvider / PgProvider
  */
 
-import type { ConnectionProfile, TestConnectionResult, DatabaseEngine } from '@forgedb/shared';
+import type { ConnectionProfile, TestConnectionResult, DatabaseEngine } from '@joinery/shared';
 import { SQLDialect } from '../dialect/sql-dialect';
 
 /** Result of executing a SQL statement through a provider */

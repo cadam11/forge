@@ -12,8 +12,8 @@ import type {
   AnalysisResponse,
   SQLGenerationRequest,
   SQLGenerationResponse,
-} from '@forgedb/shared';
-import { DEFAULT_AI_SETTINGS, AI_VENDORS_CONFIG } from '@forgedb/shared';
+} from '@joinery/shared';
+import { DEFAULT_AI_SETTINGS, AI_VENDORS_CONFIG } from '@joinery/shared';
 import { BaseSingleton } from '../../utils/singleton';
 import { createLogger } from '../../utils/logger';
 import { CredentialStore } from '../keychain/credential-store';

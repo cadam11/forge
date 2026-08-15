@@ -13,7 +13,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDividerModule } from '@angular/material/divider';
-import type { DatabaseEngine } from '@forgedb/shared';
+import type { DatabaseEngine } from '@joinery/shared';
 import { ConnectionStateService } from '../../../core/state/connection.state';
 
 @Component({

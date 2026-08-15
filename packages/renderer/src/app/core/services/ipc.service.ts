@@ -73,7 +73,7 @@ import type {
   ServerFileEntry,
   ServerDefaultPaths,
   ActiveConnection,
-} from '@forgedb/shared';
+} from '@joinery/shared';
 
 // Dialog types for Electron dialogs
 export interface OpenDialogOptions {
@@ -112,14 +112,14 @@ export interface SaveDialogReturnValue {
   filePath?: string;
 }
 
-// Get the forge API from the preload script
+// Get the joinery API from the preload script
 declare global {
   interface Window {
-    forge: ForgeAPI;
+    joinery: JoineryAPI;
   }
 }
 
-interface ForgeAPI {
+interface JoineryAPI {
   connection: {
     test: (
       profile: ConnectionProfile,
@@ -425,11 +425,11 @@ export class IpcService {
   private restoreUnsubscribe?: () => void;
   private _isAvailable = false;
 
-  private get api(): ForgeAPI {
-    if (!window.forge) {
-      throw new Error('Forge API not available. Running outside Electron context?');
+  private get api(): JoineryAPI {
+    if (!window.joinery) {
+      throw new Error('Joinery API not available. Running outside Electron context?');
     }
-    return window.forge;
+    return window.joinery;
   }
 
   get isAvailable(): boolean {
@@ -438,10 +438,10 @@ export class IpcService {
 
   constructor() {
     // Check if running in Electron context
-    this._isAvailable = typeof window !== 'undefined' && !!window.forge;
+    this._isAvailable = typeof window !== 'undefined' && !!window.joinery;
 
     if (!this._isAvailable) {
-      console.warn('IpcService: Forge API not available. Running in browser mode.');
+      console.warn('IpcService: Joinery API not available. Running in browser mode.');
       return;
     }
 

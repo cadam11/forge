@@ -6,14 +6,14 @@
  * MySQL: uses mysqldump/mysql CLI tools
  */
 
-import { IPC_CHANNELS } from '@forgedb/shared';
+import { IPC_CHANNELS } from '@joinery/shared';
 import type {
   BackupRequest,
   BackupFileInfo,
   CliDepsResult,
   CliEngine,
   RestoreRequest,
-} from '@forgedb/shared';
+} from '@joinery/shared';
 import { BackupRestoreService } from '../services/sql/backup-restore';
 import { PgBackupService } from '../services/sql/pg-backup';
 import { MySQLBackupService } from '../services/sql/mysql-backup';

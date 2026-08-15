@@ -1,14 +1,14 @@
 /**
  * Visual baselines — connection dialog variants.
  *
- * Forge's connection dialog renders engine-specific form fields
+ * Joinery's connection dialog renders engine-specific form fields
  * (auth options, ports, defaults) and exposes an optional SSH-tunnel
  * section. These baselines lock down the layout for each meaningful
  * variant so a refactor that breaks one engine's form is caught.
  */
 
 import { expect, test, type Page } from '@playwright/test';
-import { withForge } from '../../helpers/electron-app';
+import { withJoinery } from '../../helpers/electron-app';
 
 async function openConnectionDialog(window: Page) {
   await expect(window.locator('app-root')).toBeVisible({ timeout: 15000 });
@@ -49,9 +49,9 @@ async function selectEngine(window: Page, label: string) {
   });
 }
 
-test.describe('Forge — connection dialog variants', () => {
+test.describe('Joinery — connection dialog variants', () => {
   test('postgresql engine selected', async () => {
-    await withForge(async ({ window }) => {
+    await withJoinery(async ({ window }) => {
       const dialog = await openConnectionDialog(window);
       await selectEngine(window, 'PostgreSQL');
       await expect(dialog).toHaveScreenshot('postgresql-engine-selected.png');
@@ -59,7 +59,7 @@ test.describe('Forge — connection dialog variants', () => {
   });
 
   test('mysql engine selected', async () => {
-    await withForge(async ({ window }) => {
+    await withJoinery(async ({ window }) => {
       const dialog = await openConnectionDialog(window);
       await selectEngine(window, 'MySQL');
       await expect(dialog).toHaveScreenshot('mysql-engine-selected.png');
@@ -67,7 +67,7 @@ test.describe('Forge — connection dialog variants', () => {
   });
 
   test('ssh tunnel section expanded', async () => {
-    await withForge(async ({ window }) => {
+    await withJoinery(async ({ window }) => {
       const dialog = await openConnectionDialog(window);
       // The SSH checkbox is a single mat-checkbox labeled "Connect via SSH tunnel".
       await dialog.locator('mat-checkbox').filter({ hasText: 'Connect via SSH tunnel' }).click();
@@ -78,7 +78,7 @@ test.describe('Forge — connection dialog variants', () => {
   });
 
   test('password paste-artifact warning banner', async () => {
-    await withForge(async ({ window }) => {
+    await withJoinery(async ({ window }) => {
       const dialog = await openConnectionDialog(window);
       // Trailing space + smart quote — two advisory bullets in the banner.
       await dialog

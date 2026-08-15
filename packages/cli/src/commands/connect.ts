@@ -42,7 +42,7 @@ export const connectCommand = new Command('connect')
         const saved = getConnection(options.connection);
         if (!saved) {
           printError(`Connection "${options.connection}" not found.`);
-          printInfo('Use "forge config list" to see saved connections.');
+          printInfo('Use "joinery config list" to see saved connections.');
           process.exit(1);
         }
         config = saved;

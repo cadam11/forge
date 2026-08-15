@@ -5,7 +5,7 @@
  */
 
 import { Pool, PoolClient, PoolConfig } from 'pg';
-import type { ConnectionProfile, TestConnectionResult } from '@forgedb/shared';
+import type { ConnectionProfile, TestConnectionResult } from '@joinery/shared';
 import { createLogger } from '../../../utils/logger';
 import { DatabaseProvider, type ProviderQueryResult } from './database-provider';
 import { PgDialect } from '../dialect/pg-dialect';

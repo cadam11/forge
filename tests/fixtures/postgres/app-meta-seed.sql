@@ -7,7 +7,7 @@ INSERT INTO app_meta.user (name, email) VALUES
   ('Read-Only Reader', 'reader@example.test');
 
 INSERT INTO app_meta.application (name, description) VALUES
-  ('Forge',          'Database management workspace'),
+  ('Joinery',        'Database management workspace'),
   ('CRM',            'Customer relationship platform'),
   ('Billing',        'Invoicing and dunning'),
   ('Analytics',      'Reporting and dashboards'),

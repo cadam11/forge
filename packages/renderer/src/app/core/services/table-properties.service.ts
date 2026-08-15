@@ -4,7 +4,7 @@
  */
 
 import { Injectable, signal } from '@angular/core';
-import type { TableProperties } from '@forgedb/shared';
+import type { TableProperties } from '@joinery/shared';
 
 export interface TablePropertiesRequest {
   connectionId: string;
@@ -36,7 +36,7 @@ export class TablePropertiesService {
     this._properties.set(null);
 
     try {
-      const properties = await window.forge.explorer.getTableProperties(
+      const properties = await window.joinery.explorer.getTableProperties(
         request.connectionId,
         request.databaseName,
         request.schema,

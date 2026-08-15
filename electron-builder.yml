@@ -1,4 +1,4 @@
-appId: ca.adam11.forge
+appId: ca.adam11.joinery
 productName: Joinery
 copyright: Copyright © 2026 Craig Adam
 
@@ -23,7 +23,7 @@ files:
   - node_modules/**/*
   # Map workspace package to node_modules location
   - from: packages/shared
-    to: node_modules/@forgedb/shared
+    to: node_modules/@joinery/shared
     filter:
       - dist/**/*
       - package.json

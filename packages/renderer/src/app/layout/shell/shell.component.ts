@@ -243,7 +243,7 @@ export class ShellComponent implements OnInit, OnDestroy {
     // Listen for show keyboard shortcuts from menu
     this.subscriptions.push(
       this.menuService.showShortcuts$.subscribe(() => {
-        window.dispatchEvent(new CustomEvent('forge:show-shortcuts'));
+        window.dispatchEvent(new CustomEvent('joinery:show-shortcuts'));
       })
     );
 

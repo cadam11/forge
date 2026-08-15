@@ -2,7 +2,7 @@
  * Client for the sqlglot Python microservice.
  *
  * Vendored from @memberjunction/sqlglot-ts v5.51.0 (ISC licensed, MemberJunction)
- * and trimmed to the five members Forge uses: start, stop, transpile, IsRunning,
+ * and trimmed to the five members Joinery uses: start, stop, transpile, IsRunning,
  * Port. The transpiler itself is Python's sqlglot by Toby Mao (MIT) —
  * https://github.com/tobymao/sqlglot.
  *

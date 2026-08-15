@@ -1,7 +1,7 @@
 /**
  * Password hygiene checks for paste artifacts.
  *
- * Forge captures the SQL password from a UI text field — almost always pasted —
+ * Joinery captures the SQL password from a UI text field — almost always pasted —
  * and stores it byte-for-byte, with no trimming anywhere in the capture → IPC →
  * keychain → driver chain. The mssql/pg/mysql drivers handle genuine special
  * characters (@ # ! $ % &, etc.) natively, so those are NOT a problem.

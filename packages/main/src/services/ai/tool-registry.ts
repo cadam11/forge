@@ -2,7 +2,7 @@
  * Tool Registry - Defines and executes tools available to the AI chat agent
  */
 
-import type { ToolDefinition, DatabaseEngine } from '@forgedb/shared';
+import type { ToolDefinition, DatabaseEngine } from '@joinery/shared';
 import { BaseSingleton } from '../../utils/singleton';
 import { createLogger } from '../../utils/logger';
 import { ConnectionPoolManager } from '../sql/connection-pool';

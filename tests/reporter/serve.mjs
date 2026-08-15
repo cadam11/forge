@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Live dashboard server for the Forge regression harness.
+// Live dashboard server for the Joinery regression harness.
 //
 // Brings the Docker harness up, then runs `vitest --watch` for both the unit
 // and integration tiers and hosts a live HTML dashboard at http://127.0.0.1:5188.
@@ -38,10 +38,10 @@ const SNAPSHOTS_DIR = join(REPO_ROOT, 'tests', '__snapshots__', 'visual');
 const ATTACHMENTS_DIR = join(REPO_ROOT, 'tests', 'reports', '.cache', 'playwright-results');
 const PERSISTED_STATE_FILE = join(REPO_ROOT, 'tests', 'reports', '.cache', 'dashboard-state.json');
 
-const PORT = Number(process.env.FORGE_DASHBOARD_PORT ?? 5188);
+const PORT = Number(process.env.JOINERY_DASHBOARD_PORT ?? 5188);
 // Bind to all interfaces by default so the dashboard is reachable over LAN
-// / Tailscale. Override with FORGE_DASHBOARD_HOST=127.0.0.1 to restrict.
-const HOST = process.env.FORGE_DASHBOARD_HOST ?? '0.0.0.0';
+// / Tailscale. Override with JOINERY_DASHBOARD_HOST=127.0.0.1 to restrict.
+const HOST = process.env.JOINERY_DASHBOARD_HOST ?? '0.0.0.0';
 // Reporters running locally always POST through 127.0.0.1 — no point
 // going via the external interface.
 const REPORTER_URL = `http://127.0.0.1:${PORT}/_event`;
@@ -182,7 +182,7 @@ async function main() {
     const lanUrls = listLanUrls(PORT);
     console.log('');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log(`  Forge live dashboard:  ${localUrl}`);
+    console.log(`  Joinery live dashboard:  ${localUrl}`);
     for (const u of lanUrls) console.log(`                         ${u}`);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('  Vitest is watching both tiers. Edit code, see live updates.');
@@ -700,10 +700,10 @@ function spawnOneShotPlaywright(tier, files = []) {
     cwd: REPO_ROOT,
     env: {
       ...process.env,
-      FORGE_LIVE_REPORTER_URL: REPORTER_URL,
+      JOINERY_LIVE_REPORTER_URL: REPORTER_URL,
       // Default tier is 'e2e' but the live reporter overrides per file path
       // so a visual file in a mixed run still lands in the right tier.
-      FORGE_LIVE_REPORTER_TIER: tier,
+      JOINERY_LIVE_REPORTER_TIER: tier,
     },
   });
   // Track WHAT this child is running so the dashboard can decide whether
@@ -1095,7 +1095,7 @@ const ROLE_ORDER = ['bastion', 'postgres-private', 'postgres', 'mssql', 'mysql']
 
 function classifyContainer(name) {
   // Map container name → engine kind + display role.
-  const stripped = name.replace(/^\//, '').replace(/^forge-test-/, '');
+  const stripped = name.replace(/^\//, '').replace(/^joinery-test-/, '');
   if (stripped === 'bastion')           return { engine: 'bastion',          role: 'SSH bastion' };
   if (stripped === 'postgres-private')  return { engine: 'postgres-private', role: 'tunneled pg' };
   if (stripped === 'postgres')          return { engine: 'postgres',         role: 'PostgreSQL 16' };
@@ -1129,7 +1129,7 @@ async function pollDockerOnce() {
   }
   infra.lastError = null;
 
-  const ours = list.filter((info) => (info.Names ?? []).some((n) => n.includes('/forge-test-')));
+  const ours = list.filter((info) => (info.Names ?? []).some((n) => n.includes('/joinery-test-')));
   const seen = new Set();
 
   for (const info of ours) {
@@ -1196,11 +1196,11 @@ function startInfrastructurePolling() {
 // dashboard always shows the same 5-card grid — clearer than empty space.
 // Names + engine + role mirror tests/docker-compose.test.yml.
 const KNOWN_CONTAINERS = [
-  { name: 'forge-test-mssql',            engine: 'mssql',            role: 'SQL Server 2022' },
-  { name: 'forge-test-postgres',         engine: 'postgres',         role: 'PostgreSQL 16' },
-  { name: 'forge-test-mysql',            engine: 'mysql',            role: 'MySQL 8' },
-  { name: 'forge-test-postgres-private', engine: 'postgres-private', role: 'tunneled pg' },
-  { name: 'forge-test-bastion',          engine: 'bastion',          role: 'SSH bastion' },
+  { name: 'joinery-test-mssql',            engine: 'mssql',            role: 'SQL Server 2022' },
+  { name: 'joinery-test-postgres',         engine: 'postgres',         role: 'PostgreSQL 16' },
+  { name: 'joinery-test-mysql',            engine: 'mysql',            role: 'MySQL 8' },
+  { name: 'joinery-test-postgres-private', engine: 'postgres-private', role: 'tunneled pg' },
+  { name: 'joinery-test-bastion',          engine: 'bastion',          role: 'SSH bastion' },
 ];
 
 function ghostContainerFor(known) {
@@ -1232,7 +1232,7 @@ function serializeInfrastructure() {
     merged.push(realByName.get(known.name) ?? ghostContainerFor(known));
   }
   // Anything outside KNOWN_CONTAINERS (shouldn't happen — we filter to
-  // forge-test-* — but defensive against future compose additions) appended
+  // joinery-test-* — but defensive against future compose additions) appended
   // verbatim so it still shows up.
   for (const c of realContainers) {
     if (!KNOWN_CONTAINERS.some((k) => k.name === c.name)) merged.push(c);
@@ -1282,8 +1282,8 @@ function spawnVitest(tier, extraArgs) {
     cwd: REPO_ROOT,
     env: {
       ...process.env,
-      FORGE_LIVE_REPORTER_URL: REPORTER_URL,
-      FORGE_LIVE_REPORTER_TIER: tier,
+      JOINERY_LIVE_REPORTER_URL: REPORTER_URL,
+      JOINERY_LIVE_REPORTER_TIER: tier,
     },
   });
   return child;
@@ -1508,14 +1508,14 @@ function renderDashboardHtml() {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Forge · Regression Harness</title>
+<title>Joinery · Regression Harness</title>
 ${FONT_LINKS}
 <style>${STYLES}</style>
 </head>
 <body>
 <main>
   <header class="header">
-    <h1><span class="accent">Forge</span> Regression Harness</h1>
+    <h1><span class="accent">Joinery</span> Regression Harness</h1>
     <div class="header-meta">
       <span class="label">Repo</span>
       <span class="value">${escapeHtml(state.git.branch)}@${escapeHtml(state.git.commit)} ${dirtyMark}</span>
@@ -1554,9 +1554,9 @@ ${FONT_LINKS}
 
 ${LIGHTBOX_HTML}
 
-<!-- One global confirm modal. forgeConfirm() rebinds its content + handlers
+<!-- One global confirm modal. joineryConfirm() rebinds its content + handlers
      each time it's invoked, returning a Promise<boolean>. -->
-<div id="forge-modal" class="modal" hidden role="dialog" aria-modal="true" aria-hidden="true">
+<div id="joinery-modal" class="modal" hidden role="dialog" aria-modal="true" aria-hidden="true">
   <div class="modal-backdrop"></div>
   <div class="modal-card">
     <h3 class="modal-title">
@@ -1891,10 +1891,10 @@ connect();
 // ---- Custom confirm modal (replaces native window.confirm) ----
 //
 // The native confirm dialog clashes with the dashboard aesthetic and can't be
-// styled. forgeConfirm builds on the existing modal markup, returns a Promise,
+// styled. joineryConfirm builds on the existing modal markup, returns a Promise,
 // and supports a 'tone' (info / warn / danger) that picks the accent color.
 
-const modal = document.getElementById('forge-modal');
+const modal = document.getElementById('joinery-modal');
 const modalCard = modal.querySelector('.modal-card');
 const modalTitle = modal.querySelector('.modal-title-text');
 const modalIcon = modal.querySelector('.modal-icon');
@@ -1916,7 +1916,7 @@ function modalKeydown(event) {
   else if (event.key === 'Enter') { event.preventDefault(); closeModal(true); }
 }
 
-function forgeConfirm({ title = 'Confirm', body = '', confirmLabel = 'Confirm', cancelLabel = 'Cancel', tone = 'info' } = {}) {
+function joineryConfirm({ title = 'Confirm', body = '', confirmLabel = 'Confirm', cancelLabel = 'Cancel', tone = 'info' } = {}) {
   return new Promise((resolve) => {
     if (modalActiveResolve) { modalActiveResolve(false); }
     modalActiveResolve = resolve;
@@ -1935,7 +1935,7 @@ function forgeConfirm({ title = 'Confirm', body = '', confirmLabel = 'Confirm', 
 modalCancel.addEventListener('click', () => closeModal(false));
 modalConfirm.addEventListener('click', () => closeModal(true));
 modal.querySelector('.modal-backdrop').addEventListener('click', () => closeModal(false));
-// Bind ESC/Enter only while modal is shown — re-bound each open via forgeConfirm.
+// Bind ESC/Enter only while modal is shown — re-bound each open via joineryConfirm.
 modal.addEventListener('toggle-listen', () => document.addEventListener('keydown', modalKeydown, true));
 const modalObserver = new MutationObserver(() => {
   if (modal.hidden) document.removeEventListener('keydown', modalKeydown, true);
@@ -1948,7 +1948,7 @@ async function dispatchControl(btn) {
   if (!action) return;
 
   if (action === 'harness-reset') {
-    const ok = await forgeConfirm({
+    const ok = await joineryConfirm({
       title: 'Reset harness',
       body: 'This stops every test container, removes their volumes, and brings them back up. Any in-progress test runs will be interrupted and seeded data will be wiped. The first run after reset may be slower while databases re-initialize.',
       confirmLabel: 'Reset',
@@ -1956,7 +1956,7 @@ async function dispatchControl(btn) {
     });
     if (!ok) return;
   } else if (action === 'harness-down') {
-    const ok = await forgeConfirm({
+    const ok = await joineryConfirm({
       title: 'Stop containers',
       body: 'Stops all test containers. Volumes are preserved — the next Up restores existing state immediately.',
       confirmLabel: 'Shutdown',

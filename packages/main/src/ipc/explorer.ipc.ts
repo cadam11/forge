@@ -2,7 +2,7 @@
  * Explorer IPC Handlers
  */
 
-import { IPC_CHANNELS } from '@forgedb/shared';
+import { IPC_CHANNELS } from '@joinery/shared';
 import type {
   TableInfo,
   ViewInfo,
@@ -17,7 +17,7 @@ import type {
   ExtendedProperty,
   TableProperties,
   SchemaInfo,
-} from '@forgedb/shared';
+} from '@joinery/shared';
 import { MetadataService } from '../services/sql/metadata';
 import { createLogger } from '../utils/logger';
 import { safeHandle } from './safe-handle';

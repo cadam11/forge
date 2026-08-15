@@ -232,7 +232,7 @@ export class MarkdownViewerComponent implements AfterViewChecked {
    * Model-authored links must never navigate the app window.
    *
    * The main process installs no `will-navigate` guard and the preload exposes
-   * `window.forge` on every document load, so letting the default action run would
+   * `window.joinery` on every document load, so letting the default action run would
    * hand the whole IPC surface to whatever page the link pointed at. Sanitization
    * has already reduced the scheme space to http/https/mailto; anything else that
    * reaches here is simply dropped.

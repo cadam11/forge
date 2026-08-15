@@ -29,7 +29,7 @@ function ensureKey() {
     [
       '-t', 'ed25519',
       '-N', '',
-      '-C', 'forge-test-key (DO NOT USE OUTSIDE TESTS)',
+      '-C', 'joinery-test-key (DO NOT USE OUTSIDE TESTS)',
       '-f', PRIVATE_KEY,
     ],
     { stdio: 'inherit' },

@@ -9,7 +9,7 @@ import { IpcService } from '../../../core/services/ipc.service';
 import { TabStateService } from '../../../core/state/tab.state';
 import { ConnectionStateService } from '../../../core/state/connection.state';
 import { NotificationService } from '../../../core/services/notification.service';
-import type { FileTreeNode, WorkspaceInfo } from '@forgedb/shared';
+import type { FileTreeNode, WorkspaceInfo } from '@joinery/shared';
 import { firstValueFrom } from 'rxjs';
 
 @Component({
@@ -265,8 +265,8 @@ export class WorkspacePanelComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     // Listen for file changes
-    if (this.ipc.isAvailable && window.forge?.workspace?.onFileChanged) {
-      this.fileChangeUnsubscribe = window.forge.workspace.onFileChanged(() => {
+    if (this.ipc.isAvailable && window.joinery?.workspace?.onFileChanged) {
+      this.fileChangeUnsubscribe = window.joinery.workspace.onFileChanged(() => {
         if (this.workspace()) {
           this.refresh();
         }

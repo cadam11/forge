@@ -1,32 +1,32 @@
 /**
  * Visual baselines — post-connection states.
  *
- * Connects to the seeded PostgreSQL test container (forge_test) and
- * captures the UI states that only exist when Forge has an active
+ * Connects to the seeded PostgreSQL test container (joinery_test) and
+ * captures the UI states that only exist when Joinery has an active
  * connection: explorer tree populated, query editor open, results grid
  * after running a query.
  *
  * Each test launches a fresh Electron with an isolated user-data dir
- * (via withForge → launchForge), so the Connect button's "save profile"
+ * (via withJoinery → launchJoinery), so the Connect button's "save profile"
  * side-effect doesn't leak between tests or pollute the welcome baseline.
  */
 
 import { expect, test } from '@playwright/test';
-import { withForge } from '../../helpers/electron-app';
+import { withJoinery } from '../../helpers/electron-app';
 import {
   connectToTestPostgres,
-  ensureForgeTestSeeded,
+  ensureJoineryTestSeeded,
   executeQuery,
   openNewQueryTab,
   selectDatabase,
   typeInEditor,
-} from '../../helpers/forge-actions';
+} from '../../helpers/joinery-actions';
 
-test.beforeAll(ensureForgeTestSeeded);
+test.beforeAll(ensureJoineryTestSeeded);
 
-test.describe('Forge — connected visual baselines', () => {
+test.describe('Joinery — connected visual baselines', () => {
   test('sidebar with populated explorer tree', async () => {
-    await withForge(async ({ window }) => {
+    await withJoinery(async ({ window }) => {
       await connectToTestPostgres(window);
       // Capture just the sidebar — full-window captures have dynamic content
       // (docker container uptime strings, snackbar fade) that would flake.
@@ -38,9 +38,9 @@ test.describe('Forge — connected visual baselines', () => {
   });
 
   test('query editor — empty new tab', async () => {
-    await withForge(async ({ app, window }) => {
+    await withJoinery(async ({ app, window }) => {
       await connectToTestPostgres(window);
-      await selectDatabase(window, 'forge_test');
+      await selectDatabase(window, 'joinery_test');
       await openNewQueryTab(app, window);
       await window.waitForTimeout(800);
       const mainArea = window
@@ -51,9 +51,9 @@ test.describe('Forge — connected visual baselines', () => {
   });
 
   test('result grid — products query', async () => {
-    await withForge(async ({ app, window }) => {
+    await withJoinery(async ({ app, window }) => {
       await connectToTestPostgres(window);
-      await selectDatabase(window, 'forge_test');
+      await selectDatabase(window, 'joinery_test');
       await openNewQueryTab(app, window);
       await typeInEditor(
         window,

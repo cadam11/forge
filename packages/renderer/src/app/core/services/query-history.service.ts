@@ -12,7 +12,7 @@
 
 import { Injectable, inject } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
-import type { QueryHistoryEntry } from '@forgedb/shared';
+import type { QueryHistoryEntry } from '@joinery/shared';
 import { QueryHistoryStateService } from '../state/query-history.state';
 import { TabStateService } from '../state/tab.state';
 import { ConnectionStateService } from '../state/connection.state';

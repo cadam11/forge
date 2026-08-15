@@ -1,4 +1,4 @@
--- Forge regression-test fixture schema (MSSQL).
+-- Joinery regression-test fixture schema (MSSQL).
 -- Synthetic e-commerce shape: products, customers, orders, order_items.
 -- Identical logical shape to the postgres and mysql fixtures.
 

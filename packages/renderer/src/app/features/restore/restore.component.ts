@@ -16,7 +16,7 @@ import { firstValueFrom, Subscription } from 'rxjs';
 import { IpcService } from '../../core/services/ipc.service';
 import { ConnectionStateService } from '../../core/state/connection.state';
 import { NotificationService } from '../../core/services/notification.service';
-import type { RestoreProgress, RestoreRequest } from '@forgedb/shared';
+import type { RestoreProgress, RestoreRequest } from '@joinery/shared';
 
 interface FileMapping {
   logicalName: string;

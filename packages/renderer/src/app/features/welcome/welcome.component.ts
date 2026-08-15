@@ -14,7 +14,7 @@ import {
   ConnectionDialogComponent,
   ConnectionDialogData,
 } from '../../shared/components/connection-dialog/connection-dialog.component';
-import type { DockerStatus, DockerContainer } from '@forgedb/shared';
+import type { DockerStatus, DockerContainer } from '@joinery/shared';
 
 @Component({
   selector: 'app-welcome',
@@ -948,11 +948,11 @@ export class WelcomeComponent implements OnInit {
 
   openDocs(event: Event): void {
     event.preventDefault();
-    this.ipc.openExternal('https://github.com/cadam11/forge/wiki').subscribe();
+    this.ipc.openExternal('https://github.com/cadam11/joinery/wiki').subscribe();
   }
 
   openGitHub(event: Event): void {
     event.preventDefault();
-    this.ipc.openExternal('https://github.com/cadam11/forge').subscribe();
+    this.ipc.openExternal('https://github.com/cadam11/joinery').subscribe();
   }
 }

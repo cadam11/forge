@@ -2,7 +2,7 @@
  * PostgreSQL Backup/Restore Service
  *
  * Uses pg_dump and pg_restore CLI tools (not SQL commands).
- * Requires pg_dump/pg_restore to be installed on the machine running Forge.
+ * Requires pg_dump/pg_restore to be installed on the machine running Joinery.
  */
 
 import { spawn } from 'child_process';
@@ -14,8 +14,8 @@ import type {
   BackupRequest,
   RestoreProgress,
   RestoreRequest,
-} from '@forgedb/shared';
-import { IPC_CHANNELS } from '@forgedb/shared';
+} from '@joinery/shared';
+import { IPC_CHANNELS } from '@joinery/shared';
 import { BaseSingleton } from '../../utils/singleton';
 import { createLogger } from '../../utils/logger';
 import { ConnectionProfilesStore } from '../config/connection-profiles';

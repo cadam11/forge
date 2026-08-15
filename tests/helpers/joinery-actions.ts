@@ -19,16 +19,16 @@ import { join } from 'node:path';
 export const TEST_PG = {
   host: '127.0.0.1',
   port: 15432,
-  user: 'forge',
-  password: 'forge',
-  database: 'forge_test',
+  user: 'joinery',
+  password: 'joinery',
+  database: 'joinery_test',
 } as const;
 
 /**
- * Idempotently seed the default `forge_test` database with the synthetic
+ * Idempotently seed the default `joinery_test` database with the synthetic
  * schema + data so visual / functional specs that connect via the UI find
  * a populated database. The integration tier uses isolated per-test DBs
- * via `withFreshDatabase` and never touches `forge_test`.
+ * via `withFreshDatabase` and never touches `joinery_test`.
  *
  * Two distinct schemas are seeded:
  *   - `public.*` — synthetic e-commerce (products / customers / orders /
@@ -41,7 +41,7 @@ export const TEST_PG = {
  * Each schema's presence is checked independently so adding either to an
  * existing seeded database doesn't redo the other.
  */
-export async function ensureForgeTestSeeded(): Promise<void> {
+export async function ensureJoineryTestSeeded(): Promise<void> {
   const client = new PgClient({ ...TEST_PG });
   await client.connect();
   try {
@@ -88,7 +88,7 @@ export async function fillField(
 }
 
 /**
- * Open Forge's New Connection dialog from the welcome screen, fill it
+ * Open Joinery's New Connection dialog from the welcome screen, fill it
  * with the test PG container's credentials, click Connect, and wait for
  * the connected-state sidebar to appear. Dismisses the connect snackbar
  * before returning so visual captures aren't flaked by it.
@@ -110,7 +110,7 @@ export async function connectToTestPostgres(window: Page): Promise<void> {
   await fillField(dialog, 'Password', TEST_PG.password);
   await fillField(dialog, 'Default Database', TEST_PG.database);
 
-  // Stock dev PG image doesn't speak SSL; Forge defaults to encrypt-on.
+  // Stock dev PG image doesn't speak SSL; Joinery defaults to encrypt-on.
   await dialog
     .locator('mat-checkbox')
     .filter({ hasText: 'Encrypt Connection' })
@@ -136,7 +136,7 @@ export async function connectToTestPostgres(window: Page): Promise<void> {
 /**
  * Pick the named database from the sidebar's database picker. The new
  * query tab won't open until a database is selected (newQuery() in
- * Forge's MenuService short-circuits when selectedDatabase() is null).
+ * Joinery's MenuService short-circuits when selectedDatabase() is null).
  */
 export async function selectDatabase(window: Page, dbName: string): Promise<void> {
   await window.locator('app-sidebar .database-selector button').first().click();
@@ -149,7 +149,7 @@ export async function selectDatabase(window: Page, dbName: string): Promise<void
 }
 
 /**
- * Open a new query tab via the same IPC channel Forge's macOS menu uses.
+ * Open a new query tab via the same IPC channel Joinery's macOS menu uses.
  * Waits for the freshly-mounted Monaco editor to be visible before returning.
  *
  * Important: every previously-opened query tab keeps its Monaco mount in the

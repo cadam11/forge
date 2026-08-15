@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { FULL_CAPABILITIES } from '@forgedb/shared';
+import { FULL_CAPABILITIES } from '@joinery/shared';
 import { CapabilitiesStore } from './capabilities.state';
 
 describe('CapabilitiesStore', () => {

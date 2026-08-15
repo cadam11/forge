@@ -2,7 +2,7 @@ import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, readdirSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { QueryResultSnapshot } from '@forgedb/shared';
+import type { QueryResultSnapshot } from '@joinery/shared';
 import { SnapshotFileStore } from './snapshot-file-store';
 
 function makeSnapshot(
@@ -37,7 +37,7 @@ describe('SnapshotFileStore', () => {
   let store: SnapshotFileStore;
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'forge-snap-'));
+    dir = mkdtempSync(join(tmpdir(), 'joinery-snap-'));
     store = new SnapshotFileStore(dir);
   });
 

@@ -121,7 +121,7 @@ export const IPC_CHANNELS = {
     ERROR: 'backup:error',
     GET_HISTORY: 'backup:get-history',
     // Probe whether the host has the engine-specific CLIs (pg_dump,
-    // mysqldump, etc.) Forge needs for backup/restore on PG/MySQL.
+    // mysqldump, etc.) Joinery needs for backup/restore on PG/MySQL.
     CHECK_TOOLS: 'backup:check-tools',
     // Same probe but bypasses the cache — wired to the "Re-check"
     // button in the missing-tools dialog after the user installs.

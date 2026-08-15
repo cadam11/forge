@@ -22,15 +22,15 @@
  */
 
 import { expect, test, type Page } from '@playwright/test';
-import { withForge } from '../helpers/electron-app';
+import { withJoinery } from '../helpers/electron-app';
 import {
   TEST_PG,
-  ensureForgeTestSeeded,
+  ensureJoineryTestSeeded,
   fillField,
   connectToTestPostgres,
-} from '../helpers/forge-actions';
+} from '../helpers/joinery-actions';
 
-test.beforeAll(ensureForgeTestSeeded);
+test.beforeAll(ensureJoineryTestSeeded);
 
 /**
  * Open the sidebar's "New Connection" + button and create another postgres
@@ -114,9 +114,9 @@ async function rightClickDisconnectServer(window: Page, profileName: string): Pr
   await window.waitForTimeout(800);
 }
 
-test.describe('Forge — multi-connection disconnect', () => {
+test.describe('Joinery — multi-connection disconnect', () => {
   test('1.4: right-click Disconnect on the focused server keeps the other two visible', async () => {
-    await withForge(async ({ window }) => {
+    await withJoinery(async ({ window }) => {
       // First profile uses the existing helper (welcome → New Connection card).
       await connectToTestPostgres(window);
       // Two more profiles, each with a distinct name, via the sidebar "+" button.
@@ -152,7 +152,7 @@ test.describe('Forge — multi-connection disconnect', () => {
   });
 
   test('1.5: right-click Disconnect on a non-focused server kills the right one', async () => {
-    await withForge(async ({ window }) => {
+    await withJoinery(async ({ window }) => {
       await connectToTestPostgres(window);
       await addAdditionalPostgresProfile(window, 'PG-Two');
       await addAdditionalPostgresProfile(window, 'PG-Three');

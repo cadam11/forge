@@ -5,7 +5,7 @@
 
 import Store from 'electron-store';
 import { BaseSingleton } from '../../utils/singleton';
-import type { AppState, TabState, LayoutConfig } from '@forgedb/shared';
+import type { AppState, TabState, LayoutConfig } from '@joinery/shared';
 import { createTrailingDebounce, type TrailingDebounce } from '../../utils/trailing-debounce';
 
 const DEFAULT_APP_STATE: AppState = {

@@ -8,19 +8,19 @@
  */
 
 import { expect, test } from '@playwright/test';
-import { withForge } from '../helpers/electron-app';
+import { withJoinery } from '../helpers/electron-app';
 import {
   connectToTestPostgres,
-  ensureForgeTestSeeded,
+  ensureJoineryTestSeeded,
   openNewQueryTab,
   selectDatabase,
-} from '../helpers/forge-actions';
+} from '../helpers/joinery-actions';
 
-test.beforeAll(ensureForgeTestSeeded);
+test.beforeAll(ensureJoineryTestSeeded);
 
-test.describe('Forge — UI actions', () => {
+test.describe('Joinery — UI actions', () => {
   test('Cmd+Shift+P opens the command palette', async () => {
-    await withForge(async ({ window }) => {
+    await withJoinery(async ({ window }) => {
       await expect(window.locator('app-root')).toBeVisible({ timeout: 15000 });
       await window.keyboard.press('Meta+Shift+p');
       // The component renders an overlay only when open.
@@ -31,7 +31,7 @@ test.describe('Forge — UI actions', () => {
   });
 
   test('Cmd+P opens the object search dialog', async () => {
-    await withForge(async ({ window }) => {
+    await withJoinery(async ({ window }) => {
       await expect(window.locator('app-root')).toBeVisible({ timeout: 15000 });
       await window.keyboard.press('Meta+p');
       await expect(window.locator('app-object-search .object-search')).toBeVisible({
@@ -41,9 +41,9 @@ test.describe('Forge — UI actions', () => {
   });
 
   test('query history dialog opens via menu IPC', async () => {
-    await withForge(async ({ app, window }) => {
+    await withJoinery(async ({ app, window }) => {
       await connectToTestPostgres(window);
-      await selectDatabase(window, 'forge_test');
+      await selectDatabase(window, 'joinery_test');
       await openNewQueryTab(app, window);
       // Query history is per-query-component — fires when a query tab is
       // active. The menu item dispatches menu:query-history.
@@ -55,7 +55,7 @@ test.describe('Forge — UI actions', () => {
   });
 
   test('object search input accepts typed input and shows a result region', async () => {
-    await withForge(async ({ window }) => {
+    await withJoinery(async ({ window }) => {
       await expect(window.locator('app-root')).toBeVisible({ timeout: 15000 });
       await window.keyboard.press('Meta+p');
       const dialog = window.locator('app-object-search .object-search');
@@ -80,7 +80,7 @@ test.describe('Forge — UI actions', () => {
   });
 
   test('shortcuts dialog opens via menu IPC', async () => {
-    await withForge(async ({ app, window }) => {
+    await withJoinery(async ({ app, window }) => {
       await expect(window.locator('app-root')).toBeVisible({ timeout: 15000 });
       await app.evaluate(({ BrowserWindow }) => {
         BrowserWindow.getAllWindows()[0]?.webContents.send('menu:show-shortcuts');
@@ -92,7 +92,7 @@ test.describe('Forge — UI actions', () => {
   });
 
   test('docker panel opens from the status-bar indicator', async () => {
-    await withForge(async ({ window }) => {
+    await withJoinery(async ({ window }) => {
       await expect(window.locator('app-root')).toBeVisible({ timeout: 15000 });
       // The docker indicator lives in the status bar (bottom of the shell).
       // It's a button with a docker-success / docker-warning class depending

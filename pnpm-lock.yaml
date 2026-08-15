@@ -155,7 +155,7 @@ importers:
 
   packages/main:
     dependencies:
-      '@forgedb/shared':
+      '@joinery/shared':
         specifier: workspace:*
         version: link:../shared
       dockerode:
@@ -195,7 +195,7 @@ importers:
 
   packages/preload:
     dependencies:
-      '@forgedb/shared':
+      '@joinery/shared':
         specifier: workspace:*
         version: link:../shared
     devDependencies:
@@ -247,7 +247,7 @@ importers:
       '@fontsource/jetbrains-mono':
         specifier: ^5.3.0
         version: 5.3.0
-      '@forgedb/shared':
+      '@joinery/shared':
         specifier: workspace:*
         version: link:../shared
       '@types/d3':

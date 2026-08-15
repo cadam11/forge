@@ -39,7 +39,7 @@ describe('CliDepsService', () => {
     });
 
     it('returns available: false for a non-existent binary', async () => {
-      const status = await service.checkTool('__forge_does_not_exist_zzz__');
+      const status = await service.checkTool('__joinery_does_not_exist_zzz__');
       expect(status.available).toBe(false);
       expect(status.version).toBeUndefined();
     });

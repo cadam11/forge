@@ -12,11 +12,11 @@
  */
 
 import { expect, test } from '@playwright/test';
-import { withForge } from '../../helpers/electron-app';
+import { withJoinery } from '../../helpers/electron-app';
 
-test.describe('Forge — visual baselines', () => {
+test.describe('Joinery — visual baselines', () => {
   test('welcome screen', async () => {
-    await withForge(async ({ window }) => {
+    await withJoinery(async ({ window }) => {
       await expect(window.locator('app-root')).toBeVisible({ timeout: 15000 });
       await expect(window.locator('mat-card[aria-label="New Connection"]')).toBeVisible({
         timeout: 10000,
@@ -28,7 +28,7 @@ test.describe('Forge — visual baselines', () => {
   });
 
   test('connection dialog', async () => {
-    await withForge(async ({ window }) => {
+    await withJoinery(async ({ window }) => {
       await expect(window.locator('app-root')).toBeVisible({ timeout: 15000 });
       await window.locator('mat-card[aria-label="New Connection"]').click();
       const dialog = window.locator('mat-dialog-container');

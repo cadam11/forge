@@ -5,7 +5,7 @@
  * reports a missing binary. Kept in `shared` so both main (for IPC type
  * safety) and renderer (for rendering) consume the same source.
  *
- * Forge ships macOS + Windows installers (see `electron-builder.yml`).
+ * Joinery ships macOS + Windows installers (see `electron-builder.yml`).
  * Linux/other platforms get a generic block that points at the official
  * docs without a copy-pasteable command.
  */
@@ -35,7 +35,7 @@ const POSTGRES_DARWIN: CliInstallInstructions = {
     },
   ],
   notes: [
-    'Restart Forge after installing so the new PATH is picked up.',
+    'Restart Joinery after installing so the new PATH is picked up.',
     "Don't have Homebrew? Install it first from https://brew.sh.",
   ],
 };
@@ -62,7 +62,7 @@ const POSTGRES_WIN32: CliInstallInstructions = {
     },
   ],
   notes: [
-    'Restart Forge after installing so the new PATH is picked up.',
+    'Restart Joinery after installing so the new PATH is picked up.',
     "If pg_dump still isn't found, ensure the PostgreSQL bin folder (typically C:\\Program Files\\PostgreSQL\\16\\bin) is on your PATH.",
   ],
 };
@@ -78,7 +78,7 @@ const MYSQL_DARWIN: CliInstallInstructions = {
     },
     {
       description:
-        'mysql-client is keg-only — add its bin folder to your shell PATH so Forge can find it.',
+        'mysql-client is keg-only — add its bin folder to your shell PATH so Joinery can find it.',
       command: 'echo \'export PATH="/opt/homebrew/opt/mysql-client/bin:$PATH"\' >> ~/.zshrc',
     },
     {
@@ -87,7 +87,7 @@ const MYSQL_DARWIN: CliInstallInstructions = {
     },
   ],
   notes: [
-    'Restart Forge after installing so the new PATH is picked up.',
+    'Restart Joinery after installing so the new PATH is picked up.',
     'If you use bash instead of zsh, swap ~/.zshrc for ~/.bash_profile.',
     "Don't have Homebrew? Install it first from https://brew.sh.",
   ],
@@ -115,7 +115,7 @@ const MYSQL_WIN32: CliInstallInstructions = {
     },
   ],
   notes: [
-    'Restart Forge after installing so the new PATH is picked up.',
+    'Restart Joinery after installing so the new PATH is picked up.',
     "If mysqldump still isn't found, ensure the MySQL bin folder is on your PATH.",
   ],
 };
@@ -141,7 +141,7 @@ const POSTGRES_GENERIC: CliInstallInstructions = {
       command: 'pg_dump --version',
     },
   ],
-  notes: ['Restart Forge after installing so the new PATH is picked up.'],
+  notes: ['Restart Joinery after installing so the new PATH is picked up.'],
 };
 
 const MYSQL_GENERIC: CliInstallInstructions = {
@@ -162,7 +162,7 @@ const MYSQL_GENERIC: CliInstallInstructions = {
       command: 'mysqldump --version',
     },
   ],
-  notes: ['Restart Forge after installing so the new PATH is picked up.'],
+  notes: ['Restart Joinery after installing so the new PATH is picked up.'],
 };
 
 const SUPPORTED: Record<CliEngine, Record<CliInstructionsPlatform, CliInstallInstructions>> = {
@@ -178,7 +178,7 @@ const GENERIC: Record<CliEngine, CliInstallInstructions> = {
 /**
  * Resolve the install instructions block for a given engine + platform.
  * Falls back to the generic block when the platform isn't one of the
- * Forge build targets (macOS or Windows).
+ * Joinery build targets (macOS or Windows).
  */
 export function getCliInstallInstructions(
   engine: CliEngine,

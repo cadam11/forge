@@ -7,15 +7,15 @@ import { dialog, BrowserWindow } from 'electron';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { watch, FSWatcher } from 'fs';
-import { IPC_CHANNELS } from '@forgedb/shared';
-import type { FileTreeNode, WorkspaceInfo, WorkspaceSettings } from '@forgedb/shared';
+import { IPC_CHANNELS } from '@joinery/shared';
+import type { FileTreeNode, WorkspaceInfo, WorkspaceSettings } from '@joinery/shared';
 import { AppStateStore } from '../services/config/app-state';
 import { createLogger } from '../utils/logger';
 import { safeHandle } from './safe-handle';
 
 const log = createLogger('Workspace');
 
-const WORKSPACE_SETTINGS_FILE = '.forge.json';
+const WORKSPACE_SETTINGS_FILE = '.joinery.json';
 const SQL_EXTENSIONS = ['.sql', '.tsql', '.prc', '.fnc', '.trg', '.vw'];
 
 // Track active file watchers

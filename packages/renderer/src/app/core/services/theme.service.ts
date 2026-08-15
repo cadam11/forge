@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { SettingsService } from './settings.service';
-import type { ThemePreference } from '@forgedb/shared';
+import type { ThemePreference } from '@joinery/shared';
 
 export type ThemeMode = ThemePreference;
 

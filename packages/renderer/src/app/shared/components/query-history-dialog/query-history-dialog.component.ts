@@ -27,7 +27,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDividerModule } from '@angular/material/divider';
-import type { QueryHistoryEntry } from '@forgedb/shared';
+import type { QueryHistoryEntry } from '@joinery/shared';
 import { QueryHistoryStateService } from '../../../core/state/query-history.state';
 import type { QueryHistoryDialogResult } from '../../../core/services/query-history.service';
 

@@ -1,6 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { v4 as uuidv4 } from 'uuid';
-import type { LogEntry, LogLevel } from '@forgedb/shared';
+import type { LogEntry, LogLevel } from '@joinery/shared';
 import { IpcService } from './ipc.service';
 
 const MAX_ENTRIES = 1000;

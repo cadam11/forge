@@ -16,7 +16,7 @@
     <true/>
     <key>com.apple.security.keychain-access-groups</key>
     <array>
-        <string>$(AppIdentifierPrefix)ca.adam11.forge</string>
+        <string>$(AppIdentifierPrefix)ca.adam11.joinery</string>
     </array>
 </dict>
 </plist>

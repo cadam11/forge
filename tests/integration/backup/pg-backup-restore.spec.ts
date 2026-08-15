@@ -40,7 +40,7 @@ vi.mock('electron', () => ({
   },
 }));
 
-vi.mock('@forgedb/main/services/config/connection-profiles', () => ({
+vi.mock('@joinery/main/services/config/connection-profiles', () => ({
   ConnectionProfilesStore: {
     getInstance: () => ({
       getById: (id: string) => fakeProfiles.get(id),
@@ -50,7 +50,7 @@ vi.mock('@forgedb/main/services/config/connection-profiles', () => ({
 }));
 
 // Import AFTER mocks so the service constructor sees the fake store.
-import { PgBackupService } from '@forgedb/main/services/sql/pg-backup';
+import { PgBackupService } from '@joinery/main/services/sql/pg-backup';
 
 describe('postgres backup/restore round-trip', () => {
   const tmpFiles: string[] = [];
@@ -101,7 +101,7 @@ describe('postgres backup/restore round-trip', () => {
       });
       fakePasswords.set(connectionId, c.password);
 
-      const backupPath = join(tmpdir(), `forge-pg-backup-${connectionId}.dump`);
+      const backupPath = join(tmpdir(), `joinery-pg-backup-${connectionId}.dump`);
       tmpFiles.push(backupPath);
 
       const service = PgBackupService.getInstance();
@@ -173,7 +173,7 @@ describe('postgres backup/restore round-trip', () => {
   }, 60_000);
 
   // Pins the contract that pg_restore needs the target database to already
-  // exist when we don't pass `-C` (we never do — Forge generates plain
+  // exist when we don't pass `-C` (we never do — Joinery generates plain
   // dumps without the CREATE DATABASE preamble). The MySQL flow surfaces
   // the same issue with a different error message; PG's pg_restore would
   // emit "could not connect to database X" against a non-existent target.
@@ -210,7 +210,7 @@ describe('postgres backup/restore round-trip', () => {
       });
       fakePasswords.set(connectionId, c.password);
 
-      const backupPath = join(tmpdir(), `forge-pg-newdb-${connectionId}.dump`);
+      const backupPath = join(tmpdir(), `joinery-pg-newdb-${connectionId}.dump`);
       tmpFiles.push(backupPath);
 
       const service = PgBackupService.getInstance();
@@ -226,7 +226,7 @@ describe('postgres backup/restore round-trip', () => {
 
       // Create the target db. The renderer's restore dialog does this
       // up-front via the database CREATE IPC; the test mirrors that.
-      const newDb = `forge_restore_${randomUUID().slice(0, 8).replace(/-/g, '')}`;
+      const newDb = `joinery_restore_${randomUUID().slice(0, 8).replace(/-/g, '')}`;
       const adminClient = new PgClient({
         host: c.host,
         port: c.port,

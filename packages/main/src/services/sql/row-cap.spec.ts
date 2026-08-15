@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { QueryResult } from '@forgedb/shared';
+import type { QueryResult } from '@joinery/shared';
 import { applyRowCap } from './row-cap';
 
 function result(rowsPerSet: number[]): QueryResult {

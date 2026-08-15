@@ -14,7 +14,7 @@ import { IpcService } from '../../core/services/ipc.service';
 import { QueryExecutionService } from '../../core/services/query-execution.service';
 import { LogService } from '../../core/services/log.service';
 import { DockerPanelComponent } from '../../shared/components/docker-panel/docker-panel.component';
-import type { DockerStatus, DockerContainer } from '@forgedb/shared';
+import type { DockerStatus, DockerContainer } from '@joinery/shared';
 
 @Component({
   selector: 'app-status-bar',
@@ -548,7 +548,7 @@ export class StatusBarComponent implements OnInit, OnDestroy {
       this.cursorLine.set(e.detail?.line ?? 0);
       this.cursorColumn.set(e.detail?.column ?? 0);
     }) as EventListener;
-    window.addEventListener('forge:cursor-position', this.cursorListener);
+    window.addEventListener('joinery:cursor-position', this.cursorListener);
   }
 
   ngOnDestroy(): void {
@@ -556,7 +556,7 @@ export class StatusBarComponent implements OnInit, OnDestroy {
       clearInterval(this.dockerPollInterval);
     }
     if (this.cursorListener) {
-      window.removeEventListener('forge:cursor-position', this.cursorListener);
+      window.removeEventListener('joinery:cursor-position', this.cursorListener);
     }
   }
 

@@ -95,13 +95,13 @@ export function createMainWindow(): BrowserWindow {
   });
 
   // Show when ready — unless we're under Playwright test, in which case
-  // the launcher (tests/helpers/electron-app.ts) sets FORGE_TEST=1 and we
+  // the launcher (tests/helpers/electron-app.ts) sets JOINERY_TEST=1 and we
   // keep the window hidden. The renderer still paints into Chromium's
   // off-screen surface, so Playwright can interact with it and capture
   // screenshots via the devtools protocol; the user just doesn't see a
   // window flashing in/out on every test.
   mainWindow.once('ready-to-show', () => {
-    if (process.env.FORGE_TEST !== '1') {
+    if (process.env.JOINERY_TEST !== '1') {
       mainWindow?.show();
     }
   });

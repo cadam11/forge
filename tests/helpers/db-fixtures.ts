@@ -33,8 +33,8 @@ export interface TestConnection {
  * Connection config for the test compose network. Uses the privileged user
  * for each engine — sa on MSSQL, the superuser POSTGRES_USER on Postgres,
  * root on MySQL — because `withFreshDatabase` needs to CREATE/DROP arbitrary
- * databases. The unprivileged MySQL `forge` user only has rights on
- * `forge_test`, which is why we use root here.
+ * databases. The unprivileged MySQL `joinery` user only has rights on
+ * `joinery_test`, which is why we use root here.
  *
  * The `database` field on MSSQL/Postgres points at the management DB used
  * to issue CREATE/DROP; MySQL has no separate management DB.
@@ -44,22 +44,22 @@ export const TEST_CONNECTIONS: Record<Engine, TestConnection> = {
     host: '127.0.0.1',
     port: 11433,
     user: 'sa',
-    password: 'ForgeTest!Pa55',
+    password: 'JoineryTest!Pa55',
     database: 'master',
   },
   postgres: {
     host: '127.0.0.1',
     port: 15432,
-    user: 'forge',
-    password: 'forge',
+    user: 'joinery',
+    password: 'joinery',
     database: 'postgres',
   },
   mysql: {
     host: '127.0.0.1',
     port: 13306,
     user: 'root',
-    password: 'forge',
-    database: 'forge_test',
+    password: 'joinery',
+    database: 'joinery_test',
   },
 };
 
@@ -76,7 +76,7 @@ function assertValidDbName(name: string): void {
 
 function makeFreshDbName(): string {
   const id = randomUUID().replace(/-/g, '').slice(0, 16);
-  return `forge_t_${id}`;
+  return `joinery_t_${id}`;
 }
 
 export async function loadFixtureSql(engine: Engine, kind: 'schema' | 'seed'): Promise<string> {

@@ -7,8 +7,8 @@
  */
 
 import { Injectable, signal } from '@angular/core';
-import { FULL_CAPABILITIES } from '@forgedb/shared';
-import type { EngineCapabilities, EngineVariant } from '@forgedb/shared';
+import { FULL_CAPABILITIES } from '@joinery/shared';
+import type { EngineCapabilities, EngineVariant } from '@joinery/shared';
 
 export interface ConnectionCapabilitiesEntry {
   capabilities: EngineCapabilities;

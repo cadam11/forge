@@ -15,23 +15,23 @@
  */
 
 import { expect, test } from '@playwright/test';
-import { withForge } from '../helpers/electron-app';
+import { withJoinery } from '../helpers/electron-app';
 import {
   connectToTestPostgres,
-  ensureForgeTestSeeded,
+  ensureJoineryTestSeeded,
   executeQuery,
   openNewQueryTab,
   selectDatabase,
   typeInEditor,
-} from '../helpers/forge-actions';
+} from '../helpers/joinery-actions';
 
-test.beforeAll(ensureForgeTestSeeded);
+test.beforeAll(ensureJoineryTestSeeded);
 
-test.describe('Forge — row detail drawer', () => {
+test.describe('Joinery — row detail drawer', () => {
   test('drawer shows the clicked displayed row after sorting, and navigates in displayed order', async () => {
-    await withForge(async ({ app, window }) => {
+    await withJoinery(async ({ app, window }) => {
       await connectToTestPostgres(window);
-      await selectDatabase(window, 'forge_test');
+      await selectDatabase(window, 'joinery_test');
       await openNewQueryTab(app, window);
       await typeInEditor(window, 'SELECT id, sku, name, price_cents FROM products ORDER BY id;');
       await executeQuery(window);

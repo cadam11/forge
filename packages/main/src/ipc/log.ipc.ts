@@ -14,8 +14,8 @@
 import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import { createWriteStream, mkdirSync, type WriteStream } from 'fs';
 import { join } from 'path';
-import type { LogEntry } from '@forgedb/shared';
-import { IPC_CHANNELS } from '@forgedb/shared';
+import type { LogEntry } from '@joinery/shared';
+import { IPC_CHANNELS } from '@joinery/shared';
 import { onLogEntry, getRecentLogs, ingestExternalEntry, meetsLevel } from '../utils/logger';
 
 /**
@@ -51,7 +51,7 @@ export function registerLogHandlers(): void {
   try {
     const dir = app.getPath('logs');
     mkdirSync(dir, { recursive: true });
-    logFilePath = join(dir, 'forge.log');
+    logFilePath = join(dir, 'joinery.log');
     logStream = createWriteStream(logFilePath, { flags: 'a' });
   } catch {
     logStream = null;

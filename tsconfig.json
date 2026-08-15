@@ -21,14 +21,14 @@
     "noUnusedParameters": true,
     "baseUrl": ".",
     "paths": {
-      "@forgedb/main": ["packages/main/src/index.ts"],
-      "@forgedb/main/*": ["packages/main/src/*"],
-      "@forgedb/renderer": ["packages/renderer/src/index.ts"],
-      "@forgedb/renderer/*": ["packages/renderer/src/*"],
-      "@forgedb/preload": ["packages/preload/src/index.ts"],
-      "@forgedb/preload/*": ["packages/preload/src/*"],
-      "@forgedb/shared": ["packages/shared/src/index.ts"],
-      "@forgedb/shared/*": ["packages/shared/src/*"]
+      "@joinery/main": ["packages/main/src/index.ts"],
+      "@joinery/main/*": ["packages/main/src/*"],
+      "@joinery/renderer": ["packages/renderer/src/index.ts"],
+      "@joinery/renderer/*": ["packages/renderer/src/*"],
+      "@joinery/preload": ["packages/preload/src/index.ts"],
+      "@joinery/preload/*": ["packages/preload/src/*"],
+      "@joinery/shared": ["packages/shared/src/index.ts"],
+      "@joinery/shared/*": ["packages/shared/src/*"]
     }
   },
   "exclude": ["node_modules", "dist", "build", ".turbo"]

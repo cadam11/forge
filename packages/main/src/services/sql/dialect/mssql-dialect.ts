@@ -10,7 +10,7 @@ import type {
   CreateDatabaseOptions,
   RenameDatabaseOptions,
   DeleteDatabaseOptions,
-} from '@forgedb/shared';
+} from '@joinery/shared';
 import { SQLDialect } from './sql-dialect';
 import { TsqlBuilder } from '../../../utils/tsql-builder';
 

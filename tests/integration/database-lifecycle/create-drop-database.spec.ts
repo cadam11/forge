@@ -9,7 +9,7 @@
  * "kick connections + DROP" batch).
  *
  * Each test creates a uniquely-named database, asserts CREATE landed,
- * cleans up via Forge's DROP path, and asserts the database is gone.
+ * cleans up via Joinery's DROP path, and asserts the database is gone.
  *
  * The MSSQL DROP path needs `closeConnections: false` because mssql's
  * SINGLE_USER WITH ROLLBACK IMMEDIATE batch doesn't share PG's transaction
@@ -29,7 +29,7 @@ import { TEST_CONNECTIONS } from '../../helpers/db-fixtures';
 const fakeProfiles: Map<string, any> = new Map();
 const fakePasswords: Map<string, string> = new Map();
 
-vi.mock('@forgedb/main/services/config/connection-profiles', () => ({
+vi.mock('@joinery/main/services/config/connection-profiles', () => ({
   ConnectionProfilesStore: {
     getInstance: () => ({
       getById: (id: string) => fakeProfiles.get(id),
@@ -38,13 +38,13 @@ vi.mock('@forgedb/main/services/config/connection-profiles', () => ({
   },
 }));
 
-import { ConnectionPoolManager } from '@forgedb/main/services/sql/connection-pool';
-import { PgDialect } from '@forgedb/main/services/sql/dialect/pg-dialect';
-import { MySQLDialect } from '@forgedb/main/services/sql/dialect/mysql-dialect';
-import { MSSQLDialect } from '@forgedb/main/services/sql/dialect/mssql-dialect';
+import { ConnectionPoolManager } from '@joinery/main/services/sql/connection-pool';
+import { PgDialect } from '@joinery/main/services/sql/dialect/pg-dialect';
+import { MySQLDialect } from '@joinery/main/services/sql/dialect/mysql-dialect';
+import { MSSQLDialect } from '@joinery/main/services/sql/dialect/mssql-dialect';
 
 function freshDbName(): string {
-  return `forge_t_${randomUUID().replace(/-/g, '').slice(0, 12)}`;
+  return `joinery_t_${randomUUID().replace(/-/g, '').slice(0, 12)}`;
 }
 
 async function pgHasDb(name: string): Promise<boolean> {
@@ -244,7 +244,7 @@ describe('database CREATE / DROP through ConnectionPoolManager.executeDDL', () =
     // Regression for "can't delete a DB that's expanded in the explorer or has
     // a query window open": those affordances keep a live per-database pool,
     // and PG refuses a plain DROP DATABASE while any session is connected.
-    // closePoolForDatabase must release Forge's own pool so the drop succeeds
+    // closePoolForDatabase must release Joinery's own pool so the drop succeeds
     // without an app restart.
     it('releases its own pool so an in-use database can be dropped', async () => {
       const pool = ConnectionPoolManager.getInstance();
@@ -252,7 +252,7 @@ describe('database CREATE / DROP through ConnectionPoolManager.executeDDL', () =
       expect(await pgHasDb(dbName)).toBe(true);
 
       // Simulate an open query window / expanded node: a live backend on the
-      // target database held by Forge's own per-DB pool.
+      // target database held by Joinery's own per-DB pool.
       const dbPool = await pool.getPgPool(connectionId, dbName);
       await dbPool.query('SELECT 1');
 

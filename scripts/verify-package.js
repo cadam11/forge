@@ -17,7 +17,7 @@
  * loaded because this machine has it elsewhere, and it would be absent for a user.
  *
  * Usage: node scripts/verify-package.js [path/to/app.asar]
- *   defaults to release/mac-arm64/Forge.app/Contents/Resources/app.asar
+ *   defaults to release/mac-arm64/Joinery.app/Contents/Resources/app.asar
  */
 
 const { execFileSync } = require('child_process');
@@ -26,7 +26,7 @@ const os = require('os');
 const path = require('path');
 
 const ROOT_DIR = path.join(__dirname, '..');
-const DEFAULT_ASAR = path.join(ROOT_DIR, 'release/mac-arm64/Forge.app/Contents/Resources/app.asar');
+const DEFAULT_ASAR = path.join(ROOT_DIR, 'release/mac-arm64/Joinery.app/Contents/Resources/app.asar');
 
 /** Modules loaded for real — require() runs their transitive requires too. */
 const JS_MODULES = [
@@ -38,7 +38,7 @@ const JS_MODULES = [
   'electron-store',
   'ssh2',
   'uuid',
-  '@forgedb/shared',
+  '@joinery/shared',
   '@azure/msal-node',
   '@aws-sdk/dsql-signer',
   '@aws-sdk/credential-providers',
@@ -64,7 +64,7 @@ function writeElectronStub(extractDir) {
   const stubDir = path.join(extractDir, 'node_modules', 'electron');
   fs.mkdirSync(stubDir, { recursive: true });
   fs.writeFileSync(path.join(stubDir, 'package.json'), JSON.stringify({ name: 'electron', version: '0.0.0-stub', main: 'index.js' }));
-  fs.writeFileSync(path.join(stubDir, 'index.js'), 'module.exports = { app: { getPath: () => process.cwd(), getName: () => "Forge", getVersion: () => "0.0.0" }, ipcMain: { on() {}, handle() {} }, shell: {} };\n');
+  fs.writeFileSync(path.join(stubDir, 'index.js'), 'module.exports = { app: { getPath: () => process.cwd(), getName: () => "Joinery", getVersion: () => "0.0.0" }, ipcMain: { on() {}, handle() {} }, shell: {} };\n');
 }
 
 function buildProbeSource(extractDir) {
@@ -151,7 +151,7 @@ if (!fs.existsSync(asarPath)) {
 const asar = require('@electron/asar');
 // realpath: on macOS os.tmpdir() is /var/... while resolved module paths report
 // /private/var/..., so an unresolved prefix would mark every file as "outside".
-const extractDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'forge-verify-')));
+const extractDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'joinery-verify-')));
 
 let failures = 1;
 try {

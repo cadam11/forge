@@ -12,7 +12,7 @@ import type {
   RenameDatabaseOptions,
   DeleteDatabaseOptions,
   EngineVariant,
-} from '@forgedb/shared';
+} from '@joinery/shared';
 
 // Re-export engine type for convenience
 export type { DatabaseEngine };

@@ -1,6 +1,6 @@
 // Custom Vitest 4 reporter that POSTs per-test events to a local SSE server.
 //
-// Activated by setting FORGE_LIVE_REPORTER_URL and FORGE_LIVE_REPORTER_TIER
+// Activated by setting JOINERY_LIVE_REPORTER_URL and JOINERY_LIVE_REPORTER_TIER
 // in the environment when invoking vitest. Used by tests/reporter/serve.mjs
 // to drive the live dashboard test-by-test rather than only after each run
 // completes.
@@ -8,8 +8,8 @@
 // When the env vars aren't set, this reporter silently no-ops, so the same
 // vitest invocation is safe to use in CI / one-shot scenarios.
 
-const URL = process.env.FORGE_LIVE_REPORTER_URL;
-const TIER = process.env.FORGE_LIVE_REPORTER_TIER;
+const URL = process.env.JOINERY_LIVE_REPORTER_URL;
+const TIER = process.env.JOINERY_LIVE_REPORTER_TIER;
 
 async function post(event) {
   if (!URL || !TIER) return;
@@ -30,7 +30,7 @@ function moduleIdOf(item) {
   return item?.module?.moduleId ?? item?.moduleId ?? '';
 }
 
-export default class ForgeLiveReporter {
+export default class JoineryLiveReporter {
   async onTestRunStart(specifications) {
     await post({
       type: 'run-start',

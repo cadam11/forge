@@ -4,7 +4,7 @@
 
 import { dialog } from 'electron';
 import * as fs from 'fs';
-import { IPC_CHANNELS } from '@forgedb/shared';
+import { IPC_CHANNELS } from '@joinery/shared';
 import { SQLConverterService, type ConversionResult } from '../services/sql/sql-converter';
 import type {
   QueryRequest,
@@ -16,7 +16,7 @@ import type {
   ResultSet,
   FkRecordRequest,
   FkRecordResult,
-} from '@forgedb/shared';
+} from '@joinery/shared';
 import { QueryExecutor } from '../services/sql/query-executor';
 import { QueryHistoryStore } from '../services/config/query-history';
 import { ConnectionProfilesStore } from '../services/config/connection-profiles';

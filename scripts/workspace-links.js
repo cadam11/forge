@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * Workspace-symlink management for @forgedb/* packages.
+ * Workspace-symlink management for @joinery/* packages.
  *
  * electron-builder's asar cannot follow symlinks, so before packaging we
- * replace the node_modules/@forgedb/<pkg> workspace symlinks with real copies
+ * replace the node_modules/@joinery/<pkg> workspace symlinks with real copies
  * (`swapToCopies`). After packaging we put the symlinks back (`restoreSymlinks`)
  * so a later `pnpm run build` / e2e run doesn't load a stale packaged copy — that
  * staleness has previously crashed the built app on startup.
@@ -16,7 +16,7 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT_DIR = path.join(__dirname, '..');
-const DEFAULT_SCOPE_DIR = path.join(ROOT_DIR, 'node_modules', '@forgedb');
+const DEFAULT_SCOPE_DIR = path.join(ROOT_DIR, 'node_modules', '@joinery');
 const DEFAULT_PACKAGES_ROOT = path.join(ROOT_DIR, 'packages');
 const WORKSPACE_PACKAGES = ['shared'];
 
@@ -58,7 +58,7 @@ function swapToCopies(options = {}) {
       fs.rmSync(destDir, { recursive: true, force: true });
     }
 
-    console.log(`Copying ${pkg} to node_modules/@forgedb/${pkg}`);
+    console.log(`Copying ${pkg} to node_modules/@joinery/${pkg}`);
     fs.mkdirSync(destDir, { recursive: true });
 
     const distSrc = path.join(srcDir, 'dist');

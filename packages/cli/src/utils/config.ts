@@ -13,17 +13,17 @@ export interface ConnectionConfig {
   encrypt?: boolean;
 }
 
-export interface ForgeConfig {
+export interface JoineryConfig {
   connections: Record<string, ConnectionConfig>;
   defaultConnection?: string;
   outputFormat: 'table' | 'json' | 'csv';
   maxRows: number;
 }
 
-const CONFIG_DIR = path.join(os.homedir(), '.forge');
+const CONFIG_DIR = path.join(os.homedir(), '.joinery');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
 
-const DEFAULT_CONFIG: ForgeConfig = {
+const DEFAULT_CONFIG: JoineryConfig = {
   connections: {},
   outputFormat: 'table',
   maxRows: 1000,
@@ -35,7 +35,7 @@ export function ensureConfigDir(): void {
   }
 }
 
-export function loadConfig(): ForgeConfig {
+export function loadConfig(): JoineryConfig {
   ensureConfigDir();
 
   if (!fs.existsSync(CONFIG_FILE)) {
@@ -51,7 +51,7 @@ export function loadConfig(): ForgeConfig {
   }
 }
 
-export function saveConfig(config: ForgeConfig): void {
+export function saveConfig(config: JoineryConfig): void {
   ensureConfigDir();
   fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
 }

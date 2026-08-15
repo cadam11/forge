@@ -29,7 +29,7 @@ import { TabStateService } from '../../core/state/tab.state';
 import { CapabilitiesStore } from '../../core/state/capabilities.state';
 import { IpcService } from '../../core/services/ipc.service';
 import { firstValueFrom } from 'rxjs';
-import type { ToolCallResult } from '@forgedb/shared';
+import type { ToolCallResult } from '@joinery/shared';
 
 @Component({
   selector: 'app-chat-panel',

@@ -2,7 +2,7 @@
  * MSSQL backup/restore round-trip — integration test.
  *
  * Unlike the PG/MySQL paths (which shell out to pg_dump/mysqldump on the
- * Forge host machine), MSSQL backup runs as T-SQL via BACKUP DATABASE on
+ * Joinery host machine), MSSQL backup runs as T-SQL via BACKUP DATABASE on
  * the *server*. The .bak file lands on the SQL Server container's local
  * disk. We pick a path under /var/opt/mssql/data which is the data dir
  * SQL Server's process user can read/write.
@@ -33,7 +33,7 @@ vi.mock('electron', () => ({
   },
 }));
 
-vi.mock('@forgedb/main/services/config/connection-profiles', () => ({
+vi.mock('@joinery/main/services/config/connection-profiles', () => ({
   ConnectionProfilesStore: {
     getInstance: () => ({
       getById: (id: string) => fakeProfiles.get(id),
@@ -42,13 +42,13 @@ vi.mock('@forgedb/main/services/config/connection-profiles', () => ({
   },
 }));
 
-import { BackupRestoreService } from '@forgedb/main/services/sql/backup-restore';
-import { ConnectionPoolManager } from '@forgedb/main/services/sql/connection-pool';
+import { BackupRestoreService } from '@joinery/main/services/sql/backup-restore';
+import { ConnectionPoolManager } from '@joinery/main/services/sql/connection-pool';
 
 const SQLSERVER_DATA_DIR = '/var/opt/mssql/data';
 
 function freshDbName(): string {
-  return `forge_t_${randomUUID().replace(/-/g, '').slice(0, 12)}`;
+  return `joinery_t_${randomUUID().replace(/-/g, '').slice(0, 12)}`;
 }
 
 async function withMssqlAdminPool<T>(

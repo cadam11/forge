@@ -1,7 +1,7 @@
 /**
  * Platform detection + UI helpers.
  *
- * Forge ships on macOS and Windows. Many keyboard hints (tooltips,
+ * Joinery ships on macOS and Windows. Many keyboard hints (tooltips,
  * context-menu shortcuts, body-text references) need to render the Mac
  * Command symbol on Mac and "Ctrl+" elsewhere. This module is the single
  * source for that decision so the formatting stays consistent across

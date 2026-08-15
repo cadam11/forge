@@ -1,8 +1,8 @@
 import { Injectable, signal, computed, NgZone, inject } from '@angular/core';
-import type { AppSettings, ThemePreference } from '@forgedb/shared';
-import { DEFAULT_SETTINGS } from '@forgedb/shared';
+import type { AppSettings, ThemePreference } from '@joinery/shared';
+import { DEFAULT_SETTINGS } from '@joinery/shared';
 
-const STORAGE_KEY = 'forge-settings';
+const STORAGE_KEY = 'joinery-settings';
 
 @Injectable({ providedIn: 'root' })
 export class SettingsService {
@@ -165,20 +165,20 @@ export class SettingsService {
    * Falls back to matchMedia when running outside Electron.
    */
   private initNativeThemeListener(): void {
-    const forge = (
+    const joinery = (
       window as Window & {
-        forge?: {
+        joinery?: {
           theme?: {
             getNative: () => Promise<'dark' | 'light'>;
             onChanged: (cb: (theme: 'dark' | 'light') => void) => () => void;
           };
         };
       }
-    ).forge;
+    ).joinery;
 
-    if (forge?.theme) {
+    if (joinery?.theme) {
       // Running inside Electron: use nativeTheme via IPC
-      forge.theme.getNative().then(nativeTheme => {
+      joinery.theme.getNative().then(nativeTheme => {
         this.zone.run(() => {
           this._nativeTheme.set(nativeTheme);
           if (this._settings().theme === 'system') {
@@ -187,7 +187,7 @@ export class SettingsService {
         });
       });
 
-      this.nativeThemeCleanup = forge.theme.onChanged((nativeTheme: 'dark' | 'light') => {
+      this.nativeThemeCleanup = joinery.theme.onChanged((nativeTheme: 'dark' | 'light') => {
         this.zone.run(() => {
           this._nativeTheme.set(nativeTheme);
           if (this._settings().theme === 'system') {

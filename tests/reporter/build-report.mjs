@@ -32,7 +32,7 @@ async function main() {
   const startedAt = Date.now();
   const git = await getGitContext();
 
-  console.log('▶ Forge regression run starting');
+  console.log('▶ Joinery regression run starting');
   console.log(`  git: ${git.branch}@${git.commit}${git.dirty ? ' (dirty)' : ''}`);
 
   const tiers = [];

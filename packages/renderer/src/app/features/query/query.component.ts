@@ -53,7 +53,7 @@ import type {
   ExportFormat,
   QueryResultSnapshot,
   ObjectMetadata,
-} from '@forgedb/shared';
+} from '@joinery/shared';
 import { format as formatSQL } from 'sql-formatter';
 
 // Monaco editor types - loaded dynamically
@@ -1006,7 +1006,7 @@ export class QueryComponent implements OnInit, OnDestroy {
 
   // Execution plan state
   planData = signal<unknown>(null);
-  planEngine = signal<import('@forgedb/shared').DatabaseEngine>('mssql');
+  planEngine = signal<import('@joinery/shared').DatabaseEngine>('mssql');
   planMysqlExplainUrl = signal<string | null>(null);
 
   // Track last executed SQL for AI analysis
@@ -1082,7 +1082,7 @@ export class QueryComponent implements OnInit, OnDestroy {
     // Listen for keyboard shortcuts
     document.addEventListener('keydown', this.handleKeydown);
     // Listen for snippet insertion events
-    window.addEventListener('forge:insert-snippet', this.handleInsertSnippet);
+    window.addEventListener('joinery:insert-snippet', this.handleInsertSnippet);
 
     // Subscribe to menu service events (only act when THIS tab is active)
     const guard = (fn: () => void) => () => {
@@ -1110,7 +1110,7 @@ export class QueryComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.editor?.dispose();
     document.removeEventListener('keydown', this.handleKeydown);
-    window.removeEventListener('forge:insert-snippet', this.handleInsertSnippet);
+    window.removeEventListener('joinery:insert-snippet', this.handleInsertSnippet);
     this.menuSubscriptions.forEach(s => s.unsubscribe());
     if (this.searchDebounceTimer) {
       clearTimeout(this.searchDebounceTimer);
@@ -1298,7 +1298,7 @@ export class QueryComponent implements OnInit, OnDestroy {
     // Emit cursor position changes for status bar
     this.editor.onDidChangeCursorPosition((e: { position: MonacoPosition }) => {
       window.dispatchEvent(
-        new CustomEvent('forge:cursor-position', {
+        new CustomEvent('joinery:cursor-position', {
           detail: { line: e.position.lineNumber, column: e.position.column },
         })
       );
@@ -1535,8 +1535,8 @@ export class QueryComponent implements OnInit, OnDestroy {
     }
   }
 
-  private static readonly CTRL_E_CONFIRMED_KEY = 'forge-ctrl-e-execute-confirmed';
-  private static readonly PLACEHOLDER_VALUES_KEY = 'forge-flyway-placeholder-values';
+  private static readonly CTRL_E_CONFIRMED_KEY = 'joinery-ctrl-e-execute-confirmed';
+  private static readonly PLACEHOLDER_VALUES_KEY = 'joinery-flyway-placeholder-values';
 
   /**
    * Handle Ctrl+E / Cmd+E — shows a one-time confirmation dialog for new users,

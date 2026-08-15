@@ -18,7 +18,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatBadgeModule } from '@angular/material/badge';
 import { MatDividerModule } from '@angular/material/divider';
 import { LoadingComponent } from '../loading/loading.component';
-import type { QueryResultSnapshot, ResultDiff } from '@forgedb/shared';
+import type { QueryResultSnapshot, ResultDiff } from '@joinery/shared';
 import { QueryResultsStateService } from '../../../core/state/query-results.state';
 import { SmartDatePipe } from '../../pipes/smart-date.pipe';
 

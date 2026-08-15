@@ -2,7 +2,7 @@
  * CLI Dependency Probe — checks whether the host has the right binaries
  * for backup/restore on a given engine.
  *
- * PG and MySQL backup/restore in Forge shells out to host-installed CLI
+ * PG and MySQL backup/restore in Joinery shells out to host-installed CLI
  * tools (`pg_dump` / `pg_restore` for Postgres, `mysqldump` / `mysql`
  * for MySQL). Those are NOT bundled with the app — see CLAUDE.md for
  * the rationale. The renderer queries this service before opening the
@@ -22,7 +22,7 @@ import {
   type CliDepsResult,
   type CliEngine,
   type CliToolStatus,
-} from '@forgedb/shared';
+} from '@joinery/shared';
 
 import { BaseSingleton } from '../../utils/singleton';
 import { createLogger } from '../../utils/logger';

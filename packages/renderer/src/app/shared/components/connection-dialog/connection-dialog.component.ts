@@ -19,7 +19,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { ConnectionStateService } from '../../../core/state/connection.state';
 import { ExplorerStateService } from '../../../core/state/explorer.state';
 import { IpcService } from '../../../core/services/ipc.service';
-import { isDsqlEndpoint } from '@forgedb/shared';
+import { isDsqlEndpoint } from '@joinery/shared';
 import { PasswordHygieneWarningComponent } from '../password-hygiene-warning/password-hygiene-warning.component';
 import { TestResultPanelComponent } from '../test-result-panel/test-result-panel.component';
 import type {
@@ -28,7 +28,7 @@ import type {
   SshAuthType,
   SshTunnelConfig,
   TestConnectionResult,
-} from '@forgedb/shared';
+} from '@joinery/shared';
 
 export interface ConnectionDialogData {
   /** Profile to edit, or undefined for new connection */

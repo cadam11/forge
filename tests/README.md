@@ -1,4 +1,4 @@
-# Forge Regression Test Harness
+# Joinery Regression Test Harness
 
 Three-tier test pyramid for catching regressions across all supported engines and the full Electron app.
 
@@ -42,7 +42,7 @@ pnpm run test:harness:down     # tear down when done
 
 ## The report
 
-`pnpm run test:full` produces a single self-contained HTML file styled to match Forge's purple-tinted theme.
+`pnpm run test:full` produces a single self-contained HTML file styled to match Joinery's purple-tinted theme.
 
 - **Hero counters** — passed / failed / skipped / duration
 - **Synopsis** — one-line business-language summary
@@ -76,13 +76,13 @@ pnpm run test:harness:down     # tear down when done
 
 Defined in [`docker-compose.test.yml`](./docker-compose.test.yml). Host ports are deliberately non-standard so they don't clash with anything you already have running.
 
-| Service            | Image                                                    | Host port | Default DB      | Notes                                    |
-| ------------------ | -------------------------------------------------------- | --------- | --------------- | ---------------------------------------- |
-| `mssql`            | `mcr.microsoft.com/mssql/server:2022-latest` (Developer) | `11433`   | `master`        | sa / `ForgeTest!Pa55`                    |
-| `postgres`         | `postgres:16-alpine`                                     | `15432`   | `forge_test`    | forge / forge                            |
-| `mysql`            | `mysql:8`                                                | `13306`   | `forge_test`    | forge / forge                            |
-| `postgres-private` | `postgres:16-alpine`                                     | _(none)_  | `forge_private` | Reachable **only** through bastion       |
-| `bastion`          | `linuxserver/openssh-server`                             | `12222`   | n/a             | Public-key auth via `tests/.ssh/id_test` |
+| Service            | Image                                                    | Host port | Default DB        | Notes                                    |
+| ------------------ | -------------------------------------------------------- | --------- | ----------------- | ---------------------------------------- |
+| `mssql`            | `mcr.microsoft.com/mssql/server:2022-latest` (Developer) | `11433`   | `master`          | sa / `JoineryTest!Pa55`                  |
+| `postgres`         | `postgres:16-alpine`                                     | `15432`   | `joinery_test`    | joinery / joinery                        |
+| `mysql`            | `mysql:8`                                                | `13306`   | `joinery_test`    | joinery / joinery                        |
+| `postgres-private` | `postgres:16-alpine`                                     | _(none)_  | `joinery_private` | Reachable **only** through bastion       |
+| `bastion`          | `linuxserver/openssh-server`                             | `12222`   | n/a               | Public-key auth via `tests/.ssh/id_test` |
 
 ## Synthetic fixture
 

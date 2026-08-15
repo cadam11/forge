@@ -2,7 +2,14 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import { table, getBorderCharacters } from 'table';
-import { getDatabases, getTables, getViews, getProcedures, isConnected, formatError } from '../utils/database';
+import {
+  getDatabases,
+  getTables,
+  getViews,
+  getProcedures,
+  isConnected,
+  formatError,
+} from '../utils/database';
 import { printError, printInfo } from '../utils/output';
 
 export const listCommand = new Command('list')
@@ -13,7 +20,7 @@ export const listCommand = new Command('list')
   .action(async (type, options) => {
     if (!isConnected()) {
       printError('Not connected to a database.');
-      printInfo('Use "forge connect" to establish a connection first.');
+      printInfo('Use "joinery connect" to establish a connection first.');
       process.exit(1);
     }
 

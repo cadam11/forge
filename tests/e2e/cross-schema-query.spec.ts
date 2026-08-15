@@ -9,29 +9,29 @@
  *   - 11 rows in app_meta.application
  *   - 24 rows in app_meta.entity (each linked to an application)
  *
- * The seed only exists once `ensureForgeTestSeeded` has run; the
+ * The seed only exists once `ensureJoineryTestSeeded` has run; the
  * test.beforeAll hook below makes that explicit even though several other
  * specs already do the same call.
  */
 
 import { expect, test } from '@playwright/test';
-import { withForge } from '../helpers/electron-app';
+import { withJoinery } from '../helpers/electron-app';
 import {
   connectToTestPostgres,
-  ensureForgeTestSeeded,
+  ensureJoineryTestSeeded,
   executeQuery,
   openNewQueryTab,
   selectDatabase,
   typeInEditor,
-} from '../helpers/forge-actions';
+} from '../helpers/joinery-actions';
 
-test.beforeAll(ensureForgeTestSeeded);
+test.beforeAll(ensureJoineryTestSeeded);
 
-test.describe('Forge — cross-schema queries and JOINs', () => {
+test.describe('Joinery — cross-schema queries and JOINs', () => {
   test('app_meta.application returns the seeded 11 rows', async () => {
-    await withForge(async ({ app, window }) => {
+    await withJoinery(async ({ app, window }) => {
       await connectToTestPostgres(window);
-      await selectDatabase(window, 'forge_test');
+      await selectDatabase(window, 'joinery_test');
       await openNewQueryTab(app, window);
       await typeInEditor(window, 'SELECT id, name FROM app_meta.application ORDER BY id;');
       await executeQuery(window);
@@ -40,7 +40,7 @@ test.describe('Forge — cross-schema queries and JOINs', () => {
       await expect(window.locator('ag-grid-angular, .ag-root-wrapper').first()).toBeVisible({
         timeout: 15000,
       });
-      // Forge's row-count badge is the most stable assertion target —
+      // Joinery's row-count badge is the most stable assertion target —
       // displays "N rows" / "N row" once the result lands.
       await expect(window.getByText(/11 rows/i).first()).toBeVisible({ timeout: 10000 });
       // Spot-check one of the seeded applications to confirm the data
@@ -50,9 +50,9 @@ test.describe('Forge — cross-schema queries and JOINs', () => {
   });
 
   test('app_meta.entity JOIN app_meta.application returns the seeded 24 rows', async () => {
-    await withForge(async ({ app, window }) => {
+    await withJoinery(async ({ app, window }) => {
       await connectToTestPostgres(window);
-      await selectDatabase(window, 'forge_test');
+      await selectDatabase(window, 'joinery_test');
       await openNewQueryTab(app, window);
       await typeInEditor(
         window,

@@ -8,7 +8,7 @@ import {
   listConnections,
   removeConnection,
   setDefaultConnection,
-  type ForgeConfig,
+  type JoineryConfig,
 } from '../utils/config';
 import { printSuccess, printError, printInfo } from '../utils/output';
 
@@ -30,7 +30,7 @@ function configListCommand(): Command {
 
       if (connections.length === 0) {
         printInfo('No saved connections.');
-        printInfo('Use "forge connect --name <name>" to save a connection.');
+        printInfo('Use "joinery connect --name <name>" to save a connection.');
         return;
       }
 
@@ -76,7 +76,7 @@ function configSetCommand(): Command {
             printError('Invalid format. Use: table, json, or csv');
             process.exit(1);
           }
-          config.outputFormat = value as ForgeConfig['outputFormat'];
+          config.outputFormat = value as JoineryConfig['outputFormat'];
           printSuccess(`Output format set to: ${value}`);
           break;
 

@@ -1,11 +1,11 @@
-# Custom sshd_config for the Forge test bastion.
+# Custom sshd_config for the Joinery test bastion.
 #
 # This is the linuxserver/openssh-server default config with one line flipped:
 # AllowTcpForwarding is set to "yes" (the default ships with "no") so that
 # our SSH tunnel integration tests can forward to postgres-private through
 # the bastion. Mounted at /config/sshd/sshd_config.
 #
-# Re-export with `docker exec forge-test-bastion cat /config/sshd/sshd_config`
+# Re-export with `docker exec joinery-test-bastion cat /config/sshd/sshd_config`
 # if the upstream image template ever changes meaningfully.
 
 #	$OpenBSD: sshd_config,v 1.105 2024/12/03 14:12:47 dtucker Exp $

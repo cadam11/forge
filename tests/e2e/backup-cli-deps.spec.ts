@@ -1,12 +1,12 @@
 /**
  * Missing CLI tools — E2E spec.
  *
- * Forge's PG/MySQL backup/restore services shell out to host-installed
+ * Joinery's PG/MySQL backup/restore services shell out to host-installed
  * CLI tools. When those binaries aren't on PATH, the dialogs render a
  * setup-instructions view (driven by the deps probe in
  * `services/sql/cli-deps.ts`) instead of the form.
  *
- * This spec proves the wiring: launch Forge with PATH stripped of every
+ * This spec proves the wiring: launch Joinery with PATH stripped of every
  * directory the brew-installed tools live in, open the Backup dialog on
  * a PostgreSQL connection, and assert the missing-cli-tools card shows
  * up — with the right tools flagged missing, the right install steps
@@ -22,30 +22,30 @@
 
 import { expect, test, type Page } from '@playwright/test';
 
-import { withForge } from '../helpers/electron-app';
+import { withJoinery } from '../helpers/electron-app';
 import {
   connectToTestPostgres,
-  ensureForgeTestSeeded,
+  ensureJoineryTestSeeded,
   selectDatabase,
   TEST_PG,
-} from '../helpers/forge-actions';
+} from '../helpers/joinery-actions';
 
-test.beforeAll(ensureForgeTestSeeded);
+test.beforeAll(ensureJoineryTestSeeded);
 
 // PATH stripped of /opt/homebrew/* (where pg_dump and pg_restore live in
 // dev). Keeps the system bins so Electron itself launches cleanly. macOS
-// only — Forge's Linux build target is unsupported (see CLAUDE.md), so
+// only — Joinery's Linux build target is unsupported (see CLAUDE.md), so
 // scoping the spec to darwin matches the platforms we actually ship.
 const RESTRICTED_PATH = '/usr/bin:/bin:/usr/sbin:/sbin';
 
-test.describe('Forge — missing CLI tools instructions view', () => {
+test.describe('Joinery — missing CLI tools instructions view', () => {
   test.skip(
     process.platform !== 'darwin',
     'Restricted-PATH test pattern is darwin-specific (relies on /opt/homebrew layout).'
   );
 
   test('backup dialog renders setup instructions when pg_dump is not on PATH', async () => {
-    await withForge({ envOverrides: { PATH: RESTRICTED_PATH } }, async ({ window }) => {
+    await withJoinery({ envOverrides: { PATH: RESTRICTED_PATH } }, async ({ window }) => {
       await connectToTestPostgres(window);
       await selectDatabase(window, TEST_PG.database);
 

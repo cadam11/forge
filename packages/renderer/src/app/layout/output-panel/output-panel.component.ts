@@ -11,7 +11,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import type { LogEntry } from '@forgedb/shared';
+import type { LogEntry } from '@joinery/shared';
 import { LogService } from '../../core/services/log.service';
 
 type LevelFilter = 'all' | 'errors';

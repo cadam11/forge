@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
-import { IPC_CHANNELS, CHAT_IPC_CHANNELS } from '@forgedb/shared';
+import { IPC_CHANNELS, CHAT_IPC_CHANNELS } from '@joinery/shared';
 import type {
   ConnectionProfile,
   TestConnectionResult,
@@ -73,12 +73,12 @@ import type {
   ServerDefaultPaths,
   LogEntry,
   ActiveConnection,
-} from '@forgedb/shared';
+} from '@joinery/shared';
 
 /**
  * The API exposed to the renderer process via contextBridge
  */
-export interface ForgeAPI {
+export interface JoineryAPI {
   connection: {
     test: (
       profile: ConnectionProfile,
@@ -499,7 +499,7 @@ const MENU_CHANNELS = {
 } as const;
 
 // Create the API implementation
-const forgeAPI: ForgeAPI = {
+const joineryAPI: JoineryAPI = {
   connection: {
     test: (profile, password, sshPassword, sshPassphrase) =>
       ipcRenderer.invoke(
@@ -853,11 +853,11 @@ const forgeAPI: ForgeAPI = {
 };
 
 // Expose the API to the renderer process
-contextBridge.exposeInMainWorld('forge', forgeAPI);
+contextBridge.exposeInMainWorld('joinery', joineryAPI);
 
 // Type declaration for renderer
 declare global {
   interface Window {
-    forge: ForgeAPI;
+    joinery: JoineryAPI;
   }
 }

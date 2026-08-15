@@ -5,7 +5,7 @@
 
 import Store from 'electron-store';
 import { v4 as uuidv4 } from 'uuid';
-import type { QueryHistoryEntry, QueryHistoryFilter } from '@forgedb/shared';
+import type { QueryHistoryEntry, QueryHistoryFilter } from '@joinery/shared';
 import { BaseSingleton } from '../../utils/singleton';
 import { createTrailingDebounce, type TrailingDebounce } from '../../utils/trailing-debounce';
 

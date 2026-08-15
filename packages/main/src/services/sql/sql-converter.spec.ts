@@ -64,7 +64,7 @@ class FakeClient implements SqlGlotClientLike {
 }
 
 describe('SQLConverterService — dialect mapping', () => {
-  it('maps Forge engine names onto sqlglot dialect names', async () => {
+  it('maps Joinery engine names onto sqlglot dialect names', async () => {
     const fake = new FakeClient();
     await new SQLConverterService(fake).convert('SELECT 1', 'mssql', 'postgresql');
     expect(fake.lastOptions).toMatchObject({ fromDialect: 'tsql', toDialect: 'postgres' });
@@ -77,7 +77,7 @@ describe('SQLConverterService — dialect mapping', () => {
   });
 
   it('passes an unrecognised engine through untranslated', async () => {
-    // sqlglot supports far more dialects than Forge maps; forwarding the raw
+    // sqlglot supports far more dialects than Joinery maps; forwarding the raw
     // name lets those work rather than silently mangling them.
     const fake = new FakeClient();
     await new SQLConverterService(fake).convert('SELECT 1', 'duckdb', 'snowflake');

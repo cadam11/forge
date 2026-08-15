@@ -5,7 +5,7 @@
  * by unit tests without mocking the pool manager singleton or the driver.
  */
 import type { AuroraDSQLPoolConfig } from '@aws/aurora-dsql-node-postgres-connector';
-import type { ConnectionProfile } from '@forgedb/shared';
+import type { ConnectionProfile } from '@joinery/shared';
 
 export function auroraDsqlPoolOptions(
   profile: ConnectionProfile,

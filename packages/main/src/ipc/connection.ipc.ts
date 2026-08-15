@@ -2,8 +2,8 @@
  * Connection IPC Handlers
  */
 
-import { IPC_CHANNELS } from '@forgedb/shared';
-import type { ConnectionProfile, TestConnectionResult, ActiveConnection } from '@forgedb/shared';
+import { IPC_CHANNELS } from '@joinery/shared';
+import type { ConnectionProfile, TestConnectionResult, ActiveConnection } from '@joinery/shared';
 import { ConnectionPoolManager } from '../services/sql/connection-pool';
 import { ConnectionProfilesStore } from '../services/config/connection-profiles';
 import { capabilitiesForDialect } from '../services/sql/dialect';

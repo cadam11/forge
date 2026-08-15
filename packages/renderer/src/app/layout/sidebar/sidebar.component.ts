@@ -42,7 +42,7 @@ import {
 } from '../../shared/components/connection-dialog/connection-dialog.component';
 import { ConnectionManagerDialogComponent } from '../../shared/components/connection-manager-dialog/connection-manager-dialog.component';
 import { CapabilitiesStore } from '../../core/state/capabilities.state';
-import type { DatabaseEngine } from '@forgedb/shared';
+import type { DatabaseEngine } from '@joinery/shared';
 
 @Component({
   selector: 'app-sidebar',
@@ -1278,7 +1278,7 @@ export class SidebarComponent {
             try {
               const schema =
                 node.metadata.schema || this.defaultSchema(this.getEngine(node.connectionId));
-              const sql = await window.forge.explorer.scriptTableAsCreate(
+              const sql = await window.joinery.explorer.scriptTableAsCreate(
                 node.connectionId,
                 node.databaseName,
                 schema,
@@ -1318,7 +1318,7 @@ export class SidebarComponent {
             try {
               const schema =
                 node.metadata.schema || this.defaultSchema(this.getEngine(node.connectionId));
-              const sql = await window.forge.explorer.scriptTableAsInsert(
+              const sql = await window.joinery.explorer.scriptTableAsInsert(
                 node.connectionId,
                 node.databaseName,
                 schema,
@@ -1423,7 +1423,7 @@ export class SidebarComponent {
             try {
               const schema =
                 node.metadata.schema || this.defaultSchema(this.getEngine(node.connectionId));
-              const result = await window.forge.explorer.getDefinition(
+              const result = await window.joinery.explorer.getDefinition(
                 node.connectionId,
                 node.databaseName,
                 schema,
@@ -1448,7 +1448,7 @@ export class SidebarComponent {
             try {
               const schema =
                 node.metadata.schema || this.defaultSchema(this.getEngine(node.connectionId));
-              const result = await window.forge.explorer.getDefinition(
+              const result = await window.joinery.explorer.getDefinition(
                 node.connectionId,
                 node.databaseName,
                 schema,
@@ -1519,7 +1519,7 @@ export class SidebarComponent {
             try {
               const schema =
                 node.metadata.schema || this.defaultSchema(this.getEngine(node.connectionId));
-              const result = await window.forge.explorer.getDefinition(
+              const result = await window.joinery.explorer.getDefinition(
                 node.connectionId,
                 node.databaseName,
                 schema,
@@ -1544,7 +1544,7 @@ export class SidebarComponent {
             try {
               const schema =
                 node.metadata.schema || this.defaultSchema(this.getEngine(node.connectionId));
-              const result = await window.forge.explorer.getDefinition(
+              const result = await window.joinery.explorer.getDefinition(
                 node.connectionId,
                 node.databaseName,
                 schema,
@@ -1621,7 +1621,7 @@ export class SidebarComponent {
             try {
               const schema =
                 node.metadata.schema || this.defaultSchema(this.getEngine(node.connectionId));
-              const result = await window.forge.explorer.getDefinition(
+              const result = await window.joinery.explorer.getDefinition(
                 node.connectionId,
                 node.databaseName,
                 schema,
@@ -1646,7 +1646,7 @@ export class SidebarComponent {
             try {
               const schema =
                 node.metadata.schema || this.defaultSchema(this.getEngine(node.connectionId));
-              const result = await window.forge.explorer.getDefinition(
+              const result = await window.joinery.explorer.getDefinition(
                 node.connectionId,
                 node.databaseName,
                 schema,

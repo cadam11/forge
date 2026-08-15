@@ -4,7 +4,13 @@ import * as path from 'path';
 import chalk from 'chalk';
 import ora from 'ora';
 import { executeQuery, isConnected, formatError } from '../utils/database';
-import { formatResults, printError, printSuccess, printInfo, type OutputFormat } from '../utils/output';
+import {
+  formatResults,
+  printError,
+  printSuccess,
+  printInfo,
+  type OutputFormat,
+} from '../utils/output';
 import { loadConfig } from '../utils/config';
 
 export const executeCommand = new Command('execute')
@@ -50,7 +56,7 @@ export const executeCommand = new Command('execute')
 
     if (!isConnected()) {
       printError('Not connected to a database.');
-      printInfo('Use "forge connect" to establish a connection first.');
+      printInfo('Use "joinery connect" to establish a connection first.');
       process.exit(1);
     }
 

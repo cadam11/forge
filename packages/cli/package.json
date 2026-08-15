@@ -1,10 +1,10 @@
 {
-  "name": "@forgedb/cli",
+  "name": "@joinery/cli",
   "version": "0.1.0",
-  "description": "Command-line interface for Forge SQL Server management",
+  "description": "Command-line interface for Joinery SQL Server management",
   "main": "dist/index.js",
   "bin": {
-    "forge": "./dist/index.js"
+    "joinery": "./dist/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -34,6 +34,6 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "author": "Forge",
+  "author": "Joinery",
   "license": "MIT"
 }

@@ -24,7 +24,7 @@ export interface Snippet {
   createdAt: string;
 }
 
-const STORAGE_KEY = 'forge-snippets';
+const STORAGE_KEY = 'joinery-snippets';
 
 @Component({
   selector: 'app-snippet-library',
@@ -525,12 +525,12 @@ export class SnippetLibraryComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadSnippets();
     document.addEventListener('keydown', this.keydownHandler);
-    window.addEventListener('forge:open-snippets', this.openEventHandler);
+    window.addEventListener('joinery:open-snippets', this.openEventHandler);
   }
 
   ngOnDestroy(): void {
     document.removeEventListener('keydown', this.keydownHandler);
-    window.removeEventListener('forge:open-snippets', this.openEventHandler);
+    window.removeEventListener('joinery:open-snippets', this.openEventHandler);
   }
 
   toggle(): void {
@@ -642,7 +642,9 @@ export class SnippetLibraryComponent implements OnInit, OnDestroy {
     this.close();
 
     // Dispatch a custom event with the SQL to insert into the active query tab
-    window.dispatchEvent(new CustomEvent('forge:insert-snippet', { detail: { sql: snippet.sql } }));
+    window.dispatchEvent(
+      new CustomEvent('joinery:insert-snippet', { detail: { sql: snippet.sql } })
+    );
   }
 
   deleteSnippet(event: MouseEvent, snippet: Snippet): void {

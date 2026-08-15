@@ -16,7 +16,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { firstValueFrom } from 'rxjs';
 import { IpcService } from '../../../core/services/ipc.service';
 import { NotificationService } from '../../../core/services/notification.service';
-import type { RecoveryModel } from '@forgedb/shared';
+import type { RecoveryModel } from '@joinery/shared';
 
 export interface CreateDatabaseDialogData {
   connectionId: string;

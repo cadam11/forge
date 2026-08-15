@@ -5,7 +5,7 @@
  * Kept free of Angular/IPC dependencies so they are trivially testable.
  */
 
-import type { EngineCapabilities } from '@forgedb/shared';
+import type { EngineCapabilities } from '@joinery/shared';
 
 export interface SchemaFolderDef {
   name: string;

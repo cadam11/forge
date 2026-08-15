@@ -37,7 +37,7 @@ import type {
   BackupHistoryEntry,
   CliDepsResult,
   CliEngine,
-} from '@forgedb/shared';
+} from '@joinery/shared';
 
 export interface BackupDialogData {
   connectionId: string;

@@ -1,5 +1,5 @@
 /**
- * Forge - Main Process Entry Point
+ * Joinery - Main Process Entry Point
  */
 
 import { app, BrowserWindow } from 'electron';

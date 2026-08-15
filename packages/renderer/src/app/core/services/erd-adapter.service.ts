@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import type { ForeignKeyInfo } from '@forgedb/shared';
+import type { ForeignKeyInfo } from '@joinery/shared';
 import type { ERDNode, ERDField } from '../../shared/components/erd-diagram/erd-types';
 import { IpcService } from './ipc.service';
 import { firstValueFrom } from 'rxjs';
@@ -234,7 +234,7 @@ export class ERDAdapterService {
    */
   async buildERDForDatabase(connectionId: string, database: string): Promise<ERDNode[]> {
     // Get all tables - we need to use the explorer children API
-    const tablesMetadata = await window.forge.explorer.getChildren(
+    const tablesMetadata = await window.joinery.explorer.getChildren(
       connectionId,
       database,
       'Tables'

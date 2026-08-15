@@ -2,8 +2,8 @@
  * Docker IPC Handlers
  */
 
-import { IPC_CHANNELS } from '@forgedb/shared';
-import type { DockerStatus, DockerContainer, DockerVolume } from '@forgedb/shared';
+import { IPC_CHANNELS } from '@joinery/shared';
+import type { DockerStatus, DockerContainer, DockerVolume } from '@joinery/shared';
 import { DockerDetector } from '../services/docker/detector';
 import { safeHandle } from './safe-handle';
 

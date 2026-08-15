@@ -17,7 +17,7 @@ export const queryCommand = new Command('query')
   .action(async (sql, options) => {
     if (!isConnected()) {
       printError('Not connected to a database.');
-      printInfo('Use "forge connect" to establish a connection first.');
+      printInfo('Use "joinery connect" to establish a connection first.');
       process.exit(1);
     }
 
@@ -45,11 +45,7 @@ export const queryCommand = new Command('query')
     await runQuery(sql, format, maxRows);
   });
 
-async function runQuery(
-  sql: string,
-  format: OutputFormat,
-  maxRows: number
-): Promise<void> {
+async function runQuery(sql: string, format: OutputFormat, maxRows: number): Promise<void> {
   const spinner = ora('Executing query...').start();
   const startTime = Date.now();
 
@@ -69,10 +65,7 @@ async function runQuery(
   }
 }
 
-async function interactiveMode(
-  defaultFormat: OutputFormat,
-  maxRows: number
-): Promise<void> {
+async function interactiveMode(defaultFormat: OutputFormat, maxRows: number): Promise<void> {
   console.log(chalk.cyan('\n📊 Interactive SQL Mode'));
   console.log(chalk.dim('Type SQL queries and press Enter to execute.'));
   console.log(chalk.dim('Commands: .exit, .format [table|json|csv], .clear\n'));
@@ -89,7 +82,7 @@ async function interactiveMode(
 
   rl.prompt();
 
-  rl.on('line', async (line) => {
+  rl.on('line', async line => {
     const trimmed = line.trim();
 
     // Handle special commands
@@ -120,13 +113,15 @@ async function interactiveMode(
           break;
 
         case 'help':
-          console.log(chalk.dim(`
+          console.log(
+            chalk.dim(`
 Commands:
   .exit, .quit, .q  - Exit interactive mode
   .format <fmt>     - Set output format (table, json, csv)
   .clear            - Clear screen
   .help             - Show this help
-          `));
+          `)
+          );
           break;
 
         default:

@@ -4,7 +4,7 @@
  * Only supported on SQL Server (via xp_dirtree, xp_fixeddrives).
  */
 
-import { IPC_CHANNELS } from '@forgedb/shared';
+import { IPC_CHANNELS } from '@joinery/shared';
 import { ServerFilesystemService } from '../services/sql/server-filesystem';
 import { ConnectionPoolManager } from '../services/sql/connection-pool';
 import { safeHandle } from './safe-handle';

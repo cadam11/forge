@@ -32,7 +32,7 @@ import {
   ModuleRegistry,
   AllCommunityModule,
 } from 'ag-grid-community';
-import type { ResultSet, ColumnMetadata } from '@forgedb/shared';
+import type { ResultSet, ColumnMetadata } from '@joinery/shared';
 import { NotificationService } from '../../../core/services/notification.service';
 import { IpcService } from '../../../core/services/ipc.service';
 import { SettingsService } from '../../../core/services/settings.service';
@@ -1192,7 +1192,7 @@ export class ResultsGridComponent implements OnChanges, OnDestroy {
   private gridApi: GridApi | null = null;
   private fkSubscription: Subscription | null = null;
 
-  // Edit > Copy (⌘C / Ctrl+C). MenuService's `forge:menu-copy` event is
+  // Edit > Copy (⌘C / Ctrl+C). MenuService's `joinery:menu-copy` event is
   // forwarded from the main-process menu (the renderer never sees the raw
   // keystroke — Electron's menu accelerator captures it). We claim it
   // when:
@@ -1204,7 +1204,7 @@ export class ResultsGridComponent implements OnChanges, OnDestroy {
   // When we claim, we prevent default and route through
   // `copySelectedToClipboard()` which honors the user's Copy Format
   // setting. Otherwise MenuService falls back to document.execCommand.
-  @HostListener('window:forge:menu-copy', ['$event'])
+  @HostListener('window:joinery:menu-copy', ['$event'])
   onMenuCopy(event: Event): void {
     const active = document.activeElement as HTMLElement | null;
     if (!active || !this.host.nativeElement.contains(active)) return;
@@ -1471,8 +1471,7 @@ export class ResultsGridComponent implements OnChanges, OnDestroy {
   getDisplayedRowAt(index: number): Record<string, unknown> | null {
     if (!this.gridApi || index < 0) return null;
     const data = this.gridApi.getDisplayedRowAtIndex(index)?.data as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
     return data ?? null;
   }
 

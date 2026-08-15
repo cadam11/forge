@@ -247,7 +247,7 @@ export function createMenu(): void {
         {
           label: 'Refresh Object Explorer',
           // Cmd+R / Ctrl+R is the canonical refresh shortcut on every
-          // platform Forge ships on. Cmd+Shift+R was harder to discover
+          // platform Joinery ships on. Cmd+Shift+R was harder to discover
           // and conflicted with browser intuitions for "hard reload".
           accelerator: 'CmdOrCtrl+R',
           click: () => {
@@ -393,7 +393,7 @@ export function createMenu(): void {
         {
           label: 'Joinery Documentation',
           click: async () => {
-            await shell.openExternal('https://github.com/cadam11/forge/wiki');
+            await shell.openExternal('https://github.com/cadam11/joinery/wiki');
           },
         },
         {
@@ -408,7 +408,7 @@ export function createMenu(): void {
         {
           label: 'Report Issue...',
           click: async () => {
-            await shell.openExternal('https://github.com/cadam11/forge/issues');
+            await shell.openExternal('https://github.com/cadam11/joinery/issues');
           },
         },
         { type: 'separator' },

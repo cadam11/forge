@@ -4,10 +4,10 @@
  * Covers the legacy 31-test audit's tests 20 (Backup feature) and 21
  * (Restore feature), which were deferred from the harness migration
  * because the harness containers don't ship the host-side CLIs that
- * Forge's PG/MySQL backup services shell out to. With pg_dump /
+ * Joinery's PG/MySQL backup services shell out to. With pg_dump /
  * pg_restore / mysqldump / mysql now available on the test host (see
  * CLAUDE.md), this spec proves the dialogs work end-to-end on every
- * non-MSSQL engine Forge supports.
+ * non-MSSQL engine Joinery supports.
  *
  * Drives the full UX flow for both PG and MySQL through the actual
  * Backup Database / Restore Database dialogs, mirroring how a user
@@ -20,12 +20,12 @@
  * the restored database actually contains the dumped data.
  *
  * For each engine we:
- *   1. Connect Forge to the test container.
+ *   1. Connect Joinery to the test container.
  *   2. Pre-create an empty `*_restore_target` database directly via the
- *      driver (Forge's PG/MySQL restore dialog has no UI for "replace
+ *      driver (Joinery's PG/MySQL restore dialog has no UI for "replace
  *      existing" — see restore-dialog.component.ts; that flag is
  *      MSSQL-only — so the cleanest dump-target is a brand-new DB).
- *   3. Open the Backup dialog, dump `forge_test` to a tmp file, wait
+ *   3. Open the Backup dialog, dump `joinery_test` to a tmp file, wait
  *      for the success snackbar, assert the file exists on disk.
  *   4. Open the Restore dialog, point at the dump, set the target DB
  *      to the pre-created empty database, wait for the success
@@ -45,14 +45,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
-import { withForge } from '../helpers/electron-app';
+import { withJoinery } from '../helpers/electron-app';
 import {
   connectToTestPostgres,
-  ensureForgeTestSeeded,
+  ensureJoineryTestSeeded,
   fillField,
   selectDatabase,
   TEST_PG,
-} from '../helpers/forge-actions';
+} from '../helpers/joinery-actions';
 
 // MySQL counterpart of TEST_PG. Mirrors tests/helpers/db-fixtures.ts
 // so we don't have to re-import the integration fixture module here.
@@ -60,18 +60,18 @@ const TEST_MYSQL = {
   host: '127.0.0.1',
   port: 13306,
   user: 'root',
-  password: 'forge',
-  database: 'forge_test',
+  password: 'joinery',
+  database: 'joinery_test',
 } as const;
 
-test.beforeAll(ensureForgeTestSeeded);
+test.beforeAll(ensureJoineryTestSeeded);
 
-test.describe('Forge — backup/restore round-trip via dialog UI', () => {
-  test('postgres backup of forge_test restores into a fresh database', async () => {
-    const targetDb = `forge_e2e_pg_${randomUUID().replace(/-/g, '').slice(0, 12)}`;
-    const dumpPath = join(tmpdir(), `forge-e2e-${targetDb}.dump`);
+test.describe('Joinery — backup/restore round-trip via dialog UI', () => {
+  test('postgres backup of joinery_test restores into a fresh database', async () => {
+    const targetDb = `joinery_e2e_pg_${randomUUID().replace(/-/g, '').slice(0, 12)}`;
+    const dumpPath = join(tmpdir(), `joinery-e2e-${targetDb}.dump`);
 
-    await withForge(async ({ window }) => {
+    await withJoinery(async ({ window }) => {
       try {
         await connectToTestPostgres(window);
         await selectDatabase(window, TEST_PG.database);
@@ -107,13 +107,13 @@ test.describe('Forge — backup/restore round-trip via dialog UI', () => {
     });
   });
 
-  test('mysql backup of forge_test restores into a fresh database', async () => {
-    await ensureMysqlForgeTestSeeded();
+  test('mysql backup of joinery_test restores into a fresh database', async () => {
+    await ensureMysqlJoineryTestSeeded();
 
-    const targetDb = `forge_e2e_my_${randomUUID().replace(/-/g, '').slice(0, 12)}`;
-    const dumpPath = join(tmpdir(), `forge-e2e-${targetDb}.sql`);
+    const targetDb = `joinery_e2e_my_${randomUUID().replace(/-/g, '').slice(0, 12)}`;
+    const dumpPath = join(tmpdir(), `joinery-e2e-${targetDb}.sql`);
 
-    await withForge(async ({ window }) => {
+    await withJoinery(async ({ window }) => {
       try {
         await connectToTestMysql(window);
         await selectDatabase(window, TEST_MYSQL.database);
@@ -180,14 +180,14 @@ async function expectSnackbar(window: Page, pattern: RegExp): Promise<void> {
   await window.waitForTimeout(200);
 }
 
-// --- DB helpers (driver-side, outside Forge's IPC) ---
+// --- DB helpers (driver-side, outside Joinery's IPC) ---
 
 async function createEmptyPgDatabase(name: string): Promise<void> {
   const client = new PgClient({ ...TEST_PG, database: 'postgres' });
   await client.connect();
   try {
     // Identifier interpolation safe — `name` is generated from randomUUID
-    // and matches /^forge_e2e_pg_[a-f0-9]+$/.
+    // and matches /^joinery_e2e_pg_[a-f0-9]+$/.
     await client.query(`CREATE DATABASE "${name}"`);
   } finally {
     await client.end();
@@ -226,7 +226,7 @@ async function assertPgDatabaseHasSeed(name: string): Promise<void> {
   }
 }
 
-async function ensureMysqlForgeTestSeeded(): Promise<void> {
+async function ensureMysqlJoineryTestSeeded(): Promise<void> {
   const conn = await mysql.createConnection({
     host: TEST_MYSQL.host,
     port: TEST_MYSQL.port,

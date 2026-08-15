@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { RestoreRequest } from '@forgedb/shared';
+import type { RestoreRequest } from '@joinery/shared';
 import {
   resolveReplaceExisting,
   buildPgRestoreArgs,

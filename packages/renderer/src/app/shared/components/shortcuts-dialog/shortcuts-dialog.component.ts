@@ -238,12 +238,12 @@ export class ShortcutsDialogComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     document.addEventListener('keydown', this.keydownHandler);
     // Listen for custom event to open dialog
-    window.addEventListener('forge:show-shortcuts', this.eventHandler);
+    window.addEventListener('joinery:show-shortcuts', this.eventHandler);
   }
 
   ngOnDestroy(): void {
     document.removeEventListener('keydown', this.keydownHandler);
-    window.removeEventListener('forge:show-shortcuts', this.eventHandler);
+    window.removeEventListener('joinery:show-shortcuts', this.eventHandler);
   }
 
   toggle(): void {

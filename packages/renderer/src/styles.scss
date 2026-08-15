@@ -62,13 +62,13 @@ $accent-palette: (
 );
 
 // Define theme
-$forge-primary: mat.m2-define-palette($primary-palette);
-$forge-accent: mat.m2-define-palette($accent-palette);
-$forge-theme: mat.m2-define-dark-theme(
+$joinery-primary: mat.m2-define-palette($primary-palette);
+$joinery-accent: mat.m2-define-palette($accent-palette);
+$joinery-theme: mat.m2-define-dark-theme(
   (
     color: (
-      primary: $forge-primary,
-      accent: $forge-accent,
+      primary: $joinery-primary,
+      accent: $joinery-accent,
     ),
     typography: mat.m2-define-typography-config(
         $font-family: 'Inter, sans-serif',
@@ -78,7 +78,7 @@ $forge-theme: mat.m2-define-dark-theme(
 );
 
 @include mat.core();
-@include mat.all-component-themes($forge-theme);
+@include mat.all-component-themes($joinery-theme);
 
 // CSS Variables for theming - Light mode (default for system preference)
 :root {
