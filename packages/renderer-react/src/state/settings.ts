@@ -125,12 +125,16 @@ export interface SettingsHydration {
    * Whether this store may write to `AppState` from now on.
    *
    * FALSE when the localStorage migration has not settled — it failed, or there is no bridge. This
-   * is not caution for its own sake; it closes a permanent, silent data loss. `migration.ts` only
-   * ever runs once, and a `settings` object sitting in `AppState` when it runs is treated as newer
-   * than the localStorage copy for every field it mentions. So: boot 1 migration fails → the user
-   * nudges any setting → a DEFAULT-derived settings object lands in `AppState` → boot 2's migration
-   * sees it, sets the marker, and the user's real Angular settings are never lifted and never can
-   * be. Locking the write path until the migration has had its turn is the fix at the source.
+   * is not caution for its own sake; it closes a permanent, silent data loss. The migration runs at
+   * most once, so a `settings` object that lands in `AppState` before it has had its turn competes
+   * with the user's real Angular settings for the one chance they had of being lifted: boot 1
+   * migration fails → the user nudges any setting → a DEFAULT-derived object lands in `AppState` →
+   * boot 2 migrates, sets the marker, and those Angular settings are never lifted and never can be.
+   *
+   * The gate is the fix at the source: no such object is written in the first place. It is also what
+   * makes the provenance stamp honest — every settings value this store persists is written *after*
+   * this flag opened, which is precisely what `settingsAuthoredByReactAt` claims about it, and what
+   * `migration.ts` relies on to tell a considered choice from a default-derived one.
    */
   readonly persistWrites: boolean;
 }
@@ -210,7 +214,15 @@ export function createSettingsStore(
         });
         return;
       }
-      void persistence.update(current => ({ ...current, settings }));
+      // The stamp travels with the value, in the same write, and says who authored it. Reaching this
+      // line means hydration confirmed the migration settled, so this IS a considered choice — and
+      // `migration.ts` can only know that from the stamp: neither the absence of the migration marker
+      // nor the shape of the object tells it (see `ReactRendererState.settingsAuthoredByReactAt`).
+      void persistence.update(current => ({
+        ...current,
+        settings,
+        settingsAuthoredByReactAt: new Date().toISOString(),
+      }));
     };
 
     return {

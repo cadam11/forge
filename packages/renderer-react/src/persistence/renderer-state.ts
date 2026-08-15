@@ -104,6 +104,19 @@ export interface ReactRendererState {
   migratedFromLocalStorageAt?: string;
   /** The settings object as `joinery-settings` held it. Partial: merged over the defaults on read. */
   settings?: PersistedSettings;
+  /**
+   * ISO timestamp of the last time the **React renderer itself** authored `settings`, stamped by the
+   * settings store's write path — which only runs once hydration has confirmed the migration
+   * settled. So its presence answers a question no amount of looking at `settings` can: *who wrote
+   * this, and did they know what they were overwriting?*
+   *
+   * `migration.ts` needs that answer and cannot infer it. The marker being absent does not mean
+   * nothing considered lives here: a `no-data` boot (fresh install, React first) deliberately writes
+   * no marker so a later Angular session can still be lifted, and in that window the user may make a
+   * perfectly deliberate settings choice in React. Shape cannot distinguish the two either — a user
+   * is allowed to choose exactly the defaults. Only provenance can, so provenance is recorded.
+   */
+  settingsAuthoredByReactAt?: string;
   /** Tour ids from `joinery:completed-tours`. */
   completedTours?: string[];
   /** From `joinery:welcomeDismissed`. */
@@ -237,6 +250,9 @@ export function validateReactRendererState(value: unknown): ReactRendererState {
     validated.migratedFromLocalStorageAt = value['migratedFromLocalStorageAt'];
   }
   if (isRecord(value['settings'])) validated.settings = validateSettings(value['settings']);
+  if (typeof value['settingsAuthoredByReactAt'] === 'string') {
+    validated.settingsAuthoredByReactAt = value['settingsAuthoredByReactAt'];
+  }
   if (isStringArray(value['completedTours'])) validated.completedTours = value['completedTours'];
   if (typeof value['welcomeDismissed'] === 'boolean') {
     validated.welcomeDismissed = value['welcomeDismissed'];

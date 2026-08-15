@@ -99,15 +99,24 @@ export async function migrateLegacyLocalStorage(
       migratedFromLocalStorageAt: new Date().toISOString(),
     };
 
-    // `settings` is the one field where that default is WRONG, and it is worth the asymmetry because
-    // this migration only ever runs once. A `settings` object in `AppState` at this point cannot be
-    // a considered user choice: the marker is absent, so no React launch has ever had persisted
-    // settings to hydrate from, so whatever is here is `DEFAULT_SETTINGS` plus at most a nudge made
-    // in a boot whose migration had not succeeded. Letting that win would silently and permanently
-    // discard the settings the user actually chose in the renderer they have been using. The
-    // settings store's write path is locked until the migration settles (`SettingsHydration`), which
-    // makes this branch nearly unreachable — "nearly" is why it is here.
-    if (reading.lifted.settings) {
+    // `settings` needs one more question answered, because it is the only field that can exist in
+    // `AppState` *before* this migration runs, and both answers are destructive if applied to the
+    // wrong case:
+    //
+    //   - Written while the migration was UNSETTLED (a `failed` boot): it is `DEFAULT_SETTINGS` plus
+    //     at most a nudge, authored by a renderer that never saw the user's real settings. Letting it
+    //     win would permanently discard what the user chose in Angular.
+    //   - Written after a SETTLED migration — including the `no-data` case, where a fresh install
+    //     deliberately leaves no marker so a later Angular session can still be lifted: it is a
+    //     deliberate choice. Lifting over it would permanently discard THAT, and the Angular object
+    //     it loses to is itself mostly Angular defaults, since `settings.service.ts:149` rewrites the
+    //     whole object whenever one field changes.
+    //
+    // Neither the missing marker nor the shape of the object separates those two — a user may
+    // deliberately choose the defaults. Only provenance does, so the settings store stamps it:
+    // `settingsAuthoredByReactAt` is written in the same call as any settings value it authored after
+    // hydration unlocked writes. No stamp, no considered choice, and the lift wins.
+    if (reading.lifted.settings && current.settingsAuthoredByReactAt === undefined) {
       next.settings = reading.lifted.settings;
     }
     return next;

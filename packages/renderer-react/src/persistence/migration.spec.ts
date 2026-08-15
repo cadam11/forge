@@ -158,11 +158,10 @@ describe('localStorage → AppState migration — the round trip', () => {
     expect(persisted?.completedTours).toEqual(['welcome', 'first-query']);
   });
 
-  it('lets the Angular settings win over a pre-migration settings object', async () => {
-    // The asymmetry, and the reason for it: the marker is absent, so nothing in `AppState` can be a
-    // considered choice — no React launch has ever had settings to hydrate from. A DEFAULT-derived
-    // object here (which the settings store's write gate is there to prevent in the first place)
-    // must not be mistaken for one and silently discard what the user chose in Angular.
+  it('lets the Angular settings win over an UNSTAMPED pre-migration settings object', async () => {
+    // The asymmetry, and what decides it: provenance. No `settingsAuthoredByReactAt` means no
+    // renderer claims to have chosen this while knowing what it was overwriting — so it must not be
+    // allowed to silently discard what the user did choose, in Angular.
     seedAngularLocalStorage();
     const seeded = createAppStateDouble({
       reactRendererState: { settings: { theme: 'system', editor: { fontSize: 13 } } },
@@ -177,6 +176,30 @@ describe('localStorage → AppState migration — the round trip', () => {
       editor: { fontSize: 18 },
       grid: { copyFormat: 'csv' },
     });
+  });
+
+  it('keeps a STAMPED settings object, however default-shaped it looks', async () => {
+    // The other half, and the reason the rule cannot be a shape heuristic: this object IS the
+    // defaults, and the stamp says the user chose them in React after a settled migration. Lifting
+    // over it would discard that choice — and Angular's object is itself mostly Angular defaults,
+    // since `settings.service.ts:149` rewrites the whole thing when one field changes.
+    seedAngularLocalStorage();
+    const seeded = createAppStateDouble({
+      reactRendererState: {
+        settings: { theme: 'system', editor: { fontSize: 13 } },
+        settingsAuthoredByReactAt: '2026-08-01T00:00:00.000Z',
+      },
+    });
+    removeJoineryMock();
+    installJoineryMock({ app: seeded.app });
+
+    await migrateLegacyLocalStorage(createRendererStatePersistence());
+
+    const persisted = seeded.snapshot().reactRendererState;
+    expect(persisted?.settings).toEqual({ theme: 'system', editor: { fontSize: 13 } });
+    // Everything else still comes across: only `settings` is provenance-gated.
+    expect(persisted?.snippets).toHaveLength(2);
+    expect(persisted?.migratedFromLocalStorageAt).toBeTypeOf('string');
   });
 
   it('keeps a pre-migration settings object when localStorage has no settings key at all', async () => {

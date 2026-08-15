@@ -179,17 +179,25 @@ describe('hydrateRendererState — the second boot', () => {
 });
 
 /*
- * The regression the review found, end to end. It was silent, permanent, and cost the user their
- * whole settings object: boot 1's migration fails, so no marker is written; the user nudges a
- * setting; a DEFAULT-derived settings object lands in `AppState`; boot 2's migration runs, treats
- * that object as newer than the localStorage copy, sets the marker — and the real Angular settings
- * can never be lifted, because a one-shot migration does not get a second turn.
+ * Settings precedence across boots, which is where every silent-and-permanent failure in this task
+ * lives. The migration runs at most once, so whatever it decides about `settings` is final, and there
+ * are two opposite ways to get it wrong:
  *
- * Two independent defences, asserted separately below: the settings store's write path is locked
- * until the migration settles, and — if a write got in anyway — the migration prefers the
- * localStorage settings while the marker is absent.
+ *   - lift too little: boot 1's migration fails (no marker), the user nudges a setting, a
+ *     DEFAULT-derived object lands in `AppState`, boot 2 treats it as newer — the user's real Angular
+ *     settings are never lifted. (Review round 1.)
+ *   - lift too much: boot 1 legitimately finds nothing to migrate (`no-data`, fresh install, which
+ *     deliberately writes no marker so a later Angular session can still be lifted), the user makes a
+ *     real choice in React, then opens Angular once — whose `settings.service.ts:149` rewrites its
+ *     WHOLE settings object — and boot 2 overwrites the React choice with Angular defaults. (Review
+ *     round 2.)
+ *
+ * Neither the missing marker nor the shape of the stored object separates those cases; a user may
+ * deliberately pick the defaults. Provenance does, and it is recorded rather than inferred:
+ * `settingsAuthoredByReactAt`, stamped by the settings store's write path, which only runs once
+ * hydration has confirmed the migration settled. The four sequences below are the specification.
  */
-describe('hydrateRendererState — a failed first migration cannot poison the second', () => {
+describe('hydrateRendererState — settings precedence across boots', () => {
   /** A bridge whose `setState` fails until `allowWrites()` is called. */
   function flakyBridge() {
     const backing = createAppStateDouble();
@@ -214,7 +222,7 @@ describe('hydrateRendererState — a failed first migration cannot poison the se
     };
   }
 
-  it('withholds the settings write, then lifts the real Angular settings on the next boot', async () => {
+  it('(a) unsettled boot 1: withholds the write, and boot 2 lifts the real Angular settings', async () => {
     seedAngularLocalStorage();
     const { backing, allowWrites } = flakyBridge();
 
@@ -235,9 +243,10 @@ describe('hydrateRendererState — a failed first migration cannot poison the se
     expect(boot2.settings.getState().settings.theme).toBe('light');
   });
 
-  it('recovers even if a settings object did reach AppState before the migration ran', async () => {
-    // The second defence, driven directly: something other than the gated store (a future task, a
-    // hand-edited file) put DEFAULT-derived settings in `AppState` with no marker present.
+  it('(a2) recovers even if an unstamped settings object did reach AppState first', async () => {
+    // The same case with the store taken out of the picture: something else (a future task, a hand
+    // edit) put settings in `AppState` with no marker and no provenance stamp. Unstamped means
+    // "nobody claims to have chosen this", so the lift still wins.
     seedAngularLocalStorage();
     const renderer = makeRenderer();
     await renderer.persistence.update(current => ({
@@ -250,6 +259,77 @@ describe('hydrateRendererState — a failed first migration cannot poison the se
     expect(hydrated.migration.outcome).toBe('migrated');
     expect(renderer.settings.getState().settings.editor.fontSize).toBe(18);
     expect(renderer.settings.getState().settings.theme).toBe('light');
+  });
+
+  it('(b) settled `no-data` boot 1 + a real React choice: boot 2 keeps the React settings', async () => {
+    // Fresh install, React first. Nothing to migrate, so no marker — by design, so that a later
+    // Angular session can still be lifted. The user then makes a deliberate choice in React, and only
+    // afterwards opens Angular once and changes one thing, which rewrites Angular's whole settings
+    // object. Boot 2 must not mistake that object for something newer.
+    const boot1 = makeRenderer();
+    expect((await hydrateRendererState(boot1)).migration.outcome).toBe('no-data');
+
+    boot1.settings.getState().updateEditorSetting('fontSize', 21);
+    boot1.settings.getState().updateTheme('dark');
+    await boot1.persistence.read();
+
+    const stored = bridge.snapshot().reactRendererState;
+    expect(stored?.settings?.editor?.fontSize).toBe(21);
+    expect(stored?.settingsAuthoredByReactAt).toBeTypeOf('string');
+    expect(stored?.migratedFromLocalStorageAt).toBeUndefined();
+
+    // The Angular session happens here.
+    seedAngularLocalStorage();
+
+    const boot2 = makeRenderer();
+    const hydrated = await hydrateRendererState(boot2);
+
+    // The migration still runs — the marker was absent — and still lifts everything else.
+    expect(hydrated.migration.outcome).toBe('migrated');
+    expect(boot2.settings.getState().settings.editor.fontSize).toBe(21);
+    expect(boot2.settings.getState().settings.theme).toBe('dark');
+    // (d) the collections came across regardless.
+    expect(hydrated.snippets.map(s => s.id)).toEqual(['snip-1', 'snip-2']);
+    expect(hydrated.completedTours).toEqual(['welcome']);
+    expect(hydrated.confirmedCtrlEExecute).toBe(true);
+    expect(hydrated.flywayPlaceholderValues).toEqual({ schema: 'dbo' });
+  });
+
+  it('(c) settled `no-data` boot 1 with no React write: boot 2 lifts the Angular settings', async () => {
+    // The whole point of not writing a marker on a fresh install. Nothing claims authorship, so the
+    // Angular data that appears later is the only considered thing there is.
+    const boot1 = makeRenderer();
+    expect((await hydrateRendererState(boot1)).migration.outcome).toBe('no-data');
+    expect(bridge.calls.setState).toBe(0);
+
+    seedAngularLocalStorage();
+
+    const boot2 = makeRenderer();
+    const hydrated = await hydrateRendererState(boot2);
+
+    expect(hydrated.migration.outcome).toBe('migrated');
+    expect(boot2.settings.getState().settings.editor.fontSize).toBe(18);
+    expect(boot2.settings.getState().settings.theme).toBe('light');
+    expect(hydrated.snippets).toHaveLength(2);
+  });
+
+  it('(d) collections are never overwritten by the lift, stamped or not', async () => {
+    // The mirror image of the settings rule, in both provenance states: a React-created snippet must
+    // survive a migration either way, because a collection can only have grown.
+    const renderer = makeRenderer();
+    await hydrateRendererState(renderer);
+    await renderer.persistence.update(current => ({
+      ...current,
+      snippets: [{ id: 'react-made', sql: 'SELECT 3' }],
+      completedTours: ['react-tour'],
+    }));
+
+    seedAngularLocalStorage();
+    const hydrated = await hydrateRendererState(makeRenderer());
+
+    expect(hydrated.migration.outcome).toBe('migrated');
+    expect(hydrated.snippets.map(s => s.id)).toEqual(['react-made']);
+    expect(hydrated.completedTours).toEqual(['react-tour']);
   });
 });
 
