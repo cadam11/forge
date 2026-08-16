@@ -56,22 +56,20 @@ import {
 } from './dockview-sync';
 import { OutputPanel } from './output-panel';
 import { PanelTab, ReservedPanelTab } from './panel-tab';
-import {
-  ChatPanel,
-  ErdPanel,
-  ObjectPanel,
-  QueryPanel,
-  WelcomePanel,
-  WorkspaceWatermark,
-} from './tab-panels';
+import { QueryPanelHost } from './query-panel-host';
+import { ChatPanel, ErdPanel, ObjectPanel, WelcomePanel, WorkspaceWatermark } from './tab-panels';
 
 /** Matches the Angular layout save debounce (`golden-layout-container.component.ts:645`). */
 const LAYOUT_SAVE_DEBOUNCE_MS = 500;
 
-/** The five surfaces the dock mounts, plus the one reserved panel. Keys match `panelComponentFor`. */
+/**
+ * The five surfaces the dock mounts, plus the one reserved panel. Keys match `panelComponentFor`.
+ *
+ * `query` is the only one behind a lazy boundary — see `query-panel-host.tsx` for the 5MB reason.
+ */
 const COMPONENTS: IDockviewReactProps['components'] = {
   welcome: WelcomePanel,
-  query: QueryPanel,
+  query: QueryPanelHost,
   object: ObjectPanel,
   erd: ErdPanel,
   chat: ChatPanel,

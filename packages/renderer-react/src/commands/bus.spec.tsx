@@ -7,6 +7,7 @@ import { StrictMode } from 'react';
 import { render, act } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConnectionDialogs } from '../features/connections';
+import { QueryCommands } from '../features/query/query-commands';
 import { IpcQueryProvider } from '../ipc';
 import { setDiagnosticsSink } from '../state/diagnostics';
 import { ShellCommands } from '../shell/shell-commands';
@@ -39,22 +40,43 @@ afterEach(() => {
 });
 
 /**
- * Mounts the shell's real command wiring — `ShellCommands` (the fourteen handlers Task 7 owns),
- * `StatusBar` (`cursor-position`) and `ConnectionDialogs` (Task 9's three). Not a stand-in list of
- * ids: the whole point of the ownership test below is that it fails when a subscription is deleted,
- * and only the real components can tell it. Every component `app-shell.tsx` mounts purely to
- * register handlers belongs here, and adding one to the shell without adding it here shows up as a
- * command that claims a shipped task and has no handler.
+ * Mounts the app's real command wiring — `ShellCommands` (the fourteen handlers Task 7 owns),
+ * `StatusBar` (`cursor-position`), `ConnectionDialogs` (Task 9's three) and `QueryCommands` (Task 10's
+ * twelve). Not a stand-in list of ids: the whole point of the ownership test below is that it fails when
+ * a subscription is deleted, and only the real components can tell it. Every component that is mounted
+ * purely to register handlers belongs here, and adding one without adding it here shows up as a command
+ * that claims a shipped task and has no handler.
+ *
+ * `QueryCommands` is mounted directly rather than through the query panel, and that is why it exists as
+ * its own component: the panel is a Monaco host and Monaco cannot be instantiated in jsdom. Its props are
+ * no-ops here — this test is about which ids are subscribed, and `query-commands.spec.tsx` is about what
+ * the handlers do.
  *
  * `TooltipProvider` because the status bar's controls carry tooltips.
  */
 function renderProductionWiring(): void {
+  const noop = () => undefined;
   const { unmount } = render(
     <IpcQueryProvider>
       <TooltipProvider>
         <ShellCommands />
         <StatusBar />
         <ConnectionDialogs />
+        <QueryCommands
+          isActive={() => true}
+          onExecute={noop}
+          onExecuteSelection={noop}
+          onCancel={noop}
+          onFormat={noop}
+          onFind={noop}
+          onReplace={noop}
+          onToggleComment={noop}
+          onSave={noop}
+          onSaveAs={noop}
+          onOpenFile={noop}
+          onToggleResults={noop}
+          onInsertSnippet={noop}
+        />
       </TooltipProvider>
     </IpcQueryProvider>
   );
@@ -104,29 +126,33 @@ describe('command ownership', () => {
     const dead = COMMAND_IDS.filter(id => {
       if (handlerCount(id) > 0) return false;
       const owner = ownerTask(COMMAND_CONSUMERS[id]);
-      // Task 7 IS this wiring, so "Task 7 shell" with no subscription is a false claim, not a
-      // pending one — the only unhandled ids allowed are the ones a later task owns.
-      return owner === null || owner === 7;
+      // Tasks 7, 9 and 10 ARE this wiring, so one of those with no subscription is a false claim rather
+      // than a pending one — the only unhandled ids allowed are the ones a later task owns.
+      return owner === null || owner === 7 || owner === 9 || owner === 10;
     });
 
     expect(dead).toEqual([]);
   });
 
-  it('subscribes every command whose consumer says Task 7', () => {
-    // The other direction, and the one that fails if a `useCommand` call is deleted: an id may only
-    // claim Task 7 as its consumer while Task 7's wiring actually handles it.
+  it('subscribes every command whose consumer names a task that has shipped', () => {
+    // The other direction, and the one that fails if a `useCommand` call is deleted: an id may only claim
+    // a SHIPPED task as its consumer while that task's wiring actually handles it.
     renderProductionWiring();
 
-    const claimedByTask7 = COMMAND_IDS.filter(id => ownerTask(COMMAND_CONSUMERS[id]) === 7);
-    const unsubscribed = claimedByTask7.filter(id => handlerCount(id) === 0);
+    const shipped = [7, 9, 10];
+    const claimed = COMMAND_IDS.filter(id =>
+      shipped.includes(ownerTask(COMMAND_CONSUMERS[id]) ?? -1)
+    );
+    const unsubscribed = claimed.filter(id => handlerCount(id) === 0);
 
     expect(unsubscribed).toEqual([]);
     // A count as well, so deleting a handler *and* its registry claim in one edit is still a failure
-    // rather than a quietly smaller app: fourteen `useCommand` calls in `shell-commands.tsx`, plus
-    // the status bar's caret readout, plus Task 9's three in `features/connections`.
-    // `open-connection-dialog` moved from the first group to the third when the placeholder dialog
-    // was replaced by the real editor, so the total went 16 → 18 rather than 16 → 19.
-    expect(COMMAND_IDS.filter(id => handlerCount(id) > 0)).toHaveLength(18);
+    // rather than a quietly smaller app: fourteen `useCommand` calls in `shell-commands.tsx`, plus the
+    // status bar's caret readout, plus Task 9's three in `features/connections`, plus Task 10's twelve.
+    // Two ids are claimed by two owners at once and so count once: `open-query-file` (the query editor
+    // when a query tab is active, the shell otherwise) and `cursor-position` (the status bar consumes,
+    // the editor produces).
+    expect(COMMAND_IDS.filter(id => handlerCount(id) > 0)).toHaveLength(29);
   });
 });
 

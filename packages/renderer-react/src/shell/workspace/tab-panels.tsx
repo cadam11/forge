@@ -1,18 +1,17 @@
 /**
- * The five placeholder panels the dock mounts, one per tab type. Phase B replaces each one with
- * the real surface (welcome → Task 19, query → Task 10, object → Task 19, erd → Task 18,
- * chat → Task 17), and this file goes with the last of them.
+ * The placeholder panels the dock mounts, one per tab type that has no real surface yet — welcome and
+ * object (Task 19), erd (Task 18), chat (Task 17). This file goes with the last of them.
+ *
+ * **The query panel is no longer here.** Task 10 replaced it with `features/query/QueryPanel`, and the
+ * lazy boundary that mounts it lives in `query-panel-host.tsx` next door: Monaco is ~4MB of JavaScript,
+ * and a user on the welcome tab should not pay for it before they open a query.
  *
  * They are deliberately not empty divs. A placeholder's job here is to prove the seams the shell
- * owns actually work end to end, and there are three:
+ * owns actually work end to end, and there are two:
  *
  *  - the panel knows **which tab it is** and can read that tab's connection and database, which is
  *    the contract every Phase B surface consumes (`params.tabId`, never a prop drilled from the
  *    shell);
- *  - the query placeholder writes through `setTabContent`, so the **dirty dot, the content map and
- *    `saveTabs`** are exercised by the only surface that can exercise them before Monaco exists.
- *    Without it, "the shell tracks unsaved work" would be a claim with no way to check it — the
- *    gate screenshot of a dirty tab is taken by typing here;
  *  - every panel states what replaces it, so a placeholder cannot be mistaken for a finished
  *    surface in a screenshot or a demo.
  */
@@ -22,7 +21,7 @@ import { House, LayoutTemplate, Network, Sparkles, Table2, type LucideIcon } fro
 
 import { Button, EmptyState, cn } from '../../ui';
 import { dispatchCommand } from '../../commands';
-import { useTabStore, tabStore, type Tab } from '../../state/tab';
+import { useTabStore, type Tab } from '../../state/tab';
 
 /** Every panel is mounted with `params.tabId`; this is the one place that is read. */
 function useTabFromParams(props: IDockviewPanelProps): Tab | undefined {
@@ -79,47 +78,6 @@ export function WelcomePanel(props: IDockviewPanelProps) {
       description="The welcome surface lands in Task 19. The shell, the dock and the status bar are what this build is proving."
       tab={tab}
     />
-  );
-}
-
-/**
- * The query placeholder, and the only one with behaviour.
- *
- * The textarea is bound to the tab store's content map exactly as Monaco will be in Task 10:
- * `getTabContent` for the initial value, `setTabContent` per change. That makes the dirty dot, the
- * clean baseline and the debounced `saveTabs` live in this build — and it is what the gate types
- * into to produce a dirty tab. It is a textarea and not a pretend editor on purpose; nothing about
- * it should look finished.
- */
-export function QueryPanel(props: IDockviewPanelProps) {
-  const tab = useTabFromParams(props);
-  const tabId = tab?.id;
-  const isDirty = tab?.isDirty === true;
-
-  return (
-    <div className={cn(PANEL_CLASSES, 'gap-2 p-3')} data-testid="panel-query">
-      <div className="flex items-center justify-between gap-2">
-        <TabContext tab={tab} />
-        <p className="font-mono text-2xs tracking-eyebrow text-fg-muted uppercase">
-          {isDirty ? 'unsaved' : 'saved'}
-        </p>
-      </div>
-      <textarea
-        aria-label="SQL (placeholder editor)"
-        data-testid="panel-query-editor"
-        spellCheck={false}
-        defaultValue={tabId === undefined ? '' : tabStore.getState().getTabContent(tabId)}
-        onChange={event => {
-          if (tabId !== undefined) tabStore.getState().setTabContent(tabId, event.target.value);
-        }}
-        className={cn(
-          'min-h-0 grow resize-none rounded-sm border border-rule bg-surface p-2',
-          'font-mono text-sm text-fg placeholder:text-fg-subtle',
-          'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus'
-        )}
-        placeholder="-- Monaco arrives in Task 10. Typing here exercises the dirty-tab wiring."
-      />
-    </div>
   );
 }
 
