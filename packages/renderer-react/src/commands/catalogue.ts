@@ -562,6 +562,15 @@ export const COMMAND_CATALOGUE: { [Id in CommandId]: CatalogueEntry<Id> } = {
     palette: IN_PALETTE,
     keywords: ['preferences', 'options', 'theme'],
   },
+  'open-ai-setup': {
+    label: 'Set up AI',
+    hint: 'Choose a provider, save its API key, pick the model',
+    group: 'settings',
+    icon: Sparkles,
+    accelerator: null,
+    palette: IN_PALETTE,
+    keywords: ['ai', 'api key', 'provider', 'model', 'gemini', 'openai', 'anthropic'],
+  },
   'show-shortcuts': {
     label: 'Keyboard shortcuts',
     hint: 'Every binding this app has, in one sheet',

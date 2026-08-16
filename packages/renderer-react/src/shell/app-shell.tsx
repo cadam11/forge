@@ -35,6 +35,7 @@ import { useEffect, useLayoutEffect, type CSSProperties } from 'react';
 
 import { Spinner, Toaster, TooltipProvider, cn, installToastNotifier } from '../ui';
 import { dispatchCommand } from '../commands';
+import { AiSetupHost } from '../features/ai-setup';
 import { BackupDialogs } from '../features/backup';
 import { ChatCommands } from '../features/chat';
 import { ErdCommands } from '../features/erd';
@@ -241,6 +242,11 @@ function ShellFrame() {
           `ErdCommands` is Task 18's one, and it is here for a stronger version of the same reason: a
           handler whose job is to OPEN an ERD tab cannot live inside the ERD tab.
 
+          `AiSetupHost` is Task 19a's `open-ai-setup`, and it carries one extra job no other mount
+          does: it is the single caller of `aiStore.initialize()` (J-55), so auto-rename and Monaco's
+          query-assist read real settings from startup instead of from `DEFAULT_AI_SETTINGS` until
+          somebody happened to open the assistant.
+
           The four Task 16 surfaces are the same arrangement, and three of them own a keystroke of
           their own as well as a command — ⌘K/⇧⌘P for the palette, ⌘P for the object search, ⌥⌘S for the
           snippet library — because no menu item has those accelerators (`commands/catalogue.ts`). The
@@ -250,6 +256,7 @@ function ShellFrame() {
       <ShellCommands />
       <ChatCommands />
       <ErdCommands />
+      <AiSetupHost />
       <ConnectionDialogs />
       <BackupDialogs />
       <RestoreDialogs />

@@ -6,6 +6,7 @@
 import { StrictMode } from 'react';
 import { render, act } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { AiSetupHost } from '../features/ai-setup';
 import { BackupDialogs } from '../features/backup';
 import { ChatCommands } from '../features/chat';
 import { CommandPalette } from '../features/command-palette';
@@ -74,6 +75,7 @@ function renderProductionWiring(): void {
       <TooltipProvider>
         <ShellCommands />
         <ChatCommands />
+        <AiSetupHost />
         <StatusBar />
         <ConnectionDialogs />
         <BackupDialogs />
@@ -110,12 +112,19 @@ function renderProductionWiring(): void {
  * handler must be subscribed". Adding a task's component above without adding its number here makes
  * the second test vacuous for it, which is why they share one list.
  */
-const SHIPPED_TASKS: readonly number[] = [7, 9, 10, 12, 13, 15, 16, 17];
+const SHIPPED_TASKS: readonly string[] = ['7', '9', '10', '12', '13', '15', '16', '17', '19a'];
 
-/** The task number a consumer string names, or null when it names nobody. */
-function ownerTask(consumer: string): number | null {
-  const match = /^Task (\d+)\b/.exec(consumer);
-  return match?.[1] === undefined ? null : Number(match[1]);
+/**
+ * The task a consumer string names, or null when it names nobody.
+ *
+ * A **string**, and the optional letter is the reason: PLAN.md's Task 19 was split into a MUST half
+ * (19a) and the rest, and the two halves ship separately — `19a` is mounted by the wiring below while
+ * plain `19` is not. Parsing to a number would fold them together and make an unshipped 19 command
+ * look like a false claim the moment 19a landed.
+ */
+function ownerTask(consumer: string): string | null {
+  const match = /^Task (\d+[a-z]?)\b/.exec(consumer);
+  return match?.[1] ?? null;
 }
 
 describe('the registry', () => {
@@ -170,7 +179,7 @@ describe('command ownership', () => {
     renderProductionWiring();
 
     const claimed = COMMAND_IDS.filter(id =>
-      SHIPPED_TASKS.includes(ownerTask(COMMAND_CONSUMERS[id]) ?? -1)
+      SHIPPED_TASKS.includes(ownerTask(COMMAND_CONSUMERS[id]) ?? '')
     );
     const unsubscribed = claimed.filter(id => handlerCount(id) === 0);
 
@@ -185,8 +194,9 @@ describe('command ownership', () => {
     // which is new. Two ids are claimed by two owners at once and so count once: `open-query-file` (the
     // query editor when a query tab is active, the shell otherwise) and `cursor-position` (the status
     // bar consumes, the editor produces). 31 → 35 across Task 16 (four ids gained their FIRST handler,
-    // none moved) → 36 across Task 17 (one new id, one moved owner).
-    expect(COMMAND_IDS.filter(id => handlerCount(id) > 0)).toHaveLength(36);
+    // none moved) → 36 across Task 17 (one new id, one moved owner) → 37 across Task 19a's
+    // `AiSetupHost` (`open-ai-setup`, new).
+    expect(COMMAND_IDS.filter(id => handlerCount(id) > 0)).toHaveLength(37);
   });
 });
 

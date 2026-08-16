@@ -127,6 +127,14 @@ export interface CommandPayloads {
   /** Joinery ▸ Settings (⌘,). */
   'open-settings': void;
 
+  /**
+   * The AI setup dialog — provider, API key, model, feature switches (Task 19a; J-55).
+   *
+   * No menu channel: `menu.ts` has no AI item, so this is a palette / welcome-tab / chat-empty-state
+   * entry point only, in the same class as `open-snippets` and `open-object-search`.
+   */
+  'open-ai-setup': void;
+
   // ── The sidebar's dialog entry points (Task 8) ─────────────────────────────────────────────
   //
   // Eight ids, and every one of them is the *targeted* twin of something above. The native menu
@@ -328,6 +336,11 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
     'Task 15 features/settings/SettingsDialog, mounted by the shell. It calls settingsStore.open() ' +
     'itself — the Task 7 placeholder that held this wire while no panel existed is deleted, so ⌘, is ' +
     'handled exactly once.',
+
+  'open-ai-setup':
+    'Task 19a features/ai-setup/AiSetupHost, mounted by the shell — which is also the one caller of ' +
+    'aiStore.initialize() now (J-55). Producers: the Task 16 palette, the welcome tab’s AI entry, and ' +
+    'the chat panel’s no-provider empty state, which used to be able only to name the missing surface.',
 
   // The sidebar's eight targeted entry points. Producer for all of them: Task 8 sidebar
   // (`shell/sidebar/node-menu.tsx` and `connection-picker.tsx`).
