@@ -98,6 +98,32 @@ describe('parseSingleTableSelect', () => {
     }
   });
 
+  it('refuses a derived table even when the subquery has its own FROM', () => {
+    // The regression: the select list is matched lazily, so before the fix the engine extended it
+    // past `FROM (` to make the identifier alternation fit and this named `secret_t` — whose keys and
+    // references would then be attached to the derived table's columns, offering links the displayed
+    // rows do not have.
+    const refused = [
+      'SELECT * FROM (SELECT * FROM secret_t) x',
+      'SELECT * FROM (SELECT id FROM audit_log ORDER BY id DESC LIMIT 10) recent WHERE id > 0',
+      // A scalar subquery in the SELECT LIST, for the same reason: before the fix the FIRST `FROM` in
+      // the statement was the subquery's, and this named `audit_log`.
+      'SELECT (SELECT max(id) FROM audit_log) AS newest, id FROM customers',
+      // Conservative and deliberate: `FROM` inside a function argument leaves the select list with an
+      // unclosed paren, and this parser answers "I do not know" rather than guessing.
+      'SELECT EXTRACT(month FROM created_at) AS m, id FROM orders',
+    ];
+    for (const sql of refused) {
+      expect(parseSingleTableSelect(sql, 'postgresql', 'db'), sql).toBeNull();
+    }
+  });
+
+  it('refuses PostgreSQL’s FROM ONLY, where the table name is not the next word', () => {
+    // `ONLY` suppresses inheritance; it is a bare word, so it would be read as the table itself and
+    // the catalogue would be asked about a table called `only`. A refusal, not a silent wrong answer.
+    expect(parseSingleTableSelect('SELECT * FROM ONLY customers', 'postgresql', 'db')).toBeNull();
+  });
+
   it('is not fooled by the word JOIN inside a trailing clause', () => {
     // A refusal, and deliberately so: this parser is a heuristic, and the safe answer when the
     // word appears at all is "I do not know". Recorded as a test so the behaviour is a decision.
@@ -192,19 +218,49 @@ describe('mergeEnrichedColumns', () => {
 describe('sqlLiteral', () => {
   it('quotes strings per engine, doubling the closing quote', () => {
     expect(sqlLiteral("O'Brien", 'mssql')).toBe("N'O''Brien'");
-    expect(sqlLiteral("O'Brien", 'postgresql')).toBe("'O''Brien'");
+    expect(sqlLiteral("O'Brien", 'postgresql')).toBe("E'O''Brien'");
     expect(sqlLiteral("O'Brien", 'mysql')).toBe("'O''Brien'");
   });
 
-  it('doubles backslashes on MySQL only — it is the one engine that escapes them by default', () => {
+  it('doubles backslashes on both engines that can escape with them, not on SQL Server', () => {
     expect(sqlLiteral(String.raw`a\b`, 'mysql')).toBe(String.raw`'a\\b'`);
-    expect(sqlLiteral(String.raw`a\b`, 'postgresql')).toBe(String.raw`'a\b'`);
+    // An E-string always reads `\` as an escape, so the doubling is what keeps it data.
+    expect(sqlLiteral(String.raw`a\b`, 'postgresql')).toBe(String.raw`E'a\\b'`);
+    // T-SQL has no backslash escape in any configuration: doubling here would corrupt the predicate.
     expect(sqlLiteral(String.raw`a\b`, 'mssql')).toBe(String.raw`N'a\b'`);
   });
 
   it('closes the injection route a quoted terminator would open', () => {
     expect(sqlLiteral("1'; DROP TABLE customers; --", 'postgresql')).toBe(
-      "'1''; DROP TABLE customers; --'"
+      "E'1''; DROP TABLE customers; --'"
+    );
+  });
+
+  it('closes the BACKSLASH breakout that standard_conforming_strings=off would open on PostgreSQL', () => {
+    // The payload, and why it mattered: `standard_conforming_strings` is settable per database and per
+    // role, so a hostile or legacy DB owner can turn it off. With it off and only the quote doubled,
+    // `'1\''; DROP …'` reads `\'` as an escaped quote, the next `'` OPENS a literal, and `;` lands
+    // outside it — and node-postgres' simple query protocol runs both statements.
+    const payload = String.raw`1\'; DROP TABLE customers; -- `;
+
+    const literal = sqlLiteral(payload, 'postgresql');
+
+    // `E''` is escape-string syntax under EVERY setting, so the escaping no longer depends on one.
+    expect(literal).toBe(String.raw`E'1\\''; DROP TABLE customers; -- '`);
+    expect(literal.startsWith("E'")).toBe(true);
+    // Every backslash in the literal is part of a `\\` pair, so none of them can escape the quote
+    // that follows — which is what made the old output breakable.
+    expect(literal.slice(2, -1).replace(/\\\\/g, '')).not.toContain('\\');
+  });
+
+  it('documents MySQL under NO_BACKSLASH_ESCAPES: wrong row, never a second statement', () => {
+    // With the mode ON, `\\` is two literal backslashes, so this predicate matches a value that has
+    // two where the data has one: the preview finds no row. That is the accepted cost of one escaping
+    // rule for both modes — the quote doubling holds either way, so the literal cannot be escaped out
+    // of, and mysql2 does not multiplex statements even if it could be.
+    expect(sqlLiteral(String.raw`a\b`, 'mysql')).toBe(String.raw`'a\\b'`);
+    expect(sqlLiteral(String.raw`1\'; DROP TABLE t; -- `, 'mysql')).toBe(
+      String.raw`'1\\''; DROP TABLE t; -- '`
     );
   });
 
@@ -225,7 +281,7 @@ describe('sqlLiteral', () => {
 
   it('sends a Date as ISO, not as its locale string', () => {
     expect(sqlLiteral(new Date('2026-08-15T12:34:56.000Z'), 'postgresql')).toBe(
-      "'2026-08-15T12:34:56.000Z'"
+      "E'2026-08-15T12:34:56.000Z'"
     );
   });
 
@@ -235,7 +291,7 @@ describe('sqlLiteral', () => {
   });
 
   it('sends an object as JSON', () => {
-    expect(sqlLiteral({ a: 1 }, 'postgresql')).toBe(`'{"a":1}'`);
+    expect(sqlLiteral({ a: 1 }, 'postgresql')).toBe(`E'{"a":1}'`);
   });
 });
 
@@ -243,26 +299,39 @@ describe('fkLookupSql', () => {
   const target = { schema: 'public', table: 'customers', column: 'id', value: 3 };
 
   it('caps to one row the way each engine spells it', () => {
-    expect(fkLookupSql(target, 'postgresql')).toBe(
+    expect(fkLookupSql(target, 'postgresql', 'shop')).toBe(
       'SELECT * FROM "public"."customers" WHERE "id" = 3 LIMIT 1'
     );
-    expect(fkLookupSql({ ...target, schema: 'dbo', table: 'Customers' }, 'mssql')).toBe(
+    expect(fkLookupSql({ ...target, schema: 'dbo', table: 'Customers' }, 'mssql', 'shop')).toBe(
       'SELECT TOP 1 * FROM [dbo].[Customers] WHERE [id] = 3'
     );
   });
 
-  it('omits the schema on MySQL, where a two-part name would name a database', () => {
-    expect(fkLookupSql({ ...target, schema: 'shop' }, 'mysql')).toBe(
+  it('writes a bare name on MySQL when the reference is in the connected database', () => {
+    expect(fkLookupSql({ ...target, schema: 'shop' }, 'mysql', 'shop')).toBe(
       'SELECT * FROM `customers` WHERE `id` = 3 LIMIT 1'
     );
   });
 
+  it('QUALIFIES a MySQL reference into another database, which is what referencedSchema means', () => {
+    // A MySQL FK's `referencedSchema` is a DATABASE (`REFERENTIAL_CONSTRAINTS`.
+    // `UNIQUE_CONSTRAINT_SCHEMA`), and MySQL allows the constraint across databases. Dropping it —
+    // which `qualifiedTable` does, correctly, for the explorer — sent this lookup to a same-named
+    // table in the connected database or to nothing at all.
+    expect(fkLookupSql({ ...target, schema: 'crm' }, 'mysql', 'shop')).toBe(
+      'SELECT * FROM `crm`.`customers` WHERE `id` = 3 LIMIT 1'
+    );
+    expect(fkOpenSql({ ...target, schema: 'crm' }, 'mysql', 'shop')).toBe(
+      'SELECT *\nFROM `crm`.`customers`\nWHERE `id` = 3'
+    );
+  });
+
   it('quotes an identifier that carries the delimiter itself', () => {
-    expect(fkLookupSql({ ...target, table: 'we"ird' }, 'postgresql')).toContain('"we""ird"');
+    expect(fkLookupSql({ ...target, table: 'we"ird' }, 'postgresql', 'db')).toContain('"we""ird"');
   });
 
   it('is a multi-line, uncapped SELECT when it is going into a tab', () => {
-    expect(fkOpenSql(target, 'postgresql')).toBe(
+    expect(fkOpenSql(target, 'postgresql', 'shop')).toBe(
       'SELECT *\nFROM "public"."customers"\nWHERE "id" = 3'
     );
   });

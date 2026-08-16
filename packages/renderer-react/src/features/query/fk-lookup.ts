@@ -27,7 +27,9 @@
  * The remaining wart is inherent to the seam: `query.execute` takes a SQL string, so the lookup is
  * a literal in generated SQL rather than a bound parameter. Every value that reaches it is escaped
  * here, by type, in one function, and `sqlLiteral` is the only thing in this renderer that
- * interpolates a value into SQL.
+ * interpolates a value into SQL. Until `QueryRequest` grows a parameter slot (filed as a follow-up),
+ * `sqlLiteral` is the security boundary for this feature and is written to be correct under any
+ * server setting rather than under the default one — see its own comment.
  */
 
 import type { ColumnMetadata, DatabaseEngine } from '@joinery/shared';
@@ -69,6 +71,15 @@ export interface FkTarget {
  * link that does not exist. A JOIN, a UNION, an old-style comma join, a subquery in the `FROM`, a
  * three-part name and a multi-statement batch all yield `null`.
  *
+ * Two refusals are load-bearing enough to be spelled out separately from the identifier alternation,
+ * because the alternation alone did NOT enforce them: the select list is matched lazily, so
+ * `SELECT * FROM (SELECT * FROM secret_t) x` slid past the derived table and named `secret_t` — the
+ * columns of a derived table would then carry the *inner* table's keys and references. So a `FROM (`
+ * anywhere is a refusal, and the `FROM` this function reads must be the FIRST one in the statement
+ * (a `FROM` in the select list means a scalar subquery, i.e. a lazy match that ran past the real
+ * one). PostgreSQL's inheritance-suppressing `FROM ONLY t` is refused for a different reason: `ONLY`
+ * is a bare word and would be read as the table name.
+ *
  * `database` decides the unqualified case for MySQL, which has no schema layer between database and
  * table — its `TABLE_SCHEMA` *is* the database, which is what `metadata.ts:1128-1131` queries and
  * what `query-executor.ts:710`'s comment records. PostgreSQL falls back to `public` and SQL Server
@@ -89,11 +100,26 @@ export function parseSingleTableSelect(
   if (/;\s*\S/.test(normalized)) return null;
   if (/\bJOIN\b/i.test(normalized)) return null;
   if (/\bUNION\b/i.test(normalized)) return null;
+  // A derived table (`FROM (SELECT …)`) — its columns are the subquery's, not any table's.
+  if (/\bFROM\s*\(/i.test(normalized)) return null;
+  // `FROM ONLY t`: `ONLY` parses as a bare identifier and would be named as the table.
+  if (/\bFROM\s+ONLY\b/i.test(normalized)) return null;
 
   const match = FROM_TABLE.exec(normalized);
   if (match === null) return null;
 
-  const reference = match[1] ?? '';
+  // The `FROM` that matched must be the statement's own, and there are two ways it may not be. The
+  // list swallowed one (a lazy match that ran past the real `FROM`), or the list is left with an
+  // unclosed `(` — which means the matched `FROM` is inside a parenthesis: a scalar subquery
+  // (`SELECT (SELECT max(id) FROM audit_log) AS n, id FROM customers` named `audit_log`) or a
+  // function that spells an argument with the keyword (`EXTRACT(month FROM created_at)`). Both are
+  // refusals; the second is conservative — a `(` inside a string literal in the select list refuses
+  // too — and a refusal is the safe direction.
+  const selectList = match[1] ?? '';
+  if (/\bFROM\b/i.test(selectList)) return null;
+  if (countOf(selectList, '(') !== countOf(selectList, ')')) return null;
+
+  const reference = match[2] ?? '';
   const rest = normalized.slice(match.index + match[0].length);
   // `FROM a, b` — the old-style join, with or without an alias on the first table.
   if (/^\s*(?:(?:AS\s+)?[\w$"`[\]]+\s*)?,/i.test(rest)) return null;
@@ -122,16 +148,25 @@ export function parseSingleTableSelect(
 const IDENTIFIER = String.raw`(?:\[[^\]]+\]|` + '`[^`]+`' + String.raw`|"[^"]+"|[\w$]+)`;
 
 /**
- * `SELECT … FROM <ident>[.<ident>[.<ident>]]`.
+ * `SELECT <list> FROM <ident>[.<ident>[.<ident>]]`.
  *
  * The select list is matched lazily and may contain anything — `upper(name)`, a CASE expression, a
- * window function — because none of that changes which table the rows came from. What must not be
- * matched is a `FROM (` subquery, and the identifier alternation is what refuses it.
+ * window function — because none of that changes which table the rows came from. It is CAPTURED
+ * (group 1) precisely because "lazily" is not "minimally over the whole statement": the engine will
+ * happily extend the list past the first `FROM` to make the rest of the pattern fit, so the caller
+ * checks the captured list for a `FROM` and refuses when it finds one. Group 2 is the table.
  */
 const FROM_TABLE = new RegExp(
-  String.raw`^SELECT\s+(?:TOP\s+\d+\s+)?(?:DISTINCT\s+)?[\s\S]+?\sFROM\s+(${IDENTIFIER}(?:\.${IDENTIFIER}){0,2})`,
+  String.raw`^SELECT\s+(?:TOP\s+\d+\s+)?(?:DISTINCT\s+)?([\s\S]+?)\sFROM\s+(${IDENTIFIER}(?:\.${IDENTIFIER}){0,2})`,
   'i'
 );
+
+/** How many times `character` occurs in `text`. */
+function countOf(text: string, character: string): number {
+  let count = 0;
+  for (const found of text) if (found === character) count += 1;
+  return count;
+}
 
 /** Splits `a.b` into its parts and removes one layer of quoting from each. */
 function splitIdentifierPath(reference: string): string[] {
@@ -204,9 +239,26 @@ export function mergeEnrichedColumns(
  *  - `Date` as its ISO string, quoted. Angular's `String(value)` produced `Mon Aug 11 2025 …`,
  *    which no engine parses;
  *  - everything else stringified (objects as JSON) and quoted, with the closing quote doubled —
- *    plus **backslash doubling on MySQL**, where `\` is an escape character by default
- *    (`NO_BACKSLASH_ESCAPES` off), unlike PostgreSQL and SQL Server;
+ *    plus **backslash doubling on MySQL and PostgreSQL**, the two engines where a backslash can be
+ *    an escape character;
  *  - `N''` on SQL Server only, where it is what makes the literal Unicode.
+ *
+ * **Why PostgreSQL gets `E''` rather than a plain quoted string.** Whether `\` escapes inside an
+ * ordinary literal is a *server setting*: `standard_conforming_strings` defaults to `on` (so `\` is
+ * data), but it is settable per database and per role, so a hostile — or merely legacy — database
+ * owner can turn it off underneath us. With it off, quote-doubling alone is not an escape: the value
+ * `\'; DROP TABLE t; --` becomes `'\''; DROP TABLE t; --'`, where `\'` is an escaped quote, the
+ * following `'` OPENS a new literal, and the statement terminator lands outside it. node-postgres
+ * sends this through the simple query protocol, which executes multiple statements per message, so
+ * the injected statement runs. `E'…'` is escape-string syntax in every configuration, which makes
+ * the escaping setting-independent: double the backslashes AND the quotes and the value is data
+ * whatever the server is set to. (Refusing values containing backslashes would also be safe, but it
+ * would break the preview for ordinary data — a Windows path in a text column.)
+ *
+ * MySQL's mirror-image setting, `NO_BACKSLASH_ESCAPES`, is NOT a security hole here: with it on, the
+ * doubled backslash is two literal backslashes, so a lookup finds no row (or the wrong one) — data
+ * wrong, never a second statement, because quote-doubling holds in both modes and mysql2 does not
+ * multiplex statements. Asserted in the spec so the trade-off is recorded rather than assumed.
  */
 export function sqlLiteral(value: unknown, engine: DatabaseEngine): string {
   if (value === null || value === undefined) return 'NULL';
@@ -224,8 +276,37 @@ export function sqlLiteral(value: unknown, engine: DatabaseEngine): string {
         ? JSON.stringify(value)
         : String(value);
 
-  const escaped = (engine === 'mysql' ? text.replace(/\\/g, '\\\\') : text).replace(/'/g, "''");
-  return engine === 'mssql' ? `N'${escaped}'` : `'${escaped}'`;
+  const escaped = text.replace(/\\/g, '\\\\').replace(/'/g, "''");
+  switch (engine) {
+    case 'postgresql':
+      return `E'${escaped}'`;
+    case 'mysql':
+      return `'${escaped}'`;
+    case 'mssql':
+      // T-SQL has no backslash escape in any configuration, so the doubling above would turn one
+      // backslash in the data into two in the predicate.
+      return `N'${text.replace(/'/g, "''")}'`;
+  }
+}
+
+/**
+ * The referenced table as it must be written for `engine`, given the database the query runs
+ * against.
+ *
+ * `qualifiedTable` drops the schema on MySQL, which is right for the explorer (its `schema` slot is
+ * the database the tree is already inside) and wrong for a foreign key: an FK's
+ * `referencedSchema` **is the referenced database** (`metadata.ts` reads MySQL FKs out of
+ * `REFERENTIAL_CONSTRAINTS`, whose `UNIQUE_CONSTRAINT_SCHEMA` is a database name), and MySQL permits
+ * a constraint across databases. Dropping it sent the lookup to a same-named table in the connected
+ * database, or to no table at all. So on MySQL the reference is qualified whenever the referenced
+ * database differs from the connected one, and left bare when it does not — a bare name is what
+ * every same-database lookup, i.e. nearly all of them, keeps reading as.
+ */
+function fkTableRef(target: FkTarget, engine: DatabaseEngine, database: string): string {
+  if (engine === 'mysql' && target.schema !== '' && target.schema !== database) {
+    return `${quoteIdentifier(target.schema, engine)}.${quoteIdentifier(target.table, engine)}`;
+  }
+  return qualifiedTable(target.schema, target.table, engine);
 }
 
 /**
@@ -233,9 +314,13 @@ export function sqlLiteral(value: unknown, engine: DatabaseEngine): string {
  *
  * `TOP 1` before the select list on SQL Server, `LIMIT 1` after the predicate elsewhere — the same
  * split `selectWithLimit` makes, spelled out here because that helper has no room for a `WHERE`.
+ *
+ * `database` is the database the query will execute against; it only changes the SQL on MySQL — see
+ * `fkTableRef` — but it is required rather than optional so no caller can forget it on the one engine
+ * where forgetting it reads the wrong table.
  */
-export function fkLookupSql(target: FkTarget, engine: DatabaseEngine): string {
-  const table = qualifiedTable(target.schema, target.table, engine);
+export function fkLookupSql(target: FkTarget, engine: DatabaseEngine, database: string): string {
+  const table = fkTableRef(target, engine, database);
   const column = quoteIdentifier(target.column, engine);
   const predicate = `${column} = ${sqlLiteral(target.value, engine)}`;
   if (engine === 'mssql') return `SELECT TOP 1 * FROM ${table} WHERE ${predicate}`;
@@ -246,8 +331,8 @@ export function fkLookupSql(target: FkTarget, engine: DatabaseEngine): string {
  * The query a "open the referenced row in a new tab" action runs: the same lookup without the
  * single-row cap, because a tab is where a user goes to explore rather than to peek.
  */
-export function fkOpenSql(target: FkTarget, engine: DatabaseEngine): string {
-  const table = qualifiedTable(target.schema, target.table, engine);
+export function fkOpenSql(target: FkTarget, engine: DatabaseEngine, database: string): string {
+  const table = fkTableRef(target, engine, database);
   const column = quoteIdentifier(target.column, engine);
   return `SELECT *\nFROM ${table}\nWHERE ${column} = ${sqlLiteral(target.value, engine)}`;
 }

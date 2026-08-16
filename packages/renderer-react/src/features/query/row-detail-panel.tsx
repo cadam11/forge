@@ -565,7 +565,7 @@ interface FkPreviewProps {
  * cache's 30-second staleness window costs no round trip.
  */
 function FkPreview({ target, connectionId, database, engine, onOpenInTab }: FkPreviewProps) {
-  const sql = useMemo(() => fkLookupSql(target, engine), [target, engine]);
+  const sql = useMemo(() => fkLookupSql(target, engine, database), [target, engine, database]);
 
   const lookup = useIpcQuery({
     namespace: 'query',
@@ -674,7 +674,7 @@ export function openReferencedRowTab(request: {
     .openQueryTab(
       request.connectionId,
       request.database,
-      fkOpenSql(request.target, request.engine),
+      fkOpenSql(request.target, request.engine, request.database),
       true,
       false
     );
