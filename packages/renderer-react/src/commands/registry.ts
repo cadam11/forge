@@ -130,9 +130,10 @@ export interface CommandPayloads {
   // focus routed the operation to the wrong server. A payload states it instead of a nullable
   // parameter defaulting to a global, which is the whole difference.
   //
-  // None of them has a handler yet, and that is legal (see `bus.spec.ts`'s ownership rule):
-  // dispatching one warns in DEV with the owner named below, which is the designed feedback for
-  // a surface that has not shipped. Tasks 9/12/13/19 add the handler and change no sidebar code.
+  // An id whose owner has not shipped yet has no handler, and that is legal (see `bus.spec.ts`'s
+  // ownership rule): dispatching one warns in DEV with the owner named below, which is the designed
+  // feedback for a surface that has not arrived. Tasks 9 and 12 have since added theirs — and changed
+  // no sidebar code doing it, which was the point of the payload. Tasks 13/19 own the rest.
 
   /** Sidebar ▸ Connections ▸ Manage Connections. */
   'open-connection-manager': void;
@@ -237,7 +238,9 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
 
   'create-database': 'Task 19 create-database dialog.',
   'open-backup-dialog':
-    'Task 12 backup dialog. Task 7 shell registers a placeholder dialog (PLAN.md 0.1 item 2).',
+    'Task 12 features/backup/BackupDialogs, mounted by the shell. It resolves the focused connection ' +
+    'and its default database, because the native menu carries no payload (PLAN.md 0.1 item 2 — no ' +
+    'longer the silent router no-op, and no longer the Task 7 placeholder either).',
   'open-restore-dialog':
     'Task 13 restore dialog. Task 7 shell registers a placeholder dialog (PLAN.md 0.1 item 3).',
   'show-database-properties': 'Task 19 database-properties surface.',
@@ -267,8 +270,8 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
     'Task 19 create-database dialog, targeting the payload connection rather than the focused ' +
     'one. Producer: Task 8 sidebar (server context menu and database picker).',
   'backup-database':
-    'Task 12 backup dialog, targeting the payload database. Producer: Task 8 sidebar (database ' +
-    'context menu and the footer action).',
+    'Task 12 features/backup/BackupDialogs, targeting the payload database rather than the focused ' +
+    'one. Producer: Task 8 sidebar (database context menu and the footer action).',
   'restore-database':
     'Task 13 restore dialog, targeting the payload connection. Producer: Task 8 sidebar (server ' +
     'and database context menus, and the footer action).',

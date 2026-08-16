@@ -35,6 +35,7 @@ import { useEffect, useLayoutEffect, type CSSProperties } from 'react';
 
 import { Spinner, Toaster, TooltipProvider, cn, installToastNotifier } from '../ui';
 import { dispatchCommand } from '../commands';
+import { BackupDialogs } from '../features/backup';
 import { ConnectionDialogs } from '../features/connections';
 import { diagnostics } from '../state/diagnostics';
 import { installLogDiagnosticsSink, useLogStream } from '../state/logs';
@@ -217,10 +218,12 @@ function ShellFrame() {
       </div>
 
       {/* Non-visual mounts. Each renders nothing until something asks it to, and each must exist
-          exactly once. `ConnectionDialogs` is Task 9's consumer of the three connection commands. */}
+          exactly once. `ConnectionDialogs` is Task 9's consumer of the three connection commands;
+          `BackupDialogs` is Task 12's consumer of the two backup ones. */}
       <MenuBridge />
       <ShellCommands />
       <ConnectionDialogs />
+      <BackupDialogs />
       <Toaster theme={theme} />
     </TooltipProvider>
   );

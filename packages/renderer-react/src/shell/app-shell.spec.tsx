@@ -14,7 +14,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { installJoineryMock, removeJoineryMock } from '../test/joinery-mock';
 import { createAppStateDouble, type AppStateDouble } from '../test/app-state-double';
-import { setDiagnosticsSink } from '../state/diagnostics';
+import { setDiagnosticsSink, setNotifier } from '../state/diagnostics';
 import { chatPanelStore } from '../state/chat';
 import { logStore } from '../state/logs';
 import { tabStore } from '../state/tab';
@@ -200,22 +200,54 @@ describe('the app shell', () => {
     expect(screen.getByTestId('status-output-toggle').contains(badge)).toBe(true);
   });
 
-  it('reaches the placeholder dialog for the broken Database ▸ Backup menu item', async () => {
-    // PLAN.md 0.1: this menu item was `router.navigate(['/backup'])` into a router with no outlet.
+  it('reaches Task 12’s backup dialog for the broken Database ▸ Backup menu item', async () => {
+    // PLAN.md 0.1: this menu item was `router.navigate(['/backup'])` into a router with no outlet, and
+    // then a Task 7 placeholder. What is asserted here is that the shell still routes it — the handler
+    // now lives in `features/backup/BackupDialogs`, which `app-shell.tsx` mounts, so a missing mount
+    // shows up as a dispatch that reaches nobody.
+    //
+    // The shell's bridge double has no connections, which is the interesting half: the command carries
+    // no payload, so with nothing connected the only honest answer is to say so. It is also the one
+    // moment a toast is legal on this path — no modal is open yet (J-42).
+    await mountShell();
+
+    // Installed AFTER the mount, not before: the shell's own layout effect calls
+    // `installToastNotifier()`, which replaces whatever notifier was active — so a recorder installed
+    // first would be the one that got replaced.
+    const warnings: string[] = [];
+    teardowns.push(
+      setNotifier({
+        success: () => undefined,
+        info: () => undefined,
+        error: () => undefined,
+        warning: message => warnings.push(message),
+      })
+    );
+
+    const { dispatchCommand, handlerCount } = await import('../commands');
+    expect(handlerCount('open-backup-dialog')).toBe(1);
+    dispatchCommand('open-backup-dialog');
+
+    await waitFor(() =>
+      expect(warnings).toEqual(['Connect to a server before backing up a database.'])
+    );
+    expect(screen.queryByTestId('backup-dialog')).toBeNull();
+  });
+
+  it('still reaches the placeholder dialog for the broken Database ▸ Restore menu item', async () => {
+    // The last of PLAN.md 0.1's three. Task 13 replaces the body without touching the wire.
     const user = userEvent.setup();
     await mountShell();
 
-    // Driven through the bus rather than the bridge, so this asserts the handler rather than
-    // re-asserting the bridge's routing (which `menu-bridge.spec.tsx` covers).
     const { dispatchCommand } = await import('../commands');
-    dispatchCommand('open-backup-dialog');
+    dispatchCommand('open-restore-dialog');
 
-    const dialog = await screen.findByTestId('placeholder-dialog-backup');
-    expect(dialog.textContent).toContain('Task 12');
+    const dialog = await screen.findByTestId('placeholder-dialog-restore');
+    expect(dialog.textContent).toContain('Task 13');
     expect(screen.getByTestId('placeholder-dialog-target').textContent).toContain('no connection');
 
     await user.click(screen.getByTestId('placeholder-dialog-dismiss'));
-    await waitFor(() => expect(screen.queryByTestId('placeholder-dialog-backup')).toBeNull());
+    await waitFor(() => expect(screen.queryByTestId('placeholder-dialog-restore')).toBeNull());
   });
 
   it('opens the welcome tab on the View ▸ Welcome command', async () => {
