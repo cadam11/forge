@@ -58,6 +58,14 @@ Ten `joinery:*` `CustomEvent`s are dispatched by the palette with no listener an
 
 Nothing imports the updated raster mark; separately, the sidebar stack mark's hardcoded ivory stripe is invisible in light mode.
 
+**Half done (renderer-rewrite Task 8).** The invisible-stripe half is fixed in the React renderer:
+`packages/renderer-react/src/shell/sidebar/brand-mark.tsx` inlines `docs/brand/assets/mark-on-*.svg`
+as one SVG whose middle bar is `fill-fg`, which resolves to drafting ivory under ink and Joinery ink
+under ivory — the exact two hexes the two assets differ by. `task-8-gate.mjs` measures the resolved
+fill per theme, so the defect cannot come back silently. Still open: the Angular
+`packages/renderer/src/assets/icons/logo.png` is still unreferenced, and disposing of it is a
+cutover decision (renderer-rewrite Task 24), not a UI one.
+
 ## 13. Align the dev and packaged userData directory case → [J-33](https://linear.app/adam11/issue/J-33)
 
 Dev uses `.../joinery`, packaged uses `.../Joinery`, so profiles and history split across two directories. One-line fix, but Craig's call.

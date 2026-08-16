@@ -120,6 +120,47 @@ export interface CommandPayloads {
   /** Joinery ▸ Settings (⌘,). */
   'open-settings': void;
 
+  // ── The sidebar's dialog entry points (Task 8) ─────────────────────────────────────────────
+  //
+  // Eight ids, and every one of them is the *targeted* twin of something above. The native menu
+  // carries no data, so `open-backup-dialog` and friends have to resolve their target from focus;
+  // a right-click on a database node under server A knows exactly which database on which server
+  // it means, and the Angular sidebar spent an `overrideConnectionId` parameter on every one of
+  // these saying so (`sidebar.component.ts:932,976,1146-1228`) precisely because resolving from
+  // focus routed the operation to the wrong server. A payload states it instead of a nullable
+  // parameter defaulting to a global, which is the whole difference.
+  //
+  // None of them has a handler yet, and that is legal (see `bus.spec.ts`'s ownership rule):
+  // dispatching one warns in DEV with the owner named below, which is the designed feedback for
+  // a surface that has not shipped. Tasks 9/12/13/19 add the handler and change no sidebar code.
+
+  /** Sidebar ▸ Connections ▸ Manage Connections. */
+  'open-connection-manager': void;
+  /** Sidebar ▸ server node ▸ Edit Connection… — the editor opened on an existing profile. */
+  'edit-connection': { connectionId: string };
+
+  /** Sidebar ▸ server node ▸ New Database… */
+  'create-database-on-server': { connectionId: string };
+  /** Sidebar ▸ database node ▸ Backup Database… */
+  'backup-database': { connectionId: string; databaseName: string };
+  /**
+   * Sidebar ▸ Restore Database… A restore *creates* its target, so the server node offers it with
+   * no database name — which is why this one field is optional and the backup twin's is not.
+   */
+  'restore-database': { connectionId: string; databaseName?: string };
+  /** Sidebar ▸ database node ▸ Rename… */
+  'rename-database': { connectionId: string; databaseName: string };
+  /** Sidebar ▸ database node ▸ Delete… (the confirm step belongs to the handler). */
+  'delete-database': { connectionId: string; databaseName: string };
+  /** Sidebar ▸ table/view/procedure/function ▸ Properties… (⌥↩). */
+  'show-object-properties': {
+    connectionId: string;
+    databaseName: string;
+    schema: string;
+    objectName: string;
+    objectType: string;
+  };
+
   // ── The six channels that had a live producer AND consumer in Angular ──────────────────────
 
   /**
@@ -211,6 +252,29 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
   'open-settings':
     'Task 15 settings panel. Task 7 shell opens the store flag it reads (settingsStore.open), ' +
     'so the wire is live before the panel exists.',
+
+  // The sidebar's eight targeted entry points. Producer for all of them: Task 8 sidebar
+  // (`shell/sidebar/node-menu.tsx` and `connection-picker.tsx`).
+  'open-connection-manager': 'Task 9 connection manager. Producer: Task 8 sidebar connection menu.',
+  'edit-connection':
+    'Task 9 connection editor, opened on the profile in the payload. Producer: Task 8 sidebar ' +
+    'server context menu.',
+  'create-database-on-server':
+    'Task 19 create-database dialog, targeting the payload connection rather than the focused ' +
+    'one. Producer: Task 8 sidebar (server context menu and database picker).',
+  'backup-database':
+    'Task 12 backup dialog, targeting the payload database. Producer: Task 8 sidebar (database ' +
+    'context menu and the footer action).',
+  'restore-database':
+    'Task 13 restore dialog, targeting the payload connection. Producer: Task 8 sidebar (server ' +
+    'and database context menus, and the footer action).',
+  'rename-database': 'Task 19 rename-database dialog. Producer: Task 8 sidebar database menu.',
+  'delete-database':
+    'Task 19 delete-database confirmation, which owns the in-use warning and the tab/node ' +
+    'teardown. Producer: Task 8 sidebar database menu.',
+  'show-object-properties':
+    'Task 19 object-properties surface (the wired table-properties container, not the dead ' +
+    'panel clone of PLAN.md 0.2). Producer: Task 8 sidebar object context menus.',
 
   'menu-copy':
     'Task 11 results grid (claims it when focus is inside the grid and there is no text selection); ' +

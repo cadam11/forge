@@ -10,6 +10,7 @@
  *   status-bar.tsx            the restructured bar (audit §1.9)
  *   menu-bridge.tsx           all 31 `menu.on*` channels → commands
  *   shell-commands.tsx        the handlers this task owns, plus the three placeholder dialogs
+ *   sidebar/                  the connection list, the pickers and the lazy object explorer (Task 8)
  *   workspace/workspace.tsx   Dockview, reconciled against `tabStore`
  *
  * `AppShell` is the only export the app root needs.

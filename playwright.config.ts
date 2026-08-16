@@ -5,12 +5,16 @@ import { defineConfig } from '@playwright/test';
 // Specs live under tests/e2e/. Each test launches its own Electron instance
 // via tests/helpers/electron-app.ts.
 //
-// Two projects:
-//   - e2e: functional E2E specs (anything not under tests/e2e/visual/)
+// Three projects:
+//   - e2e: functional E2E specs against the Angular renderer (anything under
+//     tests/e2e/ that is not inside tests/e2e/visual/)
 //   - visual: snapshot baselines (anything under tests/e2e/visual/)
+//   - e2e-react: functional specs against the React renderer (tests/e2e-react/)
 //
-// `pnpm run test:e2e` and `pnpm run test:visual` invoke the projects separately
-// so the static report and live dashboard can show them as distinct tiers.
+// `pnpm run test:e2e` and `pnpm run test:visual` invoke the first two
+// separately so the static report and live dashboard can show them as distinct
+// tiers. The React tier runs as `pnpm exec playwright test --project=e2e-react`
+// until it earns a script of its own (see the note on the project below).
 export default defineConfig({
   testDir: './tests/e2e',
   outputDir: './tests/reports/.cache/playwright-results',
@@ -53,6 +57,20 @@ export default defineConfig({
     {
       name: 'visual',
       testMatch: /tests\/e2e\/visual\/.*\.spec\.ts$/,
+    },
+    // The React renderer's functional tier. A project-level `testDir` rather
+    // than a testMatch under the shared one, so nothing about the `e2e`
+    // project's discovery changes: tests/e2e-react/ is outside the top-level
+    // testDir entirely and the Angular tier's 38 tests are the same 38.
+    //
+    // Every spec here pins itself to the React renderer through
+    // `withJoineryReact` (tests/helpers/joinery-actions-react.ts), so this
+    // project needs no env var to be correct — the env var
+    // (JOINERY_E2E_RENDERER) exists for driving the *Angular* specs against
+    // React in Task 20, which is the other direction.
+    {
+      name: 'e2e-react',
+      testDir: './tests/e2e-react',
     },
   ],
 });
