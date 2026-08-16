@@ -154,7 +154,22 @@ function optionsFrom(settings: AppSettings['editor']): monaco.editor.IEditorOpti
  * the Angular editor hardcoded spaces.
  */
 function modelOptionsFrom(settings: AppSettings['editor']): monaco.editor.ITextModelUpdateOptions {
-  return { tabSize: settings.tabSize, insertSpaces: true };
+  return {
+    tabSize: settings.tabSize,
+    insertSpaces: true,
+    // Rainbow brackets, off — and this is a MODEL option, which took two browser-gate runs to
+    // establish. The editor option `bracketPairColorization` exists and setting it changes nothing:
+    // `colorizedBracketPairsDecorationProvider.js:17` reads
+    // `textModel.getOptions().bracketPairColorizationOptions`, so the model is the only thing that
+    // decides. With the editor option alone the gate photographed gold parentheses under ink and blue
+    // ones under ivory, on spans classed `mtk12 bracket-highlighting-0`.
+    //
+    // Off rather than themed: it paints from `editorBracketHighlight.foreground1…6`, six colours the
+    // closed palette does not have and would not spend on punctuation if it did. A bracket is now a
+    // `delimiter` like every other separator. Bracket MATCHING is a different feature, still on, and
+    // themed through `editorBracketMatch.*`.
+    bracketColorizationOptions: { enabled: false, independentColorPoolPerBracketType: false },
+  };
 }
 
 /** The options that are not user preferences. Split out so `optionsFrom` is exactly the settings. */
@@ -172,6 +187,10 @@ const FIXED_OPTIONS: monaco.editor.IStandaloneEditorConstructionOptions = {
   occurrencesHighlight: 'singleFile',
   selectionHighlight: true,
   fontFamily: 'var(--font-technical)',
+  // The editor half of turning rainbow brackets off; the model half is in `modelOptionsFrom` and the
+  // theme half is in `monaco-themes.ts`. All three, because the gate proved the first two are not
+  // reliably sufficient on their own — see the comment on the model option.
+  bracketPairColorization: { enabled: false },
   // The gutter is the app's own chrome; Monaco's default 26px reserves room for breakpoints and
   // folding markers this app has neither of.
   lineDecorationsWidth: 8,

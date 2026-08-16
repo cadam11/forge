@@ -131,7 +131,9 @@ export function PlaceholderDialog({
                 Cancel
               </Button>
             </DialogClose>
-            <Button type="submit" data-testid="query-placeholders-run">
+            {/* The one filled oxide affordance in this dialog — HOUSE-RULES §5. `Button` defaults to
+                `outline`, so the primary action has to say so. */}
+            <Button variant="primary" type="submit" data-testid="query-placeholders-run">
               Execute
             </Button>
           </DialogActions>

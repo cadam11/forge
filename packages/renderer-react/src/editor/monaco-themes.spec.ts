@@ -151,19 +151,42 @@ describe('the theme data Monaco is handed', () => {
     expect(EDITOR_THEMES.dark.data.inherit).toBe(true);
   });
 
-  it('paints the token scopes the three SQL tokenizers emit', () => {
+  it('paints the token scopes the three SQL tokenizers emit, bare AND `.sql`-suffixed', () => {
     const scopes = EDITOR_THEMES.dark.data.rules.map(rule => rule.token);
     // `comment` covers `comment.quote` and `keyword` covers `keyword.try` by Monaco's prefix matching,
-    // which is why this list is nine short entries and not twenty.
+    // which is why this is nine roles and not twenty. Each is registered twice: Monarch appends the
+    // grammar's `.sql` postfix, and the base theme's own `string.sql` / `operator.sql` /
+    // `predefined.sql` rules are MORE SPECIFIC than a bare `string` and win against it. Measured — the
+    // first gate run photographed a red string, a magenta COUNT and a slate-grey operator.
     expect(scopes).toEqual([
       'keyword',
+      'keyword.sql',
       'predefined',
+      'predefined.sql',
       'operator',
+      'operator.sql',
       'type',
+      'type.sql',
       'string',
+      'string.sql',
       'number',
+      'number.sql',
       'comment',
+      'comment.sql',
+      'delimiter',
+      'delimiter.sql',
+      'identifier',
+      'identifier.sql',
     ]);
+  });
+
+  it('claims every scope the base theme defines an SQL rule for', () => {
+    // `standalone/common/themes.js` defines exactly three, and every one of them has to be overridden
+    // by name or `inherit: true` lets it through.
+    const scopes = new Set(EDITOR_THEMES.light.data.rules.map(rule => rule.token));
+    for (const baseRule of ['string.sql', 'operator.sql', 'predefined.sql']) {
+      expect(scopes.has(baseRule), `the base theme's ${baseRule} is unclaimed`).toBe(true);
+    }
   });
 
   it('strips the leading # from token foregrounds, which is the form Monaco requires', () => {
@@ -177,6 +200,11 @@ describe('the theme data Monaco is handed', () => {
     expect(byToken.get('keyword')?.fontStyle).toBe('bold');
     expect(byToken.get('predefined')?.fontStyle).toBe('bold');
     expect(byToken.get('comment')?.fontStyle).toBe('italic');
+    // And the suffixed twin carries the same weight, since it is the one that actually applies.
+    expect(byToken.get('keyword.sql')?.fontStyle).toBe('bold');
+    expect(byToken.get('comment.sql')?.fontStyle).toBe('italic');
+    // Everything else is separated by hue or the neutral ramp, not by weight.
+    expect(byToken.get('string.sql')?.fontStyle).toBeUndefined();
   });
 
   it('paints the editor background from the canvas token in both themes', () => {

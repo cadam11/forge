@@ -140,24 +140,54 @@ export const IVORY_THEME_NAME = 'joinery-ivory';
  * MySQL), `number`, `comment` (+ `comment.quote` for block comments), `identifier` (+
  * `identifier.quote` for `[bracketed]` names) and `delimiter`.
  *
- * Monaco matches a rule's token by PREFIX, so `comment` covers `comment.quote` and `keyword` covers
- * every `keyword.*` — that is why the list is nine rules and not twenty.
+ * ── Why every rule is emitted TWICE, once with a `.sql` suffix ─────────────────────────────
  *
- * `identifier` and `delimiter` are deliberately absent: they inherit `editor.foreground`, which is
- * what an unhighlighted identifier should be. Naming them would only restate the default.
+ * Monarch appends the grammar's `tokenPostfix` to every token it emits, and all three SQL grammars set
+ * `tokenPostfix: '.sql'` — so what reaches the theme matcher is `string.sql`, not `string`. Monaco then
+ * resolves a token against the MOST SPECIFIC matching rule, and `inherit: true` keeps the base theme's
+ * rules in the table. The base themes define exactly three SQL rules
+ * (`standalone/common/themes.js`: `string.sql` → `FF0000`, `operator.sql` → `778899`,
+ * `predefined.sql` → `C700C7`/`FF00FF`), all of which are more specific than a bare `string` and
+ * therefore beat it.
+ *
+ * That is not a theory: the first browser-gate run photographed a bright red `'CA'`, a magenta `COUNT`
+ * and a slate-grey `=` in both themes, none of which is a Joinery colour and two of which fail AA on
+ * ivory. So each role is registered for the bare scope AND for `<scope>.sql`, and the suffixed one is
+ * the one that wins. `identifier` and `delimiter` are claimed for the same reason rather than being
+ * left to `editor.foreground` — a base rule would otherwise claim them first.
  */
+const TOKEN_ROLES: readonly {
+  scope: string;
+  role: keyof EditorThemeTokens;
+  fontStyle?: string;
+}[] = [
+  { scope: 'keyword', role: 'syntaxKeyword', fontStyle: 'bold' },
+  { scope: 'predefined', role: 'syntaxFunction', fontStyle: 'bold' },
+  { scope: 'operator', role: 'syntaxType' },
+  // Not emitted by these three grammars, but registered so a `type` token from any other language a
+  // future editor shows lands on the palette rather than on the base theme.
+  { scope: 'type', role: 'syntaxType' },
+  { scope: 'string', role: 'syntaxString' },
+  { scope: 'number', role: 'syntaxNumber' },
+  { scope: 'comment', role: 'syntaxComment', fontStyle: 'italic' },
+  // Punctuation, one step down from the identifiers it separates.
+  { scope: 'delimiter', role: 'syntaxType' },
+  // The default. Claimed explicitly so no base rule can.
+  { scope: 'identifier', role: 'fg' },
+];
+
+/** The suffix Monarch appends for all three SQL grammars. See the block above. */
+const SQL_TOKEN_POSTFIX = 'sql';
+
 function tokenRules(tokens: EditorThemeTokens): monaco.editor.ITokenThemeRule[] {
   const strip = (color: string): string => color.replace('#', '');
-  return [
-    { token: 'keyword', foreground: strip(tokens.syntaxKeyword), fontStyle: 'bold' },
-    { token: 'predefined', foreground: strip(tokens.syntaxFunction), fontStyle: 'bold' },
-    { token: 'operator', foreground: strip(tokens.syntaxType) },
-    // Present in some grammars (and in the JSON/TS ones a future task might mount), harmless here.
-    { token: 'type', foreground: strip(tokens.syntaxType) },
-    { token: 'string', foreground: strip(tokens.syntaxString) },
-    { token: 'number', foreground: strip(tokens.syntaxNumber) },
-    { token: 'comment', foreground: strip(tokens.syntaxComment), fontStyle: 'italic' },
-  ];
+  return TOKEN_ROLES.flatMap(({ scope, role, fontStyle }) =>
+    [scope, `${scope}.${SQL_TOKEN_POSTFIX}`].map(token => ({
+      token,
+      foreground: strip(tokens[role]),
+      ...(fontStyle === undefined ? {} : { fontStyle }),
+    }))
+  );
 }
 
 /**
@@ -190,6 +220,28 @@ function editorColors(tokens: EditorThemeTokens): monaco.editor.IColors {
     'editor.findMatchHighlightBackground': tokens.accentSubtle,
     'editorBracketMatch.background': tokens.accentSubtle,
     'editorBracketMatch.border': tokens.accent,
+    // Rainbow brackets, flattened onto the palette.
+    //
+    // Monaco 0.56 colorizes bracket pairs by default and paints them from these six ids, whose
+    // defaults are gold (`#FFD700`) under dark and blue (`#0431FA`) under light. The browser gate
+    // photographed both — a blue parenthesis is a straight violation of PROPOSAL §2.5's no-blue rule,
+    // and neither colour is in the palette at all.
+    //
+    // Disabling the feature turned out to be the harder route: the flag lives on the MODEL
+    // (`textModel.getOptions().bracketPairColorizationOptions`), the editor option of the same name
+    // does not reach it on its own, and `modelService._updateModelOptions` can push the service's own
+    // default back over a model-level write. `sql-editor.tsx` sets both, and this map is what makes
+    // the outcome the same either way: all six levels are the delimiter colour, so a bracket looks
+    // like the punctuation it is whether the feature is on or off.
+    'editorBracketHighlight.foreground1': tokens.syntaxType,
+    'editorBracketHighlight.foreground2': tokens.syntaxType,
+    'editorBracketHighlight.foreground3': tokens.syntaxType,
+    'editorBracketHighlight.foreground4': tokens.syntaxType,
+    'editorBracketHighlight.foreground5': tokens.syntaxType,
+    'editorBracketHighlight.foreground6': tokens.syntaxType,
+    // The one that must stand out: an unmatched closing bracket is an error, and this is the same
+    // accent the editor already uses for a matched pair's rule.
+    'editorBracketHighlight.unexpectedBracket.foreground': tokens.accent,
     // Widgets — the find/replace bar, the suggest list, hovers. `elevated` is the dialog surface.
     'editorWidget.background': tokens.elevated,
     'editorWidget.foreground': tokens.fg,

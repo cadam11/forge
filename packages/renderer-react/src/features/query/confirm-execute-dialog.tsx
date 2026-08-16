@@ -108,6 +108,7 @@ export function ConfirmExecuteDialog({
           {/* The one filled oxide affordance in this dialog — HOUSE-RULES §5. */}
           <Button
             ref={executeButton}
+            variant="primary"
             data-testid="query-confirm-execute-run"
             onClick={() => onConfirm(remember)}
           >

@@ -210,7 +210,14 @@ describe('creation', () => {
     // `tabSize` and `insertSpaces` are `ITextModelUpdateOptions`; passing them to `create` is a type
     // error, which is how this split was found.
     mount({ editorSettings: { ...DEFAULT_SETTINGS.editor, tabSize: 8 } });
-    expect(state.model.updateOptions).toHaveBeenCalledWith({ tabSize: 8, insertSpaces: true });
+    expect(state.model.updateOptions).toHaveBeenCalledWith({
+      tabSize: 8,
+      insertSpaces: true,
+      // Rainbow brackets are a MODEL option too, and only the model's copy is read — see the comment
+      // on `modelOptionsFrom`, which two browser-gate runs paid for. Asserted exactly rather than with
+      // `objectContaining`, because "which keys reach the model" is the thing this test is about.
+      bracketColorizationOptions: { enabled: false, independentColorPoolPerBracketType: false },
+    });
     expect(lastCreate()?.options).not.toHaveProperty('tabSize');
   });
 
@@ -461,7 +468,9 @@ describe('live prop changes', () => {
     expect(lastEditor().updateOptions).toHaveBeenCalledWith(
       expect.objectContaining({ fontSize: 20 })
     );
-    expect(state.model.updateOptions).toHaveBeenCalledWith({ tabSize: 3, insertSpaces: true });
+    expect(state.model.updateOptions).toHaveBeenCalledWith(
+      expect.objectContaining({ tabSize: 3, insertSpaces: true })
+    );
   });
 
   it('retints through setTheme when the app theme changes', () => {
