@@ -186,7 +186,7 @@ export function OutputPanel() {
             onClick={() => setFilter('all')}
             className={FILTER_CLASSES}
           >
-            Log <span className="tabular-nums text-fg-subtle">{entries.length}</span>
+            Log <span className="tabular-nums text-fg-muted">{entries.length}</span>
           </button>
           <button
             type="button"
@@ -196,7 +196,7 @@ export function OutputPanel() {
             className={FILTER_CLASSES}
           >
             Errors{' '}
-            <span className={cn('tabular-nums', errorCount > 0 ? 'text-danger' : 'text-fg-subtle')}>
+            <span className={cn('tabular-nums', errorCount > 0 ? 'text-danger' : 'text-fg-muted')}>
               {errorCount}
             </span>
           </button>

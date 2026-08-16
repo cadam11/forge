@@ -165,8 +165,8 @@ function ConnectionSegment() {
 
   if (!hasAnyConnection || !profile) {
     return (
-      <Segment testId="status-connection" className="text-fg-subtle">
-        <Icon icon={CloudOff} size="sm" label="Not connected" className="stroke-fg-subtle" />
+      <Segment testId="status-connection">
+        <Icon icon={CloudOff} size="sm" label="Not connected" className="stroke-fg-muted" />
         <span>Not connected</span>
       </Segment>
     );
@@ -298,7 +298,7 @@ export function StatusBar() {
 
         <ThemeMenu />
 
-        <Segment testId="status-version" className="text-fg-subtle">
+        <Segment testId="status-version">
           <span className="tabular-nums">
             {version.data === undefined ? 'Joinery' : `Joinery v${version.data}`}
           </span>

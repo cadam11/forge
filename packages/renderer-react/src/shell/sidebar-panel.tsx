@@ -23,9 +23,7 @@ export function SidebarPanel() {
       className="flex h-full min-h-0 min-w-0 flex-col bg-chrome"
     >
       <div className="flex h-8 shrink-0 items-center border-b border-rule px-3">
-        <h2 className="font-mono text-2xs tracking-eyebrow text-fg-subtle uppercase">
-          Connections
-        </h2>
+        <h2 className="font-mono text-2xs tracking-eyebrow text-fg-muted uppercase">Connections</h2>
       </div>
 
       <div className="flex min-h-0 grow items-center justify-center p-4">

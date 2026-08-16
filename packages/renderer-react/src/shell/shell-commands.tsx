@@ -112,7 +112,7 @@ function PlaceholderDialog({
         </DialogHeader>
         <DialogBody className="flex flex-col gap-3">
           <div className={cn('flex flex-col gap-1 rounded-sm border border-rule bg-surface p-3')}>
-            <p className="font-mono text-2xs tracking-eyebrow text-fg-subtle uppercase">Target</p>
+            <p className="font-mono text-2xs tracking-eyebrow text-fg-muted uppercase">Target</p>
             <p data-testid="placeholder-dialog-target" className="font-mono text-sm text-fg">
               {profile?.name ?? 'no connection'} · {database ?? 'no database'}
             </p>

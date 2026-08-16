@@ -22,7 +22,7 @@ export function ChatSidePanel() {
       className="flex h-full min-h-0 min-w-0 flex-col bg-chrome"
     >
       <div className="flex h-8 shrink-0 items-center gap-2 border-b border-rule px-3">
-        <h2 className="grow font-mono text-2xs tracking-eyebrow text-fg-subtle uppercase">
+        <h2 className="grow font-mono text-2xs tracking-eyebrow text-fg-muted uppercase">
           AI assistant
         </h2>
         <Tooltip content="Close the assistant (⇧⌘I)">

@@ -37,7 +37,7 @@ function TabContext({ tab }: { readonly tab: Tab | undefined }) {
   return (
     <p
       data-testid="panel-tab-context"
-      className="font-mono text-2xs tracking-eyebrow text-fg-subtle uppercase"
+      className="font-mono text-2xs tracking-eyebrow text-fg-muted uppercase"
     >
       {tab.connectionId ?? 'no connection'} · {tab.databaseName ?? 'no database'}
     </p>
@@ -99,7 +99,7 @@ export function QueryPanel(props: IDockviewPanelProps) {
     <div className={cn(PANEL_CLASSES, 'gap-2 p-3')} data-testid="panel-query">
       <div className="flex items-center justify-between gap-2">
         <TabContext tab={tab} />
-        <p className="font-mono text-2xs tracking-eyebrow text-fg-subtle uppercase">
+        <p className="font-mono text-2xs tracking-eyebrow text-fg-muted uppercase">
           {isDirty ? 'unsaved' : 'saved'}
         </p>
       </div>
