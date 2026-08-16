@@ -121,11 +121,15 @@ test.describe('Joinery — the command palette', () => {
     await withJoineryReact(async ({ window }) => {
       await openPalette(window);
 
-      // Query ▸ History has no consumer until Task 19. The palette lists it — hiding it would teach the
+      // The guided tour has no consumer until Task 19b. The palette lists it — hiding it would teach the
       // user nothing — and marks it inert with the owner the registry names. This is J-44's rule applied
       // to commands, and it is what the ten dead Angular entries needed.
-      expect(await paletteRowState(window, 'command:open-query-history')).toBe('unowned');
-      const row = paletteRow(window, 'command:open-query-history');
+      //
+      // It was `open-query-history` until Task 19a shipped that dialog. The row this test needs is a
+      // command that is unowned AND has no precondition, because `unavailable` (a requirement not met)
+      // is reported ahead of `unowned` — `start-tour` is the one such id.
+      expect(await paletteRowState(window, 'command:start-tour')).toBe('unowned');
+      const row = paletteRow(window, 'command:start-tour');
       await expect(row).toHaveAttribute('data-disabled', 'true');
       await expect(row).toContainText('Not wired yet');
       await expect(row).toContainText(/Task \d+/);
