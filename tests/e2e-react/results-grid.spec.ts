@@ -27,6 +27,7 @@ import {
   resultsGrid,
   selectDatabase,
   selectGridRow,
+  sendMenuCommand,
   sortGridColumn,
   typeSql,
   withJoineryReact,
@@ -143,6 +144,40 @@ test.describe('Joinery (React) — the results grid', () => {
       // Descending, because that is what the user is looking at. A copy that read the result set
       // instead of the grid would come back ascending and nobody would notice until they pasted.
       expect(copied.split('\n').slice(1, 3)).toEqual(['5\tDE', '4\tAU']);
+    });
+  });
+
+  test('Edit ▸ Copy is claimed by the grid the user is in, and declined by the filter box', async () => {
+    await withJoineryReact(async ({ app, window }) => {
+      await readyEditor(window);
+      await typeSql(window, 'SELECT id, country_code FROM customers ORDER BY id');
+      await executeQuery(window);
+      await expect(gridRows(window).first()).toBeVisible();
+
+      // ⌘C never reaches the renderer as a keystroke — Electron's menu accelerator captures it — so
+      // the main process forwards the channel and a context-aware surface claims it. `sendMenuCommand`
+      // is the only way to drive that from this tier; the claim protocol itself is
+      // `shell/menu-bridge.tsx` plus this grid's focus test.
+      await app.evaluate(({ clipboard }) => clipboard.writeText('untouched'));
+
+      // A focused CELL: the grid contains the active element, so the grid claims the command and
+      // copies in the user's format rather than letting `document.execCommand` copy nothing.
+      await gridRows(window).first().locator('.ag-cell[col-id="country_code"]').click();
+      await sendMenuCommand(app, 'menu:copy');
+      await expect(
+        window.locator('[data-sonner-toast]').filter({ hasText: 'to clipboard' })
+      ).toBeVisible({ timeout: 10_000 });
+      expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toContain('1\tUS');
+
+      // The quick filter is a text box inside the same pane, and ⌘C in a text box means "copy the
+      // text I selected", so the grid must hand the keystroke back.
+      await app.evaluate(({ clipboard }) => clipboard.writeText('untouched'));
+      await window.getByTestId('results-filter').fill('US');
+      await window.getByTestId('results-filter').focus();
+      await sendMenuCommand(app, 'menu:copy');
+      // Nothing was written by us. (What `document.execCommand('copy')` does with an empty selection
+      // is the platform's business — the assertion is that the GRID did not answer.)
+      expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe('untouched');
     });
   });
 
