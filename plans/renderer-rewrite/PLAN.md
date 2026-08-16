@@ -504,6 +504,25 @@ Gate: standard + full `pnpm run test:full` + `pnpm run package:mac` + `pnpm run 
 
 - a manual launch of the packaged `.app` connecting to all three engines.
 
+**The two AG Grid de-duplication workarounds must go with the Angular package, and one of them is a
+landmine on the rename itself.** Both exist only because `nodeLinker: hoisted` gives the repo root a
+single version of each package and that slot belongs to the Angular renderer's
+`ag-grid-community@35`, so `ag-grid-community@36` lands twice on disk — once beside
+`packages/renderer-react`, once nested under `ag-grid-react` — and `ModuleRegistry` is module state.
+Task 11's report §1 has the full failure (AG Grid error #200: sorting, filtering, selection and
+auto-size silently absent). Deleting the Angular package frees the root slot and both workarounds
+become dead weight:
+
+1. `packages/renderer-react/vite.config.ts` — `resolve.dedupe: ['ag-grid-community']`. Harmless if
+   left, but it is a comment claiming a problem that no longer exists.
+2. **`vitest.config.ts` — the renderer-react project's `alias` for `ag-grid-community` is an ABSOLUTE
+   PATH containing `packages/renderer-react/node_modules/…`, plus
+   `server.deps.inline: ['ag-grid-react']`.** This task RENAMES that directory, so the alias points at
+   a path that no longer exists and **the whole `renderer-react` vitest project fails to resolve** —
+   every React unit test, on the cutover PR, from a config file the rename otherwise never touches.
+   Delete both keys (preferred: the root slot is free, so nothing is needed) or repoint the alias to
+   the new package path in the same commit as the rename.
+
 ---
 
 ## 5. Decisions for Craig

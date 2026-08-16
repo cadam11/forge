@@ -40,6 +40,8 @@ interface GridDoubleProps {
   readonly onGridReady?: (event: { api: unknown }) => void;
   readonly onSelectionChanged?: () => void;
   readonly onRowDataUpdated?: () => void;
+  readonly onSortChanged?: () => void;
+  readonly onFilterChanged?: () => void;
 }
 
 /** What the component last handed the grid, and how many times it rendered it. */
@@ -54,8 +56,12 @@ const grid = {
   columns: [] as { id: string; header?: string; width: number }[],
   autoSized: 0,
   widthsSet: [] as { key: unknown; newWidth: number }[][],
+  refreshed: [] as { columns?: unknown[]; force?: boolean }[],
   /** The handlers the component installed, so a test can fire a grid event. */
-  events: null as Pick<GridDoubleProps, 'onSelectionChanged' | 'onRowDataUpdated'> | null,
+  events: null as Pick<
+    GridDoubleProps,
+    'onSelectionChanged' | 'onRowDataUpdated' | 'onSortChanged' | 'onFilterChanged'
+  > | null,
 };
 
 const gridApi = {
@@ -80,6 +86,9 @@ const gridApi = {
   setColumnWidths: (widths: { key: unknown; newWidth: number }[]) => {
     grid.widthsSet.push(widths);
   },
+  refreshCells: (params: { columns?: unknown[]; force?: boolean }) => {
+    grid.refreshed.push(params);
+  },
 };
 
 vi.mock('ag-grid-react', () => ({
@@ -90,6 +99,8 @@ vi.mock('ag-grid-react', () => ({
     grid.events = {
       onSelectionChanged: props.onSelectionChanged,
       onRowDataUpdated: props.onRowDataUpdated,
+      onSortChanged: props.onSortChanged,
+      onFilterChanged: props.onFilterChanged,
     };
     // `onGridReady` fires ONCE per mount, after the DOM exists — the same contract the real grid has,
     // and the component's auto-size runs from it. The ref is what keeps it to once even though the
@@ -153,6 +164,7 @@ beforeEach(() => {
   ];
   grid.autoSized = 0;
   grid.widthsSet = [];
+  grid.refreshed = [];
   notifications.length = 0;
   clipboard.text = '';
   clipboard.fail = false;
@@ -227,6 +239,34 @@ describe('the grid options', () => {
     expect(grid.props?.columnDefs?.map(definition => definition.colId ?? definition.field)).toEqual(
       [ROW_NUMBER_COL_ID, 'id', 'email']
     );
+  });
+
+  it('renumbers the ordinal gutter after a sort and after a filter', () => {
+    const { unmount } = mount();
+    teardowns.push(unmount);
+    grid.refreshed = [];
+
+    // `node.rowIndex` is the displayed index, but AG Grid does not re-run a value getter for a row it
+    // merely re-positions — so without this the gutter reads `5 4 3 2 1` after a descending sort, which
+    // is what the Angular grid did.
+    act(() => grid.events?.onSortChanged?.());
+    act(() => grid.events?.onFilterChanged?.());
+
+    expect(grid.refreshed).toEqual([
+      { columns: [ROW_NUMBER_COL_ID], force: true },
+      { columns: [ROW_NUMBER_COL_ID], force: true },
+    ]);
+  });
+
+  it('does not ask to renumber a gutter that is turned off', () => {
+    setGridSettings({ showRowNumbers: false });
+    const { unmount } = mount();
+    teardowns.push(unmount);
+    grid.refreshed = [];
+
+    // The column does not exist, so naming it would be asking the grid to refresh nothing.
+    act(() => grid.events?.onSortChanged?.());
+    expect(grid.refreshed).toEqual([]);
   });
 
   it('auto-sizes on grid ready and on every new result, capping runaway columns', () => {
@@ -453,6 +493,28 @@ describe('the menu-copy claim', () => {
     expect(menuCopy()).toBe(false);
     await settle();
     expect(clipboard.text).toBe('');
+  });
+
+  it('is declined from a floating-filter input, which lives inside the grid host', async () => {
+    const { unmount } = mount();
+    teardowns.push(unmount);
+    grid.displayed = [{ id: 1, email: 'x' }];
+
+    // The quick filter sits in the toolbar, ABOVE the host div — so it is only the containment test
+    // that declines it there. A floating filter is AG Grid's own input and it is genuinely inside the
+    // host, which makes `focusIsEditable()` the only thing standing between ⌘C-in-a-filter-box and a
+    // clipboard full of rows. The double renders no filter row, so one is planted where the real one
+    // lives.
+    const planted = document.createElement('input');
+    planted.className = 'ag-floating-filter-input';
+    screen.getByTestId('results-grid').appendChild(planted);
+    planted.focus();
+
+    expect(document.activeElement).toBe(planted);
+    expect(menuCopy()).toBe(false);
+    await settle();
+    expect(clipboard.text).toBe('');
+    planted.remove();
   });
 
   it('is declined when the user has a real text selection', async () => {

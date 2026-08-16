@@ -83,7 +83,12 @@ import {
   Tooltip,
 } from '../../ui';
 import { keyHint } from '../../utils/platform';
-import { DEFAULT_COL_DEF, buildColumnDefs, isDataColumnId } from './grid-columns';
+import {
+  DEFAULT_COL_DEF,
+  ROW_NUMBER_COL_ID,
+  buildColumnDefs,
+  isDataColumnId,
+} from './grid-columns';
 import {
   buildClipboardText,
   copyScopeLabel,
@@ -118,7 +123,18 @@ const ROW_SELECTION: RowSelectionOptions = {
  */
 const MAX_AUTO_WIDTH = 1100;
 
-/** Every open query tab has a grid, so a copy has to belong to the one the user is looking at. */
+/**
+ * Every open query tab has a grid, so a copy has to belong to the one the user is looking at.
+ *
+ * **The host is the grid div, not the whole pane** — narrower than Angular's, whose `ElementRef` was the
+ * component and therefore included the toolbar (`results-grid.component.ts:1210`). So ⌘C with the quick
+ * filter focused is declined here by containment, where Angular declined it by its editable-element
+ * test. Both refuse, for different reasons, and the narrower host is the one that generalises: a future
+ * control in this toolbar that is not an `<input>` would have inherited Angular's claim.
+ *
+ * `focusIsEditable` still matters and is not redundant: AG Grid's floating-filter inputs are genuinely
+ * inside this host, and that is the path it stands in front of.
+ */
 function hostContainsFocus(host: HTMLElement | null): boolean {
   const active = document.activeElement;
   return host !== null && active !== null && host.contains(active);
@@ -192,6 +208,23 @@ export const ResultsGrid = memo(function ResultsGrid({ resultSet, tabId }: Resul
     },
     [autoSizeColumns]
   );
+
+  /**
+   * Renumber the ordinal gutter after a sort or a filter.
+   *
+   * `rowNumberColumnDef`'s `valueGetter` reads `node.rowIndex`, which IS the displayed index — but AG
+   * Grid does not re-run a value getter for a row that is merely re-positioned, so the Angular grid's
+   * gutter kept its original numbers and a descending sort read `5 4 3 2 1` down the # column. That is
+   * a faithful port of a bug: an ordinal that does not count the rows in front of it is not an ordinal.
+   *
+   * `refreshCells` on the one column, which re-runs only that getter for the rendered rows — O(visible),
+   * not O(result). Skipped entirely when the gutter is off, so the call cannot name a column that does
+   * not exist.
+   */
+  const refreshOrdinals = useCallback((): void => {
+    if (!gridSettings.showRowNumbers) return;
+    api.current?.refreshCells({ columns: [ROW_NUMBER_COL_ID], force: true });
+  }, [gridSettings.showRowNumbers]);
 
   /**
    * The columns a copy or an export covers: what the grid is displaying, minus the ordinal gutter and
@@ -277,11 +310,20 @@ export const ResultsGrid = memo(function ResultsGrid({ resultSet, tabId }: Resul
    * Export through the main process: it shows the save dialog, formats, and writes the file
    * (`main/src/ipc/query.ipc.ts:111-166`). The renderer sends the result set and gets a verdict.
    *
+   * **What gets exported, precisely: the WHOLE capped result set — every row the executor sent, in the
+   * order it sent them, with every column it described.** Sorting, the quick filter, the column filters
+   * and any hidden or reordered column are all ignored, because what crosses IPC is `resultSet`, not the
+   * grid's view of it. That is deliberately NOT what Copy does (Copy is the selection, or every
+   * *displayed* row in *displayed* order with only the *displayed* data columns), so the two now make
+   * different promises about the word "results". **J-47 records that for Craig to rule on**, with the
+   * shape of an "export what the grid shows" option if he wants one.
+   *
    * This is the seam the Angular *menu* used (`query.component.ts:1963-1987`); the Angular grid's own
-   * CSV button instead called `gridApi.exportDataAsCsv`, which builds a Blob and clicks a synthetic
-   * download link. That second path is not ported, and deliberately: this renderer runs sandboxed over
-   * `file://` under `default-src 'none'`, where a blob download is at best untested, and having two
-   * CSV encoders in the app is how their outputs drift. One path, one encoder, one save dialog.
+   * CSV button instead called `gridApi.exportDataAsCsv`, which exports the grid VIEW — but through the
+   * `valueFormatter`, so its CSV carried locale-grouped numbers (`1,234.5`) and the display string
+   * `NULL`. Rerouting fixes that defect and costs the view semantics; both halves of the trade are in
+   * J-47. It also removes a Blob plus a synthetic `<a download>` click, which is at best untested under
+   * `default-src 'none'` over `file://`, and it leaves one CSV encoder in the app instead of two.
    */
   const exportResults = useCallback(
     (format: ExportFormat): void => {
@@ -523,6 +565,10 @@ export const ResultsGrid = memo(function ResultsGrid({ resultSet, tabId }: Resul
           rowBuffer={20}
           onGridReady={onGridReady}
           onRowDataUpdated={autoSizeColumns}
+          // Both, because both change which row is displayed where — and the gutter counts displayed
+          // positions. See `refreshOrdinals`.
+          onSortChanged={refreshOrdinals}
+          onFilterChanged={refreshOrdinals}
           onSelectionChanged={() => setSelectedCount(api.current?.getSelectedRows().length ?? 0)}
         />
 

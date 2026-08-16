@@ -48,6 +48,25 @@ async function readyEditor(window: Page) {
 /** The five seeded customers, ordered by id. Small enough to assert exactly. */
 const CUSTOMERS_SQL = 'SELECT id, email, full_name, country_code FROM customers ORDER BY id';
 
+/**
+ * A column's displayed values, asserted with a RETRY.
+ *
+ * `gridColumnValues` is a one-shot read, and a sort or a filter reaches the DOM in more than one step:
+ * AG Grid re-positions the rows, then `refreshOrdinals` re-runs the ordinal getter from the
+ * `sortChanged`/`filterChanged` handler. A plain `expect(await …)` can land between the two — measured:
+ * the ordinal assertion passed alone and failed in the full-file run, which is the signature of exactly
+ * that race and not of a broken renumber. `expect.poll` waits for the settled state instead.
+ */
+async function expectColumnValues(
+  window: Page,
+  colId: string,
+  expected: readonly string[]
+): Promise<void> {
+  await expect
+    .poll(() => gridColumnValues(window, colId), { timeout: 10_000 })
+    .toEqual([...expected]);
+}
+
 test.describe('Joinery (React) — the results grid', () => {
   test('renders the result’s columns and rows, and counts them', async () => {
     await withJoineryReact(async ({ window }) => {
@@ -74,11 +93,17 @@ test.describe('Joinery (React) — the results grid', () => {
 
       await sortGridColumn(window, 'id'); // ascending, which is already the SQL order
       await expect(gridSortState(window, 'id')).toHaveAttribute('aria-sort', 'ascending');
-      expect(await gridColumnValues(window, 'id')).toEqual(['1', '2', '3', '4', '5']);
+      await expectColumnValues(window, 'id', ['1', '2', '3', '4', '5']);
 
       await sortGridColumn(window, 'id'); // descending
       await expect(gridSortState(window, 'id')).toHaveAttribute('aria-sort', 'descending');
-      expect(await gridColumnValues(window, 'id')).toEqual(['5', '4', '3', '2', '1']);
+      await expectColumnValues(window, 'id', ['5', '4', '3', '2', '1']);
+
+      // And the ordinal gutter still counts the rows in FRONT of each row, rather than keeping the
+      // numbers it was first given. AG Grid does not re-run a value getter for a row it merely
+      // re-positions, so the Angular grid's gutter read `5 4 3 2 1` here; `refreshOrdinals` is what
+      // makes this assertion pass, and this is the only committed test that would catch its removal.
+      await expectColumnValues(window, 'rowNumber', ['1', '2', '3', '4', '5']);
 
       // Sorting is client-side, so the row count is untouched — this is the assertion that catches a
       // "sort" that silently re-ran the query with an ORDER BY.
@@ -139,6 +164,8 @@ test.describe('Joinery (React) — the results grid', () => {
 
       await sortGridColumn(window, 'id');
       await sortGridColumn(window, 'id'); // descending
+      // The copy reads the grid's displayed rows, so the sort has to have settled first.
+      await expectColumnValues(window, 'id', ['5', '4', '3', '2', '1']);
 
       const copied = await copyGridSelection(app, window);
       // Descending, because that is what the user is looking at. A copy that read the result set
@@ -191,7 +218,10 @@ test.describe('Joinery (React) — the results grid', () => {
       await window.getByTestId('results-filter').fill('carol');
       await expect(gridRows(window)).toHaveCount(1);
       await expect(window.getByTestId('results-filtered')).toBeVisible();
-      expect(await gridColumnValues(window, 'email')).toEqual(['carol@example.com']);
+      await expectColumnValues(window, 'email', ['carol@example.com']);
+      // The third customer, now the only one displayed, is row 1 — the gutter counts what is on
+      // screen, which is why `refreshOrdinals` listens to `filterChanged` as well as to `sortChanged`.
+      await expectColumnValues(window, 'rowNumber', ['1']);
 
       await window.getByTestId('results-filter-clear').click();
       await expect(gridRows(window)).toHaveCount(5);

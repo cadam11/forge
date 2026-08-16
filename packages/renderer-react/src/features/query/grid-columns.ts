@@ -175,6 +175,11 @@ export function buildColumnDef(column: ColumnMetadata): ColDef {
 /**
  * The row-number column: the displayed (post-sort, post-filter) ordinal, pinned left, never sorted,
  * filtered, resized or copied.
+ *
+ * "Displayed" is only true with a partner: `node.rowIndex` IS the displayed index, but AG Grid does not
+ * re-run a value getter for a row it merely re-positions, so the Angular grid's gutter kept its original
+ * numbers and a descending sort read `5 4 3 2 1` down the # column. `<ResultsGrid>`'s `refreshOrdinals`
+ * re-runs this getter on `sortChanged` and `filterChanged`; without it this column is decorative.
  */
 export function rowNumberColumnDef(): ColDef {
   return {

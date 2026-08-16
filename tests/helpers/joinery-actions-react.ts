@@ -473,7 +473,7 @@ export async function executeQuery(window: Page): Promise<void> {
 //     every cell including the pinned ones;
 //  2. rows are ABSOLUTELY POSITIONED AND RECYCLED, so DOM order is not visual
 //     order. `row-index` is the only honest ordering, which is why
-//     `gridRowValues` sorts by it. A spec that read `.ag-row` in DOM order
+//     `gridColumnValues` sorts by it. A spec that read `.ag-row` in DOM order
 //     would conclude a visibly descending grid had not sorted.
 
 /** The grid host. Joinery's element, not AG Grid's. */

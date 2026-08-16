@@ -92,9 +92,11 @@
   --ag-font-size: var(--text-sm);
   --ag-header-font-size: var(--text-sm);
   --ag-header-font-weight: 500;
-  /* `--ag-row-height` is set inline on the host from `GridSettings.rowHeight`; 24px is its default
-   * and this is the fallback if the settings store has not hydrated yet. Header 32px and both are
-   * rungs on the spacing ladder (HOUSE-RULES §6). */
+  /* Row height is ALSO passed as the grid's own `rowHeight` prop from `GridSettings.rowHeight` — that
+   * is what the grid measures its virtualization with, and it wins. This declaration is the CSS side of
+   * the same number (cell line-height and the theme's internal padding) and the fallback before the
+   * settings store hydrates; 24px is the setting's default. Header 32px, both rungs on the spacing
+   * ladder (HOUSE-RULES §6). */
   --ag-row-height: --spacing(6);
   --ag-header-height: --spacing(8);
   --ag-cell-horizontal-padding: --spacing(2);
