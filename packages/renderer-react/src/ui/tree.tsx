@@ -35,10 +35,22 @@
  * click select. If a consumer wants selection-to-follow-focus it calls `onSelect` from
  * `onFocusChange` — the lever is there, and having the tree assume it would make every arrow
  * key press in the explorer a state write.
+ *
+ * ## Focus and reveal from outside
+ *
+ * Two things a virtualized tree cannot leave to its caller, because the row it is asked about
+ * may not be in the DOM: taking keyboard focus, and scrolling a row into view. Both are on the
+ * `TreeHandle` a `ref` receives (`focus()`, `scrollToId(id)`), and the second also happens on
+ * its own whenever `selectedId` changes — "reveal in explorer" from a query tab, or a selection
+ * restored from Task 5 persistence, would otherwise select a row 400 rows below the viewport
+ * and show the user nothing. A row the user clicked is already in view, and the reveal aligns
+ * `auto`, so the common case costs a scroll to the offset the tree is already at.
  */
 
 import {
   useCallback,
+  useEffect,
+  useImperativeHandle,
   useMemo,
   useRef,
   useState,
@@ -47,6 +59,7 @@ import {
   type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
+  type Ref,
 } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChevronDown, ChevronRight } from 'lucide-react';
@@ -171,7 +184,22 @@ function toRow(
   };
 }
 
+/**
+ * The imperative surface, for the two things a caller cannot do to a virtualized tree from
+ * props alone. Deliberately two methods: anything else a consumer needs belongs in props.
+ */
+export interface TreeHandle {
+  /** Moves keyboard focus to the tree's single tabstop. */
+  focus(): void;
+  /**
+   * Scrolls the row into view. A no-op with a diagnostic when the id is not a visible row —
+   * an id inside a collapsed branch has no row to scroll to, so the caller must expand first.
+   */
+  scrollToId(id: string): void;
+}
+
 export interface TreeProps {
+  readonly ref?: Ref<TreeHandle>;
   readonly nodes: readonly TreeNode[];
   readonly expandedIds: ReadonlySet<string>;
   readonly onExpandedChange: (id: string, expanded: boolean) => void;
@@ -202,6 +230,7 @@ function cssVars(vars: Readonly<Record<string, string>>): CSSProperties {
 }
 
 export function Tree({
+  ref,
   nodes,
   expandedIds,
   onExpandedChange,
@@ -249,6 +278,46 @@ export function Tree({
   });
 
   const rowsById = useMemo(() => new Map(rows.map(row => [row.node.id, row])), [rows]);
+
+  const scrollToId = useCallback(
+    (id: string) => {
+      const index = rows.findIndex(row => row.node.id === id);
+      if (index < 0) {
+        diagnostics.warn('tree cannot reveal a row that is not visible', { id });
+        return;
+      }
+      virtualizer.scrollToIndex(index, { align: 'auto' });
+    },
+    [rows, virtualizer]
+  );
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      focus: () => scrollRef.current?.focus(),
+      scrollToId,
+    }),
+    [scrollToId]
+  );
+
+  /**
+   * Reveal-on-selection. The guard is the id already revealed, not a change in `selectedId`
+   * alone: `rows` is a dependency (the row may only appear once its parent's children load),
+   * so without it every expand/collapse anywhere in the tree would yank the viewport back to
+   * the selection.
+   */
+  const revealedIdRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (selectedId === undefined || selectedId === revealedIdRef.current) {
+      return;
+    }
+    const index = rows.findIndex(row => row.node.id === selectedId);
+    if (index < 0) {
+      return;
+    }
+    revealedIdRef.current = selectedId;
+    virtualizer.scrollToIndex(index, { align: 'auto' });
+  }, [rows, selectedId, virtualizer]);
 
   const moveFocusTo = useCallback(
     (index: number) => {
@@ -316,6 +385,13 @@ export function Tree({
         return;
       }
       const { node, expandable, expanded, parentId } = activeRow;
+      /**
+       * The pointer path drops disabled rows in `rowFromEvent`, and the keyboard path has to
+       * agree or a focused disabled row can still be selected, activated and expanded. Focus
+       * movement stays allowed — walking past a row is not acting on it, and a tree that
+       * skipped disabled rows would hide them from a keyboard user entirely.
+       */
+      const actionable = node.disabled !== true;
 
       switch (event.key) {
         case 'ArrowDown':
@@ -336,7 +412,7 @@ export function Tree({
           return;
         case 'ArrowRight':
           event.preventDefault();
-          if (expandable && !expanded) {
+          if (actionable && expandable && !expanded) {
             onExpandedChange(node.id, true);
             return;
           }
@@ -348,7 +424,7 @@ export function Tree({
           return;
         case 'ArrowLeft':
           event.preventDefault();
-          if (expanded) {
+          if (actionable && expanded) {
             onExpandedChange(node.id, false);
             return;
           }
@@ -358,11 +434,17 @@ export function Tree({
           return;
         case 'Enter':
           event.preventDefault();
+          if (!actionable) {
+            return;
+          }
           onSelect?.(node);
           onActivate?.(node);
           return;
         case ' ':
           event.preventDefault();
+          if (!actionable) {
+            return;
+          }
           onSelect?.(node);
           return;
         default:

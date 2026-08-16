@@ -15,6 +15,15 @@
  * of `field.tsx` for why the label lives inside the component at all (the Task 20 `getByLabel`
  * contract depends on it).
  *
+ * SIX exports take no `className`, and the omission is deliberate rather than an oversight —
+ * `contract.spec.tsx` covers the rest of the set, so this is the list it cannot:
+ * `SelectGroup` / `SelectLabel` / `SelectSeparator` and `ToolbarSpacer` render fixed internal
+ * geometry inside a surface whose look is the surface's business (a group eyebrow that a caller
+ * could restyle is how two menus drift apart), `MenuRow` is a layout shape for the inside of a
+ * menu item rather than an element in its own right, and `Toaster` is mounted once at the app
+ * root and styles its toasts from tokens. If you find yourself wanting `className` on one of
+ * these, the thing that needs changing is the shared class string in `overlay.ts`.
+ *
  * `Markdown` is deliberately NOT re-exported here: it lives in `src/markdown/` because that is
  * the only path `eslint.config.js` allows `dangerouslySetInnerHTML` in, and re-exporting it
  * through `ui` would blur where that boundary is. Import it from `../markdown`.
@@ -114,4 +123,11 @@ export {
   type ToolbarButtonProps,
 } from './toolbar';
 export { Tooltip, TooltipProvider, type TooltipProps } from './tooltip';
-export { flattenTree, Tree, type TreeNode, type TreeProps, type TreeRow } from './tree';
+export {
+  flattenTree,
+  Tree,
+  type TreeHandle,
+  type TreeNode,
+  type TreeProps,
+  type TreeRow,
+} from './tree';

@@ -75,25 +75,12 @@ Object.defineProperty(Element.prototype, 'releasePointerCapture', {
 });
 
 /*
- * jsdom has no layout engine, so every element reports `offsetWidth`/`offsetHeight` as 0. That
- * is not a missing API but a wrong answer, and one primitive depends on the right one:
- * `@tanstack/react-virtual` measures its scroll element with exactly those two properties
- * (`virtual-core/dist/esm/index.js:14-17`) and renders zero rows when told the element is 0px
- * tall. A virtualized `Tree` would then satisfy every "does not render X" assertion vacuously,
- * which is why `tree.spec.tsx` opens by counting rows.
+ * There is deliberately NO `offsetWidth`/`offsetHeight` shim here.
  *
- * A fixed viewport-sized box is the smallest coherent lie that fixes it. The `initialRect` the
- * Tree passes is NOT enough on its own: virtual-core calls its rect handler once, synchronously,
- * with the measured size, which overwrites the initial guess before the first render — measured,
- * not assumed.
+ * jsdom has no layout engine, so every element reports both as 0, and the virtualized `Tree` is
+ * the one primitive that reads them — `@tanstack/react-virtual` measures its scroll element with
+ * exactly those two properties and renders no rows when told the element is 0px tall. Faking
+ * them package-wide would answer for every element in every spec, including the layout
+ * assertions Tasks 7+ will write, so the fake lives in `ui/tree.spec.tsx` scoped to the tree's
+ * own scroll container. See `installTreeViewport` there.
  */
-const JSDOM_VIEWPORT = { width: 1024, height: 768 };
-
-Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
-  configurable: true,
-  get: () => JSDOM_VIEWPORT.width,
-});
-Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
-  configurable: true,
-  get: () => JSDOM_VIEWPORT.height,
-});
