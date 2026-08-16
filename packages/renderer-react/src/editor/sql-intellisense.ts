@@ -346,7 +346,14 @@ export interface SqlIntellisense {
   /** Registers the completion provider for all three dialects. Returns one combined disposable. */
   readonly registerCompletionProvider: (languages: MonacoLanguagesApi) => monaco.IDisposable;
   readonly registerGhostTextProvider: (languages: MonacoLanguagesApi) => monaco.IDisposable;
-  readonly loadMetadata: () => Promise<void>;
+  /**
+   * Prefetches the target's tables (with columns), views and procedures into the cache.
+   *
+   * The target is explicit here where the original read it from the focused connection: the caller is a
+   * query TAB, and its connection is not necessarily the focused one — the same distinction PLAN.md 0.4
+   * describes for the sidebar's `overrideConnectionId`. Omitting it falls back to the active tab.
+   */
+  readonly loadMetadata: (target?: IntellisenseTarget) => Promise<void>;
   readonly clearCache: () => void;
   /** The completion body, exported so it can be unit-tested without Monaco. */
   readonly getContextAwareCompletions: (
@@ -622,11 +629,17 @@ export function createSqlIntellisense(deps: IntellisenseDeps): SqlIntellisense {
   };
 
   /**
-   * `'Tables'` / `'Views'` / `'Procedures'` are the `parentPath` values the explorer IPC expects, and
-   * the capitalisation is the original's (`:334`). The query component's own prefetch used lowercase
-   * (`'tables'`) — one of the two is wrong for some engine, and neither this task nor the Angular
-   * source can say which, so the ONE that the ported service used is the one kept. Recorded in the
-   * report as a follow-up rather than guessed at here.
+   * The `parentPath` values the explorer IPC expects, and they are **lowercase**.
+   *
+   * The Angular service asked for `'Tables'` / `'Views'` / `'Procedures'` (`:334`) while the query
+   * component's own prefetch asked for `'tables'` (`:1507`). Only one can be right, and the main
+   * process settles it: `explorer.ipc.ts:41-88` compares `parentPath` against lowercase literals and
+   * `return []` for anything else. So the service's capitalised paths silently cached NOTHING — a third
+   * reason its completions could never have worked, on top of the two in this module's header.
+   *
+   * Measured, not reasoned: the first e2e run showed the suggest widget open with Monaco's own
+   * word-based suggestions and none of ours. The silent `return []` for an unrecognised path is worth a
+   * follow-up of its own — it turns a typo into an empty result rather than an error.
    */
   const loadChildren = async (
     connectionId: string,
@@ -641,17 +654,22 @@ export function createSqlIntellisense(deps: IntellisenseDeps): SqlIntellisense {
     }
   };
 
-  const loadMetadata = async (): Promise<void> => {
-    const target = deps.target();
+  const loadMetadata = async (requested?: IntellisenseTarget): Promise<void> => {
+    const target = requested ?? deps.target();
     const key = cacheKeyFor(target);
     if (key === null || target.connectionId === null || target.database === null) return;
+    // Already loaded. The original had no such guard and did not need one — nothing called it — but
+    // its consumer here is an effect that re-runs whenever a tab's connection or database changes, and
+    // the prefetch is up to 51 IPC round trips. `clearCache()` is how a caller asks for a re-read; no
+    // surface calls it yet, which is recorded as a follow-up (Server ▸ Refresh is its natural home).
+    if (tablesCache.has(key)) return;
     const { connectionId, database } = target;
 
     const [tables, views, procedures] = await Promise.all([
-      loadChildren(connectionId, database, 'Tables'),
-      loadChildren(connectionId, database, 'Views'),
+      loadChildren(connectionId, database, 'tables'),
+      loadChildren(connectionId, database, 'views'),
       deps.supportsStoredProcedures()
-        ? loadChildren(connectionId, database, 'Procedures')
+        ? loadChildren(connectionId, database, 'procedures')
         : Promise.resolve([] as readonly ObjectMetadata[]),
     ]);
 

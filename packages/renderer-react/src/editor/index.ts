@@ -9,6 +9,7 @@
 
 export { SqlEditor, type SqlEditorHandle, type SqlEditorProps } from './sql-editor';
 export { sqlIntellisense } from './intellisense';
+export type { IntellisenseTarget } from './sql-intellisense';
 export {
   formatSql,
   formatterLanguageFor,

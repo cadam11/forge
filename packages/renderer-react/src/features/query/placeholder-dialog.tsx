@@ -54,6 +54,8 @@ export interface PlaceholderDialogProps {
   readonly remembered: Readonly<Record<string, string>>;
   readonly onCancel: () => void;
   readonly onSubmit: (values: Readonly<Record<string, string>>) => void;
+  /** Where focus goes when this closes. See `ConfirmExecuteDialog` — same reason, same shape. */
+  readonly onReturnFocus: () => void;
 }
 
 export function PlaceholderDialog({
@@ -61,6 +63,7 @@ export function PlaceholderDialog({
   remembered,
   onCancel,
   onSubmit,
+  onReturnFocus,
 }: PlaceholderDialogProps) {
   /**
    * Keyed by placeholder name, seeded from the remembered values.
@@ -82,7 +85,14 @@ export function PlaceholderDialog({
 
   return (
     <Dialog open onOpenChange={next => (next ? undefined : onCancel())}>
-      <DialogContent size="md" data-testid="query-placeholders">
+      <DialogContent
+        size="md"
+        data-testid="query-placeholders"
+        onCloseAutoFocus={event => {
+          event.preventDefault();
+          onReturnFocus();
+        }}
+      >
         <form onSubmit={submit} className="flex min-h-0 flex-col">
           <DialogHeader>
             <DialogTitle>Placeholder values</DialogTitle>

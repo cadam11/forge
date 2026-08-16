@@ -15,16 +15,21 @@ import { describe, expect, it, vi } from 'vitest';
 import { ConfirmExecuteDialog } from './confirm-execute-dialog';
 import { PlaceholderDialog } from './placeholder-dialog';
 
+/** The three required callbacks, defaulted to no-ops so each test overrides only the one it asserts. */
+const confirmProps = () => ({
+  onCancel: () => undefined,
+  onConfirm: () => undefined,
+  onReturnFocus: () => undefined,
+});
+
 describe('the ⌃E confirmation', () => {
   it('is closed when `open` is false', () => {
-    render(
-      <ConfirmExecuteDialog open={false} onCancel={() => undefined} onConfirm={() => undefined} />
-    );
+    render(<ConfirmExecuteDialog open={false} {...confirmProps()} />);
     expect(screen.queryByTestId('query-confirm-execute')).toBeNull();
   });
 
   it('names the shortcut it is explaining, and is labelled for a screen reader', () => {
-    render(<ConfirmExecuteDialog open onCancel={() => undefined} onConfirm={() => undefined} />);
+    render(<ConfirmExecuteDialog open {...confirmProps()} />);
     const dialog = screen.getByRole('dialog');
     expect(dialog.textContent).toMatch(/(⌘E|Ctrl\+E)/);
     // The `innerHTML` modal had no accessible name at all.
@@ -32,7 +37,7 @@ describe('the ⌃E confirmation', () => {
   });
 
   it('focuses Execute rather than the close button', async () => {
-    render(<ConfirmExecuteDialog open onCancel={() => undefined} onConfirm={() => undefined} />);
+    render(<ConfirmExecuteDialog open {...confirmProps()} />);
     // Radix's default would be the first tabbable node in the content — the header's ✕.
     await vi.waitFor(() =>
       expect(document.activeElement).toBe(screen.getByTestId('query-confirm-execute-run'))
@@ -41,7 +46,7 @@ describe('the ⌃E confirmation', () => {
 
   it('confirms without remembering by default', async () => {
     const onConfirm = vi.fn();
-    render(<ConfirmExecuteDialog open onCancel={() => undefined} onConfirm={onConfirm} />);
+    render(<ConfirmExecuteDialog open {...confirmProps()} onConfirm={onConfirm} />);
 
     await userEvent.click(screen.getByTestId('query-confirm-execute-run'));
 
@@ -50,7 +55,7 @@ describe('the ⌃E confirmation', () => {
 
   it('confirms WITH remembering once the box is ticked', async () => {
     const onConfirm = vi.fn();
-    render(<ConfirmExecuteDialog open onCancel={() => undefined} onConfirm={onConfirm} />);
+    render(<ConfirmExecuteDialog open {...confirmProps()} onConfirm={onConfirm} />);
 
     await userEvent.click(screen.getByTestId('query-confirm-execute-remember'));
     await userEvent.click(screen.getByTestId('query-confirm-execute-run'));
@@ -60,7 +65,7 @@ describe('the ⌃E confirmation', () => {
 
   it('cancels from the button and from Escape', async () => {
     const onCancel = vi.fn();
-    render(<ConfirmExecuteDialog open onCancel={onCancel} onConfirm={() => undefined} />);
+    render(<ConfirmExecuteDialog open {...confirmProps()} onCancel={onCancel} />);
 
     await userEvent.click(screen.getByTestId('query-confirm-execute-cancel'));
     expect(onCancel).toHaveBeenCalledOnce();
@@ -77,6 +82,7 @@ describe('the placeholder prompt', () => {
     remembered: { schema: 'public' },
     onCancel: () => undefined,
     onSubmit: () => undefined,
+    onReturnFocus: () => undefined,
   };
 
   it('labels each field with the token it will replace', () => {

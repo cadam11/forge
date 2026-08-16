@@ -101,8 +101,10 @@ function harness(
     ghostTextEnabled: true,
   };
   const getExplorerChildren = vi.fn(async (_c: string, _d: string, parentPath: string) => {
-    if (parentPath === 'Tables') return overrides.tables ?? [object('customers')];
-    if (parentPath === 'Views') return overrides.views ?? [object('active_customers')];
+    // Lowercase, which is what `explorer.ipc.ts` compares against — the capitalised paths the Angular
+    // service used matched nothing and returned `[]`.
+    if (parentPath === 'tables') return overrides.tables ?? [object('customers')];
+    if (parentPath === 'views') return overrides.views ?? [object('active_customers')];
     return overrides.procedures ?? [object('sp_reset')];
   });
   const getTableColumns = vi.fn(async () => overrides.columns ?? CUSTOMERS);
@@ -318,7 +320,7 @@ describe('loadMetadata', () => {
     setup.supportsStoredProcedures = false;
     const intellisense = createSqlIntellisense(setup.deps);
     await intellisense.loadMetadata();
-    expect(setup.getExplorerChildren.mock.calls.map(call => call[2])).toEqual(['Tables', 'Views']);
+    expect(setup.getExplorerChildren.mock.calls.map(call => call[2])).toEqual(['tables', 'views']);
   });
 
   it('does nothing without a connection or a database', async () => {
@@ -335,7 +337,7 @@ describe('loadMetadata', () => {
     );
     const setup = harness();
     setup.getExplorerChildren.mockImplementation(async (_c, _d, parentPath) => {
-      if (parentPath === 'Views') throw new Error('no views here');
+      if (parentPath === 'views') throw new Error('no views here');
       return [object('customers')];
     });
 
@@ -344,7 +346,7 @@ describe('loadMetadata', () => {
     const { model, position } = modelFor('SELECT * FROM ');
     const { suggestions } = await intellisense.getContextAwareCompletions(model, position);
 
-    expect(warnings).toEqual(['failed to load Views for IntelliSense']);
+    expect(warnings).toEqual(['failed to load views for IntelliSense']);
     expect(suggestions.map(item => item.label)).toEqual(['public.customers']);
   });
 

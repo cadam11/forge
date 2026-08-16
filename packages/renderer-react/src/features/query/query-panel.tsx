@@ -25,7 +25,13 @@ import type { IDockviewPanelProps } from 'dockview-react';
 import type { DatabaseEngine } from '@joinery/shared';
 
 import { dispatchCommand } from '../../commands';
-import { SqlEditor, formatSql, monacoLanguageFor, type SqlEditorHandle } from '../../editor';
+import {
+  SqlEditor,
+  formatSql,
+  monacoLanguageFor,
+  sqlIntellisense,
+  type SqlEditorHandle,
+} from '../../editor';
 import { ResizeHandle } from '../../shell/resize-handle';
 import { notify } from '../../state/diagnostics';
 import { selectProfileFor, useConnectionStore } from '../../state/connection';
@@ -206,6 +212,25 @@ export function QueryPanel(props: IDockviewPanelProps) {
   }, [tab?.autoExecute, tabId]);
 
   /**
+   * Prefetch the completions' metadata for THIS tab's target.
+   *
+   * Without this the provider is registered and answers with keywords and snippets only — which is what
+   * the first e2e run showed, and it is the same call the Angular component made from `createEditor`
+   * (`loadAutoCompleteObjects`, `:1493`). The target is passed explicitly rather than left to the
+   * provider's active-tab default: this effect belongs to a tab that may not be the active one.
+   *
+   * Fire-and-forget: completions are optional, the service reports its own failures, and nothing here
+   * should wait on up to 51 IPC round trips.
+   */
+  useEffect(() => {
+    if (tab?.connectionId === undefined || tab.databaseName === undefined) return;
+    void sqlIntellisense.loadMetadata({
+      connectionId: tab.connectionId,
+      database: tab.databaseName,
+    });
+  }, [tab?.connectionId, tab?.databaseName]);
+
+  /**
    * PLAN.md R5 finding 4: an inactive Dockview panel's DOM subtree is detached from the document, and the
    * Task 10 spike measured what that does to Monaco — an editor whose host was detached when it was
    * created comes up at Monaco's 5×5 minimum. `automaticLayout`'s ResizeObserver repairs it on re-attach,
@@ -324,6 +349,10 @@ export function QueryPanel(props: IDockviewPanelProps) {
 
       <ConfirmExecuteDialog
         open={confirmOpen}
+        // Focus goes back to the editor either way — see `onReturnFocus`. It has to be Radix's
+        // close-autofocus hook rather than a `focus()` inside these handlers: Radix moves focus AFTER
+        // they run, so an earlier call is simply overridden.
+        onReturnFocus={() => editor.current?.focus()}
         onCancel={() => setConfirmOpen(false)}
         onConfirm={remember => {
           setConfirmOpen(false);
@@ -341,6 +370,7 @@ export function QueryPanel(props: IDockviewPanelProps) {
           remembered={rememberedPlaceholders}
           onCancel={runQuery.cancelPlaceholders}
           onSubmit={runQuery.submitPlaceholders}
+          onReturnFocus={() => editor.current?.focus()}
         />
       )}
     </div>

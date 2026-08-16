@@ -45,9 +45,23 @@ export interface ConfirmExecuteDialogProps {
   readonly onCancel: () => void;
   /** Execute. `remember` is the "Don't ask me again" tick, which the caller persists. */
   readonly onConfirm: (remember: boolean) => void;
+  /**
+   * Where focus goes when this closes, and it is REQUIRED rather than optional.
+   *
+   * A dialog normally returns focus to the element that opened it, and Radix does that for free. This
+   * one is opened by a KEYSTROKE, so there is no trigger and Radix's default lands focus on `<body>` —
+   * after which the next ⌃E reaches nothing at all and the gate appears broken. Measured in the e2e
+   * run, which is also why this is a prop instead of a comment: the caller owns the editor.
+   */
+  readonly onReturnFocus: () => void;
 }
 
-export function ConfirmExecuteDialog({ open, onCancel, onConfirm }: ConfirmExecuteDialogProps) {
+export function ConfirmExecuteDialog({
+  open,
+  onCancel,
+  onConfirm,
+  onReturnFocus,
+}: ConfirmExecuteDialogProps) {
   const [remember, setRemember] = useState(false);
   const executeButton = useRef<HTMLButtonElement | null>(null);
   const shortcut = keyHint('E');
@@ -63,6 +77,10 @@ export function ConfirmExecuteDialog({ open, onCancel, onConfirm }: ConfirmExecu
         onOpenAutoFocus={event => {
           event.preventDefault();
           executeButton.current?.focus();
+        }}
+        onCloseAutoFocus={event => {
+          event.preventDefault();
+          onReturnFocus();
         }}
       >
         <DialogHeader>
