@@ -52,6 +52,7 @@ import {
   ClipboardPaste,
   Clock,
   Code,
+  Compass,
   Copy,
   Database,
   DatabaseBackup,
@@ -589,6 +590,15 @@ export const COMMAND_CATALOGUE: { [Id in CommandId]: CatalogueEntry<Id> } = {
     accelerator: menuKey('CmdOrCtrl+,'),
     palette: IN_PALETTE,
     keywords: ['preferences', 'options', 'theme'],
+  },
+  'start-tour': {
+    label: 'Start the guided tour',
+    hint: 'A walk through the workbench, one surface at a time',
+    group: 'help',
+    icon: Compass,
+    accelerator: null,
+    palette: IN_PALETTE,
+    keywords: ['tour', 'onboarding', 'walkthrough', 'help'],
   },
   'open-ai-setup': {
     label: 'Set up AI',

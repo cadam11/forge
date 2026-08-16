@@ -153,6 +153,16 @@ export interface CommandPayloads {
    */
   'open-ai-setup': void;
 
+  /**
+   * Start the guided tour (Task 19b's onboarding surface).
+   *
+   * Registered here with its owner named and NOT yet subscribed, which is the state `bus.spec.tsx`'s
+   * ownership rule allows and the welcome tab is built for: its "See how it joins" button dispatches
+   * this, checks `handlerCount` first, and says so when nobody answered. The moment 19b mounts a handler
+   * the button becomes live with no edit to the welcome tab.
+   */
+  'start-tour': void;
+
   // ── The sidebar's dialog entry points (Task 8) ─────────────────────────────────────────────
   //
   // Eight ids, and every one of them is the *targeted* twin of something above. The native menu
@@ -373,6 +383,11 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
     'Task 15 features/settings/SettingsDialog, mounted by the shell. It calls settingsStore.open() ' +
     'itself — the Task 7 placeholder that held this wire while no panel existed is deleted, so ⌘, is ' +
     'handled exactly once.',
+
+  'start-tour':
+    'Task 19b onboarding tour (PLAN.md §4 lists tours in Task 19; Ruling 3 split them into the SHOULD ' +
+    'half). Producer: Task 19a welcome tab, which names this ticket in the toast it shows while the ' +
+    'handler does not exist.',
 
   'open-ai-setup':
     'Task 19a features/ai-setup/AiSetupHost, mounted by the shell — which is also the one caller of ' +
