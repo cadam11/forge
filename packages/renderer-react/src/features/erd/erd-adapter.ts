@@ -106,20 +106,29 @@ export interface ErdBuildResult {
  * report a character count that no `n`-prefixed type name is paired with. The one exception is
  * `numeric`, which starts with `n` — it is caught by the precision branch first, and the spec pins
  * that ordering.
+ *
+ * ONE deviation, chosen rather than ported: **an absent modifier omits the parentheses.** Angular
+ * interpolated it, so a column whose `maxLength` the bridge does not report rendered as the literal
+ * `nvarchar(undefined)` on the diagram and in the details rail (and `decimal(undefined, undefined)`
+ * for the precision arm). `nvarchar` alone is honest — the length is unknown, not zero — and there is
+ * no reading under which the word "undefined" in a type name is information. `-1` still wins over
+ * this, so `varchar(MAX)` is unaffected.
  */
 export function formatColumnType(column: ColumnInfo): string {
   const type = column.dataType.toLowerCase();
 
   if (type === 'decimal' || type === 'numeric') {
+    if (column.precision === undefined || column.scale === undefined) return column.dataType;
     return `${column.dataType}(${column.precision}, ${column.scale})`;
   }
 
   if (LENGTH_TYPES.has(type)) {
     if (column.maxLength === -1) return `${column.dataType}(MAX)`;
+    // The one deliberate divergence: an absent modifier drops the parens instead of interpolating
+    // `undefined` into them. See the header.
+    if (column.maxLength === undefined) return column.dataType;
     const declared =
-      type.startsWith('n') && column.maxLength !== undefined && column.maxLength !== 0
-        ? column.maxLength / 2
-        : column.maxLength;
+      type.startsWith('n') && column.maxLength !== 0 ? column.maxLength / 2 : column.maxLength;
     return `${column.dataType}(${declared})`;
   }
 

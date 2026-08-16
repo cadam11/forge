@@ -157,10 +157,24 @@ describe('formatColumnType — `erd-adapter.service.ts:212-230`, verbatim', () =
     expect(formatColumnType(column({ name: 'a', dataType: 'integer' }))).toBe('integer');
   });
 
-  it('does not divide an absent or zero maxLength', () => {
+  it('does not divide a zero maxLength', () => {
     // `col.maxLength ? … : col.maxLength` in the original — a falsy length fell through untouched.
-    expect(formatColumnType(column({ name: 'a', dataType: 'nvarchar' }))).toBe(
-      'nvarchar(undefined)'
+    expect(formatColumnType(column({ name: 'a', dataType: 'nvarchar', maxLength: 0 }))).toBe(
+      'nvarchar(0)'
+    );
+  });
+
+  it('omits the parentheses when the length is unknown, rather than rendering "undefined"', () => {
+    // The one deviation from the port: Angular interpolated the absent value and put the literal
+    // string `nvarchar(undefined)` on the diagram.
+    expect(formatColumnType(column({ name: 'a', dataType: 'nvarchar' }))).toBe('nvarchar');
+    expect(formatColumnType(column({ name: 'a', dataType: 'varchar' }))).toBe('varchar');
+  });
+
+  it('omits the parentheses when precision or scale is unknown, for the same reason', () => {
+    expect(formatColumnType(column({ name: 'a', dataType: 'decimal' }))).toBe('decimal');
+    expect(formatColumnType(column({ name: 'a', dataType: 'numeric', precision: 10 }))).toBe(
+      'numeric'
     );
   });
 });

@@ -195,7 +195,19 @@ describe('what the canvas renders', () => {
   it('names each node for a screen reader, with its key counts', () => {
     render(<Harness />);
     expect(nodeShape('public.orders')?.getAttribute('aria-label')).toBe(
-      'public.orders, 1 primary keys, 1 foreign keys'
+      'public.orders, 1 primary key, 1 foreign key'
+    );
+  });
+
+  it('pluralizes the key counts, since a screen reader reads the label verbatim', () => {
+    const junction = table('public.order_tags', [
+      field({ name: 'order_id', isPrimaryKey: true, allowsNull: false }),
+      field({ name: 'tag_id', isPrimaryKey: true, allowsNull: false }),
+    ]);
+    render(<Harness nodes={[junction]} />);
+
+    expect(nodeShape('public.order_tags')?.getAttribute('aria-label')).toBe(
+      'public.order_tags, 2 primary keys, 0 foreign keys'
     );
   });
 

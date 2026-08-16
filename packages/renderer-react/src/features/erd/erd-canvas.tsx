@@ -283,6 +283,14 @@ interface ErdNodeShapeProps {
 }
 
 /**
+ * "1 primary key", "2 primary keys" — a screen reader reads the label verbatim, so the `s` is not
+ * optional the way it is in a visual count.
+ */
+function keyCount(count: number, kind: 'primary' | 'foreign'): string {
+  return `${count} ${kind} key${count === 1 ? '' : 's'}`;
+}
+
+/**
  * One table.
  *
  * `memo` is load-bearing rather than decorative: the parent re-renders on every published transform,
@@ -307,7 +315,7 @@ const ErdNodeShape = memo(function ErdNodeShape({
       role="button"
       tabIndex={tabbable ? 0 : -1}
       aria-pressed={state === 'selected'}
-      aria-label={`${node.schemaName === '' ? node.name : `${node.schemaName}.${node.name}`}, ${placed.primaryKeyCount} primary keys, ${placed.foreignKeyCount} foreign keys`}
+      aria-label={`${node.schemaName === '' ? node.name : `${node.schemaName}.${node.name}`}, ${keyCount(placed.primaryKeyCount, 'primary')}, ${keyCount(placed.foreignKeyCount, 'foreign')}`}
       className="cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
       onClick={() => onSelect(node)}
       onDoubleClick={() => onOpen(node)}
