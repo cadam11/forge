@@ -13,6 +13,7 @@
  */
 
 import { ArrowRight, Minus, PenLine, Plus, X } from 'lucide-react';
+import { useMemo } from 'react';
 import type { ResultDiff } from '@joinery/shared';
 
 import { Button, cn } from '../../ui';
@@ -49,7 +50,11 @@ const KIND_STYLE: Record<
 const KIND_ICON = { added: Plus, removed: Minus, modified: PenLine } as const;
 
 export function ResultDiffView({ diff, onClose }: ResultDiffViewProps) {
-  const view = buildDiffView(diff);
+  // Keyed on the diff's identity, which is the only thing the view derives from. Without the memo
+  // every re-render of the history panel — a pin, a label keystroke, a new snapshot arriving — walks
+  // main's whole `rowDiffs` array again to build the same 200 rows; on a 20k-row comparison that is
+  // 20k objects per keystroke.
+  const view = useMemo(() => buildDiffView(diff), [diff]);
 
   return (
     <section
