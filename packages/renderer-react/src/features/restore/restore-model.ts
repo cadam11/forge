@@ -198,17 +198,23 @@ export function confirmationRequired(kind: TargetKind): boolean {
 }
 
 /**
- * Whether the typed confirmation matches.
+ * Whether the typed confirmation matches the name of the database that is about to be overwritten.
  *
  * Exact, including case, and deliberately not "close enough": PostgreSQL identifiers are
  * case-sensitive, MySQL's are case-sensitive on some filesystems and not others, and SQL Server's
  * depend on the server collation. A confirmation that accepted `SALES` for `sales` would be teaching
  * the user that the two are the same name, on the one screen where that could be false.
+ *
+ * **`target` is the name from the frozen `RestorePlan`, never the live form field**, and the parameter
+ * is spelled out rather than read off `RestoreFormValues` so it cannot accidentally be the other one.
+ * The dialog has three call sites — the button's `disabled`, the Enter handler in the box, and the
+ * belt-and-braces re-check inside `runPlan` — and if any of them compared against a different name
+ * from the others, the destructive gate would have a seam in it. One predicate, one name.
  */
-export function confirmationSatisfied(values: RestoreFormValues, kind: TargetKind): boolean {
+export function confirmationSatisfied(typed: string, target: string, kind: TargetKind): boolean {
   if (!confirmationRequired(kind)) return true;
-  const target = values.targetDatabase.trim();
-  return target !== '' && values.confirmation === target;
+  const expected = target.trim();
+  return expected !== '' && typed === expected;
 }
 
 /**

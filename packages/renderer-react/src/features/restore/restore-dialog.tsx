@@ -342,7 +342,7 @@ export function RestoreDialog({
    */
   const runPlan = async (plan: RestorePlan): Promise<void> => {
     if (inFlight !== null) return;
-    if (confirmationRequired(plan.kind) && !confirmationSatisfied(values, plan.kind)) return;
+    if (!confirmationSatisfied(values.confirmation, plan.targetDatabase, plan.kind)) return;
 
     const key = dbOperationKey(connectionId, plan.targetDatabase);
     setActionHint(undefined);
@@ -640,7 +640,13 @@ export function RestoreDialog({
             variant="primary"
             leadingIcon={HardDriveDownload}
             // The gate. `runPlan` re-checks it as well — see property 2 in this file's header.
-            disabled={!confirmationSatisfied(values, phase.plan.kind)}
+            disabled={
+              !confirmationSatisfied(
+                values.confirmation,
+                phase.plan.targetDatabase,
+                phase.plan.kind
+              )
+            }
             data-testid="restore-confirm-start"
             onClick={() => void runPlan(phase.plan)}
           >
@@ -961,7 +967,9 @@ function ConfirmBody({
   readonly onSubmit: () => void;
 }) {
   const options = engineRestoreOptions(engine);
-  const matches = typed === plan.targetDatabase;
+  // The same predicate the button is disabled by, so the keyboard path cannot diverge from the pointer
+  // path — which is the failure mode a bespoke comparison here invites.
+  const matches = confirmationSatisfied(typed, plan.targetDatabase, plan.kind);
 
   // Focus lands in the box the moment this phase appears. An effect rather than `autoFocus`, which
   // `jsx-a11y/no-autofocus` bans and which would also re-fire nothing useful on a re-render: the body

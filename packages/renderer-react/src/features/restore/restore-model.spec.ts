@@ -126,29 +126,34 @@ describe('deciding whether a restore is destructive', () => {
 
 describe('the confirmation', () => {
   it('is satisfied by nothing at all when the target is new', () => {
-    expect(confirmationSatisfied(values({ targetDatabase: 'fresh' }), 'create')).toBe(true);
+    expect(confirmationSatisfied('', 'fresh', 'create')).toBe(true);
   });
 
   it('needs the exact name when the target exists', () => {
-    const form = values({ targetDatabase: 'sales' });
-    expect(confirmationSatisfied(form, 'overwrite')).toBe(false);
-    expect(confirmationSatisfied({ ...form, confirmation: 'sales' }, 'overwrite')).toBe(true);
+    expect(confirmationSatisfied('', 'sales', 'overwrite')).toBe(false);
+    expect(confirmationSatisfied('sales', 'sales', 'overwrite')).toBe(true);
   });
 
   it('is case-sensitive, because database names can be', () => {
     // PostgreSQL identifiers are case-sensitive; MySQL's depend on the filesystem; SQL Server's on the
     // collation. Accepting SALES for sales would teach the user they are the same name.
-    const form = values({ targetDatabase: 'sales', confirmation: 'SALES' });
-    expect(confirmationSatisfied(form, 'overwrite')).toBe(false);
+    expect(confirmationSatisfied('SALES', 'sales', 'overwrite')).toBe(false);
   });
 
   it('does not accept whitespace padding as a match', () => {
-    const form = values({ targetDatabase: 'sales', confirmation: ' sales ' });
-    expect(confirmationSatisfied(form, 'overwrite')).toBe(false);
+    expect(confirmationSatisfied(' sales ', 'sales', 'overwrite')).toBe(false);
   });
 
   it('is never satisfied by an empty target', () => {
-    expect(confirmationSatisfied(values({ confirmation: '' }), 'overwrite')).toBe(false);
+    expect(confirmationSatisfied('', '', 'overwrite')).toBe(false);
+    expect(confirmationSatisfied('   ', '   ', 'overwrite')).toBe(false);
+  });
+
+  it('takes the target as an argument, so a caller cannot check the wrong name', () => {
+    // The seam this signature closes: the button, the Enter handler and `runPlan` all confirm against
+    // the FROZEN plan's target. A predicate that read the live form field could be satisfied by a name
+    // the user has since edited.
+    expect(confirmationSatisfied('sales', 'sales_copy', 'overwrite')).toBe(false);
   });
 });
 
@@ -209,7 +214,7 @@ describe('what stops a restore before it starts', () => {
     // mention the confirmation.
     const form = values({ backupPath: '/tmp/a.dump', targetDatabase: 'sales', overwrite: true });
     expect(restoreProblem(form, 'postgresql', 'overwrite', true)).toBeNull();
-    expect(confirmationSatisfied(form, 'overwrite')).toBe(false);
+    expect(confirmationSatisfied(form.confirmation, form.targetDatabase, 'overwrite')).toBe(false);
   });
 });
 
