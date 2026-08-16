@@ -7,15 +7,21 @@
  * file-open flow, the three-step refresh — are here rather than in the bridge, because the bridge's
  * only job is channel → command (see its header).
  *
- * Three commands open a **placeholder dialog**: File ▸ New Connection, Database ▸ Backup and
- * Database ▸ Restore. Those are PLAN.md 0.1's three broken menu items — implemented in Angular as
- * `router.navigate()` into a router with no outlet, so they did nothing and had done nothing for
- * months. A placeholder is not a fix, but it is the difference between "not built yet" and "silently
- * broken", and Tasks 9/12/13 replace the dialog body without touching the wire.
+ * Two commands open a **placeholder dialog**: Database ▸ Backup and Database ▸ Restore. Those are
+ * two of PLAN.md 0.1's three broken menu items — implemented in Angular as `router.navigate()` into
+ * a router with no outlet, so they did nothing and had done nothing for months. A placeholder is not
+ * a fix, but it is the difference between "not built yet" and "silently broken", and Tasks 12/13
+ * replace the dialog body without touching the wire.
+ *
+ * The third, File ▸ New Connection, no longer has a placeholder: Task 9's
+ * `features/connections/ConnectionDialogs` is the real consumer of `open-connection-dialog`, mounted
+ * by `app-shell.tsx` beside this component. The one thing that still reaches for it from here is ⌘N
+ * with nothing connected, which dispatches the command rather than owning a second copy of the
+ * dialog.
  */
 
 import { useState } from 'react';
-import { Database, DatabaseBackup, HardDriveDownload, Plug } from 'lucide-react';
+import { Database, DatabaseBackup, HardDriveDownload } from 'lucide-react';
 
 import {
   Button,
@@ -30,7 +36,7 @@ import {
   Icon,
   cn,
 } from '../ui';
-import { useCommand } from '../commands';
+import { dispatchCommand, useCommand } from '../commands';
 import { ipc, isIpcAvailable } from '../ipc';
 import { chatPanelStore } from '../state/chat';
 import { connectionStore, selectDefaultDatabaseFor } from '../state/connection';
@@ -41,8 +47,8 @@ import { settingsStore } from '../state/settings';
 import { selectActiveTab, tabStore } from '../state/tab';
 import { workbenchStore } from '../state/workbench';
 
-/** Which placeholder is showing, or `null`. One piece of state, three dialogs. */
-type PlaceholderKind = 'connection' | 'backup' | 'restore';
+/** Which placeholder is showing, or `null`. One piece of state, two dialogs. */
+type PlaceholderKind = 'backup' | 'restore';
 
 interface PlaceholderCopy {
   readonly title: string;
@@ -52,13 +58,6 @@ interface PlaceholderCopy {
 }
 
 const PLACEHOLDERS: Record<PlaceholderKind, PlaceholderCopy> = {
-  connection: {
-    title: 'New connection',
-    icon: Plug,
-    description:
-      'The connection editor — every auth mode, SSH tunnelling and DSQL/IAM — is the next task after the shell.',
-    arrivesIn: 'Task 9',
-  },
   backup: {
     title: 'Back up a database',
     icon: DatabaseBackup,
@@ -200,7 +199,7 @@ async function refreshExplorer(): Promise<void> {
 }
 
 /** ⌘N. Always a fresh tab, per the Angular comment: the user pressed ⌘N to get a new one. */
-function newQuery(openConnectionDialog: () => void): void {
+function newQuery(): void {
   const connection = connectionStore.getState();
   const connectionId = connection.mostRecentConnectionId();
   const databaseName =
@@ -208,8 +207,9 @@ function newQuery(openConnectionDialog: () => void): void {
 
   if (connectionId === null || databaseName === null) {
     // Angular navigated to the dead /connections route here. The intent was right; the destination
-    // did not exist.
-    openConnectionDialog();
+    // did not exist. Dispatching the command rather than opening the editor directly keeps Task 9's
+    // dialog owned by one consumer.
+    dispatchCommand('open-connection-dialog');
     return;
   }
   tabStore.getState().openQueryTab(connectionId, databaseName, undefined, false, false);
@@ -224,13 +224,13 @@ function newQuery(openConnectionDialog: () => void): void {
 export function ShellCommands() {
   const [placeholder, setPlaceholder] = useState<PlaceholderKind | null>(null);
 
-  // PLAN.md 0.1's three broken menu items, now reaching something.
-  useCommand('open-connection-dialog', () => setPlaceholder('connection'));
+  // Two of PLAN.md 0.1's three broken menu items, now reaching something. The third,
+  // `open-connection-dialog`, is Task 9's `ConnectionDialogs`.
   useCommand('open-backup-dialog', () => setPlaceholder('backup'));
   useCommand('open-restore-dialog', () => setPlaceholder('restore'));
 
   // Tabs.
-  useCommand('new-query', () => newQuery(() => setPlaceholder('connection')));
+  useCommand('new-query', () => newQuery());
   useCommand('open-query-file', () => {
     // Task 10's editor handles this when a query tab is active; this is the other branch.
     if (selectActiveTab(tabStore.getState())?.type === 'query') return;

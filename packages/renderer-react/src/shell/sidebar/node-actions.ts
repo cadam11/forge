@@ -259,17 +259,22 @@ export function disconnectConnection(connectionId: string): void {
  *
  * Ported from `sidebar.component.ts:829-838`. The expand is deliberately not awaited: the node
  * appears immediately with its own spinner, which is what `TreeNode.isLoading` is for.
+ *
+ * Returns whether the connection was established. The menus ignore it — a failure has already been
+ * toasted by the store — but Task 9's connection editor needs it: it stays open on a failed connect
+ * so the user can correct the form, which is what the Angular dialog's `connectNow` did.
  */
-export async function connectProfile(profileId: string): Promise<void> {
+export async function connectProfile(profileId: string): Promise<boolean> {
   const connection = connectionStore.getState();
   const profile = selectProfileFor(profileId)(connection);
   if (profile === null) {
     notify.error('Connection profile not found');
-    return;
+    return false;
   }
-  if (!(await connection.connect(profileId))) return;
+  if (!(await connection.connect(profileId))) return false;
   explorerStore.getState().addServerNode(profileId, profile.name);
   void explorerStore.getState().expandNode(`server-${profileId}`);
+  return true;
 }
 
 /**
