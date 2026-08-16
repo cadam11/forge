@@ -13,7 +13,7 @@
  * "Jump to latest" button IS rendered, so that one is state — it changes when the user scrolls away
  * and back, not per chunk.
  *
- * ── The two empty states are different claims ──────────────────────────────────────────────
+ * ── The two empty states are different claims, and neither hides a transcript ──────────────
  *
  * "No provider configured" is a statement about this build (there is no AI settings surface in the
  * React renderer yet — J-55, Task 19), and it is the honest one: the same gate the main process uses
@@ -148,9 +148,12 @@ export function ChatTranscript({
   );
 
   let body: ReactNode;
-  if (!providerConfigured) body = <NoProviderState />;
-  else if (messages.length === 0) body = <OpeningState onSend={onSend} />;
-  else {
+  // An unconfigured provider is a statement about SENDING, not about reading: a user who has
+  // conversations from a build that had a key must still be able to read them. So the empty states
+  // only compete with each other, and the transcript wins over both when there is one.
+  if (messages.length === 0) {
+    body = providerConfigured ? <OpeningState onSend={onSend} /> : <NoProviderState />;
+  } else {
     body = messages.map(message => (
       <ChatMessageView
         key={message.id}
@@ -172,12 +175,16 @@ export function ChatTranscript({
         data-testid="chat-transcript"
         aria-label="Conversation"
         className={cn(
-          'flex min-h-0 min-w-0 grow flex-col gap-3 overflow-y-auto p-3',
+          'flex min-h-0 min-w-0 grow flex-col overflow-y-auto p-3',
           // An empty state is centred in the pane; a transcript starts at the top.
-          messages.length === 0 || !providerConfigured ? 'justify-center' : null
+          messages.length === 0 ? 'justify-center' : null
         )}
       >
-        {body}
+        {/* A measure, not a width. In the 400px side panel this column is the panel; in a chat TAB the
+            pane is 1,100px wide and unconstrained prose runs to ~180 characters a line, which
+            `typography.md` calls unreadable and which no amount of theming fixes. 76ch leaves a
+            fenced SQL block room to breathe without wrapping. */}
+        <div className="mx-auto flex w-full max-w-[76ch] min-w-0 flex-col gap-3">{body}</div>
       </div>
 
       {showJump ? (

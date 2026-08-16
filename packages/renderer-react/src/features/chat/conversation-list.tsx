@@ -155,7 +155,10 @@ export function ConversationList({
                   {conversation.title}
                 </button>
 
-                <span className="shrink-0 font-mono text-2xs tracking-eyebrow text-fg-subtle uppercase">
+                {/* `text-fg-muted`, not subtle: HOUSE-RULES §5 measures subtle at 3.11:1 on ivory
+                    chrome and reserves it for metadata nobody reads. This date is how a user picks
+                    between two conversations, so it is read. Verified by the browser gate. */}
+                <span className="shrink-0 font-mono text-2xs tracking-eyebrow text-fg-muted uppercase">
                   {formatConversationDate(conversation.updatedAt)}
                 </span>
 

@@ -125,6 +125,7 @@ function ConfirmCard({ toolCall, definition, onConfirm }: ToolCallCardProps) {
       <div className="flex items-center gap-2">
         <Button
           size="sm"
+          variant="primary"
           data-testid="chat-tool-approve"
           onClick={() => onConfirm(toolCall.id, true)}
         >
@@ -205,8 +206,10 @@ export const ToolCallCard = memo(function ToolCallCard(props: ToolCallCardProps)
       >
         <Icon icon={Zap} size="sm" className="shrink-0 stroke-fg-muted" />
         <span className="min-w-0 truncate font-mono text-sm text-fg">{toolCall.toolName}</span>
+        {/* Muted rather than subtle, for the contrast reason in `conversation-list.tsx`: a duration is
+            a number a user reads when a tool call felt slow. */}
         {toolCall.durationMs === undefined ? null : (
-          <span className="shrink-0 font-mono text-2xs tabular-nums text-fg-subtle">
+          <span className="shrink-0 font-mono text-2xs tabular-nums text-fg-muted">
             {toolCall.durationMs}ms
           </span>
         )}

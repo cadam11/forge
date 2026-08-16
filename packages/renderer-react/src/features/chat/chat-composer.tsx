@@ -11,9 +11,13 @@
  * ── Send or Stop, never both ───────────────────────────────────────────────────────────────
  *
  * While a stream is open the button cancels it, and the box is disabled — the Angular behaviour
- * (`:321-329`), and it is what makes the tool-confirmation flow legible: a confirmation card is only
- * ever on screen while the stream is still open, so the composer is showing **Stop** (outline) then
- * and "Run it" is the surface's one filled affordance (HOUSE-RULES §5).
+ * (`:321-329`).
+ *
+ * That is also what keeps HOUSE-RULES §5's "at most one filled oxide affordance per visible surface"
+ * true with two filled buttons in the feature. **Send** is filled, because it is what this surface is
+ * for; **Run it** on a tool confirmation is filled, because approving is what that card is for. They
+ * cannot appear together: a confirmation only exists while the stream is open, and the composer is
+ * showing Stop (outline) for exactly as long as that is true.
  *
  * One deliberate difference from Angular: focus returns to the box when a stream **ends**, not on
  * every `streaming` read. The Angular effect fired on mount too and re-fired on any false read
@@ -169,60 +173,68 @@ export function ChatComposer({
   const canSend = providerConfigured && text.trim() !== '';
 
   return (
-    <div className="flex shrink-0 flex-col gap-1 border-t border-rule p-2">
-      <div className="flex min-w-0 items-center gap-1">
-        <ModelPicker vendors={vendors} model={model} onModelChange={onModelChange} />
-      </div>
-
-      <div className="flex min-w-0 items-end gap-1.5">
-        <Textarea
-          ref={box}
-          name="chat-message"
-          aria-label="Message the assistant"
-          data-testid="chat-input"
-          rows={1}
-          value={text}
-          disabled={streaming}
-          placeholder={
-            providerConfigured ? 'Ask about your database…' : 'Configure an AI provider to chat'
-          }
-          onChange={event => setText(event.target.value)}
-          onKeyDown={event => {
-            // Enter sends; ⇧↩ is a newline. Ported from `onEnter` (`:1414`).
-            if (event.key !== 'Enter' || event.shiftKey) return;
-            event.preventDefault();
-            send();
-          }}
-          // `field-sizing-content` grows the box with its content; `max-h-32` caps it at ~8 lines so
-          // a pasted query cannot push the transcript off the panel.
-          className="min-h-8.5 field-sizing-content max-h-32 resize-none"
-        />
-
-        {streaming ? (
-          <Tooltip content="Stop the response">
-            <Button
-              size="sm"
-              variant="outline"
-              iconOnly
-              leadingIcon={Square}
-              aria-label="Stop the response"
-              data-testid="chat-stop"
-              onClick={onStop}
-            />
-          </Tooltip>
-        ) : (
-          <Tooltip content="Send (↩)">
-            <Button
-              size="sm"
-              iconOnly
-              leadingIcon={SendHorizontal}
-              aria-label="Send"
-              data-testid="chat-send"
-              disabled={!canSend}
-              onClick={send}
-            />
-          </Tooltip>
+    // The hairline spans the pane, because it is the pane's divider; the CONTENTS take the same 76ch
+    // measure the transcript uses (`chat-transcript.tsx`), so in a full-width chat tab the box lines up
+    // with the prose above it instead of running the width of the pane on its own.
+    <div className="shrink-0 border-t border-rule">
+      <div className="mx-auto flex w-full max-w-[76ch] flex-col gap-1 p-2">
+        {vendors.length === 0 ? null : (
+          <div className="flex min-w-0 items-center gap-1">
+            <ModelPicker vendors={vendors} model={model} onModelChange={onModelChange} />
+          </div>
         )}
+
+        <div className="flex min-w-0 items-end gap-1.5">
+          <Textarea
+            ref={box}
+            name="chat-message"
+            aria-label="Message the assistant"
+            data-testid="chat-input"
+            rows={1}
+            value={text}
+            disabled={streaming}
+            placeholder={
+              providerConfigured ? 'Ask about your database…' : 'Configure an AI provider to chat'
+            }
+            onChange={event => setText(event.target.value)}
+            onKeyDown={event => {
+              // Enter sends; ⇧↩ is a newline. Ported from `onEnter` (`:1414`).
+              if (event.key !== 'Enter' || event.shiftKey) return;
+              event.preventDefault();
+              send();
+            }}
+            // `field-sizing-content` grows the box with its content; `max-h-32` caps it at ~8 lines so
+            // a pasted query cannot push the transcript off the panel.
+            className="min-h-8.5 field-sizing-content max-h-32 resize-none"
+          />
+
+          {streaming ? (
+            <Tooltip content="Stop the response">
+              <Button
+                size="sm"
+                variant="outline"
+                iconOnly
+                leadingIcon={Square}
+                aria-label="Stop the response"
+                data-testid="chat-stop"
+                onClick={onStop}
+              />
+            </Tooltip>
+          ) : (
+            <Tooltip content="Send (↩)">
+              <Button
+                size="sm"
+                variant="primary"
+                iconOnly
+                leadingIcon={SendHorizontal}
+                aria-label="Send"
+                data-testid="chat-send"
+                disabled={!canSend}
+                onClick={send}
+              />
+            </Tooltip>
+          )}
+        </div>
       </div>
     </div>
   );
