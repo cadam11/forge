@@ -100,7 +100,18 @@ export const QueryResults = memo(function QueryResults({
   );
   const sql = useQueryExecutionStore(selectSqlFor(tabId));
 
-  const [selected, setSelected] = useState<string | null>(null);
+  /**
+   * The user's explicit tab pick, tied to the result it was made against.
+   *
+   * Tying it is what sends a new run back to its rows: a user who was reading Messages or History when
+   * they pressed Execute gets the result they asked for, which is what `query.component.ts:1838` did
+   * with `activeTab.set('result-0')`. It also cannot leave the pane pointed at a result set a shorter
+   * batch no longer has — `tabValues` is checked as well.
+   */
+  const [selected, setSelected] = useState<{
+    readonly forResult: QueryResult | null;
+    readonly value: string;
+  } | null>(null);
   /**
    * The inspected row, tied to the result it was opened on — same trick as `viewing` below, and for a
    * sharper reason: the target closes over the GRID's displayed-order accessor, and a grid that has
@@ -163,7 +174,10 @@ export const QueryResults = memo(function QueryResults({
         queryExecutionStore.getState().setResult(tabId, asResult, full.sql);
         setViewing({ forResult: asResult, snapshot: full });
         setRowDetail(null);
-        setSelected(full.resultSets.length > 0 ? '0' : MESSAGES_TAB);
+        setSelected({
+          forResult: asResult,
+          value: full.resultSets.length > 0 ? '0' : MESSAGES_TAB,
+        });
       });
     },
     [tabId]
@@ -218,7 +232,10 @@ export const QueryResults = memo(function QueryResults({
   // A statement with no result sets (an INSERT, a DDL) lands on Messages, exactly as `:1838` chose.
   const defaultTab = resultSets.length > 0 ? '0' : MESSAGES_TAB;
   const tabValues = [...resultSets.map((_, index) => String(index)), MESSAGES_TAB, HISTORY_TAB];
-  const active = selected !== null && tabValues.includes(selected) ? selected : defaultTab;
+  const active =
+    selected !== null && selected.forResult === result && tabValues.includes(selected.value)
+      ? selected.value
+      : defaultTab;
   const showingSnapshot = viewing !== null && viewing.forResult === result;
   const inspecting =
     rowDetail !== null &&
@@ -245,7 +262,7 @@ export const QueryResults = memo(function QueryResults({
       <div className="flex min-h-0 grow">
         <Tabs
           value={active}
-          onValueChange={setSelected}
+          onValueChange={value => setSelected({ forResult: result, value })}
           className="flex min-w-0 min-h-0 grow flex-col"
           data-testid="query-results"
         >

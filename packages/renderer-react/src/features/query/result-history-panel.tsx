@@ -368,7 +368,10 @@ function SnapshotRow({
           </button>
         )}
 
-        <p className="flex min-w-0 items-baseline gap-2 font-mono text-2xs tracking-eyebrow text-fg-subtle uppercase">
+        {/* `text-fg-muted`, not `text-fg-subtle`: HOUSE-RULES §5 reserves subtle for metadata nobody
+            has to read, and the gate measured it at 3.65:1 on the ivory canvas. A timestamp and a row
+            count are both things a user reads. */}
+        <p className="flex min-w-0 items-baseline gap-2 font-mono text-2xs tracking-eyebrow text-fg-muted uppercase">
           <span data-testid="history-time" className="shrink-0 tabular-nums">
             {formatSnapshotTime(snapshot.executedAt)}
           </span>
@@ -382,7 +385,7 @@ function SnapshotRow({
 
         {snapshot.label === undefined || snapshot.label === '' ? null : (
           <p
-            className="min-w-0 truncate font-mono text-2xs text-fg-subtle"
+            className="min-w-0 truncate font-mono text-2xs text-fg-muted"
             data-testid="history-sql"
           >
             {snapshotSqlPreview(snapshot)}

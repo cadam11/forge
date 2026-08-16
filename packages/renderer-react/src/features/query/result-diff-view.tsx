@@ -55,7 +55,9 @@ export function ResultDiffView({ diff, onClose }: ResultDiffViewProps) {
     <section
       data-testid="history-diff"
       aria-label="Snapshot comparison"
-      className="flex min-h-0 flex-col border-b border-rule bg-surface"
+      // `max-h-1/2` bounds it: the diff and the list share this pane, and 200 changed rows with no cap
+      // on the SECTION would squeeze the list it was launched from down to nothing.
+      className="flex max-h-1/2 min-h-0 flex-col border-b border-rule bg-surface"
     >
       <header className="flex h-(--panel-header-height) shrink-0 items-center gap-2 border-b border-rule px-2">
         <p className="min-w-0 grow truncate font-mono text-2xs tracking-eyebrow text-fg-muted uppercase">
@@ -100,7 +102,7 @@ export function ResultDiffView({ diff, onClose }: ResultDiffViewProps) {
         />
         <Count
           testId="history-diff-unchanged"
-          className="text-fg-subtle"
+          className="text-fg-muted"
           value={view.counts.unchanged}
           word="same"
         />
@@ -146,7 +148,7 @@ export function ResultDiffView({ diff, onClose }: ResultDiffViewProps) {
           {view.hiddenRows === 0 ? null : (
             <p
               data-testid="history-diff-capped"
-              className="px-2 py-1.5 font-mono text-2xs tracking-eyebrow text-fg-subtle uppercase"
+              className="px-2 py-1.5 font-mono text-2xs tracking-eyebrow text-fg-muted uppercase"
             >
               showing the first <span className="tabular-nums">{view.rows.length}</span> of{' '}
               <span className="tabular-nums">{view.totalChanges.toLocaleString()}</span> changes
@@ -170,7 +172,9 @@ function Count({
   readonly word: string;
 }) {
   return (
-    <p className={cn('flex items-baseline gap-1', value === 0 ? 'text-fg-subtle' : className)}>
+    // A zero is `text-fg-muted` rather than `text-fg-subtle`: "0 removed" is a fact the user is
+    // reading, and subtle measures 3.39:1 on the ivory canvas (gate-measured).
+    <p className={cn('flex items-baseline gap-1', value === 0 ? 'text-fg-muted' : className)}>
       <span data-testid={testId} className="tabular-nums">
         {value.toLocaleString()}
       </span>
@@ -203,7 +207,9 @@ function DiffRow({ row }: { readonly row: DiffRowView }) {
       <dl className="flex flex-col">
         {row.cells.map(cell => (
           <div key={cell.column} className="flex min-w-0 items-baseline gap-2">
-            <dt className="min-w-0 shrink-0 basis-1/3 truncate font-mono text-2xs tracking-eyebrow text-fg-subtle uppercase">
+            {/* A fixed column rather than a fraction: this pane is as wide as the window, and a third
+                of it is 500px of nothing between a column's name and its two values. */}
+            <dt className="w-40 shrink-0 truncate font-mono text-2xs tracking-eyebrow text-fg-muted uppercase">
               {cell.column}
             </dt>
             <dd className="flex min-w-0 grow items-baseline gap-1 font-mono text-sm">
@@ -227,7 +233,7 @@ function DiffRow({ row }: { readonly row: DiffRowView }) {
           </div>
         ))}
         {row.hiddenCells === 0 ? null : (
-          <p className="font-mono text-2xs tracking-eyebrow text-fg-subtle uppercase">
+          <p className="font-mono text-2xs tracking-eyebrow text-fg-muted uppercase">
             +<span className="tabular-nums">{row.hiddenCells}</span> more columns
           </p>
         )}

@@ -302,7 +302,7 @@ export function RowDetailPanel({ tabId, target, onClose, onNavigate }: RowDetail
       </div>
 
       <footer className="flex h-(--panel-header-height) shrink-0 items-center gap-2 border-t border-rule px-2">
-        <p className="min-w-0 grow truncate font-mono text-2xs tracking-eyebrow text-fg-subtle uppercase">
+        <p className="min-w-0 grow truncate font-mono text-2xs tracking-eyebrow text-fg-muted uppercase">
           <span className="tabular-nums">{fields.length}</span>{' '}
           {fields.length === 1 ? 'column' : 'columns'}
         </p>
@@ -423,7 +423,11 @@ function FieldRow({
       <div className="flex min-w-0 items-start gap-1">
         <div className="min-w-0 grow">
           {field.isNull ? (
-            <span data-testid="rowdetail-null" className="font-mono text-sm text-fg-subtle italic">
+            // `text-fg-muted italic` is the grid's own NULL treatment (`results-grid-theme.css`'s
+            // `cell-null`, measured at 8.46:1 / 5.82:1 by the Task 11 gate), so the two surfaces agree
+            // about what an absent value looks like — and it clears AA body in both themes, which
+            // `text-fg-subtle` does not on the ivory canvas.
+            <span data-testid="rowdetail-null" className="font-mono text-sm text-fg-muted italic">
               NULL
             </span>
           ) : followable ? (
@@ -433,9 +437,15 @@ function FieldRow({
               aria-label={`Preview the row ${field.name} references`}
               onClick={onTogglePreview}
               aria-expanded={previewing}
+              // The accent is the UNDERLINE, not the text: `--color-accent` measures 3.50:1 on
+              // `bg-surface` under ivory (gate-measured), which is short of AA body for something a
+              // user reads — and HOUSE-RULES §5 says accent on a raised surface is a fill or a
+              // border, not body text. The word stays `text-fg` at 14.39:1 and the affordance is the
+              // dotted oxide underline plus the link glyph, which is the same marking the grid's
+              // `cell-fk` cells carry.
               className={cn(
-                'flex min-w-0 items-center gap-1 text-left font-mono text-sm text-accent',
-                'underline decoration-dotted underline-offset-2 hover:decoration-solid',
+                'flex min-w-0 items-center gap-1 text-left font-mono text-sm text-fg',
+                'underline decoration-accent decoration-dotted underline-offset-2 hover:decoration-solid',
                 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus'
               )}
             >
@@ -632,7 +642,7 @@ function FkPreview({ target, connectionId, database, engine, onOpenInTab }: FkPr
                 className={cn(
                   'min-w-0 grow truncate font-mono text-sm',
                   record[column.name] === null || record[column.name] === undefined
-                    ? 'text-fg-subtle italic'
+                    ? 'text-fg-muted italic'
                     : 'text-fg'
                 )}
               >

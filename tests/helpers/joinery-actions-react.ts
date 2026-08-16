@@ -825,3 +825,91 @@ export async function sendMenuCommand(app: ElectronApplication, channel: string)
     window.webContents.send(name);
   }, channel);
 }
+
+// ── The query tab's sub-panels (Task 14) ────────────────────────────────────
+//
+// Three surfaces, three testid prefixes: `rowdetail-*` for the row-detail rail,
+// `history-*` for the result-history tab and its inline diff, `chip-*` for the
+// connection chip. The grid's own rows are still located structurally, under the
+// vendor exemption — a double-click on a row is the rail's entry point and AG
+// Grid is what owns the row element.
+
+/** The row-detail rail, if it is open. */
+export function rowDetailPanel(window: Page): Locator {
+  return window.getByTestId('rowdetail-panel');
+}
+
+/**
+ * Double-clicks a row, addressed by its DISPLAYED index, and waits for the rail.
+ *
+ * Double-click rather than click: a single click in this grid starts a text
+ * selection or ticks a checkbox, so the rail deliberately does not claim it (see
+ * `results-grid.tsx`'s `openRow`).
+ */
+export async function openRowDetail(window: Page, displayedIndex: number): Promise<Locator> {
+  await resultsGrid(window)
+    .locator(`.ag-grid-scrolling-container .ag-row[row-index="${displayedIndex}"]`)
+    .locator('.ag-cell')
+    .first()
+    .dblclick();
+  await expect(rowDetailPanel(window)).toBeVisible({ timeout: UI_TIMEOUT_MS });
+  return rowDetailPanel(window);
+}
+
+/** One field of the inspected row, addressed by column name. */
+export function rowDetailField(window: Page, column: string): Locator {
+  return rowDetailPanel(window).locator(`[data-testid="rowdetail-field"][data-field="${column}"]`);
+}
+
+/** Every field's column name, in order. */
+export async function rowDetailFields(window: Page): Promise<string[]> {
+  const fields = await rowDetailPanel(window)
+    .locator('[data-testid="rowdetail-field"]')
+    .evaluateAll(elements => elements.map(element => element.getAttribute('data-field') ?? ''));
+  return fields;
+}
+
+/**
+ * Follows a foreign key: clicks the FK link on `column` and waits for the
+ * referenced row's preview to have loaded (its own fields, not the spinner).
+ */
+export async function previewForeignKey(window: Page, column: string): Promise<Locator> {
+  await rowDetailField(window, column).getByTestId('rowdetail-fk-link').click();
+  const preview = rowDetailPanel(window).getByTestId('rowdetail-fk-preview');
+  await expect(preview).toBeVisible({ timeout: UI_TIMEOUT_MS });
+  await expect(preview.getByTestId('rowdetail-fk-target')).toBeVisible({ timeout: UI_TIMEOUT_MS });
+  return preview;
+}
+
+/** Switches the results pane to the History tab and waits for the panel. */
+export async function openResultHistory(window: Page): Promise<Locator> {
+  await window.getByTestId('query-results-tab-history').click();
+  const panel = window.getByTestId('history-panel');
+  await expect(panel).toBeVisible({ timeout: UI_TIMEOUT_MS });
+  return panel;
+}
+
+/** Every snapshot row in the history list. */
+export function historyRows(window: Page): Locator {
+  return window.getByTestId('history-row');
+}
+
+/**
+ * Captures the result on screen as a pinned snapshot and waits for it to appear.
+ *
+ * Pinned is what makes it addressable: the main process auto-saves every execute
+ * too (`query.ipc.ts:59-78`), so `[data-pinned="true"]` is how a spec names the
+ * snapshots it created rather than the ones that appeared on their own.
+ */
+export async function captureResult(window: Page, expectedPinned: number): Promise<void> {
+  await window.getByTestId('history-capture').click();
+  await expect(historyRows(window).and(window.locator('[data-pinned="true"]'))).toHaveCount(
+    expectedPinned,
+    { timeout: UI_TIMEOUT_MS }
+  );
+}
+
+/** The pinned snapshots, which are the ones a spec captured itself. */
+export function pinnedHistoryRows(window: Page): Locator {
+  return historyRows(window).and(window.locator('[data-pinned="true"]'));
+}
