@@ -59,6 +59,7 @@ import {
   cn,
 } from '../../ui';
 import { useIpcEvent, useIpcMutation, useIpcQuery } from '../../ipc';
+import type { DbOperationRun } from '../../state/db-operations';
 import { diagnostics } from '../../state/diagnostics';
 import { FormAnswerBand, FormNote, FormSection, useFormValues } from '../forms';
 import { MissingCliTools } from './missing-cli-tools';
@@ -84,15 +85,19 @@ import {
 } from './backup-model';
 
 /**
- * The window's record of dumps that are still running, as this dialog needs it.
+ * The window's record of long-running operations, as this dialog needs it.
  *
- * The record itself lives in `backup-dialogs.tsx` because a dump outlives the dialog that started it —
- * see that file's header. Passed in rather than read here so this component keeps one source of truth
- * for "is something already running", and so its spec can mount it with an inert one.
+ * The record itself lives in `state/db-operations.ts` because a dump outlives the dialog that started
+ * it and because a **restore** of this database collides with a dump of it just as badly as a second
+ * dump would — see that module's header. Passed in rather than read here so this component keeps one
+ * source of truth for "is something already running", and so its spec can mount it with an inert one.
  */
 export interface BackupRunCoordination {
-  /** A run against **this** database that has not reported a terminal event yet, or `null`. */
-  readonly inFlight: { readonly path: string } | null;
+  /**
+   * An operation against **this** database that has not reported a terminal event yet, or `null`. It
+   * may be a restore rather than a dump, which is why the panel below reads its `kind`.
+   */
+  readonly inFlight: DbOperationRun | null;
   /** This dialog has just asked the main process to start a dump to `path`. */
   readonly onStarted: (path: string) => void;
   /** The operation id of this dialog's run, as soon as it is known. */
@@ -619,18 +624,18 @@ export function BackupDialog({
  * the band renders nothing only when `children` is `null`, and three sibling ternaries produce an array
  * of three nulls, which is not.
  */
-function answerPanel(phase: BackupPhase, inFlight: { readonly path: string } | null): ReactNode {
+function answerPanel(phase: BackupPhase, inFlight: DbOperationRun | null): ReactNode {
   if (phase.kind === 'running') return <ProgressPanel phase={phase} />;
   if (phase.kind === 'done') return <DonePanel path={phase.path} elapsedMs={phase.elapsedMs} />;
   if (phase.kind === 'failed') return <FailedPanel message={phase.message} />;
-  // The form, re-opened onto a dump that is still going. Stated here rather than as a hint because it
-  // is the reason the button next to it will not do anything.
-  if (inFlight !== null) return <InFlightPanel path={inFlight.path} />;
+  // The form, re-opened onto an operation that is still going. Stated here rather than as a hint
+  // because it is the reason the button next to it will not do anything.
+  if (inFlight !== null) return <InFlightPanel run={inFlight} />;
   return null;
 }
 
 /**
- * The re-opened dialog, over a dump that is still running.
+ * The re-opened dialog, over an operation on this database that is still running.
  *
  * Blocking rather than warning, and the reason is that neither end can undo the alternative: nothing
  * in `packages/main` refuses a second dump of the same database (J-48 item f — `pg-backup.ts` mints a
@@ -638,8 +643,12 @@ function answerPanel(phase: BackupPhase, inFlight: { readonly path: string } | n
  * archive corrupt it while **both** report success, and there is no working cancel to recover with
  * (J-48 item e). A warning the user can click past buys nothing here: the run they would be racing is
  * one they started seconds ago and can simply wait out.
+ *
+ * The blocking run may be a **restore**, because the record is shared (`state/db-operations.ts`) — a
+ * dump of a database that is being rewritten underneath it is a torn archive that looks complete.
  */
-function InFlightPanel({ path }: { readonly path: string }) {
+function InFlightPanel({ run }: { readonly run: DbOperationRun }) {
+  const restoring = run.kind === 'restore';
   return (
     <div
       className="flex items-start gap-2 rounded-sm border-l-2 border-warning bg-surface p-3"
@@ -647,11 +656,19 @@ function InFlightPanel({ path }: { readonly path: string }) {
     >
       <Icon icon={TriangleAlert} size="md" className="mt-0.5 shrink-0 stroke-warning" />
       <div className="flex min-w-0 flex-col gap-1">
-        <p className="text-md text-fg">A backup of this database is still running</p>
+        <p className="text-md text-fg">
+          {restoring
+            ? 'A restore into this database is still running'
+            : 'A backup of this database is still running'}
+        </p>
         <p className="text-sm break-words text-fg-muted text-pretty">
-          Started from this window and writing to{' '}
-          <span className="font-mono break-all">{path}</span>. Wait for it to finish before starting
-          another — a second dump can’t be cancelled and can corrupt the first one’s file.
+          Started from this window, {restoring ? 'restoring from ' : 'writing to '}
+          <span className="font-mono break-all">{run.path}</span>. Wait for it to finish before
+          starting another —{' '}
+          {restoring
+            ? 'a dump taken while the database is being rewritten is a torn archive that looks complete'
+            : 'a second dump can’t be cancelled and can corrupt the first one’s file'}
+          .
         </p>
       </div>
     </div>
