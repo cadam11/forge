@@ -25,7 +25,7 @@
  * way ⌘N does, so the extra condition is gone.
  */
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Code, DatabaseBackup, HardDriveDownload, Plus, RefreshCw, Sparkles } from 'lucide-react';
 
 import {
@@ -45,7 +45,8 @@ import {
   selectSelectedDatabaseFor,
   useMostRecentConnectionId,
 } from '../../state/connection';
-import { explorerStore } from '../../state/explorer';
+import { explorerStore, useExplorerStore } from '../../state/explorer';
+import { serverNodeId } from '../../state/explorer-path';
 import { tabStore } from '../../state/tab';
 import { BrandMark } from './brand-mark';
 import { ConnectionPicker } from './connection-picker';
@@ -64,12 +65,34 @@ export function Sidebar() {
    * activation, which is the rule `state/connection.ts` documents, so opening a second tab would
    * be the picker writing focus by force.
    */
+  /**
+   * The view half of a reveal.
+   *
+   * `reveal-explorer-node`'s handler is in `shell-commands.tsx`, not here, and the reason is a mount
+   * one: **this component does not exist while the sidebar is collapsed** (`app-shell.tsx` renders
+   * `null` for it), so a `useCommand` here would be a command that dies exactly when the user most
+   * needs it — and would DEV-warn as a dead dispatch, which is the class of bug this whole task is
+   * about. The handler therefore does the store work (uncollapse, expand, select) and leaves a reveal
+   * request behind; this effect does the part only the `TreeHandle` can do — scroll a row the
+   * virtualizer may not have mounted, then take focus so the arrow keys carry on from there.
+   *
+   * Because the request lives in the store, a reveal that arrives while the pane is closed is still
+   * honoured: this effect runs on mount and finds it waiting.
+   */
+  const revealRequest = useExplorerStore(state => state.revealRequest);
+  useEffect(() => {
+    if (revealRequest === null) return;
+    treeRef.current?.scrollToId(revealRequest);
+    treeRef.current?.focus();
+    explorerStore.getState().clearRevealRequest();
+  }, [revealRequest]);
+
   const revealServer = useCallback((connectionId: string) => {
-    const serverNodeId = `server-${connectionId}`;
+    const nodeId = serverNodeId(connectionId);
     const explorer = explorerStore.getState();
-    void explorer.expandNode(serverNodeId);
-    explorer.selectNode(serverNodeId);
-    treeRef.current?.scrollToId(serverNodeId);
+    void explorer.expandNode(nodeId);
+    explorer.selectNode(nodeId);
+    treeRef.current?.scrollToId(nodeId);
     treeRef.current?.focus();
 
     const tabs = tabStore.getState().tabs;

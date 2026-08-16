@@ -27,7 +27,12 @@ import {
   selectProfileFor,
 } from '../../state/connection';
 import { diagnostics, notify } from '../../state/diagnostics';
-import { explorerStore, type TreeNode } from '../../state/explorer';
+import { explorerStore, selectNodeById, type TreeNode } from '../../state/explorer';
+import {
+  explorerPathToObject,
+  serverNodeId,
+  type ExplorerObjectTarget,
+} from '../../state/explorer-path';
 import { tabStore } from '../../state/tab';
 import {
   defaultSchema,
@@ -244,6 +249,44 @@ export function showObjectProperties(target: ObjectTarget, objectType: string): 
   });
 }
 
+/**
+ * Expand the explorer down to one object and select it. Returns the object's node id once it is in
+ * the tree, or `null` when the walk could not get there.
+ *
+ * Task 16's object search is the producer (`reveal-explorer-node`), and the split is deliberate: this
+ * function does the *store* half — four lazy expands, each an IPC round trip — and the caller does
+ * the *view* half, scrolling the row into a virtualized list through the `TreeHandle` only the
+ * sidebar holds. Reporting the id back rather than scrolling here is what keeps this module free of
+ * React refs.
+ *
+ * The loop is bounded by the path, which `explorerPathToObject` fixes at five ids; the last one is
+ * the object itself and is never expanded. A missing ancestor is not an error — a server that is not
+ * connected, or a schema the user cannot see, simply has no node — so the walk stops and says so
+ * rather than throwing into a keystroke handler. `expandNode` reports its own IPC failures.
+ */
+export async function revealObjectInExplorer(target: ExplorerObjectTarget): Promise<string | null> {
+  const path = explorerPathToObject(target);
+  if (path === null) return null;
+
+  const explorer = explorerStore.getState();
+  const objectId = path[path.length - 1] ?? null;
+
+  for (const ancestorId of path.slice(0, -1)) {
+    // Awaited one at a time: each expand's children are what the next id can be found in, so a
+    // parallel walk would ask for a node that does not exist yet.
+    await explorerStore.getState().expandNode(ancestorId);
+  }
+
+  if (objectId === null) return null;
+  if (selectNodeById(objectId)(explorerStore.getState()) === null) {
+    notify.warning(`Could not find ${target.schema}.${target.objectName} in the explorer.`);
+    return null;
+  }
+
+  explorer.selectNode(objectId);
+  return objectId;
+}
+
 /** "Refresh" — every menu has one, and it is always this. */
 export function refreshNode(nodeId: string): void {
   void explorerStore.getState().refreshNode(nodeId);
@@ -273,7 +316,7 @@ export async function connectProfile(profileId: string): Promise<boolean> {
   }
   if (!(await connection.connect(profileId))) return false;
   explorerStore.getState().addServerNode(profileId, profile.name);
-  void explorerStore.getState().expandNode(`server-${profileId}`);
+  void explorerStore.getState().expandNode(serverNodeId(profileId));
   return true;
 }
 
