@@ -326,6 +326,17 @@ gap: `scripts/verify-package.js` probes main-process deps and the out-of-asar sq
 **never checks that the renderer landed in the asar at all** — without that assertion the
 cutover's only proof is a manual launch.
 
+**The cutover PR also (primitives, from Task 6):** deletes
+`packages/renderer-react/src/markdown/sanitize-parity.spec.ts`. It is the drift guard that holds
+`src/markdown/render-markdown.ts` byte-identical to the Angular
+`packages/renderer/src/app/shared/markdown/markdown-renderer.ts`, and it does that by importing
+the Angular file as `?raw` — a **static** import, so deleting `packages/renderer` without
+deleting this spec fails the vitest run at collection, before a single test executes. That is the
+right way round (a drift guard that can silently stop guarding is worse than none), which is why
+it is a checklist item rather than a lazy import. It is also the only _import_ of the Angular
+package anywhere in `renderer-react` — every other mention is a `Ported from …` docblock
+reference, which survives the deletion harmlessly.
+
 ---
 
 ## 4. Phased SDD task plan

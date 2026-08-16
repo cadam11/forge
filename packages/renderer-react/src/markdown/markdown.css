@@ -1,0 +1,261 @@
+/*
+ * Prose styling for sanitized markdown.
+ *
+ * This exists as CSS rather than as Tailwind classes because there is nothing to put a class
+ * on: the elements come from `marked` and go through `dangerouslySetInnerHTML`. That is the
+ * case `prose-content.md` reserves a `.prose` class for, and its advice to replace the
+ * typography plugin with an owned class is what this is.
+ *
+ * `@utility` rather than a plain `.markdown-prose { … }` selector, per `general.md` — a
+ * utility composes with variants if anything ever needs `@container`-scoped prose.
+ *
+ * Imported from `styles/theme.css` immediately after `@import "tailwindcss"`, so it is part
+ * of the same Tailwind root and can use `--spacing()` and the theme's `var(--color-*)`. Every
+ * value below is a token: no literal colours, no literal spacing, nothing off the type
+ * ladder.
+ *
+ * SYNTAX HIGHLIGHTING IS DELIBERATELY MONOCHROME-PLUS-OXIDE. highlight.js emits ~30 token
+ * classes and the palette is closed (HOUSE-RULES §5) — there is no legal set of hues to map
+ * them onto. Chartreuse is capped at "verification and success only, two visible at once", so
+ * it cannot colour every string literal; amber is "non-destructive caution only"; and
+ * `text-fg-subtle` fails AA body contrast on ivory. So hue is spent on keywords only and
+ * everything else is differentiated by weight and italics. A real code palette is a Monaco
+ * theme decision and belongs to the query-editor task, which is the first one that needs one.
+ * Nothing regresses in the meantime: the Angular app never loaded a highlight theme at all.
+ */
+
+@utility markdown-prose {
+  color: var(--color-fg);
+  /* 14px — HOUSE-RULES §2 assigns `text-md` to chat prose, which is what this renders. */
+  font-size: var(--text-md);
+  line-height: 1.55;
+
+  /* No leading or trailing gap: the caller owns the space around the block. */
+  & > :first-child {
+    margin-block-start: 0;
+  }
+  & > :last-child {
+    margin-block-end: 0;
+  }
+
+  & p,
+  & ul,
+  & ol,
+  & blockquote,
+  & pre,
+  & table {
+    margin-block: --spacing(2);
+  }
+
+  & p {
+    text-wrap: pretty;
+  }
+
+  /* Headings take the interface ladder, not the display face: this is prose inside a chat
+     bubble, and `text-display-*` is reserved for welcome and empty states. No `leading`
+     override, and no bold — `typography.md`. */
+  & h1,
+  & h2,
+  & h3,
+  & h4,
+  & h5,
+  & h6 {
+    margin-block: --spacing(3) --spacing(1.5);
+    font-weight: 500;
+    text-wrap: balance;
+  }
+  & h1 {
+    font-size: var(--text-xl);
+  }
+  & h2 {
+    font-size: var(--text-lg);
+  }
+  & h3,
+  & h4,
+  & h5,
+  & h6 {
+    font-size: var(--text-md);
+  }
+
+  & ul,
+  & ol {
+    padding-inline-start: --spacing(4);
+  }
+  & ul {
+    list-style-type: disc;
+  }
+  & ol {
+    list-style-type: decimal;
+  }
+  & li {
+    margin-block: --spacing(0.5);
+  }
+
+  /* GFM task lists. The checkbox arrives already `disabled` from the sanitizer's hook. */
+  & li:has(> input[type='checkbox']) {
+    list-style-type: none;
+    margin-inline-start: calc(-1 * --spacing(4));
+    padding-inline-start: --spacing(4);
+  }
+  & input[type='checkbox'] {
+    accent-color: var(--color-accent-strong);
+  }
+
+  /* A hairline and an indent, not a tinted card — `surfaces.md` prefers the lightest
+     separation that works. */
+  & blockquote {
+    border-inline-start: 2px solid var(--color-rule-strong);
+    padding-inline-start: --spacing(3);
+    color: var(--color-fg-muted);
+  }
+
+  & a {
+    /* accent-strong, not accent: under ivory `--color-accent` is raw oxide at 3.77:1, which
+       is short of AA body. accent-strong is oxide-deep at 4.93:1 there and oxide-lift at
+       5.42:1 under ink. */
+    color: var(--color-accent-strong);
+    text-decoration-line: underline;
+    text-underline-offset: 2px;
+  }
+
+  & strong {
+    font-weight: 500;
+  }
+
+  & hr {
+    margin-block: --spacing(3);
+    border: 0;
+    border-block-start: 1px solid var(--color-rule);
+  }
+
+  & code {
+    font-family: var(--font-technical);
+    font-size: var(--text-sm);
+  }
+
+  /* Inline code: a well, per `surfaces.md`. */
+  & :not(pre) > code {
+    border-radius: var(--radius-xs);
+    background-color: var(--color-surface);
+    padding-inline: --spacing(1);
+  }
+
+  & pre {
+    position: relative;
+    overflow-x: auto;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-sm);
+    background-color: var(--color-surface);
+    padding: --spacing(3);
+  }
+
+  /* Tables follow `tables.md` as written — this is real <table> markup: horizontal row rules
+     only, no vertical lines, no outer border, sentence-case headers that never wrap. */
+  & table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+  }
+  & thead th {
+    border-block-end: 1px solid var(--color-rule-strong);
+    padding: --spacing(1.5) --spacing(2);
+    text-align: start;
+    font-weight: 500;
+    white-space: nowrap;
+    color: var(--color-fg-muted);
+  }
+  & tbody td {
+    border-block-start: 1px solid var(--color-rule);
+    padding: --spacing(1.5) --spacing(2);
+    vertical-align: top;
+  }
+
+  & img {
+    max-width: 100%;
+    border-radius: var(--radius-xs);
+  }
+
+  /* See the file header: hue on keywords, weight and italics for everything else. */
+  & .hljs-keyword,
+  & .hljs-built_in,
+  & .hljs-literal,
+  & .hljs-section,
+  & .hljs-selector-tag {
+    color: var(--color-accent-strong);
+    font-weight: 500;
+  }
+  & .hljs-comment,
+  & .hljs-quote {
+    color: var(--color-fg-muted);
+    font-style: italic;
+  }
+  & .hljs-string,
+  & .hljs-regexp,
+  & .hljs-number,
+  & .hljs-symbol,
+  & .hljs-attr,
+  & .hljs-attribute,
+  & .hljs-variable,
+  & .hljs-template-variable {
+    color: var(--color-fg-muted);
+  }
+  & .hljs-title,
+  & .hljs-name,
+  & .hljs-type,
+  & .hljs-class {
+    color: var(--color-fg);
+    font-weight: 500;
+  }
+  & .hljs-deletion {
+    color: var(--color-danger);
+  }
+  & .hljs-addition {
+    color: var(--color-success);
+  }
+  & .hljs-emphasis {
+    font-style: italic;
+  }
+  & .hljs-strong {
+    font-weight: 500;
+  }
+
+  /* Injected by `copy-buttons.ts`, so it cannot carry Tailwind classes either. Sits inside
+     the <pre> because the click handler finds the code with `closest('pre')`. */
+  & .code-copy-btn {
+    position: absolute;
+    inset-block-start: --spacing(1);
+    inset-inline-end: --spacing(1);
+    border: 1px solid var(--color-rule-strong);
+    border-radius: var(--radius-xs);
+    background-color: var(--color-elevated);
+    padding: 0 --spacing(1.5);
+    height: --spacing(6);
+    color: var(--color-fg-muted);
+    font-size: var(--text-xs);
+
+    &:hover {
+      background-color: var(--color-chrome);
+    }
+    &:focus-visible {
+      outline: 2px solid var(--color-focus);
+      outline-offset: 2px;
+    }
+  }
+
+  /* Mermaid output. A diagram scrolls rather than squashing; a failed one degrades to its
+     own source, which the renderer sets as text rather than markup. */
+  & .mermaid-diagram {
+    overflow-x: auto;
+    margin-block: --spacing(2);
+  }
+  & .mermaid-error {
+    margin-block: --spacing(2);
+    border: 1px solid var(--color-warning);
+    border-radius: var(--radius-sm);
+    padding: --spacing(2);
+    color: var(--color-warning);
+    font-family: var(--font-technical);
+    font-size: var(--text-sm);
+    white-space: pre-wrap;
+  }
+}
