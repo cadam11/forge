@@ -68,6 +68,44 @@ describe('the ⌃E confirmation', () => {
     expect(onConfirm).toHaveBeenCalledWith(true);
   });
 
+  it('opens unticked again after a tick was cancelled', async () => {
+    // The component is mounted for the tab's lifetime and only `open` changes, so the tick was surviving
+    // a cancel: tick, Cancel, ⌃E again, and the box was still ticked — a user who deliberately backed out
+    // of "don't ask me again" was one Execute away from it taking effect anyway.
+    const onConfirm = vi.fn();
+    const { rerender } = render(
+      <ConfirmExecuteDialog open {...confirmProps()} onConfirm={onConfirm} />
+    );
+    await userEvent.click(screen.getByTestId('query-confirm-execute-remember'));
+    await userEvent.click(screen.getByTestId('query-confirm-execute-cancel'));
+
+    rerender(<ConfirmExecuteDialog open={false} {...confirmProps()} onConfirm={onConfirm} />);
+    rerender(<ConfirmExecuteDialog open {...confirmProps()} onConfirm={onConfirm} />);
+
+    const tick = (await screen.findByTestId('query-confirm-execute-remember')) as HTMLInputElement;
+    expect(tick.checked).toBe(false);
+    await userEvent.click(screen.getByTestId('query-confirm-execute-run'));
+    expect(onConfirm).toHaveBeenCalledWith(false);
+  });
+
+  it('keeps a tick made during the open it was made in', async () => {
+    // The reset is on the transition into open, not on every render: a re-render while the dialog is up
+    // (the parent's state changes under it) must not un-tick a box the user just ticked.
+    const onConfirm = vi.fn();
+    const { rerender } = render(
+      <ConfirmExecuteDialog open {...confirmProps()} onConfirm={onConfirm} />
+    );
+    await userEvent.click(screen.getByTestId('query-confirm-execute-remember'));
+
+    rerender(<ConfirmExecuteDialog open {...confirmProps()} onConfirm={onConfirm} />);
+
+    expect((screen.getByTestId('query-confirm-execute-remember') as HTMLInputElement).checked).toBe(
+      true
+    );
+    await userEvent.click(screen.getByTestId('query-confirm-execute-run'));
+    expect(onConfirm).toHaveBeenCalledWith(true);
+  });
+
   it('cancels from the button and from Escape', async () => {
     const onCancel = vi.fn();
     render(<ConfirmExecuteDialog open {...confirmProps()} onCancel={onCancel} />);

@@ -86,6 +86,18 @@ export function ConfirmExecuteDialog({
   onReturnFocus,
 }: ConfirmExecuteDialogProps) {
   const [remember, setRemember] = useState(false);
+  // Cleared on the way IN to each open, because this component lives for the tab's lifetime and only
+  // `open` changes: without this, ticking "don't ask me again", cancelling, and pressing ⌃E again showed
+  // the box still ticked — one Execute away from a choice the user had explicitly backed out of. Adjusted
+  // during render rather than in an effect, which is React's documented way to react to a changed prop
+  // (and `react-hooks/set-state-in-effect` rejects the effect version); bounded, because the branch stores
+  // the value it reacted to. Only the false→true edge resets, so a re-render mid-dialog leaves a live tick
+  // alone.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (wasOpen !== open) {
+    setWasOpen(open);
+    if (open) setRemember(false);
+  }
   const executeButton = useRef<HTMLButtonElement | null>(null);
   const shortcut = keyHint('E');
   const oneTime = gate === 'ctrl-e';
