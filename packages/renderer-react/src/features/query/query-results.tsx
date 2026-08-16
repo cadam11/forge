@@ -42,7 +42,7 @@ import {
   useQueryExecutionStore,
 } from '../../state/query-execution';
 import { queryResultsStore } from '../../state/query-results';
-import { notify } from '../../state/diagnostics';
+import { diagnostics, notify } from '../../state/diagnostics';
 import { useTabStore } from '../../state/tab';
 import { EmptyState, Spinner, Tabs, TabsContent, TabsList, TabsTrigger, cn } from '../../ui';
 import { ResultHistoryPanel } from './result-history-panel';
@@ -166,19 +166,26 @@ export const QueryResults = memo(function QueryResults({
 
   const viewSnapshot = useCallback(
     (snapshot: QueryResultSnapshot): void => {
-      void hydrate(snapshot).then(full => {
-        if (full === null) return;
-        const asResult = snapshotAsResult(full);
-        // The SQL travels with it: the row inspector resolves FK metadata from the statement that
-        // produced what is on screen, and that is now the snapshot's, not the editor's.
-        queryExecutionStore.getState().setResult(tabId, asResult, full.sql);
-        setViewing({ forResult: asResult, snapshot: full });
-        setRowDetail(null);
-        setSelected({
-          forResult: asResult,
-          value: full.resultSets.length > 0 ? '0' : MESSAGES_TAB,
+      void hydrate(snapshot)
+        .then(full => {
+          if (full === null) return;
+          const asResult = snapshotAsResult(full);
+          // The SQL travels with it: the row inspector resolves FK metadata from the statement that
+          // produced what is on screen, and that is now the snapshot's, not the editor's.
+          queryExecutionStore.getState().setResult(tabId, asResult, full.sql);
+          setViewing({ forResult: asResult, snapshot: full });
+          setRowDetail(null);
+          setSelected({
+            forResult: asResult,
+            value: full.resultSets.length > 0 ? '0' : MESSAGES_TAB,
+          });
+        })
+        // `hydrate` reports a missing snapshot itself and resolves with null; this arm is for the
+        // unexpected, which must not become a silent unhandled rejection out of a click.
+        .catch(error => {
+          notify.error('Could not load that saved result');
+          diagnostics.error('failed to open a saved result', error);
         });
-      });
     },
     [tabId]
   );

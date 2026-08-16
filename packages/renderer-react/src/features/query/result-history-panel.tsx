@@ -45,7 +45,7 @@ import {
 } from 'lucide-react';
 import type { QueryResult, QueryResultSnapshot } from '@joinery/shared';
 
-import { notify } from '../../state/diagnostics';
+import { diagnostics, notify } from '../../state/diagnostics';
 import {
   queryResultsStore,
   selectCanCompare,
@@ -160,6 +160,13 @@ export function ResultHistoryPanel({
     })
       .then(snapshot => {
         if (snapshot !== null) notify.success('Result captured and pinned');
+      })
+      // The adapter and the store below it report their own failures and resolve with `null`, so this
+      // arm is for the unexpected — and an unexpected rejection out of a click handler is an
+      // unhandled rejection with no user-visible trace, which is the one thing it must not be.
+      .catch(error => {
+        notify.error('Could not capture this result');
+        diagnostics.error('failed to capture a result snapshot', error);
       })
       .finally(() => setCapturing(false));
   }, [connectionId, database, result, sql, tabId]);

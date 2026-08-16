@@ -42,7 +42,6 @@ import { IpcQueryProvider } from '../../ipc';
 
 const railRenders = { count: 0 };
 const historyRenders = { count: 0 };
-const gridRenders = { count: 0 };
 
 vi.mock('./row-detail-panel', async importOriginal => {
   const actual = await importOriginal<typeof import('./row-detail-panel')>();
@@ -82,7 +81,6 @@ vi.mock('ag-grid-react', () => ({
     onRowDoubleClicked?: (event: { rowIndex: number; data: Record<string, unknown> }) => void;
     onSelectionChanged?: () => void;
   }) => {
-    gridRenders.count += 1;
     grid.onRowDoubleClicked = onRowDoubleClicked ?? null;
     grid.onSelectionChanged = onSelectionChanged ?? null;
     const ready = useRef(false);
@@ -192,7 +190,6 @@ function chatToken(text: string): void {
 beforeEach(() => {
   railRenders.count = 0;
   historyRenders.count = 0;
-  gridRenders.count = 0;
   grid.onRowDoubleClicked = null;
   grid.onSelectionChanged = null;
   teardowns.push(
