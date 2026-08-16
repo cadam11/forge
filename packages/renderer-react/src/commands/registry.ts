@@ -238,9 +238,10 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
 
   'create-database': 'Task 19 create-database dialog.',
   'open-backup-dialog':
-    'Task 12 features/backup/BackupDialogs, mounted by the shell. It resolves the focused connection ' +
-    'and its default database, because the native menu carries no payload (PLAN.md 0.1 item 2 — no ' +
-    'longer the silent router no-op, and no longer the Task 7 placeholder either).',
+    'Task 12 features/backup/BackupDialogs, mounted by the shell. It resolves the target through ' +
+    'mostRecentConnectionId() — not focus, which derives from the active query tab alone — and that ' +
+    'connection’s default database, because the native menu carries no payload (PLAN.md 0.1 item 2 — ' +
+    'no longer the silent router no-op, and no longer the Task 7 placeholder either).',
   'open-restore-dialog':
     'Task 13 restore dialog. Task 7 shell registers a placeholder dialog (PLAN.md 0.1 item 3).',
   'show-database-properties': 'Task 19 database-properties surface.',

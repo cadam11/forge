@@ -486,7 +486,13 @@ export function missingCliTools(window: Page): Locator {
   return window.getByTestId('missing-cli-tools');
 }
 
-/** The server file browser, once the wizard's Choose… button has swapped it in. */
+/**
+ * The server file browser, once the wizard's Choose… button has swapped it in.
+ *
+ * Staged for Task 13 (restore wizard), which opens the same browser in `mode="open"` — no e2e spec
+ * calls it yet. Kept rather than deleted because the testid it names is Task 12's and the restore spec
+ * is the next one written; if Task 13 does not use it, delete it there.
+ */
 export function serverFileBrowser(window: Page): Locator {
   return window.getByTestId('backup-file-browser');
 }
