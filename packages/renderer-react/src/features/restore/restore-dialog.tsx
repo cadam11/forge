@@ -683,7 +683,9 @@ export function RestoreDialog({
           : 'The archive is read on this machine by the command-line tools.'
       }
       onDismiss={onDismiss}
-      showClose={!busy}
+      // While Joinery is creating the target or the restore is streaming, the only way out is the
+      // action row's Close — see `RestoreShell`'s header for why Escape is not one of them.
+      dismissable={!busy}
     >
       <form
         className="flex min-h-0 flex-col"
@@ -930,24 +932,38 @@ function answerPanel(phase: RestorePhase, inFlight: DbOperationRun | null): Reac
 /**
  * The dialog frame every phase shares, so there is exactly one `Dialog` root for the whole flow —
  * including the browser step, which is why that step is a body swap rather than a nested modal.
+ *
+ * `dismissable` is **one** flag for every way out of the frame, and that is the point: it used to
+ * only hide the header's close button, while Radix's own `onOpenChange` still fired for Escape and for
+ * a click on the overlay. So a phase that had deliberately taken the close button away could still be
+ * dismissed by pressing Escape — a headless exit past the affordance that was hidden to say "not from
+ * here". The chrome and the keyboard now answer to the same value; a phase that wants to be left
+ * deliberately offers a button in the action row instead (`running` does).
  */
 function RestoreShell({
   title,
   description,
   onDismiss,
-  showClose = true,
+  dismissable = true,
   children,
 }: {
   readonly title: string;
   readonly description: string;
   readonly onDismiss: () => void;
-  readonly showClose?: boolean;
+  readonly dismissable?: boolean;
   readonly children: ReactNode;
 }) {
   return (
-    <Dialog open onOpenChange={open => (open ? undefined : onDismiss())}>
+    <Dialog
+      open
+      onOpenChange={open => {
+        if (open) return;
+        if (!dismissable) return;
+        onDismiss();
+      }}
+    >
       <DialogContent size="md" data-testid="restore-dialog">
-        <DialogHeader showClose={showClose}>
+        <DialogHeader showClose={dismissable}>
           <DialogTitle>
             <span className="flex items-center gap-2">
               <Icon icon={HardDriveDownload} size="sm" className="stroke-fg-muted" />

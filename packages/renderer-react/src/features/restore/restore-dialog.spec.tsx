@@ -944,6 +944,64 @@ describe('running a restore', () => {
     expect(screen.getByTestId('restore-progress')).toBeTruthy();
   });
 
+  it('dismisses on Escape while the form is still editable', async () => {
+    // The control for the test below: Escape is the ordinary way out, and it stays that way.
+    const onDismiss = vi.fn();
+    await mountOnForm('postgresql', { onDismiss });
+
+    await userEvent.setup().keyboard('{Escape}');
+
+    expect(onDismiss).toHaveBeenCalledOnce();
+  });
+
+  it('refuses Escape while Joinery is creating the target', async () => {
+    // The close button is already hidden in this phase. Radix's own `onOpenChange` still fired for
+    // Escape and for the overlay, so the dialog could be dismissed past the affordance that had been
+    // taken away — a headless exit out of a phase mid-way through a CREATE DATABASE.
+    const user = userEvent.setup();
+    const onDismiss = vi.fn();
+    let release: (() => void) | undefined;
+    bridge.createDatabase.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          release = () => resolve({ success: true, tsql: 'CREATE DATABASE x' });
+        })
+    );
+
+    await mountOnForm('postgresql', { onDismiss });
+    await fillNewTarget(user, 'sales_copy');
+    await user.click(screen.getByTestId('restore-submit'));
+    await screen.findByTestId('restore-preparing');
+
+    await user.keyboard('{Escape}');
+
+    expect(onDismiss).not.toHaveBeenCalled();
+    expect(screen.getByTestId('restore-preparing')).toBeTruthy();
+
+    // Let the creation land so the phase is not left half-way through at teardown.
+    await act(async () => {
+      release?.();
+      await Promise.resolve();
+    });
+    await screen.findByTestId('restore-progress');
+  });
+
+  it('refuses Escape while the restore is streaming, and offers Close instead', async () => {
+    const user = userEvent.setup();
+    const onDismiss = vi.fn();
+    await mountOnForm('postgresql', { onDismiss });
+    await fillNewTarget(user, 'sales_copy');
+    await user.click(screen.getByTestId('restore-submit'));
+    await screen.findByTestId('restore-progress');
+
+    await user.keyboard('{Escape}');
+    expect(onDismiss).not.toHaveBeenCalled();
+
+    // The deliberate way out is still there — the restore finishes in the background either way.
+    await user.click(screen.getByTestId('restore-close'));
+    expect(onDismiss).toHaveBeenCalledOnce();
+  });
+
   it('leaves exactly one live progress subscription', async () => {
     const { unmount } = await mountOnForm('postgresql');
     expect(bridge.progress.liveCount()).toBe(1);
