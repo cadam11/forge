@@ -51,7 +51,10 @@ export interface LogStoreState {
   /** Errors logged since the user last looked at the panel. Drives the status-bar badge. */
   readonly unseenErrors: number;
 
-  /** Adopts the recent buffer read from main at startup. Idempotent. */
+  /**
+   * Adopts the recent buffer read from main at startup, merged into whatever the live stream has
+   * already delivered. Idempotent, and it never drops an entry the store already holds.
+   */
   readonly hydrate: (recent: readonly LogEntry[]) => void;
   /** Appends one entry from any source, de-duplicated by id. */
   readonly push: (entry: LogEntry) => void;
@@ -135,9 +138,39 @@ export function createLogStore(options: LogStoreOptions = {}) {
       focusedEntryId: null,
       unseenErrors: 0,
 
+      /**
+       * Adopts main's recent buffer. **Merges — it does not replace.**
+       *
+       * `useLogStream` reads the buffer with `useIpcQuery` and applies it from an effect, so there
+       * is a gap between "main answered" and "the store was told", and the live `logs.onEntry`
+       * subscription is already delivering into `push` across that gap. An entry that arrived in
+       * the gap is newer than anything in the buffer, and a replace dropped it — losing exactly the
+       * startup diagnostic somebody opened the panel to read, and losing it more often the slower
+       * the boot was.
+       *
+       * De-duplicated by id, because the overlap is expected: a renderer entry is forwarded to main
+       * and streams straight back, and a refetch re-delivers the whole buffer. The live copy wins,
+       * since it is the one the panel may already be scrolled to. Sorted by timestamp so the merged
+       * timeline reads in order — `sort` is stable, so entries stamped in the same millisecond keep
+       * the order they were seen in.
+       */
       hydrate: recent => {
         if (recent.length === 0) return;
-        set({ entries: recent.slice(-MAX_ENTRIES) });
+
+        const live = get().entries;
+        const liveIds = new Set(live.map(entry => entry.id));
+        const buffered = recent.filter(entry => !liveIds.has(entry.id));
+
+        // The ordinal breaks ties, and the tie is common: main's clock and ours stamp in the same
+        // millisecond all the time. Buffered entries take the lower ordinals because they are
+        // history — an entry that arrived while we were *asking* for history belongs after it.
+        const ordered = [...buffered, ...live].map((entry, index) => ({ entry, index }));
+        ordered.sort((a, b) => a.entry.timestamp - b.entry.timestamp || a.index - b.index);
+        const merged = ordered.map(item => item.entry);
+
+        set({
+          entries: merged.length > MAX_ENTRIES ? merged.slice(merged.length - MAX_ENTRIES) : merged,
+        });
       },
 
       push: entry => {
@@ -247,9 +280,11 @@ export function describeCause(cause: unknown): string | undefined {
  * Mirrors the main-process log stream into the store. Mount exactly once, from the shell.
  *
  * The recent buffer is a query and the live channel is a subscription — the split PLAN.md §2
- * prescribes. `hydrate` is idempotent and `push` de-duplicates on id, so the overlap between
- * "the buffer main had when we asked" and "the entries that arrived while we were asking"
- * resolves itself rather than needing a sequence number.
+ * prescribes. The two therefore overlap in both directions, and neither side needs a sequence
+ * number to sort it out: `push` de-duplicates on id, so a buffer entry that also arrived live is
+ * not shown twice, and `hydrate` MERGES rather than replaces, so an entry that arrived in the gap
+ * between main's answer and this effect is not dropped. That gap is real — the answer crosses IPC
+ * and is applied from an effect, not during render — which is why the merge is not belt-and-braces.
  */
 export function useLogStream(store: LogStore = logStore): void {
   const recent = useIpcQuery({

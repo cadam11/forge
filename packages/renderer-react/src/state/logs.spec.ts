@@ -113,10 +113,43 @@ describe('the log timeline', () => {
     const logs = store();
     logs.getState().push(entry({ id: 'live-1' }));
     logs.getState().hydrate([entry({ id: 'buffered-1' })]);
-    // Hydration replaces the buffer, then de-duplication keeps a re-arriving live entry once.
+    // Hydration MERGES the buffer in — the live entry is still there — and de-duplication then keeps
+    // a re-arriving live entry once. Same millisecond on both, so the buffer sorts first.
     logs.getState().push(entry({ id: 'live-1' }));
 
     expect(logs.getState().entries.map(e => e.id)).toEqual(['buffered-1', 'live-1']);
+  });
+
+  it('keeps an entry that arrived in the gap between main answering and the effect running', () => {
+    // The loss this closes. `useLogStream` reads the buffer with `useIpcQuery` and applies it from an
+    // effect, while `logs.onEntry` is already pushing into the store — so a replace dropped whatever
+    // landed in between, which during a slow boot is exactly what somebody opened the panel to read.
+    const logs = store();
+    logs.getState().push(entry({ id: 'gap-entry', timestamp: 50, message: 'boot failed' }));
+
+    logs
+      .getState()
+      .hydrate([
+        entry({ id: 'buffered-1', timestamp: 10 }),
+        entry({ id: 'buffered-2', timestamp: 20 }),
+      ]);
+
+    expect(logs.getState().entries.map(e => e.id)).toEqual([
+      'buffered-1',
+      'buffered-2',
+      'gap-entry',
+    ]);
+  });
+
+  it('de-dups an entry present in both the buffer and the live stream', () => {
+    // A renderer entry is forwarded to main and streams straight back with the same id, and a
+    // refetch re-delivers the whole buffer. Neither may double the panel's contents.
+    const logs = store();
+    logs.getState().push(entry({ id: 'both', timestamp: 5 }));
+    logs.getState().hydrate([entry({ id: 'both', timestamp: 5 }), entry({ id: 'other' })]);
+    logs.getState().hydrate([entry({ id: 'both', timestamp: 5 }), entry({ id: 'other' })]);
+
+    expect(logs.getState().entries.map(e => e.id)).toEqual(['other', 'both']);
   });
 });
 

@@ -35,6 +35,7 @@ import { useEffect, useLayoutEffect, type CSSProperties } from 'react';
 
 import { Spinner, Toaster, TooltipProvider, cn, installToastNotifier } from '../ui';
 import { dispatchCommand } from '../commands';
+import { diagnostics } from '../state/diagnostics';
 import { installLogDiagnosticsSink, useLogStream } from '../state/logs';
 import { useTabStore } from '../state/tab';
 import { selectEffectiveTheme, useSettingsStore } from '../state/settings';
@@ -95,8 +96,14 @@ export function AppShell() {
 
   // The one caller of `runBoot`, which is itself latched, so StrictMode's double mount joins the
   // first run rather than starting a second.
+  //
+  // The `catch` is not decoration: `performBoot` awaits the migration and the geometry hydration
+  // OUTSIDE any try, so a rejection there leaves the phase at `starting` — the startup screen up
+  // forever. Without this the reason would be an unhandled rejection in a devtools console nobody
+  // has open; with it, it is in the log file. The sinks are installed by the layout effect above, so
+  // they are already in place when this runs.
   useEffect(() => {
-    void runBoot();
+    runBoot().catch(error => diagnostics.error('the startup sequence failed', error));
   }, []);
 
   // Mounted here rather than inside the frame so the log stream is running while the startup screen
