@@ -1,7 +1,8 @@
 /**
  * Every command handler this task owns, in one table, plus the shell's own ⌘J shortcut.
  *
- * `COMMAND_CONSUMERS` names "Task 7 shell" as the consumer of eleven commands; this file is that
+ * `COMMAND_CONSUMERS` names "Task 7 shell" as the consumer of eleven commands (it was twelve until
+ * Task 17 took `toggle-chat-panel`); this file is that
  * consumer, and the correspondence is meant to be checkable by reading the two side by side. The
  * handlers that used to live inside `menu.service.ts` — the ⌘N connection/database resolution, the
  * file-open flow, the three-step refresh — are here rather than in the bridge, because the bridge's
@@ -19,7 +20,6 @@
 
 import { dispatchCommand, useCommand } from '../commands';
 import { ipc, isIpcAvailable } from '../ipc';
-import { chatPanelStore } from '../state/chat';
 import { connectionStore, selectDefaultDatabaseFor } from '../state/connection';
 import { diagnostics, notify } from '../state/diagnostics';
 import { explorerStore } from '../state/explorer';
@@ -135,11 +135,12 @@ export function ShellCommands() {
 
   // Panels.
   useCommand('toggle-sidebar', () => workbenchStore.getState().toggleSidebar());
-  useCommand('toggle-chat-panel', () => chatPanelStore.getState().togglePanel());
   useCommand('toggle-output-panel', () => logStore.getState().toggle());
-  // `open-settings` is NOT here any more: Task 15's `features/settings/SettingsDialog` took it over,
-  // and it is the panel itself that must own the wire — a handler here would open the store flag and a
-  // handler there would too, so ⌘, would be handled twice.
+  // Two panel commands are NOT here any more, for the same reason: the surface that owns the flag has
+  // to be the one place that sets it. Task 15's `features/settings/SettingsDialog` took `open-settings`
+  // (⌘, would otherwise be handled twice), and Task 17's `features/chat/ChatCommands` took
+  // `toggle-chat-panel` — mounted beside this component by the shell, because a handler inside the
+  // panel itself would only exist while the panel was already open.
 
   // Connections.
   useCommand('disconnect-connection', () => {
