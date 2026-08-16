@@ -24,7 +24,7 @@
 
 import { useCallback, useState } from 'react';
 import type { IDockviewPanelHeaderProps } from 'dockview-react';
-import { Copy, Pencil, Pin, PinOff, X } from 'lucide-react';
+import { ArrowRightToLine, Copy, ListX, Pencil, Pin, PinOff, X } from 'lucide-react';
 
 import {
   ContextMenu,
@@ -240,12 +240,14 @@ export function PanelTab(props: IDockviewPanelHeaderProps) {
           Close tab
         </ContextMenuItem>
         <ContextMenuItem
+          icon={ListX}
           data-testid="workspace-tab-menu-close-others"
           onSelect={() => store.closeOtherTabs(tabId)}
         >
           Close other tabs
         </ContextMenuItem>
         <ContextMenuItem
+          icon={ArrowRightToLine}
           data-testid="workspace-tab-menu-close-right"
           onSelect={() => store.closeTabsToRight(tabId)}
         >
