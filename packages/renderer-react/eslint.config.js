@@ -78,6 +78,32 @@ const NO_KEY_FACTORY = [
   },
 ];
 
+// Monaco is confined to `src/editor/`, which is the fourth seam in this file and the same shape as
+// the other three: one directory owns a dangerous surface and everywhere else must go through it.
+//
+// The surface here is not a global but an import, so the rule is `no-restricted-imports` rather than
+// another `no-restricted-syntax` selector — which is also why it needs no partitioning: it is a
+// different rule id, so the `src/editor/**` override below cannot disturb the three bans above.
+//
+// Both patterns matter. `monaco-editor` is the bare specifier; `monaco-editor/*` covers the deep paths
+// this app actually uses (`monaco-editor/editor/editor.main.js`, and the `?worker` import of
+// `editor/common/services/editorWebWorkerMain.js`). Reaching either one outside the seam means a second
+// owner of the theme, the worker environment and the language providers — which the Angular renderer had,
+// registering its completion provider once per query tab.
+const NO_MONACO_OUTSIDE_EDITOR = [
+  {
+    patterns: [
+      {
+        group: ['monaco-editor', 'monaco-editor/*'],
+        message:
+          'Monaco is confined to src/editor/. Use <SqlEditor> and its handle, or add what you need to ' +
+          'src/editor/index.ts — the worker environment, the two themes and the SQL providers are ' +
+          'registered exactly once, there.',
+      },
+    ],
+  },
+];
+
 // Flat config, and therefore ESLint 9 pinned to this package rather than the
 // repo-root ESLint 8 + .eslintrc.json. The root config stays authoritative for
 // every other package until the Angular renderer is deleted at cutover.
@@ -103,8 +129,12 @@ export default tseslint.config(
       'no-console': 'warn',
       'object-shorthand': 'error',
       'prefer-const': 'error',
+      'no-restricted-imports': ['error', ...NO_MONACO_OUTSIDE_EDITOR],
     },
   },
+  // The Monaco seam. Only `no-restricted-imports` is turned off here — the three `no-restricted-syntax`
+  // bans still apply, so an editor file may not use innerHTML, reach the bridge, or name `ipcKeys`.
+  { files: ['src/editor/**'], rules: { 'no-restricted-imports': 'off' } },
   {
     files: ['vite.config.ts', 'eslint.config.js'],
     languageOptions: { globals: globals.node },

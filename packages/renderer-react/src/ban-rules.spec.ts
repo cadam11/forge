@@ -1,5 +1,5 @@
 /**
- * The regression guard for the three path-scoped bans in `eslint.config.js`.
+ * The regression guard for the four path-scoped bans in `eslint.config.js`.
  *
  * This exists because the bans are *not* self-evidently correct. `no-restricted-syntax`
  * options do not merge across flat-config objects — for any given file the last matching
@@ -32,6 +32,11 @@ const BRIDGE_VIA_COMPUTED = "export const d = () => (window as unknown as R)['jo
 // The query-key door. Task 4's fence: only src/ipc/ may name it, so invalidation goes through
 // `useInvalidateIpc` and reads go through `useIpcQuery`, which builds its own key.
 const KEY_FACTORY = "import { ipcKeys } from '../ipc/keys';\nexport const e = ipcKeys.app.all;\n";
+// The Monaco door (Task 10). Both the bare specifier and a deep path, because the app uses the deep
+// ones — the bare specifier alone would have let `monaco-editor/editor/editor.api.js` straight through.
+const MONACO_BARE = "import * as monaco from 'monaco-editor';\nexport const f = monaco;\n";
+const MONACO_DEEP =
+  "import * as monaco from 'monaco-editor/editor/editor.api.js';\nexport const g = monaco;\n";
 
 /** Rule ids reported for `source` when linted as if it lived at `relativePath`. */
 async function lint(relativePath: string, source: string): Promise<string[]> {
@@ -41,6 +46,7 @@ async function lint(relativePath: string, source: string): Promise<string[]> {
 }
 
 const banned = (rules: string[]) => rules.includes('no-restricted-syntax');
+const importBanned = (rules: string[]) => rules.includes('no-restricted-imports');
 
 describe('the dangerouslySetInnerHTML / window.joinery bans', () => {
   describe('an ordinary source file — both bans apply', () => {
@@ -67,6 +73,40 @@ describe('the dangerouslySetInnerHTML / window.joinery bans', () => {
 
     it('rejects ipcKeys', async () => {
       expect(banned(await lint('src/state/thing.ts', KEY_FACTORY))).toBe(true);
+    });
+
+    it('rejects the bare monaco-editor specifier', async () => {
+      expect(importBanned(await lint('src/features/thing.tsx', MONACO_BARE))).toBe(true);
+    });
+
+    it('rejects a deep monaco-editor path', async () => {
+      expect(importBanned(await lint('src/features/thing.tsx', MONACO_DEEP))).toBe(true);
+    });
+  });
+
+  describe('src/editor/ — the Monaco seam (Task 10)', () => {
+    it('permits both monaco specifiers', async () => {
+      expect(importBanned(await lint('src/editor/monaco.ts', MONACO_BARE))).toBe(false);
+      expect(importBanned(await lint('src/editor/monaco.ts', MONACO_DEEP))).toBe(false);
+    });
+
+    it('still rejects dangerouslySetInnerHTML, window.joinery and ipcKeys', async () => {
+      // The `src/editor/**` block turns off ONE rule. If it had been written as a whole-file exemption
+      // — or if the two rules were ever merged into one — the seam would quietly gain three more
+      // powers than it was given, which is exactly the merge trap the last test in this file is about.
+      expect(banned(await lint('src/editor/thing.tsx', INNER_HTML))).toBe(true);
+      expect(banned(await lint('src/editor/thing.ts', BRIDGE))).toBe(true);
+      expect(banned(await lint('src/editor/thing.ts', KEY_FACTORY))).toBe(true);
+    });
+  });
+
+  describe('everywhere else — the Monaco ban is not partitioned away', () => {
+    it('still rejects monaco in src/markdown/ and src/ipc/, which have their own rule blocks', async () => {
+      // Those two blocks REPLACE `no-restricted-syntax`'s options for their files. They set nothing for
+      // `no-restricted-imports`, so the base block's value has to survive — asserted, because "a
+      // different rule id needs no partitioning" is the claim the config's comment makes.
+      expect(importBanned(await lint('src/markdown/markdown.tsx', MONACO_BARE))).toBe(true);
+      expect(importBanned(await lint('src/ipc/api.ts', MONACO_BARE))).toBe(true);
     });
   });
 
