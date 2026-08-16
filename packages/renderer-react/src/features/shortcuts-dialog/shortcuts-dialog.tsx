@@ -51,7 +51,11 @@ export interface ShortcutRow {
   readonly label: string;
   readonly hint: string;
   readonly group: CommandGroup;
-  /** `menu` / `renderer` / `editor`, or null for a surface shortcut (always renderer-owned). */
+  /**
+   * Where the keystroke is bound: `menu`, `renderer` or `editor`. Never null — a surface shortcut has
+   * no command behind it but is still bound by a renderer `keydown`, so it reports `renderer` like any
+   * other renderer-owned key.
+   */
   readonly source: AcceleratorSource;
 }
 

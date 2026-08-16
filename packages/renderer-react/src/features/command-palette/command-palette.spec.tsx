@@ -183,6 +183,61 @@ describe('the command palette', () => {
     expect(await screen.findByTestId('palette-overlay')).not.toBeNull();
   });
 
+  /**
+   * Two overlays at once, asserted **deliberately** rather than left to drift.
+   *
+   * ⌘P is the object search's own document listener and it does not ask whether another overlay is
+   * open, so pressing it over the palette stacks a second Radix dialog on top of the first. That is
+   * the behaviour today, it is survivable (Escape unwinds the stack one layer at a time, topmost
+   * first, because Radix's dismissable-layer stack only lets the top layer react), and it is the sort
+   * of thing that changes by accident. If a future change makes the second keystroke replace the
+   * first overlay instead of stacking on it, this test fails and the change is a decision.
+   */
+  it('stacks a second overlay when ⌘P is pressed over it, and Escape unwinds one at a time', async () => {
+    renderPalette();
+    await openPalette();
+
+    await userEvent.keyboard('{Meta>}p{/Meta}');
+    expect(await screen.findByTestId('objsearch-overlay')).not.toBeNull();
+    // Both mounted. The palette is underneath, inert to the keyboard but still on screen.
+    expect(screen.getByTestId('palette-overlay')).not.toBeNull();
+
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByTestId('objsearch-overlay')).toBeNull());
+    expect(screen.getByTestId('palette-overlay')).not.toBeNull();
+
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByTestId('palette-overlay')).toBeNull());
+  });
+
+  it('reports a command whose handler vanished between build and Enter', async () => {
+    // The residual window the model cannot close: entries carry the state they had when the list was
+    // built, and a surface can unmount before the user presses Enter. The bus's own warning is
+    // DEV-only, so the palette says it out loud — otherwise a packaged build swallows the dispatch.
+    const reported: string[] = [];
+    teardowns.push(
+      setDiagnosticsSink({ error: context => reported.push(context), warn: () => undefined })
+    );
+    // `open-query-history` is unowned in the app (Task 19), so this subscription is its ONLY handler —
+    // which is what makes removing it below a real residual window rather than a no-op.
+    const off = subscribeCommand('open-query-history', vi.fn());
+    renderPalette();
+    await openPalette();
+
+    await userEvent.type(screen.getByTestId('palette-input'), 'query history');
+    const row = screen.getAllByTestId('palette-row')[0];
+    expect(
+      within(row as HTMLElement)
+        .getByTestId('palette-row-label')
+        .getAttribute('data-palette-key')
+    ).toBe('command:open-query-history');
+    // The handler goes away AFTER the row was built and rendered as `ready`.
+    off();
+    await userEvent.click(row as HTMLElement);
+
+    expect(reported.some(context => context.includes('no handler subscribed'))).toBe(true);
+  });
+
   it('derives every palette entry from the catalogue, and nothing else', async () => {
     renderPalette();
     await openPalette();

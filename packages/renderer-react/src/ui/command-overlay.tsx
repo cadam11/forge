@@ -30,7 +30,12 @@
  */
 
 import { Command } from 'cmdk';
-import type { ComponentPropsWithRef, KeyboardEventHandler, ReactNode } from 'react';
+import {
+  useRef,
+  type ComponentPropsWithRef,
+  type KeyboardEventHandler,
+  type ReactNode,
+} from 'react';
 import { Search } from 'lucide-react';
 import * as RadixDialog from '@radix-ui/react-dialog';
 
@@ -107,6 +112,10 @@ export function CommandOverlay({
   children,
   className,
 }: CommandOverlayProps) {
+  // A ref, not `document.querySelector('[data-testid=…]')`: a testid is for tests to read, and focusing
+  // through one made the caret depend on an attribute anybody could rename with no compiler complaint.
+  const inputRef = useRef<HTMLInputElement>(null);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -119,10 +128,7 @@ export function CommandOverlay({
         // the first tabbable node, which is a toolbar button when a caller supplies one.
         onOpenAutoFocus={event => {
           event.preventDefault();
-          const input = document.querySelector<HTMLInputElement>(
-            `[data-testid="${testIdPrefix}-input"]`
-          );
-          input?.focus();
+          inputRef.current?.focus();
         }}
       >
         <RadixDialog.Title className="sr-only">{label}</RadixDialog.Title>
@@ -145,6 +151,7 @@ export function CommandOverlay({
                 hairline is its boundary. Every other focusable thing in here — a toolbar button, a
                 row's delete button — is a `Button` and brings its own `focus-visible` ring. */}
             <Command.Input
+              ref={inputRef}
               value={value}
               onValueChange={onValueChange}
               placeholder={placeholder}

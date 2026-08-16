@@ -24,9 +24,10 @@ import { connectionStore } from '../../state/connection';
 import { setDiagnosticsSink, setNotifier } from '../../state/diagnostics';
 import { explorerStore } from '../../state/explorer';
 import { tabStore } from '../../state/tab';
-import { workbenchStore } from '../../state/workbench';
+import { useWorkbenchStore, workbenchStore } from '../../state/workbench';
 import { installJoineryMock } from '../../test/joinery-mock';
 import { ShellCommands } from '../../shell/shell-commands';
+import { Sidebar } from '../../shell/sidebar/sidebar';
 import { TooltipProvider } from '../../ui';
 import { ObjectSearch } from './object-search';
 
@@ -130,6 +131,27 @@ function mount() {
       <TooltipProvider>
         <ShellCommands />
         <ObjectSearch />
+      </TooltipProvider>
+    </IpcQueryProvider>
+  );
+  teardowns.push(rendered.unmount);
+  return rendered;
+}
+
+/** `app-shell.tsx`'s own conditional: the sidebar does not exist while the pane is collapsed. */
+function CollapsibleSidebar() {
+  const collapsed = useWorkbenchStore(state => state.sidebarCollapsed);
+  return collapsed ? null : <Sidebar />;
+}
+
+/** The overlay, the shell's handlers, and a sidebar that mounts and unmounts with the pane. */
+function mountWithSidebar() {
+  const rendered = render(
+    <IpcQueryProvider>
+      <TooltipProvider>
+        <ShellCommands />
+        <ObjectSearch />
+        <CollapsibleSidebar />
       </TooltipProvider>
     </IpcQueryProvider>
   );
@@ -273,6 +295,53 @@ describe('the object search', () => {
     // And the reveal still happened: the request survives a pane that was closed when it was made,
     // which is why it is store state rather than a callback into an unmounted component.
     await waitFor(() => expect(explorerStore.getState().revealRequest).not.toBeNull());
+  });
+
+  /**
+   * The other half of the test above.
+   *
+   * That one proves the request SURVIVES a collapsed pane. This one proves something consumes it when
+   * the pane comes back: the sidebar's reveal effect runs on mount, finds the waiting request, asks the
+   * `TreeHandle` to scroll to it, takes keyboard focus, and clears the request. Without this, "the
+   * sidebar honours a reveal made while it was closed" was a claim about a component nothing in the
+   * suite mounted — the request could have sat in the store forever and every assertion still passed.
+   *
+   * `CollapsibleSidebar` is `app-shell.tsx`'s own conditional (`sidebarCollapsed ? null : <Sidebar/>`),
+   * restated because that is the mount behaviour under test.
+   */
+  it('consumes a reveal request that was waiting while the pane was collapsed', async () => {
+    const warnings: string[] = [];
+    teardowns.push(
+      setDiagnosticsSink({ error: () => undefined, warn: context => warnings.push(context) })
+    );
+    explorerStore.getState().addServerNode(CONNECTION, 'Test PG');
+    mountWithSidebar();
+    await open();
+
+    // A real reveal first, so the tree's four levels are expanded and the object node exists in the
+    // flattened row list — the state a user is in when they reveal a second time.
+    await userEvent.click(within(rowFor('public.orders')).getByTestId('objsearch-row-reveal'));
+    const nodeId = `obj-${CONNECTION}-${DATABASE}-public.orders`;
+    await waitFor(() => expect(explorerStore.getState().revealRequest).toBeNull());
+    expect(await screen.findByTestId('sidebar')).not.toBeNull();
+
+    // Now close the pane and make a request into the void.
+    workbenchStore.getState().setSidebarCollapsed(true);
+    await waitFor(() => expect(screen.queryByTestId('sidebar')).toBeNull());
+    explorerStore.getState().requestReveal(nodeId);
+    // Nothing is mounted to honour it, and it is still there — which is the whole reason it is store
+    // state rather than a call into a `TreeHandle`.
+    expect(explorerStore.getState().revealRequest).toBe(nodeId);
+
+    workbenchStore.getState().setSidebarCollapsed(false);
+    await screen.findByTestId('sidebar');
+
+    // Consumed at mount: cleared, and the tree took focus so the arrow keys carry on from the revealed
+    // row. `scrollToId` warns when it is handed an id no row has, so the absence of that warning is
+    // what says the scroll resolved to a real row rather than doing nothing.
+    await waitFor(() => expect(explorerStore.getState().revealRequest).toBeNull());
+    expect(document.activeElement).toBe(screen.getByRole('tree'));
+    expect(warnings.filter(context => context.includes('cannot reveal'))).toEqual([]);
   });
 
   it('reveals with ⌘⏎ without also opening a tab', async () => {

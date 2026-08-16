@@ -32,7 +32,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { COMMAND_GROUP_LABELS, dispatchCommand } from '../../commands';
+import { COMMAND_GROUP_LABELS, dispatchCommand, handlerCount } from '../../commands';
 import { ipc, isIpcAvailable } from '../../ipc';
 import { diagnostics } from '../../state/diagnostics';
 import { selectHasAnyConnection, useConnectionStore } from '../../state/connection';
@@ -180,6 +180,18 @@ export function CommandPalette() {
       close();
       switch (entry.kind) {
         case 'command':
+          // The row said `ready` when the list was BUILT, and a surface can unmount between then and
+          // this keystroke — the residual window the model cannot close. Reported here because the
+          // bus's own warning is `import.meta.env.DEV` only, so in a packaged build the dispatch
+          // would vanish silently. `handlerCount`, not `dispatchCommand`'s return value: that boolean
+          // means "a handler CLAIMED it" (only `menu-copy` ever does), so it is false on the happy
+          // path of every other command.
+          if (handlerCount(entry.commandId) === 0) {
+            diagnostics.error(
+              'the palette ran a command with no handler subscribed',
+              entry.commandId
+            );
+          }
           dispatchCommand(entry.commandId);
           return;
         case 'action':
