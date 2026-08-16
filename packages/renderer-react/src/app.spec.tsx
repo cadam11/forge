@@ -10,7 +10,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { App } from './app';
 import { bootStore, resetBootLatch } from './shell';
 import { settingsStore } from './state/settings';
@@ -50,6 +50,22 @@ describe('App', () => {
     expect(screen.getByTestId('renderer-react-root')).toBeDefined();
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Theme preview');
     expect(screen.queryByTestId('app-shell')).toBeNull();
+  });
+
+  it('renders one swatch per registered colour token, at #tokens', () => {
+    // Kept from before Task 7 rather than retired with the rest of the token-page assertions: this
+    // one is not a screenshot's job. It is the only check that the token TABLE and the CSS layer have
+    // the same number of colours in them, and it caught nothing by accident — a token added to
+    // `tokens.css` and not to the preview's list (or the reverse) changes this count. It moves behind
+    // the `#tokens` hash because the dev page is no longer the root.
+    window.location.hash = '#tokens';
+
+    render(<App />);
+
+    // 8 brand + 4 derived + 6 surface + 5 text/rule + 9 accent/status.
+    expect(
+      within(screen.getByTestId('renderer-react-root')).getAllByTestId('token-swatch')
+    ).toHaveLength(32);
   });
 
   it('renders the primitives gallery at #primitives', () => {
