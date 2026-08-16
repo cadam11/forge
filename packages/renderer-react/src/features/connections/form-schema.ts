@@ -38,6 +38,7 @@
 import { z } from 'zod';
 import type { FieldErrors } from 'react-hook-form';
 import {
+  ENGINE_LABELS,
   validateConnectionName,
   validatePort,
   validateServer,
@@ -48,7 +49,12 @@ import {
   type ValidationResult,
 } from '@joinery/shared';
 
-import { AUTH_MODES, ENGINES, type ConnectionFormValues } from './form-model';
+import {
+  AUTH_MODES,
+  ENGINES,
+  isAuthModeValidForEngine,
+  type ConnectionFormValues,
+} from './form-model';
 
 /**
  * The only human-facing rules this file owns. Declared here because `packages/shared` has no SSH
@@ -159,6 +165,20 @@ export const connectionFormSchema: z.ZodType<ConnectionFormValues, ConnectionFor
     // note 1 in the header.
     adapt(ctx, ['username'], validateUsername(values.username, values.authenticationType));
 
+    // A profile whose stored auth mode the engine does not offer. Unreachable by picking things in
+    // this dialog, but reachable from history: PLAN.md predates the per-engine gating, and the
+    // Angular dropdown simply hid the option rather than resetting the value, so a profile saved as
+    // mysql + `aws-iam` still exists. Left unchecked the editor would render a picker with no matching
+    // item and re-save the mismatch, which the pool then fails on at connect time with a message about
+    // credentials rather than about configuration.
+    if (!isAuthModeValidForEngine(values.engine, values.authenticationType)) {
+      ctx.addIssue({
+        code: 'custom',
+        message: `${ENGINE_LABELS[values.engine]} does not offer this authentication type`,
+        path: ['authenticationType'],
+      });
+    }
+
     if (!values.sshEnabled) return;
 
     adapt(ctx, ['sshHost'], validateServer(values.sshHost));
@@ -190,6 +210,7 @@ export const connectionFormSchema: z.ZodType<ConnectionFormValues, ConnectionFor
 export const TEST_FIELDS: readonly (keyof ConnectionFormValues)[] = [
   'server',
   'port',
+  'authenticationType',
   'username',
   'sshHost',
   'sshPort',
@@ -198,14 +219,30 @@ export const TEST_FIELDS: readonly (keyof ConnectionFormValues)[] = [
 ];
 
 /**
- * Field order for the summary hint, which is the form's reading order so the hint names the topmost
- * problem. `name` is last because it is the one thing only Save needs.
+ * Every field the summary hint can name, in the form's reading order, **with its visible label**.
+ *
+ * The order is the reading order so the hint names the topmost problem; `name` and
+ * `connectionTimeout` come last because they are the two things only Save needs.
+ *
+ * The labels exist because three of the shared validators are **field-agnostic**: `validateServer`
+ * says "Server is required" whoever calls it, and the SSH host is a hostname so it goes through the
+ * same validator. Without attribution the summary line read literally "Server is required" while the
+ * Server field was filled in and the SSH host was not — the message was true of a field it did not
+ * name. The labels are the ones the controls actually render, so the hint points at something the user
+ * can see.
  */
-const HINT_ORDER: readonly (keyof ConnectionFormValues)[] = [
-  ...TEST_FIELDS,
-  'name',
-  'connectionTimeout',
-];
+const HINT_FIELDS = [
+  ['server', 'Server'],
+  ['port', 'Port'],
+  ['authenticationType', 'Authentication type'],
+  ['username', 'Username'],
+  ['sshHost', 'SSH host'],
+  ['sshPort', 'SSH port'],
+  ['sshUsername', 'SSH username'],
+  ['sshPrivateKeyPath', 'Private key path'],
+  ['name', 'Connection name'],
+  ['connectionTimeout', 'Timeout (seconds)'],
+] as const satisfies readonly (readonly [keyof ConnectionFormValues, string])[];
 
 /**
  * A one-line summary of what is still missing, for the hint above the action row.
@@ -215,11 +252,26 @@ const HINT_ORDER: readonly (keyof ConnectionFormValues)[] = [
  * re-implementation of the rules, which is what made the Angular hint drift out of step with
  * `isValid()` (it asked for a Username on mssql/`sql` only, so a blank PostgreSQL username produced
  * a disabled Save button and no explanation at all).
+ *
+ * The label is prefixed **unless the message already opens with it**, which is the difference between
+ * "SSH host: Server is required" (needed — the message names the wrong field) and "Server is
+ * required" (already unambiguous, and "Server: Server is required" would be noise). One rule, and its
+ * meaning is simply "never say the field's name twice". A shared message reworded to stop opening with
+ * its field name gains the prefix, which is the correct outcome rather than a regression.
+ *
+ * Only the *summary* is attributed. The inline error under a control needs no prefix — its label is
+ * the line directly above it — which is why this is not done inside `adapt`.
  */
 export function firstErrorMessage(errors: FieldErrors<ConnectionFormValues>): string | undefined {
-  for (const field of HINT_ORDER) {
+  for (const [field, label] of HINT_FIELDS) {
     const message = errors[field]?.message;
-    if (typeof message === 'string' && message !== '') return message;
+    if (typeof message !== 'string' || message === '') continue;
+    return message.startsWith(label) ? message : `${label}: ${message}`;
   }
   return undefined;
 }
+
+/** The fields the hint can name. Exported so the spec can hold it against `TEST_FIELDS`. */
+export const HINT_ORDER: readonly (keyof ConnectionFormValues)[] = HINT_FIELDS.map(
+  ([field]) => field
+);

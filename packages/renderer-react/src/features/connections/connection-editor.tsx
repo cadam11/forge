@@ -31,8 +31,8 @@
  * a blank box mean "keep what is in the keychain".
  */
 
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
-import { useForm, useWatch, type UseFormReturn } from 'react-hook-form';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useForm, type UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plug, X } from 'lucide-react';
 import {
@@ -62,7 +62,9 @@ import {
 } from '../../ui';
 import { useIpcQuery } from '../../ipc';
 import { diagnostics } from '../../state/diagnostics';
+import { connectionStore, selectProfileFor } from '../../state/connection';
 import { connectProfile } from '../../shell/sidebar/node-actions';
+import { FormAnswerBand, FormNote, FormSection, useFormValues } from '../forms';
 import { PasswordHygieneWarning } from './password-hygiene-warning';
 import { TestResultPanel } from './test-result-panel';
 import { secretsFrom, saveProfileWithSecrets, testProfileWithSecrets } from './secrets';
@@ -80,6 +82,7 @@ import {
   buildProfileDraft,
   buildTestProfile,
   formValuesFromProfile,
+  isAuthModeValidForEngine,
   isAwsIamAuth,
   isEntraAuth,
   needsPassword,
@@ -156,6 +159,31 @@ export function ConnectionEditor({ profile, prefill, onDismiss, onSaved }: Conne
     form.setValues(next, { shouldDirty: true, shouldValidate: form.formState.isSubmitted });
   };
 
+  /**
+   * The stored profile this dialog is editing, read from the store **at the moment of use** rather
+   * than from the mount-time prop.
+   *
+   * `buildProfileDraft` spreads it, so a snapshot taken when the dialog opened turns any write the
+   * main process made in the meantime into a silent revert on the next Save — a lost update. The
+   * concrete case is not hypothetical: `connection-profiles.ts:setAzureHomeAccountId` exists
+   * *specifically* to avoid racing a concurrent save, and it fires out of band when an Entra sign-in
+   * binds an MSAL account to the profile. A snapshot from before that rebind would put the old
+   * `azureHomeAccountId` back and break silent refresh.
+   *
+   * Falls back to the prop when the id is no longer in the store's list — the profile was deleted
+   * elsewhere while this dialog was open. Continuing with the snapshot is right there: dropping to
+   * `undefined` would turn an edit into a create and orphan the original.
+   *
+   * This narrows the window rather than closing it: the store's list is only as fresh as its last
+   * `loadProfiles()`, so a main-process write that has not been read back is still invisible. Closing
+   * it properly needs a change-notification channel from `packages/main`, which is out of scope here
+   * (PLAN.md §8) and is tracked as a follow-up.
+   */
+  const storedProfile = (): ConnectionProfile | undefined => {
+    if (profile === undefined) return undefined;
+    return selectProfileFor(profile.id)(connectionStore.getState()) ?? profile;
+  };
+
   const runTest = async (): Promise<void> => {
     // A subset of the fields Save needs — see `TEST_FIELDS`. The spread is because `trigger` wants a
     // mutable array and the constant is readonly.
@@ -166,7 +194,7 @@ export function ConnectionEditor({ profile, prefill, onDismiss, onSaved }: Conne
     try {
       const current = form.getValues();
       const result = await testProfileWithSecrets(
-        buildTestProfile(current, profile),
+        buildTestProfile(current, storedProfile()),
         secretsFrom(current)
       );
       // Successes toast (the store does it); only failures render inline, which is why one panel can
@@ -179,7 +207,7 @@ export function ConnectionEditor({ profile, prefill, onDismiss, onSaved }: Conne
 
   /** Save, and report whether it landed. Errors are already toasted by the store. */
   const persist = async (current: ConnectionFormValues): Promise<ConnectionProfile | null> =>
-    saveProfileWithSecrets(buildProfileDraft(current, profile), secretsFrom(current));
+    saveProfileWithSecrets(buildProfileDraft(current, storedProfile()), secretsFrom(current));
 
   const submitSave = form.handleSubmit(async current => {
     setPending('save');
@@ -207,6 +235,7 @@ export function ConnectionEditor({ profile, prefill, onDismiss, onSaved }: Conne
 
   const busy = pending !== null;
   const hint = firstErrorMessage(form.formState.errors);
+  const authModeValid = isAuthModeValidForEngine(values.engine, values.authenticationType);
 
   return (
     <Dialog open onOpenChange={open => (open ? undefined : onDismiss())}>
@@ -280,12 +309,22 @@ export function ConnectionEditor({ profile, prefill, onDismiss, onSaved }: Conne
               />
             </div>
 
-            <Section title="Authentication">
-              {AUTH_MODES[values.engine].length > 1 ? (
+            <FormSection title="Authentication">
+              {/* Shown when the engine offers a choice — OR when it does not and the current value is
+                  not one of the ones it offers. That second case is a legacy profile (say mysql saved
+                  with `aws-iam`): the schema now refuses it, so without a picker the user would face a
+                  permanently blocked Save with nothing to click. */}
+              {AUTH_MODES[values.engine].length > 1 || !authModeValid ? (
                 <Select
                   label="Authentication type"
+                  placeholder="Choose an authentication type"
+                  error={form.formState.errors.authenticationType?.message}
                   name="authenticationType"
-                  value={values.authenticationType}
+                  // `''` for a mode no item represents, so the trigger shows its placeholder rather
+                  // than an empty box: Radix renders nothing at all for a value with no matching item.
+                  // The form still HOLDS the stored mode — the schema is what refuses it — so this is
+                  // the display saying "there is nothing here to show you; pick one".
+                  value={authModeValid ? values.authenticationType : ''}
                   onValueChange={next =>
                     transform(
                       applyAuthModeChange(
@@ -330,9 +369,9 @@ export function ConnectionEditor({ profile, prefill, onDismiss, onSaved }: Conne
               {needsPassword(values) ? <PasswordHygieneWarning value={values.password} /> : null}
 
               {isEntraAuth(values) ? (
-                <Note testId="connection-entra-note">
+                <FormNote data-testid="connection-entra-note">
                   Signs in through the Microsoft login window. Supports MFA.
-                </Note>
+                </FormNote>
               ) : null}
 
               {isAwsIamAuth(values) ? (
@@ -365,26 +404,26 @@ export function ConnectionEditor({ profile, prefill, onDismiss, onSaved }: Conne
                       {...form.register('awsProfile')}
                     />
                   )}
-                  <Note testId="connection-aws-note">
+                  <FormNote data-testid="connection-aws-note">
                     Tokens are minted from your AWS credentials each time you connect — nothing is
                     stored.
-                  </Note>
+                  </FormNote>
                 </>
               ) : null}
-            </Section>
+            </FormSection>
 
-            <Section title="Colour tag">
+            <FormSection title="Colour tag">
               <ColorPicker
                 value={values.color}
                 onChange={color => transform({ ...values, color })}
               />
-            </Section>
+            </FormSection>
 
-            <Section title="Options">
+            <FormSection title="Options">
               {isAwsIamAuth(values) ? (
-                <Note testId="connection-dsql-tls-note">
+                <FormNote data-testid="connection-dsql-tls-note">
                   TLS is always on and the server certificate is always validated for Aurora DSQL.
-                </Note>
+                </FormNote>
               ) : (
                 <div className="flex flex-col gap-2">
                   <Checkbox
@@ -449,39 +488,28 @@ export function ConnectionEditor({ profile, prefill, onDismiss, onSaved }: Conne
                   ))}
                 </Select>
               ) : null}
-            </Section>
+            </FormSection>
 
-            <Section title="SSH tunnel" testId="connection-section-ssh">
+            <FormSection title="SSH tunnel" data-testid="connection-section-ssh">
               {isAwsIamAuth(values) ? (
-                <Note testId="connection-dsql-ssh-note">
+                <FormNote data-testid="connection-dsql-ssh-note">
                   SSH tunnelling isn’t available with AWS IAM authentication — Aurora DSQL is
                   reached over a public TLS endpoint.
-                </Note>
+                </FormNote>
               ) : (
                 <SshFields form={form} values={values} />
               )}
-            </Section>
+            </FormSection>
           </DialogBody>
 
-          {/* The answer region: one ruled band between the scrolling form and the action row, holding
-              whatever the last action had to say. Both children are wells with a rule down their
+          {/* Whatever the last action had to say. Both children are wells with a rule down their
               edge — amber for "this needs your attention", danger for "the server said no" — so the
-              two read as one visual language. A band with `gap-*` rather than per-child margins,
-              per `general.md`. */}
-          {hint === undefined && testResult === null ? null : (
-            <div className="flex shrink-0 flex-col gap-2 border-t border-rule px-4 py-3">
-              {hint === undefined ? null : (
-                <p
-                  role="status"
-                  data-testid="connection-validation-hint"
-                  className="rounded-sm border-l-2 border-warning bg-surface p-2 text-sm text-fg text-pretty"
-                >
-                  {hint}
-                </p>
-              )}
-              <TestResultPanel result={testResult} />
-            </div>
-          )}
+              two read as one visual language. The `null` rather than a bare `<TestResultPanel>` is
+              the band's contract: it renders nothing when it has nothing, and cannot see through a
+              component that returns null from its own render. */}
+          <FormAnswerBand hint={hint} hintTestId="connection-validation-hint">
+            {testResult === null ? null : <TestResultPanel result={testResult} />}
+          </FormAnswerBand>
 
           <DialogActions>
             <Button
@@ -519,27 +547,6 @@ export function ConnectionEditor({ profile, prefill, onDismiss, onSaved }: Conne
 }
 
 /**
- * The whole form as a value, re-rendering the editor on any change.
- *
- * `useWatch` rather than `useForm().watch()`, and the reason is a lint gate rather than taste: the
- * React Compiler rule `react-hooks/incompatible-library` refuses to memoize a component that calls
- * `watch()`, because the function `useForm` returns cannot be memoized without risking stale UI.
- * `useWatch` is a real hook and is compiler-safe.
- *
- * The subscription and the read are deliberately split. `useWatch`'s no-name overload is typed
- * `DeepPartialSkipArrayKey<T>` — "every field possibly absent" — which is false for this model:
- * `defaultValues` is total and `shouldUnregister` defaults to false, so every field is always
- * present. Rather than cast that partial back to the truth, `useWatch` is used only for its
- * re-render and the value comes from `getValues()`, which is typed honestly. By the time the
- * re-render commits, `getValues()` already reflects the change that caused it — both read the same
- * internal store.
- */
-function useFormValues(form: UseFormReturn<ConnectionFormValues>): ConnectionFormValues {
-  useWatch({ control: form.control });
-  return form.getValues();
-}
-
-/**
  * The AWS CLI/config profile names, for the `aws-iam` picker.
  *
  * Fetched once per dialog and cached for it; a failure (no `~/.aws`, no CLI) degrades to an empty
@@ -563,33 +570,6 @@ function useAwsProfiles(enabled: boolean): readonly string[] {
   }, [query.error]);
 
   return query.data ?? [];
-}
-
-/** A ruled group with a mono eyebrow, per HOUSE-RULES §2. */
-function Section({
-  title,
-  testId,
-  children,
-}: {
-  readonly title: string;
-  readonly testId?: string;
-  readonly children: ReactNode;
-}) {
-  return (
-    <section data-testid={testId} className="flex flex-col gap-3 border-t border-rule pt-3">
-      <h3 className="font-mono text-2xs tracking-eyebrow text-fg-muted uppercase">{title}</h3>
-      {children}
-    </section>
-  );
-}
-
-/** An explanatory line under a control. `text-fg-muted`, never `text-fg-subtle` (HOUSE-RULES §5). */
-function Note({ testId, children }: { readonly testId: string; readonly children: ReactNode }) {
-  return (
-    <p data-testid={testId} className="text-sm text-fg-muted text-pretty">
-      {children}
-    </p>
-  );
 }
 
 /**

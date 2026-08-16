@@ -210,6 +210,39 @@ describe('the form the user sees', () => {
     await selectOption(user, 'connection-engine', 'MySQL');
     expect(screen.queryByTestId('connection-auth-type')).toBeNull();
   });
+
+  it('offers the picker anyway when a stored mode is not one the engine supports', async () => {
+    // A legacy profile: the Angular dropdown hid the option rather than resetting the value, so
+    // mysql + `aws-iam` exists on disk. The schema now refuses it, and MySQL has only one mode — so
+    // without this the user would face a permanently blocked Save with nothing to click.
+    const legacy: ConnectionProfile = {
+      ...SAVED_PROFILE,
+      engine: 'mysql',
+      authenticationType: 'aws-iam',
+    };
+    const user = userEvent.setup();
+    mount({ profile: legacy });
+
+    const picker = screen.getByTestId('connection-auth-type');
+    expect(picker).toBeTruthy();
+    // Nothing matches the stored value, so the trigger shows its placeholder rather than a blank box.
+    expect(picker.textContent).toContain('Choose an authentication type');
+
+    // Save is blocked, and the summary names the field.
+    await user.click(screen.getByTestId('connection-save'));
+    await waitFor(() =>
+      expect(screen.getByTestId('connection-validation-hint').textContent).toBe(
+        'Authentication type: MySQL does not offer this authentication type'
+      )
+    );
+    expect(saveCalls).toHaveLength(0);
+
+    // And it is fixable from here, which is the whole point of showing the picker.
+    await selectOption(user, 'connection-auth-type', 'Password Authentication');
+    await user.click(screen.getByTestId('connection-save'));
+    await waitFor(() => expect(saveCalls).toHaveLength(1));
+    expect(savedProfile()).toMatchObject({ engine: 'mysql', authenticationType: 'sql' });
+  });
 });
 
 describe('switching engine', () => {
@@ -373,9 +406,11 @@ describe('the SSH branch', () => {
     await user.click(screen.getByLabelText('Connect through an SSH tunnel'));
     await user.click(screen.getByTestId('connection-save'));
 
+    // "SSH host: …", not a bare "Server is required". `validateServer` is field-agnostic and the SSH
+    // host goes through it, so without the attribution the line named a field that was filled in.
     await waitFor(() =>
-      expect(screen.getByTestId('connection-validation-hint').textContent).toContain(
-        'Server is required'
+      expect(screen.getByTestId('connection-validation-hint').textContent).toBe(
+        'SSH host: Server is required'
       )
     );
     expect(saveCalls).toHaveLength(0);
@@ -478,7 +513,7 @@ describe('Test', () => {
 
     await user.click(screen.getByTestId('connection-save'));
     await waitFor(() =>
-      expect(screen.getByTestId('connection-validation-hint').textContent).toContain(
+      expect(screen.getByTestId('connection-validation-hint').textContent).toBe(
         'Connection name is required'
       )
     );
@@ -491,9 +526,9 @@ describe('Test', () => {
 
     await user.click(screen.getByTestId('connection-test'));
     expect(testCalls).toHaveLength(0);
-    expect(screen.getByTestId('connection-validation-hint').textContent).toContain(
-      'Server is required'
-    );
+    // Unprefixed: the message already opens with its own field's label, and "Server: Server is
+    // required" would be noise.
+    expect(screen.getByTestId('connection-validation-hint').textContent).toBe('Server is required');
   });
 
   it('renders a failure inline with all of the main process’s guidance', async () => {
@@ -622,6 +657,50 @@ describe('Save and Connect', () => {
     expect(screen.getByTestId('connection-editor')).toBeTruthy();
     expect(onSaved).not.toHaveBeenCalled();
     expect(onDismiss).not.toHaveBeenCalled();
+  });
+
+  it('saves against the profile as the store holds it NOW, not as it was when opened', async () => {
+    // The lost-update window `buildProfileDraft`'s spread creates. `setAzureHomeAccountId` in the main
+    // process exists precisely to avoid racing a concurrent save, and it fires out of band when an
+    // Entra sign-in binds an MSAL account — so a mount-time snapshot would put the OLD
+    // `azureHomeAccountId` back and silently break silent refresh. Resolving from the store at submit
+    // time is what stops that.
+    const user = userEvent.setup();
+    connectionStore.setState({ profiles: [SAVED_PROFILE] });
+    mount({ profile: SAVED_PROFILE });
+
+    // Something else writes to the profile while the dialog is open, exactly as an Entra rebind
+    // followed by a `loadProfiles()` would.
+    connectionStore.setState({
+      profiles: [
+        { ...SAVED_PROFILE, azureHomeAccountId: 'rebound-account', requestTimeout: 90_000 },
+      ],
+    });
+
+    await user.click(screen.getByTestId('connection-save'));
+    await waitFor(() => expect(saveCalls).toHaveLength(1));
+
+    expect(savedProfile()).toMatchObject({
+      id: 'saved-1',
+      azureHomeAccountId: 'rebound-account',
+      requestTimeout: 90_000,
+    });
+    // And the fields the form owns are still the form's.
+    expect(savedProfile()).toMatchObject({ name: 'Reporting', server: 'db.example.com' });
+  });
+
+  it('falls back to the opened profile when it has been deleted from under the dialog', async () => {
+    // Dropping to `undefined` here would turn the edit into a create and orphan the original, so the
+    // mount-time snapshot is the right fallback — the id has to survive.
+    const user = userEvent.setup();
+    connectionStore.setState({ profiles: [SAVED_PROFILE] });
+    mount({ profile: SAVED_PROFILE });
+
+    connectionStore.setState({ profiles: [] });
+
+    await user.click(screen.getByTestId('connection-save'));
+    await waitFor(() => expect(saveCalls).toHaveLength(1));
+    expect(savedProfile()).toMatchObject({ id: 'saved-1', name: 'Reporting' });
   });
 
   it('dismisses on Cancel without writing anything', async () => {
