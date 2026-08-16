@@ -625,10 +625,18 @@ export function RestoreDialog({
           engine={engine}
           unknownList={phase.plan.kind === 'unknown'}
           typed={values.confirmation}
+          // An operation can begin against this target *while the confirmation is open* — a dump
+          // started from the sidebar, or a restore left running in a dialog opened before this one —
+          // and `runPlan`'s first line then refuses. Refused silently, the primary button would do
+          // nothing on a screen whose whole job is telling the user what pressing it does, so the
+          // refusal is stated here and the button is disabled by the same value.
+          blocked={inFlight !== null}
           onType={next => form.setValue('confirmation', next)}
           onSubmit={() => void runPlan(phase.plan)}
         />
-        <FormAnswerBand hint={hint} hintTestId="restore-hint" />
+        <FormAnswerBand hint={hint} hintTestId="restore-hint">
+          {inFlight === null ? null : <InFlightPanel run={inFlight} />}
+        </FormAnswerBand>
         <DialogActions>
           <Button
             variant="ghost"
@@ -646,7 +654,10 @@ export function RestoreDialog({
             variant="primary"
             leadingIcon={HardDriveDownload}
             // The gate. `runPlan` re-checks it as well — see property 2 in this file's header.
+            // `inFlight` is the second reason it can refuse, and it is disabled for that too so the
+            // button and `runPlan` agree about when pressing it will do something.
             disabled={
+              inFlight !== null ||
               !confirmationSatisfied(
                 values.confirmation,
                 phase.plan.targetDatabase,
@@ -964,6 +975,7 @@ function ConfirmBody({
   engine,
   unknownList,
   typed,
+  blocked,
   onType,
   onSubmit,
 }: {
@@ -971,13 +983,16 @@ function ConfirmBody({
   readonly engine: DatabaseEngine;
   readonly unknownList: boolean;
   readonly typed: string;
+  /** Something else is already running against this target, so `runPlan` will refuse. */
+  readonly blocked: boolean;
   readonly onType: (next: string) => void;
   readonly onSubmit: () => void;
 }) {
   const options = engineRestoreOptions(engine);
   // The same predicate the button is disabled by, so the keyboard path cannot diverge from the pointer
-  // path — which is the failure mode a bespoke comparison here invites.
-  const matches = confirmationSatisfied(typed, plan.targetDatabase, plan.kind);
+  // path — which is the failure mode a bespoke comparison here invites. `blocked` is the button's
+  // other disabled reason, and it is read here for the same reason.
+  const matches = !blocked && confirmationSatisfied(typed, plan.targetDatabase, plan.kind);
 
   // Focus lands in the box the moment this phase appears. An effect rather than `autoFocus`, which
   // `jsx-a11y/no-autofocus` bans and which would also re-fire nothing useful on a re-render: the body

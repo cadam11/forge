@@ -37,7 +37,11 @@ import { IpcQueryProvider } from '../../ipc';
 import { TooltipProvider } from '../../ui';
 import { capabilitiesStore } from '../../state/capabilities';
 import { connectionStore } from '../../state/connection';
-import { resetDbOperationsForTests } from '../../state/db-operations';
+import {
+  dbOperationKey,
+  dbOperationsStore,
+  resetDbOperationsForTests,
+} from '../../state/db-operations';
 import { setDiagnosticsSink, setNotifier } from '../../state/diagnostics';
 import { RestoreDialog } from './restore-dialog';
 import { RestoreDialogs } from './restore-dialogs';
@@ -1098,6 +1102,38 @@ describe('one operation at a time, across the two features', () => {
     expect(startButton.disabled).toBe(true);
     await user.click(startButton);
     expect(bridge.start).toHaveBeenCalledOnce();
+    expect(notifications).toEqual([]);
+  });
+
+  it('explains the refusal on the confirmation screen rather than doing nothing', async () => {
+    // The confirmation is reached while the target is free, and something else can begin against it
+    // while it sits open — a dump started from the sidebar, say. `runPlan` refuses in that case, and
+    // a refusal with no explanation is a primary button that does nothing on the one screen whose
+    // whole job is saying what pressing it will do.
+    const user = userEvent.setup();
+    await mountOnForm('postgresql');
+    await setField(user, 'restore-path', '/tmp/sales.dump');
+    await setField(user, 'restore-target-name', 'sales');
+    await user.click(screen.getByTestId('restore-submit'));
+    await screen.findByTestId('restore-confirm');
+    await user.type(screen.getByTestId('restore-confirm-input'), 'sales');
+    expect((screen.getByTestId('restore-confirm-start') as HTMLButtonElement).disabled).toBe(false);
+
+    act(() => {
+      dbOperationsStore
+        .getState()
+        .begin(dbOperationKey(CONNECTION_ID, 'sales'), 'backup', '/tmp/sales.dump');
+    });
+
+    const note = await screen.findByTestId('restore-in-flight');
+    expect(note.textContent).toContain('A backup of this database is still running');
+
+    const confirm = screen.getByTestId('restore-confirm-start') as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+    await user.click(confirm);
+    await user.type(screen.getByTestId('restore-confirm-input'), '{Enter}');
+
+    expect(bridge.start).not.toHaveBeenCalled();
     expect(notifications).toEqual([]);
   });
 
