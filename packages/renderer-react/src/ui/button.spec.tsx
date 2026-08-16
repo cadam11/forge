@@ -120,6 +120,35 @@ describe('Button — contract', () => {
     expect(svg?.getAttribute('class')).toContain('shrink-0');
   });
 
+  it('disarms the filled variant when it is disabled, and fades the rest', async () => {
+    // A filled button at half opacity is still a filled block of accent — it goes on looking like
+    // the action, which is worst exactly where it is disabled for a reason (the confirm step of a
+    // destructive flow). The fill is dropped instead. The outlined variants have no fill to drop, so
+    // the shared fade is enough for them.
+    render(
+      <>
+        <Button variant="primary" disabled data-testid="primary">
+          Restore
+        </Button>
+        <Button variant="danger" disabled data-testid="danger">
+          Delete
+        </Button>
+      </>
+    );
+
+    const primary = screen.getByTestId('primary').className;
+    expect(primary).toContain('disabled:bg-active');
+    expect(primary).toContain('disabled:text-fg-muted');
+    // tailwind-merge resolves the two `disabled:opacity-*` against each other, so the variant's wins
+    // and the label keeps its contrast.
+    expect(primary).toContain('disabled:opacity-100');
+    expect(primary).not.toContain('disabled:opacity-50');
+
+    const danger = screen.getByTestId('danger').className;
+    expect(danger).toContain('disabled:opacity-50');
+    expect(danger).not.toContain('disabled:bg-active');
+  });
+
   it('does not fire while disabled', async () => {
     const onClick = vi.fn();
     render(

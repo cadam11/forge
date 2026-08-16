@@ -41,9 +41,26 @@ export type ButtonSize = 'sm' | 'md';
 const DEFAULT_VARIANT: ButtonVariant = 'outline';
 const DEFAULT_SIZE: ButtonSize = 'md';
 
-/** Loosely keyed for the same reason as `Icon`'s: an out-of-vocabulary value falls back. */
+/**
+ * Loosely keyed for the same reason as `Icon`'s: an out-of-vocabulary value falls back.
+ *
+ * **`primary` disarms itself when disabled, and the other three do not need to.** The base classes
+ * fade every disabled button to `opacity-50`, which is enough for the three variants whose only ink
+ * is a border and a label — faded, they read as absent. A *filled* button faded to half is still a
+ * filled block of accent: the shape and the colour that mean "this is the action" both survive, so a
+ * disabled `primary` goes on looking armed. It matters most where it is least affordable — the
+ * confirm step of a destructive flow, where the button is disabled precisely *because* the user has
+ * not yet confirmed, and looking pressable is a promise the button will not keep.
+ *
+ * So the fill is dropped for a flat tint and the label goes muted, which is the same treatment
+ * `form-controls.md` gives a disabled control (a desaturated fill, not a faded one). `opacity-100`
+ * comes with it: half-opacity on top of an already-muted pair would take the label under the contrast
+ * floor, and tailwind-merge resolves it against the base `disabled:opacity-50` because both are the
+ * same modifier and the same class group, with this one written later.
+ */
 const VARIANT_CLASSES: Record<string, string> = {
-  primary: 'bg-accent-strong text-accent-fill-fg hover:opacity-90',
+  primary:
+    'bg-accent-strong text-accent-fill-fg hover:opacity-90 disabled:bg-active disabled:text-fg-muted disabled:opacity-100',
   outline: 'border border-rule-strong text-fg hover:bg-hover',
   ghost: 'text-fg hover:bg-hover',
   danger: 'border border-danger text-danger hover:bg-hover',
