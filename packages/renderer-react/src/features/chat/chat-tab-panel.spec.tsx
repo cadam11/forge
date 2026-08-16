@@ -194,4 +194,32 @@ describe('a chat tab', () => {
       expect(tabStore.getState().tabs.find(tab => tab.id === tabId)?.title).toBe('Indexes')
     );
   });
+
+  it('does not fight the tab strip’s own rename', async () => {
+    // The bug this rules out: an effect that renames whenever the tab title and the conversation title
+    // DISAGREE reverts a user's rename on the very next render, and the tab strip has a rename
+    // affordance (`shell/workspace/panel-tab.tsx`). Only a change to the CONVERSATION's title may move
+    // the tab name.
+    const tabId = tabStore.getState().openChatTab('conv-1');
+    const view = mountTab(tabId);
+    await waitFor(() =>
+      expect(tabStore.getState().tabs.find(tab => tab.id === tabId)?.title).toBe('Indexes')
+    );
+
+    tabStore.getState().renameTab(tabId, 'My own name');
+    // A re-render with nothing else changed: the user's name has to survive it.
+    view.rerender(
+      <TooltipProvider>
+        <ChatTabPanel {...panelProps(tabId)} />
+      </TooltipProvider>
+    );
+    await waitFor(() => expect(view.getByTestId('chat-message')).toBeDefined());
+    expect(tabStore.getState().tabs.find(tab => tab.id === tabId)?.title).toBe('My own name');
+
+    // …and switching the conversation still moves it, because that IS a new fact.
+    await chatStoreForTab(tabId).getState().selectConversation('conv-2');
+    await waitFor(() =>
+      expect(tabStore.getState().tabs.find(tab => tab.id === tabId)?.title).toBe('Vacuum')
+    );
+  });
 });

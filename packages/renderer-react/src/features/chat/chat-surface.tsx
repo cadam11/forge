@@ -119,20 +119,26 @@ export function ChatSurface({ store, mode }: ChatSurfaceProps) {
   const [model, setModel] = useState<SelectedModel | null>(null);
 
   /**
-   * Both stores, on every mount.
+   * Both stores, on every mount — **except the transcript while a stream is open.**
    *
    * No once-only latch, deliberately: re-mounting is how a user re-opens this surface, and both reads
-   * are refreshes they should get — the conversation list may have changed in another instance, and
-   * the AI settings may have been configured since (there is no AI settings surface in this renderer
-   * yet, but the main process holds keys set by earlier builds). `initialize` reports its own failures
-   * and returns early with no bridge, so neither call needs a guard here.
+   * are refreshes they should get — the conversation list may have changed in another instance, and the
+   * AI settings may have been configured since (there is no AI settings surface in this renderer yet,
+   * but the main process holds keys set by earlier builds).
+   *
+   * The `streaming` guard is not defensive dressing; it closes a real hole this port opens. Angular's
+   * panel was never unmounted — closing it set `width: 0` — so its `ngOnInit` ran once per window. Here
+   * ⇧⌘I unmounts the panel and re-opening it re-runs this effect, and `initialize()` refetches the
+   * active conversation from the main process, whose saved copy does NOT contain the in-flight assistant
+   * message. Without the guard, closing and re-opening the panel mid-answer would replace the transcript
+   * with the persisted one, unmount the tail, and silently drop the answer being written.
    *
    * This is also the FIRST caller of `aiStore.initialize()` in the React renderer: until now nothing
    * hydrated it, so `selectHasConfiguredVendors` and `selectAutoRenameEnabled` both answered from
    * defaults. Task 19 / J-55 owns the settings surface that should own this hydration.
    */
   useEffect(() => {
-    void store.getState().initialize();
+    if (!store.getState().streaming) void store.getState().initialize();
     void aiStore.getState().initialize();
   }, [store]);
 

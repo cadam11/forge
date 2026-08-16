@@ -433,6 +433,49 @@ describe('panel and tab', () => {
   });
 });
 
+describe('re-opening the surface', () => {
+  it('does not refetch the transcript while a stream is open, which would drop the answer', async () => {
+    // Angular's panel was never unmounted (closing it set `width: 0`), so its `ngOnInit` ran once per
+    // window. Here ⇧⌘I unmounts it, and `initialize()` refetches the active conversation — whose SAVED
+    // copy has no in-flight assistant message in it. Without the guard, closing and re-opening the panel
+    // mid-answer replaces the transcript with the persisted one and the answer being written is lost.
+    const { store } = await mount();
+    await store.getState().sendMessage('a long question');
+    double.emit({ conversationId: CONVERSATION_ID, delta: 'half an answer', done: false });
+
+    const messagesBefore = store.getState().messages.length;
+    expect(store.getState().streaming).toBe(true);
+
+    // Re-mounting the surface against the same store is what closing and re-opening the panel does.
+    render(
+      <TooltipProvider>
+        <ChatSurface store={store} mode="panel" />
+      </TooltipProvider>
+    );
+    await waitFor(() => expect(screen.getAllByTestId('chat-message').length).toBeGreaterThan(0));
+
+    // The placeholder and the buffered text are both still there.
+    expect(store.getState().messages).toHaveLength(messagesBefore);
+    expect(store.getState().messages.at(-1)?.streaming).toBe(true);
+    expect(store.getState().streamingContent).toBe('half an answer');
+  });
+
+  it('does refresh the conversation list when nothing is streaming', async () => {
+    const { store } = await mount();
+    const callsBefore = double.getToolsCalls();
+
+    render(
+      <TooltipProvider>
+        <ChatSurface store={store} mode="panel" />
+      </TooltipProvider>
+    );
+
+    // `initialize()` ran again — the list may have changed in another instance, and that refresh is the
+    // reason there is no once-only latch.
+    await waitFor(() => expect(double.getToolsCalls()).toBe(callsBefore + 1));
+  });
+});
+
 describe('the model’s UI actions', () => {
   it('routes an open-settings action to the command that owns the dialog', async () => {
     const { store } = await mount();

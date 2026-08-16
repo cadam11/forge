@@ -17,12 +17,12 @@
  *     type name repeated.
  */
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useStore } from 'zustand';
 import type { IDockviewPanelProps } from 'dockview-react';
 
 import { selectActiveConversation } from '../../state/chat';
-import { tabStore, useTabStore } from '../../state/tab';
+import { tabStore } from '../../state/tab';
 import { ChatSurface } from './chat-surface';
 import { chatStoreForTab, releaseChatStore } from './chat-store-host';
 
@@ -41,13 +41,25 @@ export function ChatTabPanel(props: IDockviewPanelProps) {
   // late would mean a frame with no transcript in it every time the tab is re-activated.
   const store = useMemo(() => chatStoreForTab(tabId, conversationIdFor(tabId)), [tabId]);
 
-  const title = useTabStore(state => state.tabs.find(tab => tab.id === tabId)?.title);
   const conversationTitle = useStore(store, selectActiveConversation)?.title;
+  /** The conversation title this component last pushed onto the tab. See the effect below. */
+  const applied = useRef<string | undefined>(undefined);
 
+  /**
+   * Follow the conversation's title — but only when the CONVERSATION's title changes, never merely
+   * when the two disagree.
+   *
+   * The difference is a bug: the tab strip has its own rename affordance
+   * (`shell/workspace/panel-tab.tsx`), and a "rename whenever they differ" effect reverts a user's tab
+   * name on the very next render. Comparing against what this effect last applied means the user's
+   * name survives until the conversation is itself renamed or switched, which is the only moment the
+   * tab has a new fact to follow.
+   */
   useEffect(() => {
-    if (conversationTitle === undefined || conversationTitle === title) return;
+    if (conversationTitle === undefined || conversationTitle === applied.current) return;
+    applied.current = conversationTitle;
     tabStore.getState().renameTab(tabId, conversationTitle);
-  }, [conversationTitle, title, tabId]);
+  }, [conversationTitle, tabId]);
 
   /**
    * Release the store when the TAB is gone — not merely when this component unmounts, which happens
