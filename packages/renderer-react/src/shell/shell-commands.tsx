@@ -7,35 +7,16 @@
  * file-open flow, the three-step refresh — are here rather than in the bridge, because the bridge's
  * only job is channel → command (see its header).
  *
- * One command still opens a **placeholder dialog**: Database ▸ Restore. It is the last of PLAN.md
- * 0.1's three broken menu items — implemented in Angular as `router.navigate()` into a router with no
- * outlet, so it did nothing and had done nothing for months. A placeholder is not a fix, but it is the
- * difference between "not built yet" and "silently broken", and Task 13 replaces the dialog body
- * without touching the wire.
- *
- * The other two no longer have placeholders. File ▸ New Connection is handled by Task 9's
- * `features/connections/ConnectionDialogs`, and Database ▸ Backup by Task 12's
- * `features/backup/BackupDialogs`; both are mounted by `app-shell.tsx` beside this component. The one
- * thing that still reaches for the connection dialog from here is ⌘N with nothing connected, which
- * dispatches the command rather than owning a second copy of the dialog.
+ * **No command here opens a placeholder any more, and this component renders nothing.** All three of
+ * PLAN.md 0.1's broken menu items — implemented in Angular as `router.navigate()` into a router with
+ * no outlet, so they did nothing and had done nothing for months — now reach a real dialog owned by
+ * the feature that built it: File ▸ New Connection by Task 9's `features/connections/ConnectionDialogs`,
+ * Database ▸ Backup by Task 12's `features/backup/BackupDialogs`, and Database ▸ Restore by Task 13's
+ * `features/restore/RestoreDialogs`. All three are mounted by `app-shell.tsx` beside this component,
+ * so what is left here is a pure handler table. The one thing that still reaches for a dialog from
+ * here is ⌘N with nothing connected, which dispatches the command rather than owning a second copy.
  */
 
-import { useState } from 'react';
-import { Database, HardDriveDownload } from 'lucide-react';
-
-import {
-  Button,
-  Dialog,
-  DialogActions,
-  DialogBody,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  Icon,
-  cn,
-} from '../ui';
 import { dispatchCommand, useCommand } from '../commands';
 import { ipc, isIpcAvailable } from '../ipc';
 import { chatPanelStore } from '../state/chat';
@@ -46,88 +27,6 @@ import { logStore } from '../state/logs';
 import { settingsStore } from '../state/settings';
 import { selectActiveTab, tabStore } from '../state/tab';
 import { workbenchStore } from '../state/workbench';
-
-/**
- * Which placeholder is showing, or `null`. A one-member union rather than a boolean, because Task 12
- * removed the `'backup'` member and Task 13 removes the last one — at which point this whole component
- * loses its render and becomes a pure handler table.
- */
-type PlaceholderKind = 'restore';
-
-interface PlaceholderCopy {
-  readonly title: string;
-  readonly icon: typeof Database;
-  readonly description: string;
-  readonly arrivesIn: string;
-}
-
-const PLACEHOLDERS: Record<PlaceholderKind, PlaceholderCopy> = {
-  restore: {
-    title: 'Restore a database',
-    icon: HardDriveDownload,
-    description: 'The restore wizard reads the backup file list before it offers any options.',
-    arrivesIn: 'Task 13',
-  },
-};
-
-/**
- * The placeholder. It names what would have been targeted — the connection and database the real
- * dialog will open against — because that is the part of the wire this task actually delivers, and it
- * is what makes the menu item's fix verifiable rather than cosmetic.
- */
-function PlaceholderDialog({
-  kind,
-  onClose,
-}: {
-  readonly kind: PlaceholderKind | null;
-  readonly onClose: () => void;
-}) {
-  if (kind === null) return null;
-  const copy = PLACEHOLDERS[kind];
-  const connectionId = connectionStore.getState().focusedConnectionId();
-  const profile =
-    connectionId === null
-      ? null
-      : connectionStore.getState().profiles.find(p => p.id === connectionId);
-  const database =
-    connectionId === null
-      ? null
-      : selectDefaultDatabaseFor(connectionId)(connectionStore.getState());
-
-  return (
-    <Dialog open onOpenChange={open => (open ? undefined : onClose())}>
-      <DialogContent size="sm" data-testid={`placeholder-dialog-${kind}`}>
-        <DialogHeader>
-          <DialogTitle>
-            <span className="flex items-center gap-2">
-              <Icon icon={copy.icon} size="sm" className="stroke-fg-muted" />
-              {copy.title}
-            </span>
-          </DialogTitle>
-          <DialogDescription>{copy.description}</DialogDescription>
-        </DialogHeader>
-        <DialogBody className="flex flex-col gap-3">
-          <div className={cn('flex flex-col gap-1 rounded-sm border border-rule bg-surface p-3')}>
-            <p className="font-mono text-2xs tracking-eyebrow text-fg-muted uppercase">Target</p>
-            <p data-testid="placeholder-dialog-target" className="font-mono text-sm text-fg">
-              {profile?.name ?? 'no connection'} · {database ?? 'no database'}
-            </p>
-          </div>
-          <p className="text-md text-fg-muted text-pretty">
-            The menu item is wired and reaches this dialog. Its surface arrives in {copy.arrivesIn}.
-          </p>
-        </DialogBody>
-        <DialogActions>
-          <DialogClose asChild>
-            <Button variant="outline" data-testid="placeholder-dialog-dismiss">
-              Close
-            </Button>
-          </DialogClose>
-        </DialogActions>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 /**
  * Opens a .sql file into a new query tab.
@@ -213,18 +112,12 @@ function newQuery(): void {
 }
 
 /**
- * Registers the shell's handlers. Mount once, from the shell; renders the placeholder dialogs.
+ * Registers the shell's handlers. Mount once, from the shell; renders nothing.
  *
  * Every `useCommand` call is unconditional and in a fixed order, which is what the rules of hooks
  * require and what makes this list safe to read as a table.
  */
 export function ShellCommands() {
-  const [placeholder, setPlaceholder] = useState<PlaceholderKind | null>(null);
-
-  // The last of PLAN.md 0.1's three broken menu items still on a placeholder. `open-connection-dialog`
-  // is Task 9's `ConnectionDialogs`; `open-backup-dialog` is Task 12's `BackupDialogs`.
-  useCommand('open-restore-dialog', () => setPlaceholder('restore'));
-
   // Tabs.
   useCommand('new-query', () => newQuery());
   useCommand('open-query-file', () => {
@@ -259,5 +152,6 @@ export function ShellCommands() {
     void refreshExplorer();
   });
 
-  return <PlaceholderDialog kind={placeholder} onClose={() => setPlaceholder(null)} />;
+  // Nothing to render: every dialog this component used to stand in for is owned by its own feature.
+  return null;
 }

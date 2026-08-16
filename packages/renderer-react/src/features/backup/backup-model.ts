@@ -370,13 +370,25 @@ function elapsed(progress: BackupProgress): { elapsedMs: number } | null {
 }
 
 /**
+ * The one field a percentage needs, so the restore wizard can pass its own event shape.
+ *
+ * `RestoreProgress` and `BackupProgress` differ only in the name of their id field, and a percentage
+ * does not read it — so the parameter is narrowed to what is actually used rather than the restore
+ * event being cast to a backup one.
+ */
+export interface PercentReadout {
+  readonly percentComplete: number;
+}
+
+/**
  * The percentage to paint, or `null` for an indeterminate bar.
  *
- * `pg-backup.ts:296` reports `-1` on purpose — pg_dump and mysqldump emit phase lines, never a
- * percentage — and the Angular bar rendered that as `0%` next to an indeterminate track, which read
- * as a stalled backup. `null` is the honest answer and the bar has a mode for it.
+ * `pg-backup.ts:296` reports `-1` on purpose — pg_dump, pg_restore, mysqldump and the mysql client
+ * all emit phase lines and never a percentage — and the Angular bar rendered that as `0%` next to an
+ * indeterminate track, which read as a stalled operation. `null` is the honest answer and the bar has
+ * a mode for it.
  */
-export function progressPercent(progress: BackupProgress | null): number | null {
+export function progressPercent(progress: PercentReadout | null): number | null {
   if (progress === null) return null;
   const percent = progress.percentComplete;
   if (!Number.isFinite(percent) || percent < 0) return null;

@@ -34,9 +34,10 @@ const inertSubscription = () => () => undefined;
  * The bridge members the shell touches on mount. Deliberately not the whole `JoineryAPI` — see the
  * header of `test/joinery-mock.ts` — but it does have to include every `on*` member the shell
  * subscribes to, because `useIpcEvent` calls them for real: the 31 `menu.on*` channels the bridge
- * routes, plus `logs.onEntry`, `theme.onChanged`, and `backup.onProgress` — `BackupDialogs` holds that
- * last one for the app's lifetime rather than only while its dialog is open, because a dump outlives
- * the dialog and its in-flight record has to be retired when it finishes (see `backup-dialogs.tsx`).
+ * routes, plus `logs.onEntry`, `theme.onChanged`, `backup.onProgress` and `restore.onProgress` —
+ * `BackupDialogs` and `RestoreDialogs` hold those last two for the app's lifetime rather than only
+ * while their dialogs are open, because both operations outlive the dialog that started them and the
+ * shared in-flight record has to be retired when they finish (see `state/db-operations.ts`).
  */
 function installShellBridge(double: AppStateDouble): void {
   const menu = Object.fromEntries(MENU_CHANNELS.map(channel => [channel, inertSubscription]));
@@ -46,6 +47,7 @@ function installShellBridge(double: AppStateDouble): void {
       app: { ...double.app, getVersion: () => Promise.resolve('1.2.3') },
       connection: { list: () => Promise.resolve([]) },
       backup: { onProgress: inertSubscription },
+      restore: { onProgress: inertSubscription },
       logs: {
         getRecent: () => Promise.resolve([]),
         append: () => Promise.resolve(),
@@ -237,20 +239,32 @@ describe('the app shell', () => {
     expect(screen.queryByTestId('backup-dialog')).toBeNull();
   });
 
-  it('still reaches the placeholder dialog for the broken Database ▸ Restore menu item', async () => {
-    // The last of PLAN.md 0.1's three. Task 13 replaces the body without touching the wire.
-    const user = userEvent.setup();
+  it('reaches Task 13’s restore dialog for the broken Database ▸ Restore menu item', async () => {
+    // The last of PLAN.md 0.1's three, and the one that emptied `ShellCommands` of its final
+    // placeholder. Same shape as the backup assertion above: nothing is connected in the shell's
+    // double, so the honest answer is the one legal toast on this path (J-42 — no modal is open yet).
     await mountShell();
 
-    const { dispatchCommand } = await import('../commands');
+    const warnings: string[] = [];
+    teardowns.push(
+      setNotifier({
+        success: () => undefined,
+        info: () => undefined,
+        error: () => undefined,
+        warning: message => warnings.push(message),
+      })
+    );
+
+    const { dispatchCommand, handlerCount } = await import('../commands');
+    expect(handlerCount('open-restore-dialog')).toBe(1);
     dispatchCommand('open-restore-dialog');
 
-    const dialog = await screen.findByTestId('placeholder-dialog-restore');
-    expect(dialog.textContent).toContain('Task 13');
-    expect(screen.getByTestId('placeholder-dialog-target').textContent).toContain('no connection');
-
-    await user.click(screen.getByTestId('placeholder-dialog-dismiss'));
-    await waitFor(() => expect(screen.queryByTestId('placeholder-dialog-restore')).toBeNull());
+    await waitFor(() =>
+      expect(warnings).toEqual(['Connect to a server before restoring a database.'])
+    );
+    expect(screen.queryByTestId('restore-dialog')).toBeNull();
+    // The placeholder is gone entirely, not merely unreachable.
+    expect(screen.queryByTestId('placeholder-dialog-restore')).toBeNull();
   });
 
   it('opens the welcome tab on the View ▸ Welcome command', async () => {

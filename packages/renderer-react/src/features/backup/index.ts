@@ -53,6 +53,7 @@ export {
   type BackupFormValues,
   type BackupPhase,
   type EngineBackupOptions,
+  type PercentReadout,
   type ProbePhase,
   type ToolsProbe,
 } from './backup-model';

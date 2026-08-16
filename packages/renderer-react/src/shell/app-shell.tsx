@@ -37,6 +37,7 @@ import { Spinner, Toaster, TooltipProvider, cn, installToastNotifier } from '../
 import { dispatchCommand } from '../commands';
 import { BackupDialogs } from '../features/backup';
 import { ConnectionDialogs } from '../features/connections';
+import { RestoreDialogs } from '../features/restore';
 import { diagnostics } from '../state/diagnostics';
 import { installLogDiagnosticsSink, useLogStream } from '../state/logs';
 import { useTabStore } from '../state/tab';
@@ -218,12 +219,15 @@ function ShellFrame() {
       </div>
 
       {/* Non-visual mounts. Each renders nothing until something asks it to, and each must exist
-          exactly once. `ConnectionDialogs` is Task 9's consumer of the three connection commands;
-          `BackupDialogs` is Task 12's consumer of the two backup ones. */}
+          exactly once. `ConnectionDialogs` is Task 9's consumer of the three connection commands,
+          `BackupDialogs` is Task 12's consumer of the two backup ones, and `RestoreDialogs` is Task
+          13's consumer of the two restore ones — which is also what emptied `ShellCommands` of the
+          last of PLAN.md 0.1's placeholders. */}
       <MenuBridge />
       <ShellCommands />
       <ConnectionDialogs />
       <BackupDialogs />
+      <RestoreDialogs />
       <Toaster theme={theme} />
     </TooltipProvider>
   );
