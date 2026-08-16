@@ -76,6 +76,24 @@ export interface CommandPayloads {
   /** Edit ▸ Toggle Comment (⌘/). */
   'toggle-comment': void;
 
+  // ── The SQL dialect converter (Task 19a) ───────────────────────────────────────────────────
+  //
+  // Three payload-free ids rather than one `convert-sql: { toEngine }`, and the reason is the palette:
+  // `CatalogueEntry` narrows a payload-carrying command to "hidden from the palette", so a single
+  // parameterised id would have been reachable only from the toolbar menu — which is exactly the Angular
+  // state (a `translate` menu and nothing else). The Angular menu had three items too.
+  //
+  // No menu channel: `main/src/menu.ts` has no Convert entry, so these arrive from the palette or from the
+  // query toolbar's own menu. The toolbar menu calls the handler directly, as every other button in that
+  // strip does — see `query-toolbar.tsx`.
+
+  /** Convert the active editor's SQL to T-SQL. */
+  'convert-sql-to-mssql': void;
+  /** Convert the active editor's SQL to PostgreSQL. */
+  'convert-sql-to-postgresql': void;
+  /** Convert the active editor's SQL to MySQL. */
+  'convert-sql-to-mysql': void;
+
   /** Query ▸ Execute (⌘E — `registerAccelerator: false`, so Task 10's editor owns the keystroke). */
   'execute-query': void;
   /** Query ▸ Execute Selection (⇧⌘↩). */
@@ -290,6 +308,18 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
   'editor-replace': 'Task 10 query editor (Monaco replace widget).',
   'format-sql': 'Task 10 query editor (sql-formatter).',
   'toggle-comment': 'Task 10 query editor.',
+
+  // The converter's three. One consumer, one handler, three ids — `features/query/sql-convert.ts` is the
+  // adapter over `query.convertSql` and the only place PLAN.md §7.3's two bare-string engines are passed.
+  'convert-sql-to-mssql':
+    'Task 19a features/query/QueryCommands (the active query tab converts its own editor). Producers: ' +
+    'the Task 16 palette and the query toolbar’s convert menu.',
+  'convert-sql-to-postgresql':
+    'Task 19a features/query/QueryCommands, as convert-sql-to-mssql. Producers: the Task 16 palette and ' +
+    'the query toolbar’s convert menu.',
+  'convert-sql-to-mysql':
+    'Task 19a features/query/QueryCommands, as convert-sql-to-mssql. Producers: the Task 16 palette and ' +
+    'the query toolbar’s convert menu.',
 
   'execute-query': 'Task 10 query editor.',
   'execute-selection': 'Task 10 query editor.',

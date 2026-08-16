@@ -10,8 +10,20 @@ import { dispatchCommand, handlerCount } from '../../commands';
 import { COMMAND_CONSUMERS, COMMAND_IDS, type CommandId } from '../../commands/registry';
 import { QueryCommands, type QueryCommandHandlers } from './query-commands';
 
-/** Every command whose registered consumer names Task 10. This is the list the component must cover. */
-const TASK_10_COMMANDS = COMMAND_IDS.filter(id => /^Task 10\b/.test(COMMAND_CONSUMERS[id]));
+/**
+ * Every command this component is the registered consumer of.
+ *
+ * Two tasks now, not one: Task 10 built the table and Task 19a added the converter's three ids to it
+ * (the query tab is what owns an editor to rewrite). Deriving the list from the registry rather than
+ * restating it is what makes the two tests below fail when a `useCommand` line and its claim drift apart.
+ */
+const OWNED_COMMANDS = COMMAND_IDS.filter(
+  id =>
+    /^Task 10\b/.test(COMMAND_CONSUMERS[id]) ||
+    // Task 19a's other surfaces are their own hosts, so the task number alone is not the predicate —
+    // the component's own name is.
+    COMMAND_CONSUMERS[id].includes('features/query/QueryCommands')
+);
 
 function handlers(isActive = true): {
   props: QueryCommandHandlers;
@@ -35,6 +47,7 @@ function handlers(isActive = true): {
       onOpenFile: record('open-file'),
       onToggleResults: record('toggle-results'),
       onInsertSnippet: sql => calls.push(`insert:${sql}`),
+      onConvertSql: engine => calls.push(`convert:${engine}`),
     },
   };
 }
@@ -48,15 +61,16 @@ afterEach(() => {
 });
 
 describe('the ids this component claims', () => {
-  it('covers every command whose consumer names Task 10', () => {
+  it('covers every command whose consumer names it', () => {
     const { props } = handlers();
     const { unmount } = render(<QueryCommands {...props} />);
     teardowns.push(unmount);
 
-    const unhandled = TASK_10_COMMANDS.filter(id => handlerCount(id) === 0);
+    const unhandled = OWNED_COMMANDS.filter(id => handlerCount(id) === 0);
     expect(unhandled).toEqual([]);
     // And the count, so deleting a `useCommand` line AND its registry claim in one edit still fails.
-    expect(TASK_10_COMMANDS).toHaveLength(12);
+    // Twelve from Task 10, plus Task 19a's three converter ids.
+    expect(OWNED_COMMANDS).toHaveLength(15);
   });
 
   it('subscribes nothing else', () => {
@@ -64,7 +78,7 @@ describe('the ids this component claims', () => {
     const { unmount } = render(<QueryCommands {...props} />);
     teardowns.push(unmount);
 
-    const extra = COMMAND_IDS.filter(id => handlerCount(id) > 0 && !TASK_10_COMMANDS.includes(id));
+    const extra = COMMAND_IDS.filter(id => handlerCount(id) > 0 && !OWNED_COMMANDS.includes(id));
     expect(extra).toEqual([]);
   });
 });
@@ -82,6 +96,11 @@ describe('dispatching', () => {
     ['save-query-as', 'save-as'],
     ['open-query-file', 'open-file'],
     ['toggle-results-panel', 'toggle-results'],
+    // The converter's three ids, one handler: the engine is what the id encodes, because a palette entry
+    // may not carry a payload (`commands/catalogue.ts`).
+    ['convert-sql-to-mssql', 'convert:mssql'],
+    ['convert-sql-to-postgresql', 'convert:postgresql'],
+    ['convert-sql-to-mysql', 'convert:mysql'],
   ];
 
   it.each(CASES)('%s reaches its handler', (id, expected) => {
@@ -111,7 +130,7 @@ describe('the active-tab guard', () => {
     const { unmount } = render(<QueryCommands {...props} />);
     teardowns.push(unmount);
 
-    for (const id of TASK_10_COMMANDS) {
+    for (const id of OWNED_COMMANDS) {
       act(
         () =>
           void dispatchCommand(id === 'insert-snippet' ? id : (id as never), { sql: 'x' } as never)
@@ -191,11 +210,11 @@ describe('lifecycle', () => {
     expect(calls).toEqual(['execute']);
   });
 
-  it('unsubscribes all twelve on unmount, so a closed tab is silent', () => {
+  it('unsubscribes every one of them on unmount, so a closed tab is silent', () => {
     const { props } = handlers();
     const { unmount } = render(<QueryCommands {...props} />);
     unmount();
-    for (const id of TASK_10_COMMANDS) expect(handlerCount(id)).toBe(0);
+    for (const id of OWNED_COMMANDS) expect(handlerCount(id)).toBe(0);
   });
 });
 

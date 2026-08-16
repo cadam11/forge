@@ -103,6 +103,7 @@ function renderProductionWiring(): void {
           onOpenFile={noop}
           onToggleResults={noop}
           onInsertSnippet={noop}
+          onConvertSql={noop}
         />
       </TooltipProvider>
     </IpcQueryProvider>
@@ -201,8 +202,9 @@ describe('command ownership', () => {
     // none moved) → 36 across Task 17 (one new id, one moved owner) → 37 across Task 19a's
     // `AiSetupHost` (`open-ai-setup`, new) and `QueryHistoryHost`
     // (`open-query-history`, previously registered-but-unowned), plus `DatabaseDialogs`' three
-    // (`create-database`, `create-database-on-server`, `rename-database`) → 41.
-    expect(COMMAND_IDS.filter(id => handlerCount(id) > 0)).toHaveLength(41);
+    // (`create-database`, `create-database-on-server`, `rename-database`), plus the converter's three in
+    // `QueryCommands` (`convert-sql-to-{mssql,postgresql,mysql}`) → 44.
+    expect(COMMAND_IDS.filter(id => handlerCount(id) > 0)).toHaveLength(44);
   });
 });
 

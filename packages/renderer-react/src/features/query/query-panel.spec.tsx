@@ -14,7 +14,7 @@
  */
 
 import { useEffect } from 'react';
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { IDockviewPanelProps } from 'dockview-react';
@@ -469,5 +469,110 @@ describe('editor settings', () => {
     // would discard the document and the undo stack, which is what that half is protecting.
     expect(editorState.settings?.fontSize).toBe(18);
     expect(editorState.mounts).toBe(mountsBefore);
+  });
+});
+
+// ── The SQL dialect converter (Task 19a) ───────────────────────────────────────────────────
+
+describe('the SQL dialect converter', () => {
+  /** Records what `sql-convert.ts` asked the bridge for, and answers with `converted`. */
+  function installConverter(
+    answer: { success: boolean; sql?: string; error?: string } = {
+      success: true,
+      sql: 'SELECT 1 LIMIT 1',
+    }
+  ): { calls: { sql: string; from: string; to: string }[] } {
+    const calls: { sql: string; from: string; to: string }[] = [];
+    teardowns.push(
+      installJoineryMock({
+        query: {
+          convertSql: (sql: string, fromEngine: string, toEngine: string) => {
+            calls.push({ sql, from: fromEngine, to: toEngine });
+            return Promise.resolve({
+              success: answer.success,
+              sql: answer.sql ?? '',
+              ...(answer.error === undefined ? {} : { error: answer.error }),
+            });
+          },
+        },
+      })
+    );
+    return { calls };
+  }
+
+  /**
+   * Open the menu and pick a target. `userEvent` already wraps its own work in `act`, so nesting it
+   * inside another `act` is what produces the "not configured to support act" warnings — the settle is a
+   * `waitFor` on the observable effect instead, which is what the caller asserts on anyway.
+   */
+  async function chooseTarget(target: 'mssql' | 'mysql' | 'postgresql'): Promise<void> {
+    await userEvent.click(screen.getByTestId('query-convert'));
+    await userEvent.click(await screen.findByTestId(`query-convert-${target}`));
+  }
+
+  it('offers every engine except the tab’s own', async () => {
+    installConverter();
+    const { unmount } = mountPanel('SELECT 1');
+    teardowns.push(unmount);
+
+    await userEvent.click(screen.getByTestId('query-convert'));
+
+    // The tab is PostgreSQL (`mountPanel`), so its own entry is absent — the Angular menu hid it too.
+    expect(await screen.findByTestId('query-convert-mssql')).toBeTruthy();
+    expect(screen.getByTestId('query-convert-mysql')).toBeTruthy();
+    expect(screen.queryByTestId('query-convert-postgresql')).toBeNull();
+  });
+
+  it('converts the whole buffer and replaces the document', async () => {
+    const { calls } = installConverter({ success: true, sql: 'SELECT TOP 1 * FROM t' });
+    const { unmount } = mountPanel('SELECT * FROM t LIMIT 1');
+    teardowns.push(unmount);
+
+    await chooseTarget('mssql');
+    await waitFor(() => expect(editorState.setValues.at(-1)).toBe('SELECT TOP 1 * FROM t'));
+
+    expect(calls).toEqual([{ sql: 'SELECT * FROM t LIMIT 1', from: 'postgresql', to: 'mssql' }]);
+    // `setValue`, the same write Format makes, so the conversion is one undo away.
+    expect(notifications).toContain('success:Converted to SQL Server');
+  });
+
+  it('converts the selection when there is one', async () => {
+    const { calls } = installConverter();
+    const { unmount } = mountPanel('SELECT 1;\nSELECT * FROM t LIMIT 1;');
+    teardowns.push(unmount);
+
+    editorState.hasSelection = true;
+    editorState.selection = 'SELECT * FROM t LIMIT 1;';
+
+    await chooseTarget('mysql');
+    await waitFor(() => expect(calls).toHaveLength(1));
+
+    expect(calls[0]?.sql).toBe('SELECT * FROM t LIMIT 1;');
+  });
+
+  it('leaves the document alone and says why when the conversion fails', async () => {
+    installConverter({ success: false, error: "ParseError: line 1, 'FROOM'" });
+    const { unmount } = mountPanel('FROOM t');
+    teardowns.push(unmount);
+
+    await chooseTarget('mssql');
+    await waitFor(() => expect(notifications).toContain("warning:ParseError: line 1, 'FROOM'"));
+
+    expect(editorState.setValues).toEqual([]);
+  });
+
+  it('reaches the same handler from the palette’s command', async () => {
+    // The toolbar menu and the three palette commands are two producers for one behaviour, which is why
+    // the command exists at all rather than the menu calling the bridge itself.
+    const { calls } = installConverter();
+    const { unmount } = mountPanel('SELECT * FROM t LIMIT 1');
+    teardowns.push(unmount);
+
+    act(() => {
+      dispatchCommand('convert-sql-to-mysql');
+    });
+    await waitFor(() => expect(calls).toHaveLength(1));
+
+    expect(calls).toEqual([{ sql: 'SELECT * FROM t LIMIT 1', from: 'postgresql', to: 'mysql' }]);
   });
 });

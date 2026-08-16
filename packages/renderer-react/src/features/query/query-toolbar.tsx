@@ -25,14 +25,21 @@ import {
   ChevronsDownUp,
   CornerUpLeft,
   Hash,
+  Languages,
   PanelBottom,
   Play,
   Replace,
   Search,
   Square,
 } from 'lucide-react';
+import type { DatabaseEngine } from '@joinery/shared';
 
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
   Spinner,
   Toolbar,
   ToolbarButton,
@@ -42,6 +49,7 @@ import {
 } from '../../ui';
 import { keyHint } from '../../utils/platform';
 import { ConnectionContextChip } from './connection-context-chip';
+import { CONVERTIBLE_ENGINES, ENGINE_LABELS } from './sql-convert';
 
 export interface QueryToolbarProps {
   /** Whose toolbar this is. The chip resolves the tab's own connection and database from it. */
@@ -62,6 +70,12 @@ export interface QueryToolbarProps {
   readonly onReplace: () => void;
   readonly onGoToLine: () => void;
   readonly onToggleResults: () => void;
+  /**
+   * The tab's own engine, which decides which conversion targets the menu offers. `undefined` when the
+   * tab has no connection, and the menu is then absent — there is no "from" dialect to convert out of.
+   */
+  readonly engine?: DatabaseEngine;
+  readonly onConvertSql: (toEngine: DatabaseEngine) => void;
 }
 
 export function QueryToolbar({
@@ -76,6 +90,8 @@ export function QueryToolbar({
   onReplace,
   onGoToLine,
   onToggleResults,
+  engine,
+  onConvertSql,
 }: QueryToolbarProps) {
   return (
     <Toolbar
@@ -146,6 +162,37 @@ export function QueryToolbar({
       </Tooltip>
 
       <ToolbarSeparator />
+
+      {/* The SQL dialect converter — the Angular `translate` menu (`query.component.ts:246-265`), which
+          PLAN.md's Phase B left unowned until Task 19a. The current engine is omitted from the list, as
+          it was there; the palette's three entries refuse it with a sentence instead, because a palette
+          has no engine to hide (`sql-convert.ts`). */}
+      {engine === undefined ? null : (
+        <DropdownMenu>
+          <Tooltip content="Convert SQL to another dialect">
+            <DropdownMenuTrigger asChild>
+              <ToolbarButton
+                iconOnly
+                leadingIcon={Languages}
+                aria-label="Convert SQL dialect"
+                data-testid="query-convert"
+              />
+            </DropdownMenuTrigger>
+          </Tooltip>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Convert to</DropdownMenuLabel>
+            {CONVERTIBLE_ENGINES.filter(target => target !== engine).map(target => (
+              <DropdownMenuItem
+                key={target}
+                data-testid={`query-convert-${target}`}
+                onSelect={() => onConvertSql(target)}
+              >
+                {ENGINE_LABELS[target]}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
 
       <Tooltip content="Format SQL (⇧⌘F)">
         <ToolbarButton
