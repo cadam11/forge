@@ -10,7 +10,7 @@
  *
  *   capabilities → explorer → connection → chat
  *                       tab ↗          ↗
- *   settings, ai, query-results, query-history, logs, workbench  (independent)
+ *   settings, ai, editor-prefs, query-results, query-execution, query-history, logs, workbench
  *
  * One import-time effect comes with that: the chat panel store subscribes to `chat.onStreamChunk`
  * if the bridge is present. A module that only needs one store should import that store's file
@@ -32,6 +32,15 @@ export {
   type CapabilitiesStore,
   type ConnectionCapabilitiesEntry,
 } from './capabilities';
+
+export {
+  createEditorPrefsStore,
+  editorPrefsStore,
+  selectConfirmedCtrlEExecute,
+  useEditorPrefsStore,
+  type EditorPrefsState,
+  type EditorPrefsStore,
+} from './editor-prefs';
 
 export {
   diagnostics,
@@ -142,6 +151,20 @@ export {
   type QueryHistoryStore,
   type QueryHistoryStoreState,
 } from './query-history';
+
+export {
+  createQueryExecutionStore,
+  queryExecutionStore,
+  selectAnyExecuting,
+  selectIsExecuting,
+  selectResultFor,
+  selectRunningCount,
+  useQueryExecutionStore,
+  type ExecuteRequest,
+  type QueryExecutionState,
+  type QueryExecutionStore,
+  type RunningQuery,
+} from './query-execution';
 
 export {
   createQueryResultsStore,

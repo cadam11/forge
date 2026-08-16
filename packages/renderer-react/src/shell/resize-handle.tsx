@@ -16,6 +16,14 @@
  * 1px `border-rule` line inside it, and neither adjoining pane has a border on that edge. The whole
  * arrangement is then one place to look, and the 5px target is 1px more generous than the old one
  * while needing no negative margins to overlap its neighbours.
+ *
+ * ── Two orientations, one component (Task 10) ─────────────────────────────────────────────
+ *
+ * The query tab needs a horizontal divider between its editor and its results, and it needs the same
+ * ARIA pattern, the same pointer-capture drag and the same hairline ownership. So `orientation`
+ * generalizes this component rather than a second one being written next to it — the alternative was
+ * a near-copy whose keyboard half would have drifted. The default is `vertical`, which is what the
+ * shell's two splits already pass by omission, so nothing about them changed.
  */
 
 import { useCallback, useEffect, useRef } from 'react';
@@ -28,6 +36,15 @@ import { cn } from '../ui';
  */
 export type ResizeEdge = 'leading' | 'trailing';
 
+/**
+ * Which axis the divider splits along. `vertical` is a vertical LINE between left/right panes (the
+ * sidebar, the chat panel); `horizontal` is a horizontal line between top/bottom panes (Task 10's
+ * editor/results split). The names are ARIA's `aria-orientation`, which describes the separator
+ * itself and not the axis it moves along — the two are perpendicular, and getting that backwards is
+ * the classic mistake, so the value is passed straight through rather than derived.
+ */
+export type ResizeOrientation = 'vertical' | 'horizontal';
+
 export interface ResizeHandleProps {
   readonly label: string;
   readonly testId: string;
@@ -35,11 +52,22 @@ export interface ResizeHandleProps {
   readonly min: number;
   readonly max: number;
   readonly edge: ResizeEdge;
+  readonly orientation?: ResizeOrientation;
   readonly onChange: (value: number) => void;
   /** Double-click and Enter both reset. Omit to make the divider drag/nudge-only. */
   readonly onReset?: () => void;
-  /** Arrow-key step. ⇧+arrow multiplies it by `COARSE_MULTIPLIER`. */
+  /** Arrow-key step, in VALUE units. ⇧+arrow multiplies it by `COARSE_MULTIPLIER`. */
   readonly step?: number;
+  /**
+   * How many value units one pixel of drag is worth. Default 1, i.e. the value is pixels — which is
+   * what the two shell splits use.
+   *
+   * It is a function, read once at drag start, because the only caller that needs it is Task 10's
+   * editor/results split: its value is a PERCENTAGE of a pane whose height is not known here and
+   * changes with the window. `() => 100 / paneHeight` converts, and evaluating it per drag rather
+   * than per render keeps a resize of the window from being observed mid-drag.
+   */
+  readonly unitsPerPixel?: () => number;
 }
 
 const DEFAULT_STEP = 8;
@@ -52,12 +80,22 @@ export function ResizeHandle({
   min,
   max,
   edge,
+  orientation = 'vertical',
   onChange,
   onReset,
   step = DEFAULT_STEP,
+  unitsPerPixel,
 }: ResizeHandleProps) {
+  const horizontal = orientation === 'horizontal';
   /** Drag origin. A ref because a drag is not state — nothing renders differently mid-drag. */
-  const drag = useRef<{ pointerId: number; startX: number; startValue: number } | null>(null);
+  const drag = useRef<{
+    pointerId: number;
+    /** The pointer coordinate on the axis being dragged, at drag start. */
+    startPosition: number;
+    startValue: number;
+    /** Frozen at drag start — see `unitsPerPixel`. */
+    scale: number;
+  } | null>(null);
   const direction = edge === 'leading' ? 1 : -1;
 
   /**
@@ -89,7 +127,7 @@ export function ResizeHandle({
     <div
       role="separator"
       aria-label={label}
-      aria-orientation="vertical"
+      aria-orientation={orientation}
       aria-valuenow={value}
       aria-valuemin={min}
       aria-valuemax={max}
@@ -97,7 +135,10 @@ export function ResizeHandle({
       tabIndex={0}
       className={cn(
         // 5px of hit area with the hairline drawn inside it, so the divider IS the border.
-        'group relative flex w-[5px] shrink-0 cursor-col-resize touch-none justify-center',
+        'group relative flex shrink-0 touch-none',
+        horizontal
+          ? 'h-[5px] cursor-row-resize flex-col items-center'
+          : 'w-[5px] cursor-col-resize justify-center',
         'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus'
       )}
       onPointerDown={event => {
@@ -105,7 +146,12 @@ export function ResizeHandle({
         // a drag that no pointer-up will end.
         if (event.button !== 0) return;
         event.preventDefault();
-        drag.current = { pointerId: event.pointerId, startX: event.clientX, startValue: value };
+        drag.current = {
+          pointerId: event.pointerId,
+          startPosition: horizontal ? event.clientY : event.clientX,
+          startValue: value,
+          scale: unitsPerPixel?.() ?? 1,
+        };
         // Pointer capture keeps the move/up events coming to this element even when the pointer
         // leaves it, which is why this component installs no document-level listeners.
         event.currentTarget.setPointerCapture(event.pointerId);
@@ -115,7 +161,8 @@ export function ResizeHandle({
       onPointerMove={event => {
         const active = drag.current;
         if (!active || active.pointerId !== event.pointerId) return;
-        onChange(clamp(active.startValue + (event.clientX - active.startX) * direction));
+        const travelled = (horizontal ? event.clientY : event.clientX) - active.startPosition;
+        onChange(clamp(active.startValue + travelled * active.scale * direction));
       }}
       onPointerUp={event => {
         if (drag.current?.pointerId !== event.pointerId) return;
@@ -129,8 +176,11 @@ export function ResizeHandle({
       onDoubleClick={onReset}
       onKeyDown={event => {
         const distance = step * (event.shiftKey ? COARSE_MULTIPLIER : 1);
-        if (event.key === 'ArrowLeft') onChange(clamp(value - distance * direction));
-        else if (event.key === 'ArrowRight') onChange(clamp(value + distance * direction));
+        const [decrease, increase] = horizontal
+          ? ['ArrowUp', 'ArrowDown']
+          : ['ArrowLeft', 'ArrowRight'];
+        if (event.key === decrease) onChange(clamp(value - distance * direction));
+        else if (event.key === increase) onChange(clamp(value + distance * direction));
         else if (event.key === 'Home') onChange(edge === 'leading' ? min : max);
         else if (event.key === 'End') onChange(edge === 'leading' ? max : min);
         else if (event.key === 'Enter' && onReset) onReset();
@@ -145,7 +195,8 @@ export function ResizeHandle({
       <span
         aria-hidden="true"
         className={cn(
-          'w-px self-stretch bg-rule transition-colors',
+          'self-stretch bg-rule transition-colors',
+          horizontal ? 'h-px' : 'w-px',
           'group-hover:bg-accent group-focus-visible:bg-accent'
         )}
       />

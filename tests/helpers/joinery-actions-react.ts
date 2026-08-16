@@ -22,7 +22,7 @@
  * are re-exported from the old helper rather than duplicated.
  */
 
-import { expect, type Locator, type Page } from '@playwright/test';
+import { expect, type ElectronApplication, type Locator, type Page } from '@playwright/test';
 import {
   withJoinery,
   type LaunchOptions,
@@ -364,4 +364,115 @@ export async function disconnectServer(window: Page, profileName: string): Promi
   await expect(menu).toBeVisible({ timeout: UI_TIMEOUT_MS });
   await menu.getByTestId('sidebar-menu-disconnect').click();
   await expect(menu).toBeHidden({ timeout: UI_TIMEOUT_MS });
+}
+
+// ── The query tab (Task 10) ─────────────────────────────────────────────────
+//
+// Monaco is a vendor surface, so it is located structurally — `.view-lines`,
+// `.suggest-widget`, `.mtk*` — which is the one exemption PLAN.md's test-hook
+// rule grants ("Vendor internals (`.monaco-editor`, `.ag-*`, Dockview's classes)
+// may be located structurally"). Everything Joinery owns around it has a
+// `query-*` testid.
+
+/** The editor's host element. Monaco's own DOM hangs off it. */
+export function queryEditor(window: Page): Locator {
+  return window.getByTestId('query-editor');
+}
+
+/**
+ * Opens a query tab and waits for Monaco to have painted a line.
+ *
+ * Tolerant of a tab already being open, because connecting can open one itself
+ * (`sidebar.tsx`'s `openQueryForConnection`) — and the sidebar's New Query button
+ * deliberately refuses to open a SECOND tab for a connection that already has one.
+ *
+ * The wait is on `.view-lines`, not on the panel: the panel is behind a lazy
+ * boundary (`shell/workspace/query-panel-host.tsx`), so `query-panel` appearing
+ * means the chunk loaded and Monaco is still mounting.
+ */
+export async function openQueryTab(window: Page): Promise<Locator> {
+  if ((await window.getByTestId('query-panel').count()) === 0) {
+    await window.getByTestId('sidebar-new-query').click();
+  }
+  await expect(window.getByTestId('query-panel')).toBeVisible({ timeout: UI_TIMEOUT_MS });
+  const editor = queryEditor(window);
+  await expect(editor.locator('.view-lines')).toBeVisible({ timeout: UI_TIMEOUT_MS });
+  return editor;
+}
+
+/**
+ * Types SQL into the editor, replacing whatever was there.
+ *
+ * `insertText` rather than `type`: Monaco's auto-indent and bracket completion
+ * rewrite typed input, so a multi-line `type()` produces SQL that is not the SQL
+ * the test asked for. `insertText` arrives as one input event, which Monaco
+ * inserts verbatim.
+ */
+export async function typeSql(window: Page, sql: string): Promise<void> {
+  const editor = await openQueryTab(window);
+  await editor.locator('.view-lines').click();
+  await window.keyboard.press('ControlOrMeta+a');
+  await window.keyboard.insertText(sql);
+  await expect(editor.locator('.view-lines')).toContainText(sql.split('\n')[0]?.trim() ?? '', {
+    timeout: UI_TIMEOUT_MS,
+  });
+}
+
+/**
+ * What the editor is showing, with Monaco's rendering artefacts normalised.
+ *
+ * Monaco renders leading whitespace as `&nbsp;` and only renders the lines in
+ * view, so this is "what the user can see", not "the document".
+ */
+export async function visibleSql(window: Page): Promise<string> {
+  const lines = await queryEditor(window).locator('.view-line').allTextContents();
+  return lines.map(line => line.replace(/\u00a0/g, ' ')).join('\n');
+}
+
+/**
+ * Opens the suggest widget and returns its rows.
+ *
+ * `Control+Space` on every platform, because that is what Monaco binds
+ * `editor.action.triggerSuggest` to on macOS as well. Triggering it explicitly
+ * rather than relying on the provider's `' '` trigger character is deliberate:
+ * `typeSql` uses `insertText`, which arrives as one input event and does not
+ * necessarily run Monaco's per-character trigger logic.
+ */
+export async function suggestions(window: Page): Promise<Locator> {
+  await window.keyboard.press('Control+Space');
+  const widget = queryEditor(window).locator('.suggest-widget.visible');
+  await expect(widget).toBeVisible({ timeout: UI_TIMEOUT_MS });
+  return widget.locator('.monaco-list-row');
+}
+
+/**
+ * Runs the query from the toolbar and waits for the run to finish.
+ *
+ * "Finished" is the executing indicator being gone from the status bar, which is
+ * the store's `running` map emptying — the same source of truth the toolbar's
+ * disabled state reads.
+ */
+export async function executeQuery(window: Page): Promise<void> {
+  await window.getByTestId('query-execute').click();
+  await expect(window.getByTestId('status-executing')).toBeHidden({ timeout: CONNECT_TIMEOUT_MS });
+}
+
+/**
+ * Fires one of the native menu's `menu:*` channels from the main process.
+ *
+ * The only way to reach a menu-only command from this tier. Electron menu
+ * accelerators are handled by the native menu, which CDP-injected keystrokes
+ * never reach, and `Menu.getApplicationMenu()` item clicks would exercise
+ * `menu.ts`'s own wiring rather than the renderer's — that wiring is
+ * `packages/main`'s and is covered there. What this drives is the renderer half:
+ * the channel arrives, `shell/menu-bridge.tsx` maps it to a command id, and the
+ * command bus delivers it. Which is exactly the path a user takes when they pick
+ * Query ▸ Execute Selection.
+ */
+export async function sendMenuCommand(app: ElectronApplication, channel: string): Promise<void> {
+  await app.evaluate(({ BrowserWindow }, name) => {
+    const [window] = BrowserWindow.getAllWindows();
+    if (window === undefined) throw new Error('no BrowserWindow to send a menu command to');
+    window.webContents.send(name);
+  }, channel);
 }

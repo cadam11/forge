@@ -23,6 +23,12 @@
       "packages": ["**"],
       "dependencies": ["eslint", "eslint-config-prettier"],
       "isIgnored": true
+    },
+    {
+      "label": "Editor deps coexist until the Angular renderer is deleted",
+      "packages": ["**"],
+      "dependencies": ["monaco-editor", "sql-formatter"],
+      "isIgnored": true
     }
   ],
   "semverGroups": [

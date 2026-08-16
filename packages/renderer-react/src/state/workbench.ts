@@ -1,8 +1,9 @@
 /**
- * The shell's own geometry: how wide the sidebar is, whether it is collapsed, and how wide the
- * chat side panel is. Conventions: `capabilities.ts`.
+ * The shell's own geometry: how wide the sidebar is, whether it is collapsed, how wide the chat side
+ * panel is, and (since Task 10) how the query tab splits between its editor and its results.
+ * Conventions: `capabilities.ts`.
  *
- * These three values are the ones the Angular shell kept in component signals and wrote to
+ * The first three are the ones the Angular shell kept in component signals and wrote to
  * `AppState` by hand (`shell.component.ts:425-448`), which is why they were the only shell
  * state that survived a restart. They live in a store here for two reasons: the native-menu
  * bridge toggles the sidebar without owning the component that renders it, and the boot
@@ -45,6 +46,21 @@ export const CHAT_PANEL_MIN_WIDTH = 280;
 export const CHAT_PANEL_MAX_WIDTH = 640;
 export const CHAT_PANEL_DEFAULT_WIDTH = 360;
 
+/**
+ * The query tab's editor/results split, as a percentage of the pane. The bounds are the Angular
+ * ones (`query.component.ts:2094`: `Math.max(10, Math.min(90, …))`), and 50 is `AppState`'s own
+ * default (`main/src/services/config/app-state.ts:14`).
+ *
+ * Task 10 added this to the store, and it is the one field here that was persisted but DEAD: main has
+ * had `editorHeightPercent` with a getter and a setter since before the rewrite, while the Angular
+ * query component kept the value in a component signal and never read or wrote `AppState` at all —
+ * so the split reset to 50% on every launch. PLAN.md §1.7 lists the field as state that must
+ * round-trip, so it is hydrated and persisted here with the other three.
+ */
+export const EDITOR_HEIGHT_MIN_PERCENT = 10;
+export const EDITOR_HEIGHT_MAX_PERCENT = 90;
+export const EDITOR_HEIGHT_DEFAULT_PERCENT = 50;
+
 /** One frame is 16ms; 250 collapses a whole drag into one write without feeling lossy. */
 const SAVE_DEBOUNCE_MS = 250;
 
@@ -58,8 +74,10 @@ export interface WorkbenchState {
   readonly sidebarWidth: number;
   readonly sidebarCollapsed: boolean;
   readonly chatPanelWidth: number;
+  /** The query tab's editor/results split. See the constants above for why it is here. */
+  readonly editorHeightPercent: number;
 
-  /** Reads the three fields out of `AppState`. Called once, from the boot sequence. */
+  /** Reads the four fields out of `AppState`. Called once, from the boot sequence. */
   readonly hydrate: () => Promise<void>;
 
   readonly setSidebarWidth: (width: number) => void;
@@ -67,6 +85,8 @@ export interface WorkbenchState {
   readonly toggleSidebar: () => void;
   readonly setSidebarCollapsed: (collapsed: boolean) => void;
   readonly setChatPanelWidth: (width: number) => void;
+  readonly setEditorHeightPercent: (percent: number) => void;
+  readonly resetEditorHeightPercent: () => void;
 }
 
 export type WorkbenchStore = ReturnType<typeof createWorkbenchStore>;
@@ -86,6 +106,7 @@ export function createWorkbenchStore() {
             sidebarWidth: get().sidebarWidth,
             sidebarCollapsed: get().sidebarCollapsed,
             chatPanelWidth: get().chatPanelWidth,
+            editorHeightPercent: get().editorHeightPercent,
           })
           .catch((error: unknown) => diagnostics.error('failed to persist shell geometry', error));
       }, SAVE_DEBOUNCE_MS);
@@ -95,6 +116,7 @@ export function createWorkbenchStore() {
       sidebarWidth: SIDEBAR_DEFAULT_WIDTH,
       sidebarCollapsed: false,
       chatPanelWidth: CHAT_PANEL_DEFAULT_WIDTH,
+      editorHeightPercent: EDITOR_HEIGHT_DEFAULT_PERCENT,
 
       hydrate: async () => {
         if (!isIpcAvailable()) return;
@@ -113,6 +135,12 @@ export function createWorkbenchStore() {
               CHAT_PANEL_MIN_WIDTH,
               CHAT_PANEL_MAX_WIDTH,
               CHAT_PANEL_DEFAULT_WIDTH
+            ),
+            editorHeightPercent: clampWidth(
+              state.editorHeightPercent ?? EDITOR_HEIGHT_DEFAULT_PERCENT,
+              EDITOR_HEIGHT_MIN_PERCENT,
+              EDITOR_HEIGHT_MAX_PERCENT,
+              EDITOR_HEIGHT_DEFAULT_PERCENT
             ),
           });
         } catch (error) {
@@ -148,6 +176,20 @@ export function createWorkbenchStore() {
         set({ chatPanelWidth: next });
         persist();
       },
+
+      setEditorHeightPercent: percent => {
+        const next = clampWidth(
+          percent,
+          EDITOR_HEIGHT_MIN_PERCENT,
+          EDITOR_HEIGHT_MAX_PERCENT,
+          EDITOR_HEIGHT_DEFAULT_PERCENT
+        );
+        if (next === get().editorHeightPercent) return;
+        set({ editorHeightPercent: next });
+        persist();
+      },
+
+      resetEditorHeightPercent: () => get().setEditorHeightPercent(EDITOR_HEIGHT_DEFAULT_PERCENT),
     };
   });
 }

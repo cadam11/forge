@@ -185,6 +185,38 @@
   --color-info: var(--color-fg-muted);
 
   /* ---------------------------------------------------------------------------
+   * Layer 2, code tokens. The six roles PROPOSAL §2.6 names, and the ONE palette
+   * J-37 asks for: the Monaco themes (`src/editor/monaco-themes.ts`) and
+   * markdown's `.hljs-*` rules are both derived from these, so a code fence and
+   * the query editor cannot drift apart.
+   *
+   * The palette is closed (PROPOSAL §2.5: no blue), which leaves three hues and
+   * the neutral ramp for six roles. So hue is spent where a reader scans for it —
+   * keywords, strings, numbers — and the other three roles are separated by
+   * WEIGHT and the neutral ramp instead, which is what markdown.css already does
+   * and what J-37 endorses. Ratios below are measured against --color-canvas,
+   * which is the editor's own background, and every one of them is AA-body:
+   *
+   *              ink                      ivory
+   *   keyword    5.42  oxide-lift         4.93  oxide-deep      (bold)
+   *   string    13.58  chartreuse         4.56  verify-deep
+   *   number     8.14  amber              5.15  amber-deep
+   *   comment    4.94  #85887f            4.86  #666961         (italic)
+   *   function  15.50  fg                15.50  fg              (bold)
+   *   type       8.46  fg-muted           5.82  fg-muted
+   *
+   * `comment` is the one role with hand-picked values rather than an alias: it has
+   * to be dimmer than `type` (which is fg-muted) while still clearing 4.5:1, and
+   * neither fg-subtle qualifies — under ivory it measures 3.65:1.
+   * ------------------------------------------------------------------------- */
+  --color-syntax-keyword: var(--color-j-oxide-lift);
+  --color-syntax-string: var(--color-j-chartreuse);
+  --color-syntax-number: var(--color-j-amber);
+  --color-syntax-comment: #85887f;
+  --color-syntax-function: var(--color-fg);
+  --color-syntax-type: var(--color-fg-muted);
+
+  /* ---------------------------------------------------------------------------
    * Type. PROPOSAL §2.4. The namespace is cleared so the ladder is closed: only
    * these rungs exist, which retires the 21 literal px sizes the audit counted and
    * makes an off-scale `text-4xl` a compile error.
@@ -323,6 +355,14 @@
     --color-warning: var(--color-j-amber-deep); /* 5.15:1 on canvas */
     --color-danger: #a5271b; /* 6.29:1 on canvas */
     --color-info: var(--color-fg-muted); /* still not blue */
+
+    /* Code tokens, ivory. Same six roles, same order as the ink block. */
+    --color-syntax-keyword: var(--color-j-oxide-deep);
+    --color-syntax-string: var(--color-j-verify-deep);
+    --color-syntax-number: var(--color-j-amber-deep);
+    --color-syntax-comment: #666961;
+    --color-syntax-function: var(--color-fg);
+    --color-syntax-type: var(--color-fg-muted);
 
     /* Light mode is the only theme with real elevation (§2.1). */
     --overlay-shadow: 0 8px 32px rgb(23 24 23 / 0.12);

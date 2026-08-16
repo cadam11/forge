@@ -22,15 +22,27 @@
  *
  * ── What is a placeholder, and why ────────────────────────────────────────────────────────
  *
- * The connection segment reads the real stores, so *disconnected* and *connecting* are live. There
- * is no **executing** indicator: it needs a query-execution store that Task 10 owns, and inventing
- * one now would mean a second source of truth for "is a query running" to reconcile later. The
- * **Docker pip** is likewise absent — it is the trigger for the Docker panel, which is Task 19's.
- * Both are recorded as gaps in the Task 7 report rather than faked here.
+ * The connection segment reads the real stores, so *disconnected*, *connecting* and — since Task 10 —
+ * *executing* are all live. The **Docker pip** is still absent: it is the trigger for the Docker panel,
+ * which is Task 19's, and it is recorded as a gap in the Task 7 report rather than faked here.
+ *
+ * The executing indicator reads `queryExecutionStore`, which Task 10 made the single source of truth for
+ * "is a query running" — the same store the query toolbar's spinner and disabled states read. Task 7
+ * deliberately shipped no indicator rather than inventing a second one to reconcile later.
  */
 
 import { useState, type ReactNode } from 'react';
-import { Cloud, CloudOff, Monitor, Moon, RefreshCw, Sparkles, Sun, Terminal } from 'lucide-react';
+import {
+  Cloud,
+  CloudOff,
+  Hourglass,
+  Monitor,
+  Moon,
+  RefreshCw,
+  Sparkles,
+  Sun,
+  Terminal,
+} from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { ThemePreference } from '@joinery/shared';
 
@@ -53,6 +65,11 @@ import {
   useMostRecentConnectionId,
 } from '../state/connection';
 import { chatPanelStore, useChatPanelStore } from '../state/chat';
+import {
+  selectAnyExecuting,
+  selectRunningCount,
+  useQueryExecutionStore,
+} from '../state/query-execution';
 import { logStore, selectErrorCount, useLogStore } from '../state/logs';
 import { selectTabCount, useTabStore } from '../state/tab';
 import { settingsStore, selectTheme, useSettingsStore } from '../state/settings';
@@ -146,6 +163,27 @@ function ThemeMenu() {
  * query tab yet, and on the Welcome tab there is no focus at all — in both cases blanking the bar
  * would be less informative than showing what the user just connected to.
  */
+/**
+ * The running-query indicator, ported from `status-bar.component.ts:78-92`.
+ *
+ * It replaces the connection segment while a query is in flight, which is what the Angular `@else if`
+ * chain did — the bar is 28px and cannot show both, and "a query is running" is the more urgent fact.
+ * The count only appears above one, also as before: "Executing…" for one query, "Executing (3)…" for
+ * three.
+ */
+function ExecutingSegment() {
+  const runningCount = useQueryExecutionStore(selectRunningCount);
+  return (
+    <Segment testId="status-executing" className="text-accent">
+      <Icon icon={Hourglass} size="sm" className="animate-pulse stroke-accent" />
+      {/* No tooltip, unlike the Angular original's `matTooltip="Running N queries"`: `Segment` is a
+          non-interactive div, so a tooltip on it would be reachable by hover and by nothing else. The
+          count is in the label instead, which every user gets. */}
+      <span>Executing{runningCount > 1 ? ` (${runningCount})` : ''}…</span>
+    </Segment>
+  );
+}
+
 function ConnectionSegment() {
   const connectionId = useMostRecentConnectionId();
   const hasAnyConnection = useConnectionStore(selectHasAnyConnection);
@@ -153,6 +191,10 @@ function ConnectionSegment() {
   const profile = useConnectionStore(selectProfileFor(connectionId));
   const database = useConnectionStore(selectSelectedDatabaseFor(connectionId));
   const healthy = useConnectionStore(selectHealthFor(connectionId));
+  const executing = useQueryExecutionStore(selectAnyExecuting);
+
+  // Ordered as the Angular chain was: connecting, then executing, then the connection itself.
+  if (!connecting && executing) return <ExecutingSegment />;
 
   if (connecting) {
     return (

@@ -5,11 +5,11 @@
  * (`app.component.ts:103-127`) rather than an invention:
  *
  * - `hydrateRendererState()` — the first thing the shell does. Runs the one-shot localStorage
- *   migration, reads the sub-object once, and pushes the two pieces a store owns (settings,
- *   welcome-dismissed) into their stores. Everything else it returns, because the surfaces that own
- *   the rest — the snippet library (Task 16), the onboarding tours (Task 19), the query editor's ⌃E
- *   gate and placeholder prompts (Task 10) — do not exist yet, and inventing empty stores for them
- *   now would be three files nothing reads.
+ *   migration, reads the sub-object once, and pushes the pieces a store owns (settings,
+ *   welcome-dismissed, and — since Task 10 — the query editor's ⌃E gate and remembered placeholder
+ *   values) into their stores. What is left it returns, because the surfaces that own the rest — the
+ *   snippet library (Task 16) and the onboarding tours (Task 19) — do not exist yet, and inventing
+ *   empty stores for them now would be two files nothing reads.
  * - `hydrateWorkspace(connectionId)` — after the connection restore, because a persisted tab is
  *   bound to a connection and the Angular original waited for the same reason. Restores the tabs
  *   through the tab store's own `getTabs` path and returns the React layout payload (or `undefined`,
@@ -22,6 +22,7 @@
  */
 
 import type { AppSettings } from '@joinery/shared';
+import { editorPrefsStore, type EditorPrefsStore } from '../state/editor-prefs';
 import { settingsStore, type SettingsStore } from '../state/settings';
 import { tabStore, type TabStore } from '../state/tab';
 import { layoutPersistence, type LayoutPersistence, type ReactLayoutPayload } from './layout';
@@ -42,9 +43,9 @@ export interface HydratedRendererState {
   readonly completedTours: readonly string[];
   /** Task 16 (snippet library). The whole library — this is the data 0.5 was about. */
   readonly snippets: readonly SqlSnippet[];
-  /** Task 10 (query editor): the user has already confirmed the ⌃E execute gate. */
+  /** Now in `features/query/editor-prefs.ts`; still returned so the boot result stays complete. */
   readonly confirmedCtrlEExecute: boolean;
-  /** Task 10 (query editor): remembered Flyway placeholder substitutions. */
+  /** Ditto. Both are hydrated into that store by this function. */
   readonly flywayPlaceholderValues: Readonly<Record<string, string>>;
 }
 
@@ -52,6 +53,7 @@ export interface HydrationDeps {
   readonly persistence?: RendererStatePersistence;
   readonly settings?: SettingsStore;
   readonly tabs?: TabStore;
+  readonly editorPrefs?: EditorPrefsStore;
 }
 
 /**
@@ -65,6 +67,7 @@ export async function hydrateRendererState(
   const persistence = deps.persistence ?? rendererStatePersistence;
   const settings = deps.settings ?? settingsStore;
   const tabs = deps.tabs ?? tabStore;
+  const editorPrefs = deps.editorPrefs ?? editorPrefsStore;
 
   // Migration first, and awaited: everything below reads the state it writes.
   const migration = await migrateLegacyLocalStorage(persistence);
@@ -77,6 +80,14 @@ export async function hydrateRendererState(
   const migrationSettled = migration.outcome !== 'failed' && migration.outcome !== 'unavailable';
   settings.getState().hydrate({ settings: persisted.settings, persistWrites: migrationSettled });
   tabs.getState().hydrateWelcome(persisted.welcomeDismissed ?? false);
+  // The query editor's two preferences. Unconditional, unlike the settings store's gated write path:
+  // this store's writes are gated on ITS OWN `hydrated` flag (`editor-prefs.ts`), so hydrating it is
+  // also what opens them — and a default-valued write before that could not overwrite anything,
+  // because there is nothing else that writes these two fields.
+  editorPrefs.getState().hydrate({
+    confirmedCtrlEExecute: persisted.confirmedCtrlEExecute ?? false,
+    flywayPlaceholderValues: persisted.flywayPlaceholderValues ?? {},
+  });
 
   return {
     migration,

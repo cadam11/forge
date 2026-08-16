@@ -35,10 +35,12 @@
     "marked": "^14.1.4",
     "marked-highlight": "^2.2.4",
     "mermaid": "^11.16.1",
+    "monaco-editor": "0.56.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-hook-form": "^7.85.0",
     "sonner": "^2.0.8",
+    "sql-formatter": "^15.8.2",
     "tailwind-merge": "^3.6.0",
     "zod": "^4.4.3",
     "zustand": "^5.0.15"
