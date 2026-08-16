@@ -47,6 +47,15 @@ export {
   type ContextMenuItemProps,
 } from './context-menu';
 export {
+  CommandOverlay,
+  CommandOverlayEmpty,
+  CommandOverlayGroup,
+  CommandOverlayRow,
+  CommandOverlayRowText,
+  type CommandOverlayProps,
+  type CommandOverlayRowProps,
+} from './command-overlay';
+export {
   Dialog,
   DialogActions,
   DialogBody,
@@ -56,6 +65,7 @@ export {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  type DialogAlign,
   type DialogContentProps,
   type DialogSize,
 } from './dialog';
