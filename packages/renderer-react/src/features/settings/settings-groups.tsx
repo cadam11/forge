@@ -289,6 +289,21 @@ const EXECUTE_SCOPES: readonly { readonly value: ExecuteScope; readonly label: s
   { value: 'currentStatement', label: 'The statement at the caret' },
 ];
 
+/**
+ * Radix hands `onValueChange` a `string`, and the two selects below feed it straight into a store action
+ * typed to a union. A cast there is a lie the compiler cannot catch: a renamed `ExecuteScope` member, or a
+ * `SelectItem` with a typo'd `value`, would write a value nothing downstream handles and the panel would
+ * keep showing whatever it wrote. So the precondition is checked at runtime, against the same constant
+ * array the options are rendered from — there is no second list to keep in sync.
+ */
+function asExecuteScope(value: string): ExecuteScope {
+  const scope = EXECUTE_SCOPES.find(candidate => candidate.value === value);
+  if (scope === undefined) {
+    throw new Error(`[settings] not an execute scope: ${JSON.stringify(value)}`);
+  }
+  return scope.value;
+}
+
 export function QueryGroup() {
   const query: AppSettings['query'] = useSettingsStore(selectQuerySettings);
   const update = settingsStore.getState().updateQuerySetting;
@@ -316,7 +331,7 @@ export function QueryGroup() {
           label="Execute runs"
           hint="With text selected, Execute always runs the selection."
           value={query.executeScope}
-          onValueChange={value => update('executeScope', value as ExecuteScope)}
+          onValueChange={value => update('executeScope', asExecuteScope(value))}
           className="max-w-72"
         >
           {EXECUTE_SCOPES.map(scope => (
@@ -367,6 +382,15 @@ const COPY_FORMATS: readonly { readonly value: CopyFormat; readonly label: strin
   { value: 'json', label: 'JSON' },
 ];
 
+/** The same precondition as `asExecuteScope`, for the copy format. */
+function asCopyFormat(value: string): CopyFormat {
+  const format = COPY_FORMATS.find(candidate => candidate.value === value);
+  if (format === undefined) {
+    throw new Error(`[settings] not a copy format: ${JSON.stringify(value)}`);
+  }
+  return format.value;
+}
+
 export function GridGroup() {
   const grid: AppSettings['grid'] = useSettingsStore(selectGridSettings);
   const update = settingsStore.getState().updateGridSetting;
@@ -414,7 +438,7 @@ export function GridGroup() {
           label="Copy format"
           hint="Used by the results Copy button. The Export menu always offers all three."
           value={grid.copyFormat}
-          onValueChange={value => update('copyFormat', value as CopyFormat)}
+          onValueChange={value => update('copyFormat', asCopyFormat(value))}
           className="max-w-96"
         >
           {COPY_FORMATS.map(format => (
