@@ -27,7 +27,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 
 import type { ErdLayout, ErdLayoutNode } from './erd-layout';
 import {
-  clampZoom,
+  centreOnNode,
   cullChanged,
   fitTransform,
   IDENTITY,
@@ -267,15 +267,11 @@ export function useErdViewport(layout: Pick<ErdLayout, 'width' | 'height'>): Erd
   const centreOn = useCallback(
     (node: ErdLayoutNode) => {
       adjusted.current = true;
-      const k = clampZoom(Math.max(liveRef.current.k, 1));
-      apply({
-        k,
-        x: viewport.width / 2 - (node.x + node.width / 2) * k,
-        y: viewport.height / 2 - (node.y + node.height / 2) * k,
-      });
+      // Never zoom OUT to centre a node: revealing one is not a reason to shrink the diagram.
+      apply(centreOnNode(node, viewport, Math.max(liveRef.current.k, 1)));
       publish();
     },
-    [apply, publish, viewport.height, viewport.width]
+    [apply, publish, viewport]
   );
 
   return {
