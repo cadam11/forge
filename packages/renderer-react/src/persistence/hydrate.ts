@@ -95,19 +95,27 @@ export interface WorkspaceHydrationDeps {
 }
 
 /**
- * Restores the saved tabs, reads the saved React layout, and — last — opens the two persistence
- * gates. **This function is the restore-before-save contract.**
+ * Restores the saved tabs, reads the saved React layout, and — last — opens the **tab** write
+ * gate. **This function is half of the restore-before-save contract**; `shell/boot.ts`'s
+ * `markRestoreApplied` is the other half.
  *
- * ── Why the unlock lives here ─────────────────────────────────────────────────────────────
+ * ── Why the tab unlock lives here and the layout unlock does not ──────────────────────────
  *
  * `tabStore.saveTabs` and `layoutPersistence.save` both refuse to write until they are unlocked,
- * and this is the only caller of either unlock. So "no tab or layout write may fire before the
- * restore has completed" is not a rule the shell has to remember: it is the shape of the code.
- * A component that saves too early gets a no-op instead of overwriting the user's saved SQL with
- * an empty list. `TabStoreState.unlockPersistence` documents the loss in full.
+ * so "no tab or layout write may fire before the restore has completed" is not a rule the shell
+ * has to remember: it is the shape of the code. A component that saves too early gets a no-op
+ * instead of overwriting the user's saved SQL with an empty list.
+ * `TabStoreState.unlockPersistence` documents the loss in full.
  *
- * The two unlocks are the last statements, after both awaits, and nothing between them can
- * throw — `restoreTabs` and `layout.read()` each catch and report their own failures, which is
+ * The two gates become safe at *different moments*, though, which is why only one of them opens
+ * here. The tab list is restored BY this function, so its gate can open on the last line. The
+ * layout is only READ here — `shell/workspace/workspace.tsx` applies the arrangement an effect and
+ * a debounce tick later — so the layout gate is opened by `bootStore.markRestoreApplied()`, i.e.
+ * by the workspace, once it has actually applied what was read. Opening it here left a window in
+ * which Dockview's own initial (empty) arrangement could be saved over the user's.
+ *
+ * The unlock is the last statement, after both awaits, and nothing before it can throw —
+ * `restoreTabs` and `layout.read()` each catch and report their own failures, which is
  * what makes "restored, or tried and reported" the only state this function returns in.
  *
  * ── Why `connectionId` is nullable now ────────────────────────────────────────────────────
@@ -132,7 +140,6 @@ export async function hydrateWorkspace(
   const payload = await layout.read();
 
   tabs.getState().unlockPersistence();
-  layout.unlock();
 
   return payload;
 }

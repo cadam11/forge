@@ -585,20 +585,44 @@ export function createTabStore(persistence: RendererStatePersistence = rendererS
         }
       },
 
+      /**
+       * Puts the saved tabs back. **Merges — it does not replace.**
+       *
+       * The window is interactive before this runs (`shell/boot.ts` step 4: the session reconnect is
+       * awaited first and a dead saved server holds it for a whole connect timeout), so by the time
+       * the saved tabs arrive the user may already have opened a tab and typed a query into it.
+       * Replacing the list — which is what this did, keeping only the Welcome tab — vaporized that
+       * work, and it vaporized it silently: `contentMap` still held the text, but with no tab
+       * referencing it nothing could ever show or save it again.
+       *
+       * So a live tab wins over a restored one with the same id, live tabs keep their positions, and
+       * the restored ones are appended. The saved `activeTabId` is honoured only while the user has
+       * opened nothing of their own — otherwise the restore would yank focus out of the editor they
+       * are typing in, which is the same loss in a milder form.
+       */
       restoreTabs: async connectionId => {
         if (!isIpcAvailable()) return;
         try {
           const { tabs: savedTabs, activeTabId } = await ipc().app.getTabs();
           if (savedTabs.length === 0) return;
 
-          const restored: Tab[] = savedTabs.map(t => {
+          const live = get().tabs;
+          const liveIds = new Set(live.map(t => t.id));
+
+          const restored: Tab[] = [];
+          for (const t of savedTabs) {
             const id = t.id || `tab-${crypto.randomUUID()}`;
+            // The live tab is the one the user can see and has touched; the saved copy is by
+            // definition older. Skipped before the content maps are written, so the restore cannot
+            // overwrite live editor text either.
+            if (liveIds.has(id)) continue;
+
             if (t.type === 'query') {
               // Baseline AND live content, so a restored tab starts clean.
               cleanContentMap.set(id, t.content ?? '');
               contentMap.set(id, t.content ?? '');
             }
-            return {
+            restored.push({
               id,
               type: t.type as TabType,
               title: t.title,
@@ -608,13 +632,17 @@ export function createTabStore(persistence: RendererStatePersistence = rendererS
               content: t.content,
               isDirty: false,
               isPinned: t.isPinned,
-            };
-          });
+            });
+          }
 
-          const existingWelcome = get().tabs.find(t => t.type === 'welcome');
-          const tabs = existingWelcome ? [existingWelcome, ...restored] : restored;
+          const tabs = [...live, ...restored];
+          // "The user has done nothing yet" is: every live tab is the Welcome tab this store adds
+          // itself. Anything else means they opened it during the restore window.
+          const userOpenedSomething = live.some(t => t.type !== 'welcome');
           const nextActive =
-            activeTabId && tabs.some(t => t.id === activeTabId) ? activeTabId : get().activeTabId;
+            !userOpenedSomething && activeTabId && tabs.some(t => t.id === activeTabId)
+              ? activeTabId
+              : get().activeTabId;
           set({ tabs, activeTabId: nextActive });
         } catch (error) {
           diagnostics.error('failed to restore tabs', error);

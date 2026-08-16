@@ -114,9 +114,11 @@ export interface LayoutPersistence {
   /** Persists a React layout, archiving an Angular one on the way past. */
   save(payload: ReactLayoutPayload): Promise<LayoutWriteResult>;
   /**
-   * Opens the write path. Called exactly once, by `hydrate.ts`'s `hydrateWorkspace`, after the
-   * restore has finished — the same gate `tabStore.unlockPersistence` opens, for the same
-   * reason, at the other of the two write paths startup can race.
+   * Opens the write path. Called by `shell/boot.ts`'s `markRestoreApplied` — that is, by the
+   * workspace, at the moment it has APPLIED the restored arrangement, not when `hydrateWorkspace`
+   * read it. (It used to be the latter, which left the arrangement unapplied for an effect and a
+   * debounce tick with the gate already open.) Same gate as `tabStore.unlockPersistence`, for the
+   * same reason, at the other of the two write paths startup can race.
    *
    * The layout half is the cheaper loss of the two (a window arrangement, not the user's SQL)
    * but it is the likelier one: Dockview fires `onDidLayoutChange` while it builds its initial

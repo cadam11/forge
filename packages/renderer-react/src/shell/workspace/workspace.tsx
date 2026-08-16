@@ -192,6 +192,11 @@ export function Workspace() {
     // Marking it applied in the boot store rather than in a local ref: React may re-run this
     // effect after a StrictMode remount with the same restore payload, and re-applying a layout
     // would discard whatever the user has done since.
+    //
+    // This call also OPENS THE LAYOUT WRITE GATE (`boot.ts:markRestoreApplied` →
+    // `layoutPersistence.unlock`), which is why it is the statement immediately after the apply and
+    // why nothing may be inserted between them: until it runs, `scheduleSave` below is a no-op, and
+    // that is what stops Dockview's own initial empty arrangement from being saved over the user's.
     useBootStore.getState().markRestoreApplied();
   }, [ready, restore]);
 

@@ -20,6 +20,17 @@
  * Here the shell does not render until the stores are hydrated; the connection restore continues
  * behind a live UI, which is what the per-connection status indicators are for.
  *
+ * **3. The window between `interactive` and `restore-workspace` is real, and the restore has to
+ * survive it.** Step 4 awaits `connectionStore.restoreState()` — actual reconnects, so a saved
+ * server that is now unreachable holds this step for a full connect timeout — while the user already
+ * has a usable window. They can open a tab and type a query into it before the saved tabs arrive.
+ * The restore therefore MERGES: `tabStore.restoreTabs` keeps live tabs (and their content and their
+ * focus) and appends the restored ones. The alternative — hold `interactive` until the workspace is
+ * restored — was rejected because it would put the startup spinner in front of the user for the
+ * length of a dead server's connect timeout and because a merge protects any future caller of
+ * `restoreTabs`, whereas an ordering only protects this one. See `state/tab.ts:restoreTabs` and the
+ * survival test in `boot.spec.ts`.
+ *
  * ── Why a store and a plain async function, rather than a hook ─────────────────────────────
  *
  * The ordering IS the contract, so it is a function whose statements are in order and whose steps
@@ -28,7 +39,13 @@
  */
 
 import { create } from 'zustand';
-import { hydrateRendererState, hydrateWorkspace, type ReactLayoutPayload } from '../persistence';
+import {
+  hydrateRendererState,
+  hydrateWorkspace,
+  layoutPersistence,
+  type LayoutPersistence,
+  type ReactLayoutPayload,
+} from '../persistence';
 import { connectionStore, type ConnectionStore } from '../state/connection';
 import { diagnostics } from '../state/diagnostics';
 import { workbenchStore, type WorkbenchStore } from '../state/workbench';
@@ -80,6 +97,10 @@ export interface BootState {
   readonly setPhase: (phase: BootPhase) => void;
   readonly setLastStep: (step: BootStep) => void;
   readonly setWorkspaceRestore: (layout: ReactLayoutPayload | undefined) => void;
+  /**
+   * The workspace has consumed the restored arrangement. **This is also what opens the layout
+   * write gate** — see `createBootStore`.
+   */
   readonly markRestoreApplied: () => void;
   /** Puts the store back to its pre-boot state. Tests only. */
   readonly reset: () => void;
@@ -87,22 +108,42 @@ export interface BootState {
 
 export type BootStore = ReturnType<typeof createBootStore>;
 
-export function createBootStore() {
-  return create<BootState>()(set => ({
+/**
+ * `layout` is injected so a test can watch the gate. The default is the module singleton the
+ * workspace saves through.
+ *
+ * ── Why the layout gate opens HERE and not in `hydrateWorkspace` ───────────────────────────
+ *
+ * It used to open as `hydrateWorkspace`'s last statement, next to the tab gate. The two gates do not
+ * become safe at the same moment, though: the tab list is restored *by* that function, but the saved
+ * arrangement is only READ there — `workspace.tsx` applies it one effect (and one 500ms debounce
+ * tick) later. Between those two moments Dockview is live, `onDidLayoutChange` is subscribed, and the
+ * dock still holds whatever it built for itself, so an unlocked gate meant the empty arrangement
+ * could be written over the saved one. Opening it from `markRestoreApplied` makes the gate mean
+ * "restored", which is what `LayoutPersistence.unlock`'s comment always claimed it meant.
+ */
+export function createBootStore(options: { readonly layout?: LayoutPersistence } = {}) {
+  const layout = options.layout ?? layoutPersistence;
+
+  return create<BootState>()((set, get) => ({
     phase: 'starting',
     workspaceRestore: PENDING_RESTORE,
     lastStep: null,
 
     setPhase: phase => set({ phase }),
     setLastStep: step => set({ lastStep: step }),
-    setWorkspaceRestore: layout =>
-      set({ workspaceRestore: { status: 'restored', layout, applied: false } }),
-    markRestoreApplied: () =>
-      set(state =>
-        state.workspaceRestore.status === 'restored'
-          ? { workspaceRestore: { ...state.workspaceRestore, applied: true } }
-          : {}
-      ),
+    setWorkspaceRestore: layoutPayload =>
+      set({ workspaceRestore: { status: 'restored', layout: layoutPayload, applied: false } }),
+    markRestoreApplied: () => {
+      // Nothing to apply means nothing to unlock: a caller that runs before the restore payload
+      // arrived must not be able to open the gate by mistake.
+      const restore = get().workspaceRestore;
+      if (restore.status !== 'restored') return;
+      set({ workspaceRestore: { ...restore, applied: true } });
+      // The one side effect in this store, and it is stated at its call site in `workspace.tsx`
+      // too. `unlock` is idempotent, so a second apply costs nothing.
+      layout.unlock();
+    },
     reset: () => set({ phase: 'starting', workspaceRestore: PENDING_RESTORE, lastStep: null }),
   }));
 }

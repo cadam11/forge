@@ -11,10 +11,15 @@
  *    finished.** This is the Angular-parity hazard the brief calls binding — `saveTabs` serializes
  *    every query tab's SQL, so one early write over an unrestored store destroys the user's work
  *    with no second copy. The test drives the real stores and the real persistence, and checks the
- *    gates at each step rather than trusting the sequence.
+ *    gates at each step rather than trusting the sequence. The two gates open at different moments
+ *    (tabs when `hydrateWorkspace` returns, layout when the workspace has APPLIED the arrangement)
+ *    and both moments are asserted.
+ * 3. **A tab the user opens while the reconnect is still running survives the restore.** The window
+ *    is interactive before the workspace is restored, on purpose, so the restore merges rather than
+ *    replaces. Third `describe` below.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installJoineryMock, removeJoineryMock } from '../test/joinery-mock';
 import { createAppStateDouble, type AppStateDouble } from '../test/app-state-double';
 import { setDiagnosticsSink } from '../state/diagnostics';
@@ -192,14 +197,16 @@ describe('the restore-before-save contract', () => {
       'select * from payroll'
     );
     expect(tabs.getState().isPersistenceUnlocked()).toBe(true);
-    expect(layout.isUnlocked()).toBe(true);
+    // The LAYOUT gate is still shut here: the arrangement has only been read, not applied. See the
+    // layout-gate test below.
+    expect(layout.isUnlocked()).toBe(false);
 
     // And a write after the restore keeps the content rather than dropping it.
     await tabs.getState().saveTabs();
     expect((await seeded.app.getTabs()).tabs[0]?.content).toBe('select * from payroll');
   });
 
-  it('opens the gates even when there is no connection to restore tabs against', async () => {
+  it('opens the tab gate even when there is no connection to restore tabs against', async () => {
     // The Angular renderer skipped the restore entirely in this case, which under a gate would mean
     // tabs silently stop persisting for the whole session.
     const tabs = createTabStore(createRendererStatePersistence());
@@ -208,6 +215,30 @@ describe('the restore-before-save contract', () => {
     await hydrateWorkspace(null, { tabs, layout });
 
     expect(tabs.getState().isPersistenceUnlocked()).toBe(true);
+  });
+
+  it('opens the layout gate when the workspace applies the arrangement, not when it is read', async () => {
+    // The two gates guard different moments. `hydrateWorkspace` only READS the arrangement;
+    // `workspace.tsx` applies it an effect and a 500ms debounce later, and Dockview's
+    // `onDidLayoutChange` is already subscribed to its own initial empty state by then. So the gate
+    // is opened by the apply — `markRestoreApplied` — and nothing before it can write.
+    const layout = createLayoutPersistence(createRendererStatePersistence());
+    const boot = createBootStore({ layout });
+
+    await hydrateWorkspace(null, {
+      tabs: createTabStore(createRendererStatePersistence()),
+      layout,
+    });
+    expect(layout.isUnlocked()).toBe(false);
+
+    // Still shut while there is nothing to apply: a caller that runs early cannot open it.
+    boot.getState().markRestoreApplied();
+    expect(layout.isUnlocked()).toBe(false);
+
+    boot.getState().setWorkspaceRestore(undefined);
+    boot.getState().markRestoreApplied();
+
+    expect(boot.getState().workspaceRestore.applied).toBe(true);
     expect(layout.isUnlocked()).toBe(true);
   });
 
@@ -220,5 +251,119 @@ describe('the restore-before-save contract', () => {
     await tabs.getState().saveTabs();
 
     expect(bridge.calls.saveTabs).toBeGreaterThan(0);
+  });
+});
+
+describe('the pre-restore interactive window', () => {
+  /**
+   * The sequence this reproduces, which is the one a user with a saved connection that has since gone
+   * away actually gets:
+   *
+   *   interactive  →  restoreState() blocks on a dead server's connect timeout  →  the user, looking
+   *   at a usable window, opens a query tab and types  →  the reconnect finally fails  →  the
+   *   workspace restore runs.
+   *
+   * Before the merge, that last step REPLACED the tab list with the saved one and the user's tab and
+   * everything they had typed into it were gone with no error, no toast and no recoverable copy.
+   */
+  async function bootWithSlowReconnect(tabs: ReturnType<typeof createTabStore>) {
+    let releaseReconnect = (): void => undefined;
+    const reconnectReached = new Promise<void>(resolve => {
+      releaseReconnect = resolve;
+    });
+
+    const layout = createLayoutPersistence(createRendererStatePersistence());
+    const boot = createBootStore({ layout });
+    const connection = {
+      getState: () => ({
+        connectedProfileIds: new Set<string>(),
+        loadProfiles: async () => undefined,
+        // A dead saved server: the reconnect hangs for its connect timeout and then fails.
+        restoreState: async () => {
+          await reconnectReached;
+          throw new Error('connect ETIMEDOUT');
+        },
+      }),
+    } as never;
+
+    const booted = runBoot({
+      boot,
+      connection,
+      workbench: createWorkbenchStore(),
+      restoreWorkspace: connectionId => hydrateWorkspace(connectionId, { tabs, layout }),
+    });
+
+    // The window is interactive while the reconnect is still outstanding — that IS the window.
+    await vi.waitFor(() => expect(boot.getState().phase).toBe('interactive'));
+    expect(boot.getState().lastStep).toBe('interactive');
+
+    return { boot, booted, releaseReconnect };
+  }
+
+  it('keeps the tab the user opened and typed into while the reconnect was still running', async () => {
+    const seeded = createAppStateDouble();
+    await seeded.app.saveTabs(
+      [{ id: 'tab-saved', type: 'query', title: 'Saved', content: 'select * from payroll' }],
+      'tab-saved'
+    );
+    removeJoineryMock();
+    teardowns.push(installJoineryMock({ app: seeded.app }));
+
+    const tabs = createTabStore(createRendererStatePersistence());
+    tabs.getState().hydrateWelcome(false);
+    const { boot, booted, releaseReconnect } = await bootWithSlowReconnect(tabs);
+
+    // What an interactive window invites: a new tab, and typing in it.
+    const userTabId = tabs.getState().openQueryTab('profile-a', 'analytics', '', false, false);
+    tabs.getState().renameTab(userTabId, 'Scratch');
+    tabs.getState().setTabContent(userTabId, 'select 1 -- typed during the restore window');
+
+    releaseReconnect();
+    await booted;
+
+    expect(boot.getState().lastStep).toBe('ready');
+
+    const titles = tabs.getState().tabs.map(tab => tab.title);
+    // The user's tab, its content, and its focus.
+    expect(titles).toContain('Scratch');
+    expect(tabs.getState().getTabContent(userTabId)).toBe(
+      'select 1 -- typed during the restore window'
+    );
+    expect(tabs.getState().activeTabId).toBe(userTabId);
+    // And the restore still happened — a merge, not a skip.
+    expect(titles).toContain('Saved');
+    expect(tabs.getState().getTabContent('tab-saved')).toBe('select * from payroll');
+
+    // The first write after the gate opens carries BOTH, which is what makes the survival durable
+    // rather than momentary.
+    await tabs.getState().saveTabs();
+    const persisted = await seeded.app.getTabs();
+    expect(persisted.tabs.map(tab => tab.title).sort()).toEqual(['Saved', 'Scratch']);
+  });
+
+  it('still honours the saved active tab when the user did nothing during the window', async () => {
+    // The other half of the focus rule: with no live tab but Welcome, the saved `activeTabId` wins,
+    // which is the returning-user behaviour the restore is for.
+    const seeded = createAppStateDouble();
+    await seeded.app.saveTabs(
+      [
+        { id: 'tab-a', type: 'query', title: 'A', content: 'select 1' },
+        { id: 'tab-b', type: 'query', title: 'B', content: 'select 2' },
+      ],
+      'tab-b'
+    );
+    removeJoineryMock();
+    teardowns.push(installJoineryMock({ app: seeded.app }));
+
+    const tabs = createTabStore(createRendererStatePersistence());
+    tabs.getState().hydrateWelcome(false);
+    const { booted, releaseReconnect } = await bootWithSlowReconnect(tabs);
+
+    releaseReconnect();
+    await booted;
+
+    expect(tabs.getState().activeTabId).toBe('tab-b');
+    // Welcome first, then the restored pair, in saved order.
+    expect(tabs.getState().tabs.map(tab => tab.type)).toEqual(['welcome', 'query', 'query']);
   });
 });
