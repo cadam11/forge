@@ -56,7 +56,12 @@ describe('the AG Grid module registry', () => {
   it('is the same instance the grid uses, with every community module on it', () => {
     const { unmount } = render(
       <TooltipProvider>
-        <ResultsGrid resultSet={RESULT_SET} tabId="tab-1" />
+        <ResultsGrid
+          resultSet={RESULT_SET}
+          tabId="tab-1"
+          resultIndex={0}
+          onRowOpen={() => undefined}
+        />
       </TooltipProvider>
     );
 

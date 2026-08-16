@@ -190,6 +190,20 @@ export interface CommandPayloads {
 
   /** Producer: the palette. Consumer: the snippet library. */
   'open-snippets': void;
+
+  // ── The query tab's sub-panels (Task 14) ───────────────────────────────────────────────────
+  //
+  // One command, because one of the three surfaces needs a keyboard path that is not a click on the
+  // thing itself: the row inspector opens on a row the user has to be able to name without a mouse.
+  // The result-history panel and the connection chip are a result tab and a toolbar control, so
+  // their affordance IS their surface and a command for them would be a second producer for a
+  // channel whose consumer is the same component.
+
+  /**
+   * Open the row-detail rail on the focused (else selected, else first) row of the active tab's
+   * grid. Also the double-click handler's own path, so both routes land in one place.
+   */
+  'results-row-open': void;
 }
 
 export type CommandId = keyof CommandPayloads;
@@ -297,6 +311,11 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
     'Task 16 shortcuts cheatsheet. Producers: Task 7 shell shortcut, Task 16 palette.',
   'open-object-search': 'Task 16 object search. Producer: Task 16 palette.',
   'open-snippets': 'Task 16 snippet library. Producer: Task 16 palette.',
+
+  'results-row-open':
+    'Task 11/14 results grid (it owns the displayed order, so it assembles the payload the rail ' +
+    'needs and claims the command only for the ACTIVE tab — the same guard export-results uses). ' +
+    'Producers: the results toolbar’s Inspect button and a double-click on a row.',
 };
 
 /** Every registered id, for tests and for the palette's "is this wired?" assertion in Task 16. */
