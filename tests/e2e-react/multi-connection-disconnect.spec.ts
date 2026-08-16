@@ -16,12 +16,14 @@
  * argument, by design) — which is exactly why they are still asserted from the outside.
  */
 
-import { expect, test, type Page } from '@playwright/test';
+import { type Page } from '@playwright/test';
+import { expect, test } from './fixtures';
 import {
   connectFromSidebar,
+  createPostgresProfile,
+  createPostgresProfiles,
   disconnectServer,
   ensureJoineryTestSeeded,
-  seedPostgresProfiles,
   serverRow,
   serverRows,
   withJoineryReact,
@@ -33,7 +35,7 @@ test.beforeAll(ensureJoineryTestSeeded);
 
 /** All three profiles seeded once, then connected in order so `PG-Three` is the focused one. */
 async function connectAllThree(window: Page): Promise<void> {
-  await seedPostgresProfiles(window, PROFILES);
+  await createPostgresProfiles(window, PROFILES);
   for (const profileName of PROFILES) {
     await connectFromSidebar(window, profileName);
   }
@@ -73,7 +75,7 @@ test.describe('Joinery (React) — multi-connection disconnect', () => {
 
   test('disconnecting the last connection returns the explorer to its empty state', async () => {
     await withJoineryReact(async ({ window }) => {
-      await seedPostgresProfiles(window, ['PG-One']);
+      await createPostgresProfile(window, 'PG-One');
       await connectFromSidebar(window, 'PG-One');
 
       await disconnectServer(window, 'PG-One');

@@ -14,12 +14,12 @@
  * statement anyone could make about it.
  */
 
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import {
-  connectFromSidebar,
+  createPostgresProfile,
   ensureJoineryTestSeeded,
   expandTreeRow,
-  seedPostgresProfiles,
+  connectFromSidebar,
   selectDatabase,
   serverRows,
   treeRow,
@@ -36,7 +36,7 @@ test.beforeAll(ensureJoineryTestSeeded);
 test.describe('Joinery (React) — explorer tree', () => {
   test('lazily reveals schemas, folders and the seeded tables', async () => {
     await withJoineryReact(async ({ window }) => {
-      await seedPostgresProfiles(window, [PROFILE]);
+      await createPostgresProfile(window, PROFILE);
       await connectFromSidebar(window, PROFILE);
 
       // Connecting adds the server node and expands it, so its databases are the first level
@@ -68,7 +68,7 @@ test.describe('Joinery (React) — explorer tree', () => {
 
   test('expands a table into its columns, indexes, keys, constraints and triggers', async () => {
     await withJoineryReact(async ({ window }) => {
-      await seedPostgresProfiles(window, [PROFILE]);
+      await createPostgresProfile(window, PROFILE);
       await connectFromSidebar(window, PROFILE);
       await selectDatabase(window, 'joinery_test');
 
@@ -93,7 +93,7 @@ test.describe('Joinery (React) — explorer tree', () => {
 
   test('double-clicking a table opens its object tab', async () => {
     await withJoineryReact(async ({ window }) => {
-      await seedPostgresProfiles(window, [PROFILE]);
+      await createPostgresProfile(window, PROFILE);
       await connectFromSidebar(window, PROFILE);
 
       await expandTreeRow(window, PROFILE);
@@ -111,7 +111,7 @@ test.describe('Joinery (React) — explorer tree', () => {
 
   test('offers the table context menu and refuses nothing on a capable engine', async () => {
     await withJoineryReact(async ({ window }) => {
-      await seedPostgresProfiles(window, [PROFILE]);
+      await createPostgresProfile(window, PROFILE);
       await connectFromSidebar(window, PROFILE);
 
       await expandTreeRow(window, PROFILE);
