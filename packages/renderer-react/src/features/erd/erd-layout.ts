@@ -95,7 +95,14 @@ export function erdNodeRows(node: ErdNode): readonly ErdRow[] {
   );
 
   const keys = [...primaryKeys, ...foreignKeys];
-  const shown = keys.slice(0, MAX_NODE_ROWS - (keys.length > MAX_NODE_ROWS ? 1 : 0));
+
+  // The "+N more" row costs a slot, so the slot has to be reserved whenever one will be pushed —
+  // which is whenever ANY column goes unnamed, not only when the keys alone overflow. Reserving on
+  // `keys.length > MAX_NODE_ROWS` alone put 14 rows in a 13-row box for a table with exactly
+  // MAX_NODE_ROWS keys and one further column: the keys all fit, so no slot was kept, and then the
+  // count row was pushed anyway and painted through the bottom edge.
+  const willCount = keys.length > MAX_NODE_ROWS || node.fields.length > keys.length;
+  const shown = keys.slice(0, MAX_NODE_ROWS - (willCount ? 1 : 0));
   const rows: ErdRow[] = shown.map(field => ({
     kind: field.isPrimaryKey ? 'pk' : 'fk',
     fieldId: field.id,
@@ -106,6 +113,9 @@ export function erdNodeRows(node: ErdNode): readonly ErdRow[] {
 
   const hidden = node.fields.length - shown.length;
   if (hidden > 0) rows.push({ kind: 'more', hidden });
+
+  // The invariant the reserved slot buys: never more rows than the box drawn by `erdNodeHeight` has.
+  if (rows.length > MAX_NODE_ROWS) throw new Error(`erdNodeRows overflowed for ${node.id}`);
   return rows;
 }
 

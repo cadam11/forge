@@ -107,6 +107,31 @@ describe('erdNodeRows', () => {
     expect(rows.at(-1)).toEqual({ kind: 'more', hidden: keys.length - (MAX_NODE_ROWS - 1) });
   });
 
+  it('reserves the count slot at exactly the row budget, so the box never overflows by one', () => {
+    // The boundary the first implementation got wrong: keys.length === MAX_NODE_ROWS is not >
+    // MAX_NODE_ROWS, so no slot was reserved — and then the one non-key column pushed a 14th row
+    // into a box `erdNodeHeight` draws 13 rows tall.
+    const keys = Array.from({ length: MAX_NODE_ROWS }, (_value, index) =>
+      field({ name: `k${index}`, isPrimaryKey: true })
+    );
+    const rows = erdNodeRows(table('dbo.edge', [...keys, field({ name: 'note' })]));
+
+    expect(rows).toHaveLength(MAX_NODE_ROWS);
+    // One key gave up its slot, so two columns go unnamed: that key and `note`.
+    expect(rows.at(-1)).toEqual({ kind: 'more', hidden: 2 });
+    expect(erdNodeHeight(rows.length)).toBeLessThanOrEqual(MAX_NODE_HEIGHT);
+  });
+
+  it('keeps every key when the keys exactly fill the budget and nothing else is hidden', () => {
+    const keys = Array.from({ length: MAX_NODE_ROWS }, (_value, index) =>
+      field({ name: `k${index}`, isPrimaryKey: true })
+    );
+    const rows = erdNodeRows(table('dbo.exact', keys));
+
+    expect(rows).toHaveLength(MAX_NODE_ROWS);
+    expect(rows.every(row => row.kind === 'pk')).toBe(true);
+  });
+
   it('carries the FK target name, for the diagram to label a row with', () => {
     const rows = erdNodeRows(SEEDED[3] as ErdNode);
     const fk = rows.find(row => row.kind === 'fk');
