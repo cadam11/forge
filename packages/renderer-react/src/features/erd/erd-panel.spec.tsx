@@ -62,13 +62,12 @@ const KEYS: Record<string, readonly ForeignKeyInfo[]> = {
   ],
 };
 
-interface Bridge {
+/** What the fake bridge was asked, and one switch for making it fail. Reset in `beforeEach`. */
+const bridge: {
   readonly childrenPaths: string[];
   readonly columnCalls: string[];
-  readonly failColumns: boolean;
-}
-
-const bridge: Bridge & { failColumns: boolean } = {
+  failColumns: boolean;
+} = {
   childrenPaths: [],
   columnCalls: [],
   failColumns: false,
