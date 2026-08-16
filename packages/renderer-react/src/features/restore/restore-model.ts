@@ -182,6 +182,28 @@ export function engineRestoreOptions(engine: DatabaseEngine): EngineRestoreOptio
  * `'unknown'` is the fail-safe: the database list has not loaded, or the call failed, so Joinery
  * cannot prove the target is new. It is treated as an overwrite, because being asked to confirm a
  * restore into an empty database costs a sentence and the other mistake costs a database.
+ *
+ * ── The limit, and what each engine does when it is hit ──────────────────────────────────────
+ *
+ * `databases` was fetched when the dialog opened, so another client creating the target between that
+ * fetch and the submit leaves this answering `'create'` for a database that now exists — and the
+ * wizard therefore skips the confirmation. Asking main again at submit time would not close it:
+ * `MetadataService` caches the database list for 60 seconds (J-51 item d). So the window is real, and
+ * what happens inside it is **not** the same on all three engines:
+ *
+ *  - **PostgreSQL fails safe.** The plan says `createsTarget`, so `database.create` runs first and
+ *    answers `{ success: false }` for a name that is already taken (`database.ipc.ts:43-50`). The
+ *    dialog reports that as a failure and **no restore is attempted**; nothing is written.
+ *  - **MSSQL fails safe.** `createsTarget` is never set, and `RESTORE DATABASE` without `WITH REPLACE`
+ *    is refused by the server for an existing database. `restoreProblem` also blocks the submit as
+ *    soon as the list says the name exists, so the only way through is with the list stale — and then
+ *    the server is the one that says no.
+ *  - **MySQL does NOT.** `mysql-backup.ts:243-262` pipes `CREATE DATABASE IF NOT EXISTS` ahead of the
+ *    dump, so a target that appeared during the window is simply written into — the dump's statements
+ *    replay over whatever is already in it, **with no confirmation ever shown**. Closing this needs
+ *    an atomic answer from `packages/main` (a create-or-fail, or a "does this exist" read that is not
+ *    cached), which is why it is stated here rather than papered over: this file cannot make the
+ *    renderer's snapshot atomic.
  */
 export type TargetKind = 'create' | 'overwrite' | 'unknown';
 
@@ -313,8 +335,17 @@ export function changedRelocations(relocations: readonly Relocation[]): Relocati
  * A transcription of `TsqlBuilder.restore` (`packages/main/src/utils/tsql-builder.ts:149-185`),
  * including the `STATS = 5` the user never chose and the `RECOVERY` the builder emits whether or not
  * anything was ticked. Duplication rather than an import, because the renderer may not import from
- * `packages/main`; `restore-model.spec.ts` pins it against the clauses that file emits, so a drift is
- * a test failure rather than a silently wrong preview.
+ * `packages/main`.
+ *
+ * **What the spec around this actually guards, precisely:** `restore-model.spec.ts` pins *this
+ * function's* output — the clauses, their order, the quoting and the escaping — against the strings
+ * that were read out of `tsql-builder.ts:149-185` when this was written. So an edit to this file that
+ * changes the preview fails a test. **Nothing here detects a change to `tsql-builder.ts` itself**:
+ * the spec has no access to that file, does not import it, and derives nothing from it. If the main
+ * process starts emitting `STATS = 10`, or drops the implicit `RECOVERY`, this preview goes quietly
+ * wrong and the suite stays green until somebody re-reads both files. A real drift alarm would need a
+ * test that imports the builder (or a fixture generated from it), which this task may not add —
+ * `packages/main` and the shared package are out of scope. Recorded in the task report as such.
  */
 export function restoreTsql(values: RestoreFormValues, relocations: readonly Relocation[]): string {
   const target = values.targetDatabase.trim();
