@@ -305,10 +305,10 @@ export function QueryPanel(props: IDockviewPanelProps) {
       />
 
       <QueryToolbar
+        tabId={tabId}
         executing={executing}
         resultsHidden={resultsHidden}
         connectionName={profile?.name ?? null}
-        databaseName={tab?.databaseName ?? null}
         onExecute={execute}
         onCancel={cancel}
         onFormat={format}

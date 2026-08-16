@@ -143,15 +143,26 @@ function setGridSettings(grid: Partial<AppSettings['grid']>): void {
   });
 }
 
+/** Rows the row-detail rail was opened on, in order. Task 14's seam through this component. */
+const opened: { rowIndex: number; row: Record<string, unknown>; totalRows: number }[] = [];
+
 function mount(set: ResultSet = resultSet()): { unmount: () => void } {
   return render(
     <TooltipProvider>
-      <ResultsGrid resultSet={set} tabId={TAB_ID} />
+      <ResultsGrid
+        resultSet={set}
+        tabId={TAB_ID}
+        resultIndex={0}
+        onRowOpen={target =>
+          opened.push({ rowIndex: target.rowIndex, row: target.row, totalRows: target.totalRows })
+        }
+      />
     </TooltipProvider>
   );
 }
 
 beforeEach(() => {
+  opened.length = 0;
   grid.props = null;
   grid.renders = 0;
   grid.selected = [];

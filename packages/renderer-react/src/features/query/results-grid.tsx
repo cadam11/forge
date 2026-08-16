@@ -6,9 +6,11 @@
  * `ModuleRegistry`, `onGridReady`, cell classes), so this is a port, not a rewrite. What did NOT come
  * across, and where it went:
  *
- *  - the **FK preview popover** and the **cell-value preview panel** → Task 14 (row detail + FK
- *    preview, PLAN.md §4 line 454). The data those need is already here: `cell-fk` is applied to the
- *    right cells and `headerTooltipFor` records the reference.
+ *  - the **FK preview popover** and the **cell-value preview panel** → Task 14's row-detail rail,
+ *    which this file now OPENS and does not otherwise know about: `onRowOpen` hands over the clicked
+ *    row, the columns, and a `DisplayedRows` accessor over the grid's own displayed order. The data
+ *    it needs was already here — `cell-fk` is applied to the right cells and `headerTooltipFor`
+ *    records the reference.
  *  - the **column statistics panel** → nothing in PLAN.md or this brief claims it. It is a parity gap
  *    on purpose rather than by accident, recorded in the task report for a ticket of its own.
  *  - the **cell context menu** (copy cell / copy row as JSON / copy as INSERT / filter by value) →
@@ -59,11 +61,12 @@ import {
   FileCode2,
   FileJson,
   FileSpreadsheet,
+  Rows3,
   X,
 } from 'lucide-react';
 import type { CopyFormat, ExportFormat, ResultSet } from '@joinery/shared';
 
-import { useCommand } from '../../commands';
+import { dispatchCommand, useCommand } from '../../commands';
 import { ipc, isIpcAvailable } from '../../ipc';
 import { diagnostics, notify } from '../../state/diagnostics';
 import { selectEffectiveTheme, selectGridSettings, useSettingsStore } from '../../state/settings';
@@ -89,6 +92,7 @@ import {
   buildColumnDefs,
   isDataColumnId,
 } from './grid-columns';
+import type { DisplayedRows, RowDetailTarget } from './row-detail-panel';
 import {
   buildClipboardText,
   copyScopeLabel,
@@ -161,9 +165,24 @@ export interface ResultsGridProps {
   readonly resultSet: ResultSet;
   /** Which tab this grid belongs to, so File ▸ Export Results can ask whether that tab is active. */
   readonly tabId: string;
+  /**
+   * Which result set of the batch this is. Travels with an opened row so the rail can tell whether
+   * the grid it belongs to is still the one on screen — see `query-results.tsx`.
+   */
+  readonly resultIndex: number;
+  /**
+   * Opens the row-detail rail on one row. The payload is assembled here because the grid is the only
+   * thing that knows the DISPLAYED order; everything else about the rail is `query-results.tsx`'s.
+   */
+  readonly onRowOpen: (target: RowDetailTarget) => void;
 }
 
-export const ResultsGrid = memo(function ResultsGrid({ resultSet, tabId }: ResultsGridProps) {
+export const ResultsGrid = memo(function ResultsGrid({
+  resultSet,
+  tabId,
+  resultIndex,
+  onRowOpen,
+}: ResultsGridProps) {
   const gridSettings = useSettingsStore(selectGridSettings);
   const theme = useSettingsStore(selectEffectiveTheme);
 
@@ -377,6 +396,86 @@ export const ResultsGrid = memo(function ResultsGrid({ resultSet, tabId }: Resul
     exportResults('csv');
   });
 
+  /**
+   * The grid's displayed order, as two bounded reads.
+   *
+   * Built once per mount and closing over the api REF rather than the api, so it stays valid while
+   * the grid lives and answers honestly once it does not: `isDestroyed()` is checked on every call,
+   * because a rail can outlive its grid by a frame when a new result lands. `getDisplayedRowAtIndex`
+   * is AG Grid's own post-sort, post-filter accessor — the same one `results-grid.component.ts` used
+   * (`getDisplayedRowAt`), and the reason Next/Previous cannot fall back to `resultSet.rows[N]`.
+   */
+  const displayedOrder = useMemo<DisplayedRows>(
+    () => ({
+      count: () => {
+        const grid = api.current;
+        if (grid === null || grid.isDestroyed()) return 0;
+        return grid.getDisplayedRowCount();
+      },
+      at: index => {
+        const grid = api.current;
+        if (grid === null || grid.isDestroyed() || index < 0) return null;
+        const node = grid.getDisplayedRowAtIndex(index);
+        return (node?.data as Record<string, unknown> | undefined) ?? null;
+      },
+    }),
+    []
+  );
+
+  /**
+   * Open the rail on a displayed row.
+   *
+   * **Double-click, not click.** Angular opened the drawer from `onCellSelected`
+   * (`query.component.ts:2226`), i.e. from any single click on any cell — which fought with the two
+   * other things a single click means in this grid: dragging out a text selection (`enableCellTextSelection`
+   * is on, and Edit ▸ Copy honours a real selection) and ticking a row for a multi-row copy. A modal
+   * drawer appearing when a user starts a drag is the kind of thing nobody reports and everybody
+   * works around. Double-click is unclaimed here, and the command is the discoverable path.
+   */
+  const openRow = useCallback(
+    (rowIndex: number | null | undefined, row: Record<string, unknown> | undefined): void => {
+      if (rowIndex === null || rowIndex === undefined || row === undefined) return;
+      onRowOpen({
+        rowIndex,
+        row,
+        columns: resultSet.columns,
+        totalRows: displayedOrder.count(),
+        resultIndex,
+        source: displayedOrder,
+      });
+    },
+    [displayedOrder, onRowOpen, resultIndex, resultSet.columns]
+  );
+
+  /**
+   * Results ▸ Inspect Row. Claimed by the ACTIVE tab's grid, the same guard File ▸ Export Results
+   * uses — and it opens the focused row, or the first selected one, or the first displayed one, in
+   * that order, so the command works with the keyboard alone.
+   */
+  useCommand('results-row-open', () => {
+    if (tabStore.getState().activeTabId !== tabId) return;
+    const grid = api.current;
+    if (grid === null || grid.isDestroyed()) return;
+
+    const focused = grid.getFocusedCell();
+    if (focused !== null && focused !== undefined) {
+      const node = grid.getDisplayedRowAtIndex(focused.rowIndex);
+      openRow(focused.rowIndex, node?.data as Record<string, unknown> | undefined);
+      return;
+    }
+    const [selected] = grid.getSelectedNodes();
+    if (selected !== undefined) {
+      openRow(selected.rowIndex, selected.data as Record<string, unknown> | undefined);
+      return;
+    }
+    const first = grid.getDisplayedRowAtIndex(0);
+    if (first === undefined) {
+      notify.info('No rows to inspect');
+      return;
+    }
+    openRow(0, first.data as Record<string, unknown> | undefined);
+  });
+
   const clearFilter = useCallback(() => setFilterText(''), []);
 
   const copyHint = `Copy selected (${keyHint('C')})`;
@@ -469,6 +568,16 @@ export const ResultsGrid = memo(function ResultsGrid({ resultSet, tabId }: Resul
             aria-label="Fit columns to their contents"
             data-testid="results-autosize"
             onClick={autoSizeColumns}
+          />
+        </Tooltip>
+
+        <Tooltip content="Inspect the focused row">
+          <ToolbarButton
+            iconOnly
+            leadingIcon={Rows3}
+            aria-label="Inspect the focused row"
+            data-testid="results-inspect-row"
+            onClick={() => dispatchCommand('results-row-open')}
           />
         </Tooltip>
 
@@ -570,6 +679,9 @@ export const ResultsGrid = memo(function ResultsGrid({ resultSet, tabId }: Resul
           onSortChanged={refreshOrdinals}
           onFilterChanged={refreshOrdinals}
           onSelectionChanged={() => setSelectedCount(api.current?.getSelectedRows().length ?? 0)}
+          onRowDoubleClicked={event =>
+            openRow(event.rowIndex, event.data as Record<string, unknown> | undefined)
+          }
         />
 
         {/* A query that succeeded and matched nothing is not an error, and an empty grid with a header

@@ -14,10 +14,9 @@
  * producer for a channel whose consumer is the very component rendering the button.
  *
  * Not here, with the task that owns each:
- *  - the **connection chip** (`features/query/…` in Task 14) — this renders a read-only context line
- *    instead, so the tab still says which server and database it will run against;
  *  - **query history** (Task 19's dialog; the Angular version was a 320px in-tab sidebar, which
- *    PLAN.md §1.4 replaces);
+ *    PLAN.md §1.4 replaces). Note that RESULT history — snapshots of what a query returned — is a
+ *    different surface and does exist, as a tab in the results pane (Task 14);
  *  - **execution plan** and **export/copy results** (Tasks 19 and 11);
  *  - the **SQL dialect converter** — the Angular toolbar's `translate` menu over `query.convertSql`.
  *    No task in PLAN.md's Phase B claims it; recorded as an unowned surface in the Task 10 report
@@ -44,13 +43,20 @@ import {
   Tooltip,
 } from '../../ui';
 import { keyHint } from '../../utils/platform';
+import { ConnectionContextChip } from './connection-context-chip';
 
 export interface QueryToolbarProps {
+  /** Whose toolbar this is. The chip resolves the tab's own connection and database from it. */
+  readonly tabId: string;
   readonly executing: boolean;
   readonly resultsHidden: boolean;
-  /** Null when the tab has no connection — the execute button is disabled and says why. */
+  /**
+   * Null when the tab has no connection, which is the one thing the toolbar itself needs to know:
+   * Execute is disabled without one. The chip reads the same resolution from the tab
+   * (`query-context.ts`), so the database is no longer a prop here — it was only ever rendered by the
+   * read-only line the chip replaced.
+   */
   readonly connectionName: string | null;
-  readonly databaseName: string | null;
   readonly onExecute: () => void;
   readonly onCancel: () => void;
   readonly onFormat: () => void;
@@ -61,10 +67,10 @@ export interface QueryToolbarProps {
 }
 
 export function QueryToolbar({
+  tabId,
   executing,
   resultsHidden,
   connectionName,
-  databaseName,
   onExecute,
   onCancel,
   onFormat,
@@ -107,13 +113,9 @@ export function QueryToolbar({
 
       <ToolbarSeparator />
 
-      {/* Read-only until Task 14's chip replaces it. Mono, because these are identifiers. */}
-      <p
-        data-testid="query-context"
-        className="min-w-0 truncate font-mono text-2xs tracking-eyebrow text-fg-muted uppercase"
-      >
-        {connectionName ?? 'no connection'} · {databaseName ?? 'no database'}
-      </p>
+      {/* Task 14's chip, which renders the same string the read-only line here used to — including
+          its `query-context` testid. `formatQueryContext` is the one copy of that expression now. */}
+      <ConnectionContextChip tabId={tabId} />
 
       <ToolbarSpacer />
 
