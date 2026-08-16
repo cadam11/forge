@@ -86,7 +86,9 @@ export function Markdown({
   onOpenLink = openInDefaultBrowser,
 }: MarkdownProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [copyError, setCopyError] = useState('');
+  // Named for what it holds rather than for the first thing that filled it: both click actions
+  // — copying a code block and opening a link — report here.
+  const [actionError, setActionError] = useState('');
   const [diagramError, setDiagramError] = useState('');
 
   const html = useMemo(() => {
@@ -114,7 +116,7 @@ export function Markdown({
         try {
           await onOpenLink(href);
         } catch (error) {
-          setCopyError(`Could not open link: ${messageFor(error)}`);
+          setActionError(`Could not open link: ${messageFor(error)}`);
         }
         return;
       }
@@ -124,11 +126,11 @@ export function Markdown({
         return;
       }
       const code = button.closest('pre')?.querySelector('code')?.textContent ?? '';
-      setCopyError('');
+      setActionError('');
       try {
         await navigator.clipboard.writeText(code);
       } catch (error) {
-        setCopyError(`Copy failed: ${messageFor(error)}`);
+        setActionError(`Copy failed: ${messageFor(error)}`);
       }
     },
     [onOpenLink]
@@ -178,7 +180,7 @@ export function Markdown({
   }, [enableMermaid, html, mermaidTheme]);
 
   // Both errors, so a copy failure cannot mask a diagram failure.
-  const errors = [copyError, diagramError].filter(message => message !== '');
+  const errors = [actionError, diagramError].filter(message => message !== '');
 
   return (
     <div className={cn('flex min-w-0 flex-col gap-1', className)} data-testid={testId}>
