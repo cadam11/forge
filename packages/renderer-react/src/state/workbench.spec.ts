@@ -1,6 +1,6 @@
 /**
  * Shell geometry: the three `AppState` fields that made the Angular sidebar the only piece of shell
- * state that survived a restart.
+ * state that survived a restart, plus the fourth that Task 10 brought back to life.
  *
  * Two things are worth asserting. The **clamp**, because the values come off disk and a hand-edited
  * or stale width must not produce a sidebar wider than the window or narrower than its own content.
@@ -16,6 +16,9 @@ import { createAppStateDouble, type AppStateDouble } from '../test/app-state-dou
 import { setDiagnosticsSink } from './diagnostics';
 import {
   CHAT_PANEL_DEFAULT_WIDTH,
+  EDITOR_HEIGHT_DEFAULT_PERCENT,
+  EDITOR_HEIGHT_MAX_PERCENT,
+  EDITOR_HEIGHT_MIN_PERCENT,
   SIDEBAR_DEFAULT_WIDTH,
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
@@ -60,6 +63,7 @@ describe('the workbench store', () => {
     expect(workbench.getState().sidebarWidth).toBe(SIDEBAR_DEFAULT_WIDTH);
     expect(workbench.getState().sidebarCollapsed).toBe(false);
     expect(workbench.getState().chatPanelWidth).toBe(CHAT_PANEL_DEFAULT_WIDTH);
+    expect(workbench.getState().editorHeightPercent).toBe(EDITOR_HEIGHT_DEFAULT_PERCENT);
   });
 
   it('hydrates from AppState, clamping what it finds', async () => {
@@ -150,5 +154,55 @@ describe('the workbench store', () => {
     vi.advanceTimersByTime(250);
 
     expect(workbench.getState().sidebarCollapsed).toBe(true);
+  });
+
+  describe('the query tab’s editor/results split (Task 10)', () => {
+    // This field has existed in `AppState` — with a getter and a setter in main — since before the
+    // rewrite, while the Angular query component kept the split in a component signal and never read or
+    // wrote it. So the split reset to 50% on every launch. PLAN.md §1.7 lists it as state that must
+    // round-trip, and these are the assertions that make that true.
+    it('hydrates the persisted percentage', async () => {
+      const seeded = createAppStateDouble({ editorHeightPercent: 72 } as never);
+      removeJoineryMock();
+      teardowns.push(installJoineryMock({ app: seeded.app }));
+      const workbench = createWorkbenchStore();
+
+      await workbench.getState().hydrate();
+
+      expect(workbench.getState().editorHeightPercent).toBe(72);
+    });
+
+    it('clamps a percentage that would leave one pane unusable', async () => {
+      const seeded = createAppStateDouble({ editorHeightPercent: 99 } as never);
+      removeJoineryMock();
+      teardowns.push(installJoineryMock({ app: seeded.app }));
+      const workbench = createWorkbenchStore();
+
+      await workbench.getState().hydrate();
+
+      expect(workbench.getState().editorHeightPercent).toBe(EDITOR_HEIGHT_MAX_PERCENT);
+    });
+
+    it('clamps and persists a set, debounced with the other three fields', () => {
+      const workbench = createWorkbenchStore();
+
+      workbench.getState().setEditorHeightPercent(1);
+      expect(workbench.getState().editorHeightPercent).toBe(EDITOR_HEIGHT_MIN_PERCENT);
+
+      workbench.getState().setEditorHeightPercent(65);
+      vi.advanceTimersByTime(250);
+
+      // One write for the pair, and it carries all four fields — `app.setState` is a shallow top-level
+      // merge, so sending them together cannot disturb the React sub-object beside them.
+      expect(bridge.calls.setState).toBe(1);
+      expect(bridge.snapshot().editorHeightPercent).toBe(65);
+    });
+
+    it('resets to the middle', () => {
+      const workbench = createWorkbenchStore();
+      workbench.getState().setEditorHeightPercent(80);
+      workbench.getState().resetEditorHeightPercent();
+      expect(workbench.getState().editorHeightPercent).toBe(EDITOR_HEIGHT_DEFAULT_PERCENT);
+    });
   });
 });

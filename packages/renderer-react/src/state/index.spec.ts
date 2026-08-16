@@ -64,6 +64,8 @@ describe('the state barrel', () => {
       state.connectionStore,
       state.queryHistoryStore,
       state.queryResultsStore,
+      state.queryExecutionStore,
+      state.editorPrefsStore,
       state.aiStore,
       state.chatPanelStore,
       state.settingsStore,

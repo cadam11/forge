@@ -147,4 +147,85 @@ describe('the resize handle', () => {
     view.unmount();
     expect(document.body.style.userSelect).toBe('');
   });
+
+  describe('the horizontal orientation (Task 10)', () => {
+    // The query tab's editor/results split. Same ARIA pattern, perpendicular axis, and a value that is a
+    // PERCENTAGE rather than pixels — which is what `unitsPerPixel` is for.
+    const SPLIT = {
+      label: 'Editor height',
+      testId: 'split',
+      min: 10,
+      max: 90,
+      value: 50,
+      step: 2,
+      orientation: 'horizontal',
+      edge: 'leading',
+    } as const;
+
+    it('reports itself as a horizontal separator', () => {
+      render(<ResizeHandle {...SPLIT} onChange={vi.fn()} />);
+      const handle = screen.getByTestId('split');
+      expect(handle.getAttribute('role')).toBe('separator');
+      // ARIA describes the SEPARATOR, not the axis it moves along, and the two are perpendicular.
+      expect(handle.getAttribute('aria-orientation')).toBe('horizontal');
+      expect(handle.getAttribute('aria-valuenow')).toBe('50');
+    });
+
+    it('nudges with the up and down arrows instead of left and right', async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(<ResizeHandle {...SPLIT} onChange={onChange} />);
+      const handle = screen.getByTestId('split');
+      handle.focus();
+
+      await user.keyboard('{ArrowDown}');
+      expect(onChange).toHaveBeenLastCalledWith(52);
+      await user.keyboard('{ArrowUp}');
+      expect(onChange).toHaveBeenLastCalledWith(48);
+
+      // And the horizontal keys do nothing at all, so they still reach the shell.
+      onChange.mockClear();
+      await user.keyboard('{ArrowLeft}{ArrowRight}');
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it('honours Home and End on the same axis', async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(<ResizeHandle {...SPLIT} onChange={onChange} />);
+      screen.getByTestId('split').focus();
+
+      await user.keyboard('{Home}');
+      expect(onChange).toHaveBeenLastCalledWith(10);
+      await user.keyboard('{End}');
+      expect(onChange).toHaveBeenLastCalledWith(90);
+    });
+
+    it('converts a pixel drag into value units through unitsPerPixel', () => {
+      // 100/400 means one pixel of drag is a quarter of a percent, so a 40px drag is +10.
+      const onChange = vi.fn();
+      render(<ResizeHandle {...SPLIT} onChange={onChange} unitsPerPixel={() => 100 / 400} />);
+      const handle = screen.getByTestId('split');
+
+      handle.dispatchEvent(
+        new MouseEvent('pointerdown', { bubbles: true, button: 0, clientY: 100 })
+      );
+      handle.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientY: 140 }));
+
+      expect(onChange).toHaveBeenLastCalledWith(60);
+    });
+
+    it('defaults to one unit per pixel, which is what the shell splits pass', () => {
+      const onChange = vi.fn();
+      render(<ResizeHandle {...BASE} edge="leading" onChange={onChange} />);
+      const handle = screen.getByTestId('handle');
+
+      handle.dispatchEvent(
+        new MouseEvent('pointerdown', { bubbles: true, button: 0, clientX: 100 })
+      );
+      handle.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientX: 130 }));
+
+      expect(onChange).toHaveBeenLastCalledWith(310);
+    });
+  });
 });
