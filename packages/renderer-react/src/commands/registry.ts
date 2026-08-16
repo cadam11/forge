@@ -294,7 +294,10 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
   'execute-query': 'Task 10 query editor.',
   'execute-selection': 'Task 10 query editor.',
   'cancel-query': 'Task 10 query editor.',
-  'open-query-history': 'Task 19 query-history dialog.',
+  'open-query-history':
+    'Task 19a features/query-history/QueryHistoryHost, mounted by the shell — NOT by the query tab, ' +
+    'because the dialog opens a new query tab and ⇧⌘H has to work with none in front of it. ' +
+    'Producers: the native menu bridge (Query ▸ History) and the Task 16 palette.',
 
   'disconnect-connection': 'Task 7 shell (connectionStore.disconnect on the focused connection).',
   'refresh-explorer':

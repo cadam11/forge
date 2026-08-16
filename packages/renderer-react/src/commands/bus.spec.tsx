@@ -13,6 +13,7 @@ import { CommandPalette } from '../features/command-palette';
 import { ConnectionDialogs } from '../features/connections';
 import { ObjectSearch } from '../features/object-search';
 import { QueryCommands } from '../features/query/query-commands';
+import { QueryHistoryHost } from '../features/query-history';
 import { RestoreDialogs } from '../features/restore';
 import { SettingsDialog } from '../features/settings';
 import { ShortcutsDialog } from '../features/shortcuts-dialog';
@@ -76,6 +77,7 @@ function renderProductionWiring(): void {
         <ShellCommands />
         <ChatCommands />
         <AiSetupHost />
+        <QueryHistoryHost />
         <StatusBar />
         <ConnectionDialogs />
         <BackupDialogs />
@@ -195,8 +197,9 @@ describe('command ownership', () => {
     // query editor when a query tab is active, the shell otherwise) and `cursor-position` (the status
     // bar consumes, the editor produces). 31 → 35 across Task 16 (four ids gained their FIRST handler,
     // none moved) → 36 across Task 17 (one new id, one moved owner) → 37 across Task 19a's
-    // `AiSetupHost` (`open-ai-setup`, new).
-    expect(COMMAND_IDS.filter(id => handlerCount(id) > 0)).toHaveLength(37);
+    // `AiSetupHost` (`open-ai-setup`, new) and `QueryHistoryHost`
+    // (`open-query-history`, previously registered-but-unowned) → 38.
+    expect(COMMAND_IDS.filter(id => handlerCount(id) > 0)).toHaveLength(38);
   });
 });
 

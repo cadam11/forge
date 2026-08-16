@@ -14,13 +14,11 @@
  * producer for a channel whose consumer is the very component rendering the button.
  *
  * Not here, with the task that owns each:
- *  - **query history** (Task 19's dialog; the Angular version was a 320px in-tab sidebar, which
- *    PLAN.md §1.4 replaces). Note that RESULT history — snapshots of what a query returned — is a
- *    different surface and does exist, as a tab in the results pane (Task 14);
- *  - **execution plan** and **export/copy results** (Tasks 19 and 11);
- *  - the **SQL dialect converter** — the Angular toolbar's `translate` menu over `query.convertSql`.
- *    No task in PLAN.md's Phase B claims it; recorded as an unowned surface in the Task 10 report
- *    rather than smuggled in here.
+ *  - **query history** (Task 19a's `features/query-history` dialog, reached by ⇧⌘H and the palette;
+ *    the Angular version was a 320px in-tab sidebar, which PLAN.md §1.4 replaces). Note that RESULT
+ *    history — snapshots of what a query returned — is a different surface and does exist, as a tab in
+ *    the results pane (Task 14);
+ *  - **execution plan** and **export/copy results** (Tasks 19b and 11).
  */
 
 import {

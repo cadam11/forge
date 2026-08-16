@@ -42,6 +42,7 @@ import { ErdCommands } from '../features/erd';
 import { CommandPalette } from '../features/command-palette';
 import { ConnectionDialogs } from '../features/connections';
 import { ObjectSearch } from '../features/object-search';
+import { QueryHistoryHost } from '../features/query-history';
 import { RestoreDialogs } from '../features/restore';
 import { SettingsDialog } from '../features/settings';
 import { ShortcutsDialog } from '../features/shortcuts-dialog';
@@ -247,6 +248,10 @@ function ShellFrame() {
           query-assist read real settings from startup instead of from `DEFAULT_AI_SETTINGS` until
           somebody happened to open the assistant.
 
+          `QueryHistoryHost` is Task 19a's `open-query-history` (⇧⌘H), here for the ERD reason again: the
+          dialog's whole job is to open a new query tab, so a handler inside the query tab would have made
+          the menu item conditional on already having one.
+
           The four Task 16 surfaces are the same arrangement, and three of them own a keystroke of
           their own as well as a command — ⌘K/⇧⌘P for the palette, ⌘P for the object search, ⌥⌘S for the
           snippet library — because no menu item has those accelerators (`commands/catalogue.ts`). The
@@ -257,6 +262,7 @@ function ShellFrame() {
       <ChatCommands />
       <ErdCommands />
       <AiSetupHost />
+      <QueryHistoryHost />
       <ConnectionDialogs />
       <BackupDialogs />
       <RestoreDialogs />
