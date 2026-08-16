@@ -26,7 +26,9 @@ import { describe, expect, it } from 'vitest';
 
 import MENU_SOURCE from '../../../main/src/menu.ts?raw';
 import PRELOAD_SOURCE from '../../../preload/src/index.ts?raw';
+import { SURFACE_SHORTCUTS } from '../features/command-palette/palette-actions';
 import { MENU_COMMANDS } from '../shell/menu-bridge';
+import type { PayloadlessCommandId } from './bus';
 import {
   COMMAND_CATALOGUE,
   COMMAND_GROUPS,
@@ -36,6 +38,7 @@ import {
   formatAccelerator,
   paletteCommandIds,
   type AcceleratorKeys,
+  type CatalogueEntry,
 } from './catalogue';
 import { COMMAND_IDS, type CommandId } from './registry';
 
@@ -207,50 +210,230 @@ describe('every accelerator in the catalogue is the one the main process registe
     expect(liars).toEqual([]);
   });
 
-  it('keeps the renderer-owned keys off every registered accelerator', () => {
+  it('keeps every renderer-owned key off every registered accelerator', () => {
     // The Angular snippet library's ⇧⌘S sat on File ▸ Save Query As, so Electron fired the menu item
     // and the library's own keydown never ran. Any renderer-owned key that collides with a REGISTERED
     // accelerator is dead on arrival, and this is what catches the next one.
-    const registered = new Set(
-      [...MENU_ACCELERATORS.values()]
-        .flat()
-        .flatMap(keys => (typeof keys === 'string' ? [keys] : [keys.mac, keys.other]))
-        .map(normalizeAccelerator)
+    //
+    // "Registered" is the union of THREE sources, and the guard was blind to two of them until this
+    // round: the accelerators `menu.ts` spells out, the ones its `role:` items imply (Electron binds
+    // ⌘R, ⌘M, ⌥⌘I … without the word `accelerator` appearing anywhere), and the surface shortcuts this
+    // package owns itself. All five renderer-owned keystrokes in the app are checked against the lot.
+    const collisions = RENDERER_OWNED_KEYS.filter(owned =>
+      owned.forms.some(form => REGISTERED_KEYS.has(form))
     );
-    // ⌘E and ⌘A are `registerAccelerator: false`, so they are NOT registered and are legal to bind.
-    registered.delete(normalizeAccelerator('CmdOrCtrl+E'));
-    registered.delete(normalizeAccelerator('CmdOrCtrl+A'));
 
-    const collisions = COMMAND_IDS.filter(id => {
-      const accelerator = COMMAND_CATALOGUE[id].accelerator;
-      if (accelerator === null || accelerator.source !== 'renderer') return false;
-      const forms = declaredKeys(id).flatMap(keys =>
-        typeof keys === 'string' ? [keys] : [keys.mac, keys.other]
-      );
-      return forms.map(normalizeAccelerator).some(form => registered.has(form));
-    });
+    expect(collisions.map(owned => owned.owner)).toEqual([]);
+  });
 
-    expect(collisions).toEqual([]);
+  it('gives each of the five renderer-owned keystrokes to exactly one owner', () => {
+    // The other collision that kills a keystroke: two renderer surfaces claiming it. Both listeners
+    // run, so the loser is whichever `preventDefault`s second — a bug with no error anywhere.
+    expect(RENDERER_OWNED_KEYS.map(owned => owned.owner).sort()).toEqual([
+      'open-object-search',
+      'open-snippets',
+      'surface: Command palette',
+      'surface: Command palette',
+      'toggle-output-panel',
+    ]);
+
+    const byForm = new Map<string, string[]>();
+    for (const owned of RENDERER_OWNED_KEYS) {
+      for (const form of owned.forms) {
+        byForm.set(form, [...(byForm.get(form) ?? []), owned.owner]);
+      }
+    }
+    const shared = [...byForm.entries()].filter(([, owners]) => owners.length > 1);
+    expect(shared).toEqual([]);
+    // Five keystrokes on macOS — ⌘J, ⌘P, ⌥⌘S, ⌘K, ⇧⌘P — and the count is asserted so a key that
+    // silently disappears from the app is a failure rather than a shorter list.
+    expect(new Set([...byForm.keys()].filter(form => form.includes('cmdorctrl'))).size).toBe(5);
   });
 });
 
-/** `Cmd+Shift+S` and `CmdOrCtrl+Shift+S` are the same keystroke on macOS. Compare them as one. */
+/**
+ * `Cmd+Shift+S` and `CmdOrCtrl+Shift+S` are the same keystroke on macOS. Compare them as one.
+ *
+ * The parts are **sorted** as well as spelled one way, because the two sides of these comparisons are
+ * written by different hands: Electron's own role accelerators read `Alt+Cmd+I` while this package
+ * spells the same shape `Cmd+Option+S`. A modifier set is unordered to the OS, so it is unordered
+ * here; the loss is that a differently-ordered spelling of the same keystroke compares equal, which is
+ * the correct answer.
+ */
 function normalizeAccelerator(keys: string): string {
   return keys
     .split('+')
     .map(part => (part === 'Cmd' || part === 'Command' ? 'CmdOrCtrl' : part))
     .map(part => (part === 'Option' ? 'Alt' : part))
-    .join('+')
-    .toLowerCase();
+    .map(part => part.toLowerCase())
+    .sort()
+    .join('+');
 }
 
+/** Every spelling of one key spec, normalized — a split accelerator contributes both branches. */
+function keyForms(keys: readonly AcceleratorKeys[]): string[] {
+  return keys
+    .flatMap(entry => (typeof entry === 'string' ? [entry] : [entry.mac, entry.other]))
+    .map(normalizeAccelerator);
+}
+
+// ── What Electron actually binds ─────────────────────────────────────────────────────────────
+
+/**
+ * The accelerator each `role:` in `menu.ts` implies, because a role carries one WITHOUT the word
+ * `accelerator` appearing in the source — which is exactly how the previous version of the collision
+ * guard managed to be blind to ⌘R, ⌘Q, ⌘M and ⌥⌘I.
+ *
+ * Values are Electron's defaults for the roles this app uses (both platforms where they differ), from
+ * the Menu roles documentation. The table is checked for coverage below: every role `menu.ts` mentions
+ * must appear here, so adding `role: 'print'` to the menu fails this spec until its keystroke is
+ * declared, rather than silently killing a renderer key.
+ */
+const ROLE_ACCELERATORS: Record<string, readonly string[]> = {
+  about: [],
+  services: [],
+  hide: ['Cmd+H'],
+  hideOthers: ['Cmd+Alt+H'],
+  unhide: [],
+  quit: ['CmdOrCtrl+Q'],
+  undo: ['CmdOrCtrl+Z'],
+  redo: ['CmdOrCtrl+Shift+Z', 'Ctrl+Y'],
+  cut: ['CmdOrCtrl+X'],
+  // `menu.ts` uses a custom Copy item (so the renderer can claim ⌘C for the grid) and only mentions
+  // `role: 'copy'` in the comment explaining that. Declared anyway: the coverage scan below reads the
+  // source as text, and a role named in a comment today can be a real item tomorrow.
+  copy: ['CmdOrCtrl+C'],
+  paste: ['CmdOrCtrl+V'],
+  // Edit ▸ Delete is the Delete key itself, which Electron does not register as an accelerator.
+  delete: [],
+  // `menu.ts:134-138` overrides this role with `registerAccelerator: false`, so ⌘A is SHOWN in the menu
+  // and bound by Monaco — the one role in this table whose keystroke is deliberately not registered.
+  selectAll: [],
+  resetZoom: ['CmdOrCtrl+0'],
+  zoomIn: ['CmdOrCtrl+Plus', 'CmdOrCtrl+Shift+='],
+  zoomOut: ['CmdOrCtrl+-'],
+  togglefullscreen: ['Ctrl+Cmd+F', 'F11'],
+  reload: ['CmdOrCtrl+R'],
+  forceReload: ['CmdOrCtrl+Shift+R'],
+  toggleDevTools: ['Alt+Cmd+I', 'Ctrl+Shift+I'],
+  minimize: ['CmdOrCtrl+M'],
+  zoom: [],
+  front: [],
+  window: [],
+  close: ['CmdOrCtrl+W'],
+  help: [],
+};
+
+/** Every `role:` the menu definition mentions. */
+const MENU_ROLES = new Set(
+  [...MENU_SOURCE.matchAll(/role:\s*'([A-Za-z]+)'/g)].map(match => match[1] ?? '')
+);
+
+/**
+ * Every keystroke Electron binds: the spelled-out accelerators plus the role-implied ones.
+ *
+ * ⌘E and ⌘A are removed because `menu.ts` declares them `registerAccelerator: false` — shown in the
+ * menu, bound by Monaco — and they are therefore legal for the editor to claim.
+ */
+const REGISTERED_KEYS: ReadonlySet<string> = (() => {
+  const registered = new Set([
+    ...keyForms([...MENU_ACCELERATORS.values()].flat()),
+    ...keyForms(Object.values(ROLE_ACCELERATORS).flat()),
+  ]);
+  registered.delete(normalizeAccelerator('CmdOrCtrl+E'));
+  registered.delete(normalizeAccelerator('CmdOrCtrl+A'));
+  return registered;
+})();
+
+/**
+ * Every keystroke the RENDERER owns — a catalogue command with `source: 'renderer'`, plus the surface
+ * shortcuts that belong to no command (the palette's own ⌘K / ⇧⌘P, which the cheatsheet lists from
+ * `SURFACE_SHORTCUTS`). Folded together because they are the same risk: a keydown listener that never
+ * fires because something above it took the key.
+ */
+const RENDERER_OWNED_KEYS: readonly { owner: string; forms: readonly string[] }[] = [
+  ...COMMAND_IDS.filter(id => COMMAND_CATALOGUE[id].accelerator?.source === 'renderer').map(id => ({
+    owner: id as string,
+    forms: keyForms(declaredKeys(id)),
+  })),
+  ...SURFACE_SHORTCUTS.flatMap(shortcut =>
+    shortcut.keys.map(keys => ({
+      owner: `surface: ${shortcut.label}`,
+      forms: keyForms([keys]),
+    }))
+  ),
+];
+
+describe('the collision guard knows what the main process binds', () => {
+  it('declares a keystroke for every role the menu uses', () => {
+    expect(MENU_ROLES.size).toBeGreaterThan(15);
+    const undeclared = [...MENU_ROLES].filter(
+      role => !Object.prototype.hasOwnProperty.call(ROLE_ACCELERATORS, role)
+    );
+    expect(undeclared, 'a menu role with no declared keystroke hides a collision').toEqual([]);
+  });
+
+  it('has the role-implied keystrokes in the registered set', () => {
+    // Named spot-checks, so a table that degraded to all-empty arrays cannot pass the coverage test
+    // above and call it a day. ⌘R is the interesting one: `menu.ts` registers it TWICE (View ▸ Reload
+    // Window via `role: 'reload'`, and Server ▸ Refresh Object Explorer at menu.ts:252) — see J-53.
+    expect(REGISTERED_KEYS.has(normalizeAccelerator('CmdOrCtrl+R'))).toBe(true);
+    expect(REGISTERED_KEYS.has(normalizeAccelerator('Cmd+Shift+R'))).toBe(true);
+    expect(REGISTERED_KEYS.has(normalizeAccelerator('Cmd+Option+I'))).toBe(true);
+    expect(REGISTERED_KEYS.has(normalizeAccelerator('Cmd+M'))).toBe(true);
+    expect(REGISTERED_KEYS.has(normalizeAccelerator('Cmd+Q'))).toBe(true);
+    expect(REGISTERED_KEYS.has(normalizeAccelerator('Cmd+Option+H'))).toBe(true);
+    expect(REGISTERED_KEYS.has(normalizeAccelerator('Cmd+Z'))).toBe(true);
+    // And the two the menu deliberately does NOT register, so Monaco can have them.
+    expect(REGISTERED_KEYS.has(normalizeAccelerator('CmdOrCtrl+E'))).toBe(false);
+    expect(REGISTERED_KEYS.has(normalizeAccelerator('CmdOrCtrl+A'))).toBe(false);
+  });
+});
+
 describe('the palette side of the catalogue', () => {
-  it('lists no command that carries a payload', () => {
-    // The load-bearing assertion behind `palette-model.ts`'s one cast: it treats every `palette.show`
-    // id as a `PayloadlessCommandId`, which the type system cannot check for a `Record` key. A
-    // payload command in the palette would be dispatched with `undefined` as its payload.
-    const withPayloads = paletteCommandIds().filter(id => PAYLOAD_COMMANDS.has(id));
-    expect(withPayloads).toEqual([]);
+  /**
+   * The payload rule is a COMPILE-TIME property now, so these are type probes rather than runtime
+   * walks.
+   *
+   * It used to be two runtime assertions against a hand-written union of payload ids, and the claim
+   * they made about the compiler was false: `COMMAND_CATALOGUE` was a `Record<CommandId,
+   * CommandDisplay>`, so `palette: { show: true }` compiled for `insert-snippet` as readily as for
+   * `new-query`. A future payload command marked visible would have rendered `ready` and dispatched
+   * `undefined` into a handler that needs data, and the hand-written list would not have known.
+   *
+   * `catalogue.ts`'s per-key mapped type closes it at the definition site: the `palette` field of a
+   * payload-carrying id is `HiddenFromPalette`, full stop. `@ts-expect-error` is the assertion — this
+   * file does not compile if the error stops happening, which is a stronger statement than any walk
+   * over the same data.
+   */
+  it('cannot mark a payload-carrying command as palette-visible', () => {
+    // @ts-expect-error -- `insert-snippet` carries the SQL to insert, so `show: true` is not a shape
+    // its catalogue entry can have. The value is nonsense on purpose; the compiler is the assertion.
+    const illegal: CatalogueEntry<'insert-snippet'>['palette'] = { show: true };
+    // @ts-expect-error -- and the same for a sidebar-targeted command.
+    const alsoIllegal: CatalogueEntry<'backup-database'>['palette'] = { show: true };
+    // A payload-free id is unaffected — the probes above are about the conditional, not about `show`.
+    const legal: CatalogueEntry<'new-query'>['palette'] = { show: true };
+    expect([illegal, alsoIllegal, legal].every(entry => entry.show)).toBe(true);
+
+    // And the catalogue itself really does hide those two, with a reason.
+    for (const id of ['insert-snippet', 'backup-database'] as const) {
+      const visibility = COMMAND_CATALOGUE[id].palette;
+      expect(visibility.show, `${id} is in the palette`).toBe(false);
+      expect(visibility.because.length).toBeGreaterThan(20);
+    }
+  });
+
+  it('derives palette ids that are payload-free by type', () => {
+    // No cast: `paletteCommandIds()` is declared `readonly PayloadlessCommandId[]`, which compiles only
+    // because the catalogue cannot show a payload command. This is the property `palette-model.ts` used
+    // to assert with `id as PayloadlessCommandId`.
+    const ids: readonly PayloadlessCommandId[] = paletteCommandIds();
+    expect(ids.length).toBeGreaterThan(0);
+    // @ts-expect-error -- and the union really is narrower than `CommandId`: an id that needs a payload
+    // is not one of them.
+    const notPayloadless: PayloadlessCommandId = 'insert-snippet';
+    expect(notPayloadless).toBe('insert-snippet');
   });
 
   it('gives every excluded command a stated reason', () => {
@@ -261,53 +444,12 @@ describe('the palette side of the catalogue', () => {
     }
   });
 
-  it('excludes every payload-carrying command, and only for that reason', () => {
-    // The other direction of the first test: a targeted command must not quietly become visible.
-    for (const id of PAYLOAD_COMMANDS) {
-      expect(COMMAND_CATALOGUE[id].palette.show, `${id} is in the palette`).toBe(false);
-    }
-  });
-
   it('lists most of the app: at least twenty commands are reachable by name', () => {
     // A palette that derived down to three entries would satisfy every rule above. The Angular one
     // offered 26 rows including its ten dead ones, so a floor of 20 live entries is the honest bar.
     expect(paletteCommandIds().length).toBeGreaterThanOrEqual(20);
   });
 });
-
-/**
- * The ids whose payload is not `void`, listed by hand **in the spec** rather than derived.
- *
- * Deliberate: deriving it from the same types the assertions check would make them tautological. This
- * is the one place a hand-written list is the point, and if the registry gains a payload command
- * without this list gaining it, the `Record` below fails to compile.
- */
-const PAYLOAD_COMMAND_REASONS: Record<
-  | 'edit-connection'
-  | 'create-database-on-server'
-  | 'backup-database'
-  | 'restore-database'
-  | 'rename-database'
-  | 'delete-database'
-  | 'show-object-properties'
-  | 'cursor-position'
-  | 'insert-snippet'
-  | 'reveal-explorer-node',
-  string
-> = {
-  'edit-connection': 'needs a profile id',
-  'create-database-on-server': 'needs a server',
-  'backup-database': 'needs a database',
-  'restore-database': 'needs a server',
-  'rename-database': 'needs a database',
-  'delete-database': 'needs a database',
-  'show-object-properties': 'needs an object',
-  'cursor-position': 'a caret position, from the editor to the status bar',
-  'insert-snippet': 'needs the SQL to insert',
-  'reveal-explorer-node': 'needs an object to reveal',
-};
-
-const PAYLOAD_COMMANDS = new Set<CommandId>(Object.keys(PAYLOAD_COMMAND_REASONS) as CommandId[]);
 
 describe('the catalogue is complete and says something', () => {
   it('covers every registered command', () => {

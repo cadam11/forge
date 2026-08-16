@@ -33,10 +33,13 @@ export {
   type Accelerator,
   type AcceleratorKeys,
   type AcceleratorSource,
+  type CatalogueEntry,
   type CommandDisplay,
   type CommandGroup,
+  type HiddenFromPalette,
   type PaletteRequirement,
   type PaletteVisibility,
+  type ShownInPalette,
 } from './catalogue';
 export {
   COMMAND_CONSUMERS,

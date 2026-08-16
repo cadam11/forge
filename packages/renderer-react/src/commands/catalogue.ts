@@ -2,18 +2,26 @@
  * How every command **presents itself**: its label, its one-line description, its group, its icon,
  * the keystroke that reaches it, and whether the command palette lists it.
  *
- * ── Why this is a `Record` over the whole id union ───────────────────────────────────────────
+ * ── Why this is a per-key mapped type over the whole id union ────────────────────────────────
  *
  * PLAN.md 0.4's finding was ten palette entries that dispatched into silence, and `registry.ts`'s
  * answer was that a command cannot exist without a NAMED consumer. The palette is the other half of
- * that bargain, and it fails in both directions:
+ * that bargain, and it fails in three directions:
  *
  *  - a command that exists but is **missing from the palette** is a feature the user cannot find;
- *  - a palette entry that names **no command** is the dead dispatch coming back as UI copy.
+ *  - a palette entry that names **no command** is the dead dispatch coming back as UI copy;
+ *  - a palette entry that names a command **carrying a payload** dispatches `undefined` into a
+ *    handler that requires data — a dead dispatch with a live handler, which is worse.
  *
- * `Record<CommandId, CommandDisplay>` closes both. Adding a command to the registry without deciding
- * how the palette treats it does not compile, and an entry cannot name an id the registry does not
- * have. There is no second list anywhere: `features/command-palette` reads this file, and so does
+ * A `Record<CommandId, CommandDisplay>` closed the first two only: `palette: { show: true }` was
+ * legal for every key, so a payload command marked visible compiled, rendered `ready`, and handed its
+ * handler nothing. The shape below is a **mapped type evaluated per key** instead
+ * (`{ [Id in CommandId]: CatalogueEntry<Id> }`), and `CatalogueEntry` narrows the `palette` field to
+ * the hidden arm alone when `Id` carries a payload. So all three are compile errors now, and
+ * `paletteCommandIds()` can return `PayloadlessCommandId[]` as a consequence of the data rather than
+ * as a claim a test has to keep making.
+ *
+ * There is no second list anywhere: `features/command-palette` reads this file, and so does
  * `features/shortcuts-dialog`, which is why the cheatsheet cannot drift from the palette either.
  *
  * The palette additionally offers a handful of **local actions** (theme, close-all-tabs) that are not
@@ -84,6 +92,7 @@ import {
 } from 'lucide-react';
 
 import { IS_MAC } from '../utils/platform';
+import type { PayloadlessCommandId } from './bus';
 import type { CommandId } from './registry';
 
 /**
@@ -155,18 +164,30 @@ export interface Accelerator {
   readonly alternates?: readonly AcceleratorKeys[];
 }
 
+/**
+ * The palette does NOT list this command, and why not in words.
+ *
+ * Its own type rather than an arm of a union, because it is the only shape a payload-carrying
+ * command's `palette` field may have — see `CatalogueEntry`.
+ */
+export interface HiddenFromPalette {
+  readonly show: false;
+  readonly because: string;
+}
+
+/** The palette lists this command. Only a payload-free command may say so. */
+export interface ShownInPalette {
+  readonly show: true;
+  /**
+   * What must be true for the entry to be actionable. Absent means "always". A requirement that is
+   * not met renders the row **disabled with the reason**, never hidden — a palette that silently
+   * omits half its entries is the reason people stop trusting it.
+   */
+  readonly requires?: PaletteRequirement;
+}
+
 /** How the palette treats a command. */
-export type PaletteVisibility =
-  | {
-      readonly show: true;
-      /**
-       * What must be true for the entry to be actionable. Absent means "always". A requirement that
-       * is not met renders the row **disabled with the reason**, never hidden — a palette that
-       * silently omits half its entries is the reason people stop trusting it.
-       */
-      readonly requires?: PaletteRequirement;
-    }
-  | { readonly show: false; readonly because: string };
+export type PaletteVisibility = ShownInPalette | HiddenFromPalette;
 
 /**
  * The preconditions a palette entry can state. Deliberately a tiny closed set: each one is evaluated
@@ -195,6 +216,20 @@ export interface CommandDisplay {
   readonly keywords?: readonly string[];
 }
 
+/**
+ * One catalogue entry, **narrowed by the id it is filed under**.
+ *
+ * The whole point is the conditional on `palette`: a command whose payload is not `void` can only be
+ * `HiddenFromPalette`, so `palette: { show: true }` on `insert-snippet` or `backup-database` is a
+ * compile error rather than a row that dispatches `undefined` into a handler expecting data.
+ * `dispatchCommand` refuses a bare `CommandId` (`bus.ts`'s overloads), so the palette must hold
+ * `PayloadlessCommandId` — this is what makes that provable from the catalogue instead of asserted by
+ * a spec.
+ */
+export type CatalogueEntry<Id extends CommandId> = Omit<CommandDisplay, 'palette'> & {
+  readonly palette: Id extends PayloadlessCommandId ? PaletteVisibility : HiddenFromPalette;
+};
+
 /** Shorthand for the accelerators `menu.ts` registers. */
 const menuKey = (keys: AcceleratorKeys, ...alternates: AcceleratorKeys[]): Accelerator =>
   alternates.length === 0 ? { source: 'menu', keys } : { source: 'menu', keys, alternates };
@@ -202,11 +237,11 @@ const menuKey = (keys: AcceleratorKeys, ...alternates: AcceleratorKeys[]): Accel
 const rendererKey = (keys: AcceleratorKeys): Accelerator => ({ source: 'renderer', keys });
 
 /** In the palette, with no precondition. */
-const IN_PALETTE: PaletteVisibility = { show: true };
+const IN_PALETTE: ShownInPalette = { show: true };
 /** In the palette, greyed with a reason until something is connected. */
-const NEEDS_CONNECTION: PaletteVisibility = { show: true, requires: 'connection' };
+const NEEDS_CONNECTION: ShownInPalette = { show: true, requires: 'connection' };
 /** In the palette, greyed until a query tab is in front. */
-const NEEDS_QUERY_TAB: PaletteVisibility = { show: true, requires: 'query-tab' };
+const NEEDS_QUERY_TAB: ShownInPalette = { show: true, requires: 'query-tab' };
 
 /**
  * The reason every *payload-carrying* command is absent, stated once.
@@ -214,11 +249,12 @@ const NEEDS_QUERY_TAB: PaletteVisibility = { show: true, requires: 'query-tab' }
  * A palette entry has no target: the user typed a phrase, not a node. `backup-database` and its seven
  * siblings exist precisely to carry a target the sidebar knows and the menu does not
  * (`registry.ts`'s sidebar section), and each of them has a payload-free twin the palette uses
- * instead — `open-backup-dialog` resolves the target from `mostRecentConnectionId()`. The type system
- * enforces the same thing from the other end: `dispatchCommand` refuses a bare `CommandId`, so a
- * palette entry can only ever name a `PayloadlessCommandId`.
+ * instead — `open-backup-dialog` resolves the target from `mostRecentConnectionId()`.
+ *
+ * This is a *reason*, not the enforcement: `CatalogueEntry` is what makes any other answer for these
+ * ids fail to compile.
  */
-const NEEDS_A_TARGET: PaletteVisibility = {
+const NEEDS_A_TARGET: HiddenFromPalette = {
   show: false,
   because:
     'carries a target the palette cannot supply — the sidebar produces it; the palette uses the ' +
@@ -226,9 +262,9 @@ const NEEDS_A_TARGET: PaletteVisibility = {
 };
 
 /** Not a user action at all: a notification between two surfaces. */
-const NOT_A_USER_ACTION = (what: string): PaletteVisibility => ({ show: false, because: what });
+const NOT_A_USER_ACTION = (what: string): HiddenFromPalette => ({ show: false, because: what });
 
-export const COMMAND_CATALOGUE: Record<CommandId, CommandDisplay> = {
+export const COMMAND_CATALOGUE: { [Id in CommandId]: CatalogueEntry<Id> } = {
   // ── File and tabs ─────────────────────────────────────────────────────────────────────────
   'open-connection-dialog': {
     label: 'New connection',
@@ -665,11 +701,20 @@ export const COMMAND_CATALOGUE: Record<CommandId, CommandDisplay> = {
   },
 };
 
-/** Every command the palette lists, in catalogue order. Derived — never hand-maintained. */
-export function paletteCommandIds(): readonly CommandId[] {
-  return (Object.keys(COMMAND_CATALOGUE) as CommandId[]).filter(
-    id => COMMAND_CATALOGUE[id].palette.show
-  );
+/**
+ * Every command the palette lists, in catalogue order. Derived — never hand-maintained.
+ *
+ * `PayloadlessCommandId`, not `CommandId`, and the narrowing is sound rather than hopeful: the only
+ * ids whose entry can say `show: true` are the payload-free ones (`CatalogueEntry`), so the predicate
+ * below cannot answer true for an id that needs a payload. It is the one place in the package that
+ * needs to know this, which is why callers — `palette-model.ts` above all — hold no cast of their own.
+ */
+export function paletteCommandIds(): readonly PayloadlessCommandId[] {
+  return (Object.keys(COMMAND_CATALOGUE) as CommandId[]).filter(isPaletteVisible);
+}
+
+function isPaletteVisible(id: CommandId): id is PayloadlessCommandId {
+  return COMMAND_CATALOGUE[id].palette.show;
 }
 
 // ── Rendering an accelerator ─────────────────────────────────────────────────────────────────

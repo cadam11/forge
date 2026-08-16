@@ -2,9 +2,9 @@
  * The palette's entry list, **derived**.
  *
  * One function, `buildPaletteEntries`, and everything it returns comes from somewhere that already
- * exists: `COMMAND_CATALOGUE` for the commands (which is itself a `Record` over the registry's id
- * union), `PALETTE_ACTIONS` for the handful of local ones, and the query-history store for recent
- * queries. There is no hand-maintained list of palette copy anywhere in this package, which is the
+ * exists: `COMMAND_CATALOGUE` for the commands (which is itself a mapped type over the registry's id
+ * union, one entry per id), `PALETTE_ACTIONS` for the handful of local ones, and the query-history
+ * store for recent queries. There is no hand-maintained list of palette copy anywhere in this package, which is the
  * point — PLAN.md 0.4's ten dead entries were a hand-maintained list that outlived its handlers.
  *
  * ── Every entry is live, or visibly not ─────────────────────────────────────────────────────
@@ -35,6 +35,7 @@ import {
   COMMAND_GROUPS,
   commandAccelerator,
   handlerCount,
+  paletteCommandIds,
   type CommandGroup,
   type CommandId,
   type PaletteRequirement,
@@ -173,17 +174,16 @@ function byGroup<T extends { readonly group: CommandGroup }>(entries: readonly T
 function commandEntries(context: PaletteContext): PaletteCommandEntry[] {
   const entries: PaletteCommandEntry[] = [];
 
-  for (const id of Object.keys(COMMAND_CATALOGUE) as CommandId[]) {
+  // `paletteCommandIds()` returns `PayloadlessCommandId`s, so there is **no cast here**: the
+  // catalogue's per-key mapped type makes `palette.show === true` unreachable for an id that carries
+  // a payload, and `dispatchCommand` (`commands/bus.ts`'s overloads) accepts what comes out. This used
+  // to be a cast justified by a spec assertion; the shape justifies it now.
+  for (const id of paletteCommandIds()) {
     const display = COMMAND_CATALOGUE[id];
-    if (!display.palette.show) continue;
     entries.push({
       kind: 'command',
       key: `command:${id}`,
-      // The cast is the one the catalogue's own shape justifies: `palette.show` is only ever true for
-      // an id with no payload — `catalogue.spec.ts` asserts exactly that, because the type system
-      // cannot say "this Record key is in that subset". `dispatchCommand` would refuse a bare
-      // `CommandId` (`commands/bus.ts`'s overloads), which is what makes the assertion load-bearing.
-      commandId: id as PayloadlessCommandId,
+      commandId: id,
       label: display.label,
       hint: display.hint,
       group: display.group,
