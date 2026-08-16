@@ -220,19 +220,21 @@ function editorColors(tokens: EditorThemeTokens): monaco.editor.IColors {
     'editor.findMatchHighlightBackground': tokens.accentSubtle,
     'editorBracketMatch.background': tokens.accentSubtle,
     'editorBracketMatch.border': tokens.accent,
-    // Rainbow brackets, flattened onto the palette.
+    // Rainbow brackets, flattened onto the palette — **and this map, not the off switch, is what
+    // actually decides what a bracket looks like.**
     //
     // Monaco 0.56 colorizes bracket pairs by default and paints them from these six ids, whose
     // defaults are gold (`#FFD700`) under dark and blue (`#0431FA`) under light. The browser gate
     // photographed both — a blue parenthesis is a straight violation of PROPOSAL §2.5's no-blue rule,
     // and neither colour is in the palette at all.
     //
-    // Disabling the feature turned out to be the harder route: the flag lives on the MODEL
+    // Turning the feature off does not stick. The flag lives on the MODEL
     // (`textModel.getOptions().bracketPairColorizationOptions`), the editor option of the same name
     // does not reach it on its own, and `modelService._updateModelOptions` can push the service's own
-    // default back over a model-level write. `sql-editor.tsx` sets both, and this map is what makes
-    // the outcome the same either way: all six levels are the delimiter colour, so a bracket looks
-    // like the punctuation it is whether the feature is on or off.
+    // default back over a model-level write. `sql-editor.tsx` asks in both places anyway, and the gate's
+    // final run shows the request losing: brackets still arrive on `bracket-highlighting-0` spans
+    // (`task-10-gate.json`). What makes them on-palette is these six entries — every level is the
+    // delimiter colour, so a bracket looks like the punctuation it is while the feature stays on.
     'editorBracketHighlight.foreground1': tokens.syntaxType,
     'editorBracketHighlight.foreground2': tokens.syntaxType,
     'editorBracketHighlight.foreground3': tokens.syntaxType,

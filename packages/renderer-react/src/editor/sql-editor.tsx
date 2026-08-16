@@ -61,6 +61,16 @@ export interface SqlEditorHandle {
   readonly layout: () => void;
   /** The SQL an execute should send, resolved against the caret, the selection and the setting. */
   readonly textToExecute: (scope: ExecuteScope) => string;
+  /**
+   * Is there a real selection right now?
+   *
+   * Monaco's own answer — `getSelection().isEmpty()`, a zero-WIDTH check — and the only correct one.
+   * Execute Selection used to infer this by comparing the selected text with the whole buffer, which
+   * makes a deliberate ⌘A indistinguishable from no selection at all: the user selects everything,
+   * asks to run the selection, and is told to select something. It is also wrong the other way for a
+   * one-line document, where any full-line selection equals the buffer.
+   */
+  readonly hasSelection: () => boolean;
   /** Appends a snippet, matching the Angular blank-line separator rule. */
   readonly insertSnippet: (sql: string) => void;
   /** Runs one of Monaco's own actions: find, replace, go-to-line, toggle comment. */
@@ -157,17 +167,21 @@ function modelOptionsFrom(settings: AppSettings['editor']): monaco.editor.ITextM
   return {
     tabSize: settings.tabSize,
     insertSpaces: true,
-    // Rainbow brackets, off — and this is a MODEL option, which took two browser-gate runs to
-    // establish. The editor option `bracketPairColorization` exists and setting it changes nothing:
-    // `colorizedBracketPairsDecorationProvider.js:17` reads
-    // `textModel.getOptions().bracketPairColorizationOptions`, so the model is the only thing that
-    // decides. With the editor option alone the gate photographed gold parentheses under ink and blue
-    // ones under ivory, on spans classed `mtk12 bracket-highlighting-0`.
+    // Rainbow brackets: **asked to be off here, and THEMED in `monaco-themes.ts` because off does not
+    // stick.** The theming is what makes the outcome right; this option is belt, not braces.
     //
-    // Off rather than themed: it paints from `editorBracketHighlight.foreground1…6`, six colours the
-    // closed palette does not have and would not spend on punctuation if it did. A bracket is now a
-    // `delimiter` like every other separator. Bracket MATCHING is a different feature, still on, and
-    // themed through `editorBracketMatch.*`.
+    // What two browser-gate runs established. The editor option `bracketPairColorization` alone changes
+    // nothing — `colorizedBracketPairsDecorationProvider.js:17` reads
+    // `textModel.getOptions().bracketPairColorizationOptions`, so the model is what decides — and with
+    // the editor option alone the gate photographed gold parentheses under ink and blue ones under
+    // ivory. Setting it HERE, on the model, does not reliably win either: `modelService`'s
+    // `_updateModelOptions` can push the service-wide default back over a model-level write. The gate's
+    // final run proves it: the brackets still render on spans classed `bracket-highlighting-0`
+    // (`task-10-gate.json`), i.e. the feature is still on — they are simply painted the delimiter
+    // colour, which is the theme's six `editorBracketHighlight.foreground*` entries doing the work.
+    //
+    // So: never rely on this line for the colour. Bracket MATCHING is a different feature, deliberately
+    // still on, and themed through `editorBracketMatch.*`.
     bracketColorizationOptions: { enabled: false, independentColorPoolPerBracketType: false },
   };
 }
@@ -187,9 +201,10 @@ const FIXED_OPTIONS: monaco.editor.IStandaloneEditorConstructionOptions = {
   occurrencesHighlight: 'singleFile',
   selectionHighlight: true,
   fontFamily: 'var(--font-technical)',
-  // The editor half of turning rainbow brackets off; the model half is in `modelOptionsFrom` and the
-  // theme half is in `monaco-themes.ts`. All three, because the gate proved the first two are not
-  // reliably sufficient on their own — see the comment on the model option.
+  // The editor half of ASKING for rainbow brackets to be off. Neither this nor the model half in
+  // `modelOptionsFrom` makes it stick — the gate photographed the feature still on, still emitting
+  // `bracket-highlighting-*` classes — so the colour comes from the theme, which flattens all six
+  // levels onto the delimiter token. See the comment on the model option.
   bracketPairColorization: { enabled: false },
   // The gutter is the app's own chrome; Monaco's default 26px reserves room for breakpoints and
   // folding markers this app has neither of.
@@ -267,6 +282,12 @@ export function SqlEditor({
           cursorLine: instance.getPosition()?.lineNumber ?? 1,
         };
         return textToExecute(source, scope);
+      },
+      hasSelection: () => {
+        // `?? null` collapses "no editor yet" into "no selection": the caller's refusal path is the
+        // right answer for both, and neither is an error worth reporting.
+        const selection = editor.current?.getSelection() ?? null;
+        return selection !== null && !selection.isEmpty();
       },
       // Verbatim from `handleInsertSnippet` (`:1174-1193`): appended after a blank line when there is
       // already content, otherwise it becomes the content. Not Monaco's snippet insertion — the

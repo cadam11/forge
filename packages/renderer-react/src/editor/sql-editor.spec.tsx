@@ -69,7 +69,9 @@ function makeEditor(): FakeEditor {
   const editor: FakeEditor = {
     getValue: vi.fn(() => 'select 1'),
     getModel: vi.fn(() => state.model),
-    getSelection: vi.fn(() => ({ startLineNumber: 1 })),
+    // `isEmpty` is Monaco's own zero-WIDTH check and it is what `hasSelection` reads, so the double
+    // carries it: a fake selection object without it would make the handle answer `true` for a caret.
+    getSelection: vi.fn(() => ({ startLineNumber: 1, isEmpty: () => false })),
     getPosition: vi.fn(() => ({ lineNumber: 2, column: 4 })),
     executeEdits: vi.fn(),
     pushUndoStop: vi.fn(),
@@ -213,9 +215,10 @@ describe('creation', () => {
     expect(state.model.updateOptions).toHaveBeenCalledWith({
       tabSize: 8,
       insertSpaces: true,
-      // Rainbow brackets are a MODEL option too, and only the model's copy is read — see the comment
-      // on `modelOptionsFrom`, which two browser-gate runs paid for. Asserted exactly rather than with
-      // `objectContaining`, because "which keys reach the model" is the thing this test is about.
+      // The model-level request that rainbow brackets be off — which the gate showed Monaco ignoring,
+      // so the theme is what makes a bracket on-palette (see the comment on `modelOptionsFrom`). It is
+      // asserted because it is a key that must reach the MODEL rather than the editor; asserted exactly
+      // rather than with `objectContaining`, because "which keys reach the model" is what this is about.
       bracketColorizationOptions: { enabled: false, independentColorPoolPerBracketType: false },
     });
     expect(lastCreate()?.options).not.toHaveProperty('tabSize');
@@ -404,6 +407,39 @@ describe('the imperative handle', () => {
     lastEditor().getSelection.mockReturnValue(null);
     expect(handle().textToExecute('all')).toBe('select 1;\nselect 2;');
     expect(handle().textToExecute('currentStatement')).toBe('select 2;');
+  });
+
+  /**
+   * `hasSelection` exists because Execute Selection cannot be implemented by comparing the selected
+   * text with the whole buffer: ⌘A produces a selection whose text IS the buffer, and the comparison
+   * reads that as "nothing is selected" and refuses to run. The third case below is that bug.
+   */
+  it('answers hasSelection from Monaco’s own isEmpty, not from a string comparison', () => {
+    const { handle } = mount();
+    const editor = lastEditor();
+
+    // A caret: a selection object exists, and it is empty.
+    editor.getSelection.mockReturnValue({ startLineNumber: 1, isEmpty: () => true });
+    expect(handle().hasSelection()).toBe(false);
+
+    // No selection object at all.
+    editor.getSelection.mockReturnValue(null);
+    expect(handle().hasSelection()).toBe(false);
+
+    // ⌘A: the selected text equals the whole document, and it is STILL a selection. The old
+    // `selection === whole` test refused this one, which is the most obvious way to use the command.
+    state.model.getValue.mockReturnValue('select 1');
+    state.model.getValueInRange.mockReturnValue('select 1');
+    editor.getSelection.mockReturnValue({ startLineNumber: 1, isEmpty: () => false });
+    expect(handle().hasSelection()).toBe(true);
+    expect(handle().textToExecute('all')).toBe('select 1');
+  });
+
+  it('reports no selection before the editor exists', () => {
+    const { handle, view } = mount();
+    const before = handle();
+    view.unmount();
+    expect(before.hasSelection()).toBe(false);
   });
 
   it('appends a snippet after a blank line, or becomes the content when empty', () => {
