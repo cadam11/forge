@@ -158,8 +158,13 @@ reaches the renderer as ~25 messages a second. This bypasses that stage.
 **The number the mitigation is for is the second row.** 3,000 chunks re-rendered 25
 completed markdown bodies **zero** times — the 75,000 `marked` + highlight.js + DOMPurify
 passes that a naive `useStore(store, s => s.streamingContent)` in the surface would have
-performed. The streaming message updated 520 times instead of 3,000, which is one update
+performed. The streaming message updated 521 times instead of 3,000, which is one update
 per ~63ms against a 50ms coalescing window (`features/chat/use-stream-tail.ts`).
+
+Four runs gave 520 / 521 / 563 / 569 tail mutations — the spread is frame timing, and the
+budget is 1,971 — with every zero above holding on every run and worst frame gaps of
+9–12ms. Memory is the noisiest figure (GC): 569 → 629 MB on one run, 515 → 710 MB on
+another.
 
 **The zeroes are instrument-verified.** A benchmark whose main-thread numbers can only
 ever be zero is not a measurement, so the same clock is read again while the page blocks
@@ -170,11 +175,11 @@ why the frame clock is the number that carries the argument.)
 
 Two things worth watching:
 
-- **+60 MB across a 30-second stream.** The transcript holds every message twice while
+- **Tens of MB across a 30-second stream** (+60 MB on one run, +195 MB on another). The transcript holds every message twice while
   streaming (the store's `messages`, plus the tail's parsed DOM), and the 29 KB tail is
   re-parsed on each flush. It settles after `done`, but a very long session in one
   conversation is the case to re-measure if memory becomes a complaint.
-- **The eager bundle grew 28 KB** (1,421.02 → 1,449.05 kB; +7.8 kB gzip), which is the
+- **The eager bundle grew 28 KB** (1,421.02 → 1,449.29 kB; +7.9 kB gzip), which is the
   chat feature's own code: `marked`, `highlight.js/lib/common` and DOMPurify were already
   in the entry chunk before this task, because `markdown/render-markdown.ts` has top-level
   side effects (`new Marked(...)`, `DOMPurify.addHook(...)`) and so survives tree-shaking
