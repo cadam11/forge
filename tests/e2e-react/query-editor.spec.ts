@@ -25,6 +25,7 @@ import {
   openQueryTab,
   queryEditor,
   selectDatabase,
+  sendMenuCommand,
   suggestions,
   typeSql,
   visibleSql,
@@ -168,6 +169,31 @@ test.describe('Joinery (React) — the query editor', () => {
       await queryEditor(window).locator('.view-lines').click();
       await window.keyboard.press('ControlOrMeta+z');
       await expect.poll(async () => visibleSql(window)).toContain('select id,email');
+    });
+  });
+
+  test('Execute Selection runs a ⌘A select-all instead of refusing it', async () => {
+    await withJoineryReact(async ({ app, window }) => {
+      await readyEditor(window);
+      await typeSql(window, 'SELECT id, email FROM customers ORDER BY id');
+
+      // Select everything, deliberately, the way a user asks for "run all of this".
+      await queryEditor(window).locator('.view-lines').click();
+      await window.keyboard.press('ControlOrMeta+a');
+
+      // Query ▸ Execute Selection. Sent as its menu channel because a native accelerator is not
+      // reachable from CDP-injected keystrokes — see `sendMenuCommand`.
+      await sendMenuCommand(app, 'menu:execute-selection');
+
+      // It RUNS. The first implementation inferred "nothing is selected" from the selected text being
+      // equal to the whole buffer, so this exact sequence was answered with "Select some SQL to
+      // execute" — the toast asserted absent below.
+      await expect(window.getByTestId('status-executing')).toBeHidden({ timeout: 20_000 });
+      await expect(window.getByTestId('query-results')).toBeVisible();
+      await expect(window.getByTestId('query-result-column')).toHaveCount(2);
+      await expect(
+        window.locator('[data-sonner-toast]').filter({ hasText: 'Select some SQL to execute' })
+      ).toHaveCount(0);
     });
   });
 

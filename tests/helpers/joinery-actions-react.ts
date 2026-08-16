@@ -22,7 +22,7 @@
  * are re-exported from the old helper rather than duplicated.
  */
 
-import { expect, type Locator, type Page } from '@playwright/test';
+import { expect, type ElectronApplication, type Locator, type Page } from '@playwright/test';
 import {
   withJoinery,
   type LaunchOptions,
@@ -455,4 +455,24 @@ export async function suggestions(window: Page): Promise<Locator> {
 export async function executeQuery(window: Page): Promise<void> {
   await window.getByTestId('query-execute').click();
   await expect(window.getByTestId('status-executing')).toBeHidden({ timeout: CONNECT_TIMEOUT_MS });
+}
+
+/**
+ * Fires one of the native menu's `menu:*` channels from the main process.
+ *
+ * The only way to reach a menu-only command from this tier. Electron menu
+ * accelerators are handled by the native menu, which CDP-injected keystrokes
+ * never reach, and `Menu.getApplicationMenu()` item clicks would exercise
+ * `menu.ts`'s own wiring rather than the renderer's — that wiring is
+ * `packages/main`'s and is covered there. What this drives is the renderer half:
+ * the channel arrives, `shell/menu-bridge.tsx` maps it to a command id, and the
+ * command bus delivers it. Which is exactly the path a user takes when they pick
+ * Query ▸ Execute Selection.
+ */
+export async function sendMenuCommand(app: ElectronApplication, channel: string): Promise<void> {
+  await app.evaluate(({ BrowserWindow }, name) => {
+    const [window] = BrowserWindow.getAllWindows();
+    if (window === undefined) throw new Error('no BrowserWindow to send a menu command to');
+    window.webContents.send(name);
+  }, channel);
 }

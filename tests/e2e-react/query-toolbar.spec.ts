@@ -54,11 +54,20 @@ test.describe('Joinery (React) — the query toolbar', () => {
   test('runs a query, shows the executing indicator, and lands the rows', async () => {
     await withJoineryReact(async ({ window }) => {
       await readyEditor(window);
-      await typeSql(window, 'SELECT id, email FROM customers ORDER BY id');
+      // `pg_sleep(1)` in a CTE, cross-joined: the SELECT list is untouched, so the result is still the
+      // two columns and the same rows, but the run lasts long enough for the indicator's VISIBLE half to
+      // be observable rather than a race. Without it the query settles in single-digit milliseconds and
+      // "it appears" is unassertable — which is why the first version of this test only checked that it
+      // went away, under a comment claiming both halves.
+      await typeSql(
+        window,
+        'WITH slow AS (SELECT pg_sleep(1)) SELECT id, email FROM customers, slow ORDER BY id'
+      );
 
       // The status bar's indicator is Task 10's store, and Task 7 shipped the slot empty rather than
       // inventing a second source of truth. Both halves are asserted: it appears, and it goes away.
       await window.getByTestId('query-execute').click();
+      await expect(window.getByTestId('status-executing')).toBeVisible({ timeout: 10_000 });
       await expect(window.getByTestId('status-executing')).toBeHidden({ timeout: 20_000 });
 
       await expect(window.getByTestId('query-results')).toBeVisible();
