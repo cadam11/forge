@@ -11,13 +11,14 @@
  *
  * A command entry carries a `state`, computed at build time from two live facts:
  *
- *  - **is anything subscribed?** `handlerCount(id) === 0` means the surface that owns it has not
- *    shipped, so the row renders disabled and NAMES ITS OWNER from `COMMAND_CONSUMERS` — the J-44
- *    treatment the settings panel gave its one unconsumed control. It is not hidden: a user who
- *    types "history" deserves to learn that the feature is coming, not to wonder whether they
+ *  - **is its precondition met?** `requires: 'connection'` and friends, from the catalogue. When it is
+ *    not, the row renders disabled with the reason — never hidden, because a palette that silently
+ *    omits half its entries is why people stop trusting one.
+ *  - **is anything subscribed?** `handlerCount(id) === 0` with the precondition satisfied means the
+ *    surface that owns it has not shipped, so the row renders disabled and NAMES ITS OWNER from
+ *    `COMMAND_CONSUMERS` — the J-44 treatment the settings panel gave its one unconsumed control. A
+ *    user who types "history" deserves to learn that the feature is coming, not to wonder whether they
  *    imagined it.
- *  - **is its precondition met?** `requires: 'connection'` and friends, from the catalogue. Also
- *    disabled-with-a-reason rather than hidden, for the same reason.
  *
  * Anything else is `'ready'`, and a `'ready'` row dispatches a command that provably has a handler.
  * That is the whole "zero dead commands" property, and `command-palette.spec.tsx` walks every entry
@@ -124,16 +125,29 @@ export function ownerSummary(id: CommandId): string {
   return summary.replace(/\.$/, '');
 }
 
-/** A command's state: unsubscribed first (that is a fact about the app), then its precondition. */
+/**
+ * A command's state: **its precondition first**, then whether anything is subscribed.
+ *
+ * The order is the whole difference between useful copy and misleading copy, and the browser gate is
+ * what showed it. Twelve commands are handled by the query editor, which only exists while a query tab
+ * is open — so with no tab open they have no subscriber, and asking the handler question first labelled
+ * them "Not wired yet — Task 10 query editor". Task 10 HAS shipped; the honest and actionable answer is
+ * "Open a query tab first".
+ *
+ * Asking the precondition first also cannot hide a genuinely unowned command: a precondition that is
+ * MET falls straight through to the handler check, so `open-query-history` still reads as unowned the
+ * moment a connection exists, which is when a user would look for it.
+ */
 function commandState(id: CommandId, context: PaletteContext): PaletteEntryState {
-  if (handlerCount(id) === 0) return { kind: 'unowned', owner: ownerSummary(id) };
-
   const visibility = COMMAND_CATALOGUE[id].palette;
   const requirement = visibility.show ? visibility.requires : undefined;
-  if (requirement === undefined) return { kind: 'ready' };
+  if (requirement !== undefined) {
+    const check = REQUIREMENTS[requirement];
+    if (!check.met(context)) return { kind: 'unavailable', reason: check.reason };
+  }
 
-  const check = REQUIREMENTS[requirement];
-  return check.met(context) ? { kind: 'ready' } : { kind: 'unavailable', reason: check.reason };
+  if (handlerCount(id) === 0) return { kind: 'unowned', owner: ownerSummary(id) };
+  return { kind: 'ready' };
 }
 
 /**

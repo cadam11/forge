@@ -153,7 +153,10 @@ export function ShortcutsDialog() {
                       </span>
                       <span
                         data-testid="shortcuts-row-source"
-                        className="shrink-0 font-mono text-2xs tracking-eyebrow text-fg-subtle uppercase"
+                        // `text-fg-muted`, not subtle: HOUSE-RULES §5 reserves subtle for metadata
+                        // nobody has to read, and this column is the answer to "why does this key not
+                        // work here?". The both-theme gate measured subtle at 3.57:1 under ink.
+                        className="shrink-0 font-mono text-2xs tracking-eyebrow text-fg-muted uppercase"
                       >
                         {SOURCE_LABELS[row.source]}
                       </span>

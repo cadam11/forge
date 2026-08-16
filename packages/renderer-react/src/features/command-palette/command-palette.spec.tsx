@@ -203,6 +203,9 @@ describe('the command palette', () => {
     // Connected, so the walk covers the ready path of the connection-gated entries too; the
     // disabled-with-a-reason path is its own test below.
     connect();
+    // A query tab as well, so the twelve query-editor commands are on their ready path here rather than
+    // on the "open a query tab first" one — which `disables a connection-gated row` covers.
+    tabStore.getState().openQueryTab('conn-1', 'joinery_test', 'SELECT 1', false, false);
     renderPalette();
     await openPalette();
 
@@ -221,8 +224,8 @@ describe('the command palette', () => {
       const live = handlerCount(id) > 0;
 
       if (row.state === 'unowned') {
-        // No handler is subscribed — so the row must be inert AND must say whose job it is. The owner
-        // text is derived from `COMMAND_CONSUMERS`, so it cannot drift from the registry.
+        // Its precondition is satisfied and nothing is subscribed — so the row must be inert AND must
+        // say whose job it is. The owner text is derived from `COMMAND_CONSUMERS`, so it cannot drift.
         expect(live, `${id} is disabled as unowned but HAS a handler`).toBe(false);
         expect(row.disabled, `${id} claims to be unowned but is not disabled`).toBe(true);
         expect(row.text).toContain('Not wired yet');
@@ -233,16 +236,19 @@ describe('the command palette', () => {
         continue;
       }
 
-      // Every other state — ready, or unavailable-for-now — asserts a subscribed handler exists. A
-      // dispatch from this row cannot reach nobody.
-      expect(live, `${id} is enabled in the palette with no handler subscribed`).toBe(true);
       if (row.state === 'unavailable') {
+        // Not applicable right now. Nothing is claimed about handlers here: the row is inert, so it
+        // dispatches nothing — and the reason is the useful half. That is also why the precondition is
+        // asked BEFORE the handler question (`palette-model.ts` explains what the other order said).
         expect(row.disabled, `${id} is unavailable but not disabled`).toBe(true);
         expect(row.text.length).toBeGreaterThan(COMMAND_CATALOGUE[id].label.length);
-      } else {
-        expect(row.state).toBe('ready');
-        expect(row.disabled).toBe(false);
+        continue;
       }
+
+      // THE property: a row the user can act on reaches a live handler. Nothing else is `ready`.
+      expect(row.state).toBe('ready');
+      expect(row.disabled).toBe(false);
+      expect(live, `${id} is actionable in the palette with no handler subscribed`).toBe(true);
     }
   });
 

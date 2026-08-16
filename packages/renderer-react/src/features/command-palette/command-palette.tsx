@@ -273,6 +273,9 @@ function PaletteRow({
     >
       <Icon icon={entry.icon} size="sm" className="stroke-fg-muted" />
       <CommandOverlayRowText
+        // The hint carries the disabled explanation when there is one, and it is measured by the
+        // both-theme gate — hence a testid of its own rather than "the second span in the row".
+        hint={<span data-testid="palette-row-hint">{explanation ?? entry.hint}</span>}
         label={
           // The state and the entry key are on the DOM so the suites can join a rendered row back to
           // the model that produced it: `command-palette.spec.tsx`'s zero-dead-commands walk reads
@@ -285,7 +288,6 @@ function PaletteRow({
             {entry.label}
           </span>
         }
-        hint={explanation ?? entry.hint}
       />
     </CommandOverlayRow>
   );
