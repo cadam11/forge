@@ -89,9 +89,12 @@ export interface ChatStoreOptions {
   /** Start pointed at an existing conversation — a chat tab restored with a conversation id. */
   readonly initialConversationId?: string;
   /**
-   * Load the tool catalogue during `initialize()`. True for the side panel, which renders tool
-   * confirmations; false for chat tabs, which is why this is a flag rather than an unconditional
-   * fetch — `chat-instance.state.ts` deliberately did not make that call.
+   * Load the tool catalogue during `initialize()`.
+   *
+   * A flag rather than an unconditional fetch because `chat-instance.state.ts` did not make the call
+   * and the difference had to be portable. **Both callers now pass true** — see `createChatTabStore`
+   * for why the Angular chat tab's omission was a bug rather than a saving. It stays a flag so a
+   * future instance that renders no confirmations (a read-only transcript view) can say so.
    */
   readonly loadTools?: boolean;
 }
@@ -453,11 +456,32 @@ export const chatPanelStore = createChatStore(
 );
 export const useChatPanelStore = chatPanelStore;
 
-/** One chat-tab instance. Task 17 owns the tab-id → store map and the `destroy()` on close. */
+/**
+ * One chat-tab instance. `features/chat/chat-store-host.ts` owns the tab-id → store map and the
+ * `destroy()` on close.
+ *
+ * **`loadTools: true`, resolving the Task 4 review's carried decision.** A chat tab renders tool
+ * confirmations exactly as the panel does, and `ToolDefinition.description` is what a confirmation
+ * needs in order to be one — `chat-instance.state.ts` never loaded the catalogue, which is why the
+ * Angular chat tab asked "Execute run_query?" and said nothing about what that would do. The two
+ * candidate fixes were this flag and reading the catalogue off `chatPanelStore`; per-tab load wins on
+ * three counts:
+ *
+ *  - **it is not a cheap fetch made expensive.** `chat.getTools()` returns the tool registry's static
+ *    in-process array (`chat-service.ts:getTools`), so the "N fetches" sharing would avoid are N cheap
+ *    round trips of the same constant, bounded by the number of chat tabs a user opens;
+ *  - **sharing would make a tab depend on the panel's lifetime.** `chatPanelStore.tools` is only
+ *    populated by that instance's `initialize()`, which runs when the side panel MOUNTS — so a tab's
+ *    confirmations would carry descriptions only if the user had opened the panel at some point in the
+ *    session. A confirmation that is informative depending on unrelated UI history is worse than one
+ *    that is always informative;
+ *  - **failure stays local**, which is the property the per-instance factory exists for: a tab whose
+ *    catalogue read failed shows name-only confirmations instead of every surface losing them at once.
+ */
 export function createChatTabStore(initialConversationId?: string): ChatStore {
   return createChatStore(
     { connection: connectionStore, tab: tabStore, capabilities: capabilitiesStore },
-    { initialConversationId }
+    { initialConversationId, loadTools: true }
   );
 }
 
