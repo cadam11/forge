@@ -1,0 +1,542 @@
+/**
+ * The results grid: AG Grid 36 over one result set, and the strip of controls above it.
+ *
+ * Replaces the 2,055-line `results-grid.component.ts` — or the half of it that is this task's. The
+ * grid's own API surface is shallow (PLAN.md §4 Decision B: `ColDef`, `GridApi`, `defaultColDef`,
+ * `ModuleRegistry`, `onGridReady`, cell classes), so this is a port, not a rewrite. What did NOT come
+ * across, and where it went:
+ *
+ *  - the **FK preview popover** and the **cell-value preview panel** → Task 14 (row detail + FK
+ *    preview, PLAN.md §4 line 454). The data those need is already here: `cell-fk` is applied to the
+ *    right cells and `headerTooltipFor` records the reference.
+ *  - the **column statistics panel** → nothing in PLAN.md or this brief claims it. It is a parity gap
+ *    on purpose rather than by accident, recorded in the task report for a ticket of its own.
+ *  - the **cell context menu** (copy cell / copy row as JSON / copy as INSERT / filter by value) →
+ *    the same: its FK half is Task 14's, and splitting one menu across two tasks would ship it twice.
+ *
+ * ── R2, which is the whole reason this file is shaped the way it is ────────────────────────────
+ *
+ * PLAN.md's risk register: "A React port can accidentally re-render 10k rows per keystroke through a
+ * badly-scoped store selector." Three rules, all of them load-bearing and all of them measured (the
+ * unit proof is `render-isolation.spec.tsx`, the browser proof is task-11-perf.mjs):
+ *
+ *  1. **`memo`, with props that keep their identity.** `resultSet` comes from the execution store's
+ *     `results` Map, so its identity only changes when a query lands; `tabId` is a string. A keystroke
+ *     in the editor re-renders `QueryPanel` (the first one does — it flips `isDirty`), and the memo
+ *     boundary stops there.
+ *  2. **Row data by reference.** `rowData={resultSet.rows}` — the array the IPC reply arrived in, never
+ *     a mapped copy. A `.map()` in the render body would hand AG Grid a new array of new objects on
+ *     every render, which is a full grid refresh per keystroke.
+ *  3. **Narrow selectors.** Two subscriptions, `settings.grid` and the effective theme, both of which
+ *     change when a user changes a setting and never otherwise. Nothing here subscribes to a whole
+ *     store, and nothing subscribes to the execution store at all — the result arrives as a prop.
+ *
+ * ── Two commands are claimed here, and only one grid may answer ───────────────────────────────
+ *
+ * Dockview keeps inactive panels mounted, so every open query tab has a live grid. Both handlers
+ * therefore need a "is this me?" test, and they use different ones because the questions differ:
+ * Edit ▸ Copy belongs to the grid the user is *in* (focus containment, exactly as
+ * `results-grid.component.ts:1207-1220` decided it), while File ▸ Export Results belongs to the
+ * *active tab's* grid, which is the same guard `query-commands.tsx` uses for its twelve.
+ */
+
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { AgGridReact } from 'ag-grid-react';
+import {
+  AllCommunityModule,
+  ModuleRegistry,
+  type ColDef,
+  type Column,
+  type GridApi,
+  type GridReadyEvent,
+  type RowSelectionOptions,
+} from 'ag-grid-community';
+import {
+  AlertTriangle,
+  Columns3,
+  Copy,
+  Download,
+  FileCode2,
+  FileJson,
+  FileSpreadsheet,
+  X,
+} from 'lucide-react';
+import type { CopyFormat, ExportFormat, ResultSet } from '@joinery/shared';
+
+import { useCommand } from '../../commands';
+import { ipc, isIpcAvailable } from '../../ipc';
+import { diagnostics, notify } from '../../state/diagnostics';
+import { selectEffectiveTheme, selectGridSettings, useSettingsStore } from '../../state/settings';
+import { tabStore } from '../../state/tab';
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  Input,
+  Toolbar,
+  ToolbarButton,
+  ToolbarSeparator,
+  ToolbarSpacer,
+  Tooltip,
+} from '../../ui';
+import { keyHint } from '../../utils/platform';
+import { DEFAULT_COL_DEF, buildColumnDefs, isDataColumnId } from './grid-columns';
+import {
+  buildClipboardText,
+  copyScopeLabel,
+  type ClipboardColumn,
+  type ClipboardRow,
+} from './results-clipboard';
+
+/**
+ * Every community feature, registered once on import. AG Grid 36 requires an explicit registration —
+ * an unregistered module is a silently missing feature (no sorting, no filtering) rather than an
+ * error. Module scope, like `results-grid.component.ts:53`: this file is inside the lazily-loaded
+ * query-panel chunk, so it costs nothing until a query tab opens.
+ */
+ModuleRegistry.registerModules([AllCommunityModule]);
+
+/** What SQL INSERT export names the table. The Angular query tab passed the same literal. */
+const EXPORT_TABLE_NAME = 'QueryResults';
+
+/**
+ * Multi-row selection with checkboxes, and AG Grid's own ⌘C handler left off — copying is this
+ * component's job, because the user's `CopyFormat` setting decides the bytes. Ported from `:1253-1256`;
+ * module-scoped so the object identity is stable across renders (a fresh one is a grid option change).
+ */
+const ROW_SELECTION: RowSelectionOptions = {
+  mode: 'multiRow',
+  copySelectedRows: false,
+};
+
+/**
+ * The ceiling auto-size may give a column, in px. A single 4KB JSON cell would otherwise produce a
+ * column wider than the window; the user can still drag past this.
+ */
+const MAX_AUTO_WIDTH = 1100;
+
+/** Every open query tab has a grid, so a copy has to belong to the one the user is looking at. */
+function hostContainsFocus(host: HTMLElement | null): boolean {
+  const active = document.activeElement;
+  return host !== null && active !== null && host.contains(active);
+}
+
+/**
+ * True when the user has a real text selection — a drag across cell text. They asked for that string,
+ * so Edit ▸ Copy must not replace it with the whole row (`:1215-1216`).
+ */
+function hasTextSelection(): boolean {
+  const selection = document.getSelection();
+  return selection !== null && selection.toString().length > 0;
+}
+
+/** An editable element inside the grid — the quick filter, a floating filter, a future cell editor. */
+function focusIsEditable(): boolean {
+  const active = document.activeElement as HTMLElement | null;
+  if (active === null) return false;
+  return active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable;
+}
+
+export interface ResultsGridProps {
+  /** The result set to show. Passed by reference; its `rows` array reaches AG Grid untouched. */
+  readonly resultSet: ResultSet;
+  /** Which tab this grid belongs to, so File ▸ Export Results can ask whether that tab is active. */
+  readonly tabId: string;
+}
+
+export const ResultsGrid = memo(function ResultsGrid({ resultSet, tabId }: ResultsGridProps) {
+  const gridSettings = useSettingsStore(selectGridSettings);
+  const theme = useSettingsStore(selectEffectiveTheme);
+
+  const api = useRef<GridApi | null>(null);
+  const host = useRef<HTMLDivElement | null>(null);
+  const [filterText, setFilterText] = useState('');
+  const [selectedCount, setSelectedCount] = useState(0);
+
+  const columnDefs: ColDef[] = useMemo(
+    () => buildColumnDefs(resultSet.columns, { showRowNumbers: gridSettings.showRowNumbers }),
+    [resultSet.columns, gridSettings.showRowNumbers]
+  );
+
+  /** The true received count, which exceeds `rows.length` when the executor capped the set. */
+  const totalRows = resultSet.rowCount ?? resultSet.rows.length;
+  const displayedRows = resultSet.rows.length;
+  const truncated = resultSet.truncated === true;
+
+  /**
+   * Auto-size to content, then cap. AG Grid measures the RENDERED cells, so this is O(visible rows)
+   * rather than O(100k) — which is why it is safe to run on every result.
+   *
+   * The cap loop is bounded by the column count and takes the grid's own list, so a column that
+   * refuses to shrink cannot spin it.
+   */
+  const autoSizeColumns = useCallback((): void => {
+    const grid = api.current;
+    if (grid === null) return;
+    grid.autoSizeAllColumns();
+
+    const columns: Column[] = grid.getColumns() ?? [];
+    const oversized = columns
+      .filter(column => column.getActualWidth() > MAX_AUTO_WIDTH)
+      .map(column => ({ key: column, newWidth: MAX_AUTO_WIDTH }));
+    if (oversized.length > 0) grid.setColumnWidths(oversized);
+  }, []);
+
+  const onGridReady = useCallback(
+    (event: GridReadyEvent): void => {
+      api.current = event.api;
+      autoSizeColumns();
+    },
+    [autoSizeColumns]
+  );
+
+  /**
+   * The columns a copy or an export covers: what the grid is displaying, minus the ordinal gutter and
+   * AG Grid's checkbox column. Read from the grid rather than from `resultSet.columns` so a hidden or
+   * reordered column is honoured — the user copies what they can see.
+   */
+  const clipboardColumns = useCallback((grid: GridApi): ClipboardColumn[] => {
+    return grid
+      .getAllDisplayedColumns()
+      .filter(column => isDataColumnId(column.getColId()))
+      .map(column => ({
+        id: column.getColId(),
+        header: column.getColDef().headerName ?? column.getColId(),
+      }));
+  }, []);
+
+  /**
+   * Every row currently displayed, in displayed order. Bounded by the grid's own reported count, and
+   * it is the post-sort, post-filter set — which is what "copy what I am looking at" means.
+   */
+  const displayedRowData = useCallback((grid: GridApi): ClipboardRow[] => {
+    const rows: ClipboardRow[] = [];
+    const total = grid.getDisplayedRowCount();
+    for (let index = 0; index < total; index += 1) {
+      const data = grid.getDisplayedRowAtIndex(index)?.data as ClipboardRow | undefined;
+      if (data !== undefined) rows.push(data);
+    }
+    return rows;
+  }, []);
+
+  /**
+   * Copy, in the user's format. Selection first; with nothing selected it copies ALL displayed rows,
+   * which is Craig's rule from `:1506-1508` — pressing Copy with no selection must never silently
+   * copy nothing.
+   *
+   * `formatOverride` is what the two menu items ("Copy as JSON", "Copy as TSV with Headers") pass; it
+   * wins over the setting for that one call.
+   */
+  const copyRows = useCallback(
+    (formatOverride?: {
+      readonly format?: CopyFormat;
+      readonly includeHeaders?: boolean;
+    }): void => {
+      const grid = api.current;
+      if (grid === null) return;
+
+      const format = formatOverride?.format ?? gridSettings.copyFormat;
+      const includeHeaders = formatOverride?.includeHeaders ?? gridSettings.copyIncludeHeaders;
+
+      const selected = grid.getSelectedRows() as ClipboardRow[];
+      const fromSelection = selected.length > 0;
+      const rows = fromSelection ? selected : displayedRowData(grid);
+      if (rows.length === 0) {
+        notify.info('No rows to copy');
+        return;
+      }
+
+      const text = buildClipboardText({
+        rows,
+        columns: clipboardColumns(grid),
+        format,
+        includeHeaders,
+      });
+
+      // The write is async and can be refused (a document that is not focused), so the toast is not
+      // fired until it resolved — the Angular version claimed success unconditionally.
+      void navigator.clipboard
+        .writeText(text)
+        .then(() =>
+          notify.info(
+            `Copied ${copyScopeLabel(rows.length, fromSelection)} to clipboard (${format.toUpperCase()})`
+          )
+        )
+        .catch(error => {
+          notify.error('Could not copy to the clipboard');
+          diagnostics.error('clipboard write failed', error);
+        });
+    },
+    [clipboardColumns, displayedRowData, gridSettings.copyFormat, gridSettings.copyIncludeHeaders]
+  );
+
+  /**
+   * Export through the main process: it shows the save dialog, formats, and writes the file
+   * (`main/src/ipc/query.ipc.ts:111-166`). The renderer sends the result set and gets a verdict.
+   *
+   * This is the seam the Angular *menu* used (`query.component.ts:1963-1987`); the Angular grid's own
+   * CSV button instead called `gridApi.exportDataAsCsv`, which builds a Blob and clicks a synthetic
+   * download link. That second path is not ported, and deliberately: this renderer runs sandboxed over
+   * `file://` under `default-src 'none'`, where a blob download is at best untested, and having two
+   * CSV encoders in the app is how their outputs drift. One path, one encoder, one save dialog.
+   */
+  const exportResults = useCallback(
+    (format: ExportFormat): void => {
+      if (!isIpcAvailable()) return;
+      if (resultSet.rows.length === 0) {
+        notify.warning('No results to export');
+        return;
+      }
+      void ipc()
+        .query.exportResults(resultSet, {
+          format,
+          includeHeaders: true,
+          prettyPrint: true,
+          tableName: EXPORT_TABLE_NAME,
+        })
+        .then(result => {
+          if (result.success) {
+            notify.success(`Exported ${result.rowsExported ?? 0} rows to ${result.filePath ?? ''}`);
+            return;
+          }
+          // A dismissed dialog is not a failure. Main says so in this exact string.
+          if (result.error === 'Export cancelled') return;
+          notify.error(`Export failed: ${result.error ?? 'unknown error'}`);
+        })
+        .catch(error => {
+          notify.error('Export failed');
+          diagnostics.error('failed to export results', error);
+        });
+    },
+    [resultSet]
+  );
+
+  /**
+   * Edit ▸ Copy (⌘C). The claim protocol: return true and the menu bridge stops, return nothing and
+   * it falls back to `document.execCommand('copy')` (`shell/menu-bridge.tsx:120`).
+   *
+   * The three refusals are Angular's, in Angular's order — not in this grid, in an editable field, or
+   * there is a real text selection — and each one hands the keystroke back rather than eating it.
+   */
+  useCommand('menu-copy', () => {
+    if (!hostContainsFocus(host.current)) return undefined;
+    if (focusIsEditable()) return undefined;
+    if (hasTextSelection()) return undefined;
+    copyRows();
+    return true;
+  });
+
+  /** File ▸ Export Results. CSV, as the Angular menu chose (`query.component.ts:1104`). */
+  useCommand('export-results', () => {
+    if (tabStore.getState().activeTabId !== tabId) return;
+    exportResults('csv');
+  });
+
+  const clearFilter = useCallback(() => setFilterText(''), []);
+
+  const copyHint = `Copy selected (${keyHint('C')})`;
+
+  return (
+    <div className="flex min-h-0 grow flex-col" data-testid="results-pane">
+      <Toolbar aria-label="Results" data-testid="results-toolbar" className="gap-2">
+        {/* Counts. Angular's wording, including the "showing first N of M" form when the executor
+            capped the set — that is the only place a user learns their maxRowsToDisplay bit. */}
+        <p className="flex shrink-0 items-baseline gap-3 font-mono text-2xs tracking-eyebrow text-fg-muted uppercase">
+          {truncated ? (
+            <Tooltip
+              content={`Capped by your “maximum rows to display” setting — the full result was ${totalRows.toLocaleString()} rows`}
+            >
+              {/* Amber marks the caution; the words stay `text-fg`. `--color-warning` measures 4.40:1
+                  on `bg-chrome` under ivory — fine for a 14px icon (3:1 for non-text UI) and short of
+                  AA body for a 10px label, which is what HOUSE-RULES §5 means by certifying a token
+                  against its own canvas rather than against the one it was measured on. */}
+              <span data-testid="results-truncated" className="flex items-center gap-1.5 text-fg">
+                <AlertTriangle className="size-3.5 shrink-0 stroke-warning" aria-hidden />
+                showing first{' '}
+                <span className="tabular-nums" data-testid="results-displayed-count">
+                  {displayedRows.toLocaleString()}
+                </span>{' '}
+                of{' '}
+                <span className="tabular-nums" data-testid="results-row-count">
+                  {totalRows.toLocaleString()}
+                </span>{' '}
+                rows
+              </span>
+            </Tooltip>
+          ) : (
+            <span className="text-fg">
+              <span className="tabular-nums" data-testid="results-row-count">
+                {totalRows.toLocaleString()}
+              </span>{' '}
+              {totalRows === 1 ? 'row' : 'rows'}
+            </span>
+          )}
+          <span data-testid="results-column-count" className="tabular-nums">
+            {resultSet.columns.length} {resultSet.columns.length === 1 ? 'col' : 'cols'}
+          </span>
+          {selectedCount > 0 ? (
+            <span data-testid="results-selected-count" className="text-accent">
+              <span className="tabular-nums">{selectedCount.toLocaleString()}</span> selected
+            </span>
+          ) : null}
+          {filterText === '' ? null : (
+            <span data-testid="results-filtered" className="text-warning">
+              filtered
+            </span>
+          )}
+        </p>
+
+        <ToolbarSpacer />
+
+        {/* The quick filter. `Input` renders the control plus a label wrapper; there is no room for a
+            visible label in a 36px strip, so the name is an `aria-label` — the one case
+            `form-controls.md` allows it. */}
+        <div className="relative w-48 shrink-0">
+          <Input
+            name="results-filter"
+            aria-label="Filter results"
+            placeholder="Filter…"
+            data-testid="results-filter"
+            value={filterText}
+            onChange={event => setFilterText(event.target.value)}
+            className="pr-7 text-sm"
+          />
+          {filterText === '' ? null : (
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              leadingIcon={X}
+              aria-label="Clear the filter"
+              data-testid="results-filter-clear"
+              onClick={clearFilter}
+              className="absolute top-1/2 right-0 -translate-y-1/2"
+            />
+          )}
+        </div>
+
+        <ToolbarSeparator />
+
+        <Tooltip content="Fit columns to their contents">
+          <ToolbarButton
+            iconOnly
+            leadingIcon={Columns3}
+            aria-label="Fit columns to their contents"
+            data-testid="results-autosize"
+            onClick={autoSizeColumns}
+          />
+        </Tooltip>
+
+        <Tooltip content={copyHint}>
+          <ToolbarButton
+            iconOnly
+            leadingIcon={Copy}
+            aria-label={copyHint}
+            data-testid="results-copy"
+            onClick={() => copyRows()}
+          />
+        </Tooltip>
+
+        <DropdownMenu>
+          <Tooltip content="Export">
+            <DropdownMenuTrigger asChild>
+              <ToolbarButton
+                iconOnly
+                leadingIcon={Download}
+                aria-label="Export"
+                data-testid="results-export"
+              />
+            </DropdownMenuTrigger>
+          </Tooltip>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              data-testid="results-export-csv"
+              onSelect={() => exportResults('csv')}
+            >
+              <FileSpreadsheet className="size-4 shrink-0" aria-hidden />
+              Export as CSV
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              data-testid="results-export-json"
+              onSelect={() => exportResults('json')}
+            >
+              <FileJson className="size-4 shrink-0" aria-hidden />
+              Export as JSON
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              data-testid="results-export-sql"
+              onSelect={() => exportResults('sql')}
+            >
+              <FileCode2 className="size-4 shrink-0" aria-hidden />
+              Export as SQL INSERT
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              data-testid="results-copy-json"
+              onSelect={() => copyRows({ format: 'json' })}
+            >
+              <FileJson className="size-4 shrink-0" aria-hidden />
+              Copy as JSON
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              data-testid="results-copy-tsv"
+              onSelect={() => copyRows({ format: 'tsv', includeHeaders: true })}
+            >
+              <Copy className="size-4 shrink-0" aria-hidden />
+              Copy as TSV with headers
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </Toolbar>
+
+      <div
+        ref={host}
+        data-testid="results-grid"
+        // The two vendor classes are bound to the effective theme; `ag-theme-joinery` is the token
+        // map. `results-grid-theme.css` explains why the vendor class is bound rather than fixed.
+        className={[
+          'relative min-h-0 grow',
+          theme === 'dark' ? 'ag-theme-quartz-dark' : 'ag-theme-quartz',
+          'ag-theme-joinery',
+          gridSettings.alternatingRowColors ? 'ag-theme-joinery-striped' : '',
+        ]
+          .filter(part => part !== '')
+          .join(' ')}
+      >
+        <AgGridReact
+          // `legacy` opts into the CSS themes imported by styles/theme.css. Without it AG Grid 36
+          // applies its own Theming API quartz on top of them and warns about the collision.
+          theme="legacy"
+          // Rule 2 of the R2 discipline: the array from the IPC reply, by reference.
+          rowData={resultSet.rows}
+          columnDefs={columnDefs}
+          defaultColDef={DEFAULT_COL_DEF}
+          rowSelection={ROW_SELECTION}
+          rowHeight={gridSettings.rowHeight}
+          animateRows={gridSettings.animateRows}
+          quickFilterText={filterText}
+          suppressClipboardPaste
+          enableCellTextSelection
+          rowBuffer={20}
+          onGridReady={onGridReady}
+          onRowDataUpdated={autoSizeColumns}
+          onSelectionChanged={() => setSelectedCount(api.current?.getSelectedRows().length ?? 0)}
+        />
+
+        {/* A query that succeeded and matched nothing is not an error, and an empty grid with a header
+            row is not a sentence. Ported from `:206-211`. */}
+        {resultSet.rows.length === 0 ? (
+          <div
+            data-testid="results-empty"
+            className="pointer-events-none absolute inset-0 top-(--panel-header-height) flex items-start justify-center pt-6"
+          >
+            <p className="text-md text-fg-muted">Query executed successfully — 0 rows returned</p>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+});

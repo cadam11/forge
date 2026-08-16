@@ -61,6 +61,15 @@
 @import 'dockview-react/dist/styles/dockview.css';
 @import '../shell/dockview-theme.css';
 
+/* AG Grid (Task 11), same arrangement and the same rule: the two vendor stylesheets FIRST — the
+ * structural one, then the quartz theme that gives every `--ag-*` a value — and our token map last,
+ * because all three are one-class selectors and source order is the only thing that makes the
+ * overrides win. `features/query/results-grid-theme.css` has the full argument, including why the
+ * deprecated CSS themes are the right choice for a variable-driven, two-theme grid. */
+@import 'ag-grid-community/styles/ag-grid.css';
+@import 'ag-grid-community/styles/ag-theme-quartz.css';
+@import '../features/query/results-grid-theme.css';
+
 /*
  * Theme variants. Three states, because the theme control is three-state
  * (`ThemePreference` = 'system' | 'light' | 'dark', packages/shared/src/types/settings.types.ts:5):
