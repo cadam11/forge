@@ -453,12 +453,34 @@ describe('folding progress into the phase', () => {
     expect(next).toEqual({
       kind: 'failed',
       message: 'pg_restore: error: could not open input file',
+      // The plan created its own target, so the failure has a database to disclose.
+      leftoverDatabase: 'sales_copy',
     });
+  });
+
+  it('names the database Joinery created when the restore into it then failed', () => {
+    // Joinery creates the PG target BEFORE pg_restore runs, so a failure leaves an empty database
+    // behind. Undisclosed, the retry silently becomes an overwrite of a database Joinery itself made.
+    const next = applyRestoreProgress(running('op-1'), cliEvent({ status: 'failed' }));
+    expect(next.kind === 'failed' && next.leftoverDatabase).toBe('sales_copy');
+  });
+
+  it('discloses nothing when the target was already there — nothing was left behind', () => {
+    const intoExisting: RestorePhase = {
+      kind: 'running',
+      plan: { ...PLAN, targetDatabase: 'sales', kind: 'overwrite', createsTarget: false },
+      restoreId: 'op-1',
+      progress: null,
+    };
+    const next = applyRestoreProgress(intoExisting, cliEvent({ status: 'failed' }));
+    expect(next.kind === 'failed' && next.leftoverDatabase).toBeUndefined();
   });
 
   it('reports a cancellation as a failure, because it is not a restored database', () => {
     const next = applyRestoreProgress(running('op-1'), cliEvent({ status: 'cancelled' }));
     expect(next.kind).toBe('failed');
+    // A cancelled restore leaves the same empty database a failed one does.
+    expect(next.kind === 'failed' && next.leftoverDatabase).toBe('sales_copy');
   });
 
   it('ignores an event belonging to a different bound operation', () => {

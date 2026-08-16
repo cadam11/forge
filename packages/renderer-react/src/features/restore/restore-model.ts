@@ -485,8 +485,37 @@ export type RestorePhase =
       readonly progress: RestoreProgress | null;
     }
   | { readonly kind: 'done'; readonly plan: RestorePlan; readonly elapsedMs?: number }
-  /** Failed, or cancelled by something outside this dialog. Recoverable — back to `options`. */
-  | { readonly kind: 'failed'; readonly message: string };
+  /**
+   * Failed, or cancelled by something outside this dialog. Recoverable — back to `options`.
+   *
+   * `leftoverDatabase` names a database **Joinery created** on the way to a restore that then failed:
+   * an empty database, still on the server, that the user asked for only as a side effect of asking
+   * for a restore. PostgreSQL is the only engine that reaches it (`targetCreatedBy`), and only once
+   * the CREATE has succeeded — a creation that failed leaves nothing behind and sets nothing here.
+   */
+  | {
+      readonly kind: 'failed';
+      readonly message: string;
+      readonly leftoverDatabase?: string;
+    };
+
+/**
+ * A failure that also discloses the database Joinery created for it.
+ *
+ * Not cosmetic. `runPlan` creates the target *before* `pg_restore` runs, so a failed PostgreSQL
+ * restore into a new database leaves an empty database behind. Left unsaid, that has two costs: the
+ * user is not told about a database they now own, and the retry silently changes character — the
+ * target now exists, so `targetKindFor` calls it an overwrite and the wizard demands the typed-name
+ * confirmation for a database Joinery itself had just made, which is exactly how a confirmation stops
+ * meaning anything.
+ */
+function failedAfter(plan: RestorePlan, message: string): RestorePhase {
+  return {
+    kind: 'failed',
+    message,
+    ...(plan.createsTarget ? { leftoverDatabase: plan.targetDatabase } : {}),
+  };
+}
 
 /**
  * The operation id on a restore progress event, whatever the engine called it.
@@ -548,10 +577,10 @@ export function applyRestoreProgress(
     return { kind: 'done', plan: phase.plan, ...(elapsed(progress) ?? {}) };
   }
   if (progress.status === 'failed') {
-    return { kind: 'failed', message: progress.error ?? 'The restore failed.' };
+    return failedAfter(phase.plan, progress.error ?? 'The restore failed.');
   }
   if (progress.status === 'cancelled') {
-    return { kind: 'failed', message: 'The restore was cancelled.' };
+    return failedAfter(phase.plan, 'The restore was cancelled.');
   }
   return { kind: 'running', plan: phase.plan, restoreId: eventId ?? phase.restoreId, progress };
 }

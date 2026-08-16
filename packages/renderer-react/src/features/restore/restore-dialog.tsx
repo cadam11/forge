@@ -389,7 +389,13 @@ export function RestoreDialog({
       },
       onError: error => {
         diagnostics.error('the restore could not be started', error);
-        setActionPhase({ kind: 'failed', message: error.message });
+        // The target was created before this call, so a start that never happened still leaves it
+        // behind — the failure has to name it. See `RestorePhase`'s `leftoverDatabase`.
+        setActionPhase({
+          kind: 'failed',
+          message: error.message,
+          ...(plan.createsTarget ? { leftoverDatabase: plan.targetDatabase } : {}),
+        });
         dbOperationsStore.getState().retire(key);
       },
     });
@@ -903,7 +909,9 @@ function answerPanel(phase: RestorePhase, inFlight: DbOperationRun | null): Reac
   if (phase.kind === 'preparing') return <PreparingPanel plan={phase.plan} />;
   if (phase.kind === 'running') return <ProgressPanel phase={phase} />;
   if (phase.kind === 'done') return <DonePanel plan={phase.plan} elapsedMs={phase.elapsedMs} />;
-  if (phase.kind === 'failed') return <FailedPanel message={phase.message} />;
+  if (phase.kind === 'failed') {
+    return <FailedPanel message={phase.message} leftoverDatabase={phase.leftoverDatabase} />;
+  }
   if (inFlight !== null) return <InFlightPanel run={inFlight} />;
   return null;
 }
@@ -1216,8 +1224,22 @@ function DonePanel({
   );
 }
 
-/** The failure, in the same slot the progress was in. */
-function FailedPanel({ message }: { readonly message: string }) {
+/**
+ * The failure, in the same slot the progress was in — plus the database Joinery left behind.
+ *
+ * The second paragraph is the disclosure `RestorePhase`'s `leftoverDatabase` exists for: on
+ * PostgreSQL the target is created *before* `pg_restore` runs, so a failure leaves an empty database
+ * on the server that the user never asked for by name. Saying so is also what makes the retry
+ * comprehensible — the target exists now, so `Try again` will ask for the typed-name confirmation,
+ * and a confirmation nobody can explain is a confirmation people learn to type through.
+ */
+function FailedPanel({
+  message,
+  leftoverDatabase,
+}: {
+  readonly message: string;
+  readonly leftoverDatabase: string | undefined;
+}) {
   return (
     <div
       role="alert"
@@ -1228,6 +1250,16 @@ function FailedPanel({ message }: { readonly message: string }) {
       <div className="flex min-w-0 flex-col gap-1">
         <p className="text-md text-fg">The restore failed</p>
         <p className="text-sm break-words text-fg-muted text-pretty">{message}</p>
+        {leftoverDatabase === undefined ? null : (
+          <p
+            data-testid="restore-error-leftover"
+            className="text-sm break-words text-fg-muted text-pretty"
+          >
+            <span className="font-mono break-all">{leftoverDatabase}</span> was created before the
+            restore failed and is still there, empty. Drop it yourself if you do not want it —
+            trying again restores into it, which is why the confirmation asks for its name.
+          </p>
+        )}
       </div>
     </div>
   );

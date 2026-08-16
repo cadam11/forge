@@ -847,6 +847,60 @@ describe('running a restore', () => {
     expect((screen.getByTestId('restore-path') as HTMLInputElement).disabled).toBe(false);
   });
 
+  it('names the empty database it left behind when the restore into it failed', async () => {
+    // Joinery creates the PG target before pg_restore runs, so a failure leaves a database on the
+    // server that the user only asked for as part of asking for a restore. Undisclosed, it also turns
+    // `Try again` into an overwrite — the wizard would demand the typed-name confirmation for a
+    // database Joinery itself had just made.
+    const user = userEvent.setup();
+    await mountOnForm('postgresql');
+    await fillNewTarget(user, 'sales_copy');
+    await user.click(screen.getByTestId('restore-submit'));
+    await waitFor(() => expect(bridge.createDatabase).toHaveBeenCalledOnce());
+    await screen.findByTestId('restore-progress');
+
+    act(() => {
+      bridge.progress.emit({
+        backupId: 'op-1',
+        operationId: 'op-1',
+        status: 'failed',
+        percentComplete: 0,
+        error: 'pg_restore: error: did not find magic string in file header',
+      } as unknown as RestoreProgress);
+    });
+
+    const leftover = await screen.findByTestId('restore-error-leftover');
+    expect(leftover.textContent).toContain('sales_copy');
+    expect(leftover.textContent).toContain(
+      'was created before the restore failed and is still there, empty'
+    );
+    expect(notifications).toEqual([]);
+  });
+
+  it('discloses no leftover when the target was already there to restore into', async () => {
+    const user = userEvent.setup();
+    await mountOnForm('postgresql');
+    await fillNewTarget(user, 'sales');
+    await user.click(screen.getByTestId('restore-submit'));
+    await user.type(await screen.findByTestId('restore-confirm-input'), 'sales');
+    await user.click(screen.getByTestId('restore-confirm-start'));
+    await screen.findByTestId('restore-progress');
+
+    act(() => {
+      bridge.progress.emit({
+        backupId: 'op-1',
+        operationId: 'op-1',
+        status: 'failed',
+        percentComplete: 0,
+        error: 'pg_restore: error: connection to server failed',
+      } as unknown as RestoreProgress);
+    });
+
+    await screen.findByTestId('restore-error');
+    expect(bridge.createDatabase).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('restore-error-leftover')).toBeNull();
+  });
+
   it('states a failure when the operation never started at all', async () => {
     const user = userEvent.setup();
     bridge.start.mockRejectedValueOnce(new Error('Connection profile not found'));
