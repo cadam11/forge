@@ -43,6 +43,36 @@ function sanitizeIdentifier(name: string): string {
   return name.replace(/'/g, "''");
 }
 
+/**
+ * A raw `xp_dirtree` row as the driver hands it back.
+ *
+ * `isfile` is declared BIT in the temp table, and node-mssql/tedious maps BIT
+ * to a JavaScript **boolean** — not 0/1. The numeric arm of the union is kept
+ * so the mapper stays correct if a row ever arrives from a driver (or a mock)
+ * that yields the numeric form instead.
+ */
+export interface DirTreeRow {
+  name: string;
+  depth: number;
+  isfile: boolean | number;
+}
+
+/**
+ * Maps one `xp_dirtree` row to a ServerFileEntry.
+ *
+ * Exported so the BIT handling is unit-testable without a live server: this is
+ * exactly where the "every entry looks like a file" bug lived (`isfile === 0`
+ * is always false when `isfile` is a boolean).
+ */
+export function mapDirTreeRow(row: DirTreeRow, parentPath: string): ServerFileEntry {
+  return {
+    name: row.name,
+    path: `${parentPath}${row.name}`,
+    isDirectory: !row.isfile,
+    depth: row.depth,
+  };
+}
+
 export class ServerFilesystemService extends BaseSingleton {
   private poolManager: ConnectionPoolManager;
 
@@ -100,18 +130,9 @@ export class ServerFilesystemService extends BaseSingleton {
     `;
 
     try {
-      const result = await this.poolManager.query<{
-        name: string;
-        depth: number;
-        isfile: number;
-      }>(connectionId, sql);
+      const result = await this.poolManager.query<DirTreeRow>(connectionId, sql);
 
-      return result.recordset.map(row => ({
-        name: row.name,
-        path: `${normalizedPath}${row.name}`,
-        isDirectory: row.isfile === 0,
-        depth: row.depth,
-      }));
+      return result.recordset.map(row => mapDirTreeRow(row, normalizedPath));
     } catch (error) {
       // If the directory doesn't exist or access denied, return empty
       log.error('Error listing directory:', error);
