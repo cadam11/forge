@@ -111,14 +111,20 @@ function Segment({
  * to render the CURRENT preference's glyph, and an array lookup is `T | undefined` under
  * `noUncheckedIndexedAccess` — a fallback branch for a state the type says cannot happen. This way
  * the lookup is total, and adding a fourth preference to `settings.types.ts` fails to compile here.
+ *
+ * The labels are **Ivory** and **Ink**, not Light and Dark: those are the names HOUSE-RULES §3 and
+ * `docs/brand/` give the two canvases, and Task 15's settings panel uses them. Two names for one theme
+ * across two controls in the same window is how a user learns the app is inconsistent, so
+ * `features/settings`' spec asserts these labels against the panel's own `THEME_CHOICES` — which is why
+ * this constant is exported.
  */
-const THEME_OPTIONS: Record<
+export const THEME_OPTIONS: Record<
   ThemePreference,
   { readonly label: string; readonly icon: LucideIcon }
 > = {
   system: { label: 'System', icon: Monitor },
-  light: { label: 'Light', icon: Sun },
-  dark: { label: 'Dark', icon: Moon },
+  light: { label: 'Ivory', icon: Sun },
+  dark: { label: 'Ink', icon: Moon },
 };
 
 const THEME_ORDER: readonly ThemePreference[] = ['system', 'light', 'dark'];

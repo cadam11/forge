@@ -1,7 +1,7 @@
 /**
  * Every command handler this task owns, in one table, plus the shell's own ⌘J shortcut.
  *
- * `COMMAND_CONSUMERS` names "Task 7 shell" as the consumer of fifteen commands; this file is that
+ * `COMMAND_CONSUMERS` names "Task 7 shell" as the consumer of eleven commands; this file is that
  * consumer, and the correspondence is meant to be checkable by reading the two side by side. The
  * handlers that used to live inside `menu.service.ts` — the ⌘N connection/database resolution, the
  * file-open flow, the three-step refresh — are here rather than in the bridge, because the bridge's
@@ -24,7 +24,6 @@ import { connectionStore, selectDefaultDatabaseFor } from '../state/connection';
 import { diagnostics, notify } from '../state/diagnostics';
 import { explorerStore } from '../state/explorer';
 import { logStore } from '../state/logs';
-import { settingsStore } from '../state/settings';
 import { selectActiveTab, tabStore } from '../state/tab';
 import { workbenchStore } from '../state/workbench';
 
@@ -137,7 +136,9 @@ export function ShellCommands() {
   useCommand('toggle-sidebar', () => workbenchStore.getState().toggleSidebar());
   useCommand('toggle-chat-panel', () => chatPanelStore.getState().togglePanel());
   useCommand('toggle-output-panel', () => logStore.getState().toggle());
-  useCommand('open-settings', () => settingsStore.getState().open());
+  // `open-settings` is NOT here any more: Task 15's `features/settings/SettingsDialog` took it over,
+  // and it is the panel itself that must own the wire — a handler here would open the store flag and a
+  // handler there would too, so ⌘, would be handled twice.
 
   // Connections.
   useCommand('disconnect-connection', () => {

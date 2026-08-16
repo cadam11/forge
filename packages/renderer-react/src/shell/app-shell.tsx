@@ -38,6 +38,7 @@ import { dispatchCommand } from '../commands';
 import { BackupDialogs } from '../features/backup';
 import { ConnectionDialogs } from '../features/connections';
 import { RestoreDialogs } from '../features/restore';
+import { SettingsDialog } from '../features/settings';
 import { diagnostics } from '../state/diagnostics';
 import { installLogDiagnosticsSink, useLogStream } from '../state/logs';
 import { useTabStore } from '../state/tab';
@@ -222,12 +223,15 @@ function ShellFrame() {
           exactly once. `ConnectionDialogs` is Task 9's consumer of the three connection commands,
           `BackupDialogs` is Task 12's consumer of the two backup ones, and `RestoreDialogs` is Task
           13's consumer of the two restore ones — which is also what emptied `ShellCommands` of the
-          last of PLAN.md 0.1's placeholders. */}
+          last of PLAN.md 0.1's placeholders. `SettingsDialog` is Task 15's consumer of `open-settings`,
+          which moved out of `ShellCommands` for the same reason: the surface that reads the store flag
+          is the one that must set it, or ⌘, is handled twice. */}
       <MenuBridge />
       <ShellCommands />
       <ConnectionDialogs />
       <BackupDialogs />
       <RestoreDialogs />
+      <SettingsDialog />
       <Toaster theme={theme} />
     </TooltipProvider>
   );
