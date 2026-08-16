@@ -53,6 +53,14 @@
  * rules must precede every other rule. */
 @import '../markdown/markdown.css';
 
+/* Dockview (Task 7). The vendor stylesheet FIRST, then our token map — both are one-class
+ * selectors, so source order is what makes the overrides win. Neither line may move; the
+ * header of `shell/dockview-theme.css` has the full argument. Imported here rather than from
+ * the workspace component for exactly that reason: a CSS import inside a .tsx lands after
+ * this file in the bundle, which would put the vendor theme last and silently undo it. */
+@import 'dockview-react/dist/styles/dockview.css';
+@import '../shell/dockview-theme.css';
+
 /*
  * Theme variants. Three states, because the theme control is three-state
  * (`ThemePreference` = 'system' | 'light' | 'dark', packages/shared/src/types/settings.types.ts:5):

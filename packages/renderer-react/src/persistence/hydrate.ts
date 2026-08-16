@@ -95,20 +95,51 @@ export interface WorkspaceHydrationDeps {
 }
 
 /**
- * Restores the saved tabs for a restored connection and reads the saved React layout.
+ * Restores the saved tabs, reads the saved React layout, and — last — opens the **tab** write
+ * gate. **This function is half of the restore-before-save contract**; `shell/boot.ts`'s
+ * `markRestoreApplied` is the other half.
  *
- * `connectionId` is required for the same reason `restoreTabs` requires it: a persisted tab whose
- * own `connectionId` is missing adopts this one, and the Angular renderer only restored tabs once
- * a connection had come back (`app.component.ts:120-124`). Keeping that parity means this task
- * changes no restore semantics — it only moves where the call is made from.
+ * ── Why the tab unlock lives here and the layout unlock does not ──────────────────────────
+ *
+ * `tabStore.saveTabs` and `layoutPersistence.save` both refuse to write until they are unlocked,
+ * so "no tab or layout write may fire before the restore has completed" is not a rule the shell
+ * has to remember: it is the shape of the code. A component that saves too early gets a no-op
+ * instead of overwriting the user's saved SQL with an empty list.
+ * `TabStoreState.unlockPersistence` documents the loss in full.
+ *
+ * The two gates become safe at *different moments*, though, which is why only one of them opens
+ * here. The tab list is restored BY this function, so its gate can open on the last line. The
+ * layout is only READ here — `shell/workspace/workspace.tsx` applies the arrangement an effect and
+ * a debounce tick later — so the layout gate is opened by `bootStore.markRestoreApplied()`, i.e.
+ * by the workspace, once it has actually applied what was read. Opening it here left a window in
+ * which Dockview's own initial (empty) arrangement could be saved over the user's.
+ *
+ * The unlock is the last statement, after both awaits, and nothing before it can throw —
+ * `restoreTabs` and `layout.read()` each catch and report their own failures, which is
+ * what makes "restored, or tried and reported" the only state this function returns in.
+ *
+ * ── Why `connectionId` is nullable now ────────────────────────────────────────────────────
+ *
+ * The Angular renderer restored tabs only if a connection had come back
+ * (`app.component.ts:120-124`) and skipped the restore entirely otherwise. Under a gate that is
+ * no longer safe to copy: skipping the restore would either leave the gate shut for the session
+ * (tabs silently stop persisting) or open it over an unrestored store (the loss the gate exists
+ * to prevent). So the restore always runs. A persisted tab carries its own `connectionId` and
+ * only falls back to this one when it has none, so restoring with no live connection yields the
+ * user's tabs pointing at connections that are not up — which is what a reconnect fixes, and is
+ * strictly better than discarding their SQL.
  */
 export async function hydrateWorkspace(
-  connectionId: string,
+  connectionId: string | null,
   deps: WorkspaceHydrationDeps = {}
 ): Promise<ReactLayoutPayload | undefined> {
   const tabs = deps.tabs ?? tabStore;
   const layout = deps.layout ?? layoutPersistence;
 
-  await tabs.getState().restoreTabs(connectionId);
-  return layout.read();
+  await tabs.getState().restoreTabs(connectionId ?? '');
+  const payload = await layout.read();
+
+  tabs.getState().unlockPersistence();
+
+  return payload;
 }

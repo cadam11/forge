@@ -12,6 +12,7 @@ import { FontStatus } from './font-status';
 import { IpcProbe } from './ipc-probe';
 import { PersistenceProbe } from './persistence-probe';
 import { cssVars, Eyebrow, Section, Swatch, SwatchGrid } from './preview-parts';
+import { selectEffectiveTheme, useSettingsStore } from '../state/settings';
 import { ThemeSwitch } from './theme-switch';
 import {
   ACCENT_TOKENS,
@@ -28,7 +29,6 @@ import {
   TEXT_TOKENS,
   TYPE_SCALE,
 } from './token-data';
-import { usePreviewTheme } from './use-preview-theme';
 import { useResolvedTokens } from './use-resolved-tokens';
 
 function ScaleRowLabel({ utility, px, note }: { utility: string; px: string; note: string }) {
@@ -154,7 +154,8 @@ function SurfaceStack() {
 }
 
 export function TokenPreview() {
-  const { preference, resolved, setPreference } = usePreviewTheme();
+  // The settings store, not the deleted local hook: Task 7 made it the only `[data-theme]` writer.
+  const resolved = useSettingsStore(selectEffectiveTheme);
   const resolvedTokens = useResolvedTokens(ALL_TOKENS, resolved);
 
   const swatches = (specs: typeof BRAND_TOKENS) => (
@@ -175,7 +176,7 @@ export function TokenPreview() {
           <Eyebrow>joinery · design tokens</Eyebrow>
           <h1 className="font-display text-display-sm text-fg">Theme preview</h1>
         </div>
-        <ThemeSwitch preference={preference} resolved={resolved} onChange={setPreference} />
+        <ThemeSwitch />
       </header>
 
       <main className="flex flex-col gap-10 px-6 py-8">

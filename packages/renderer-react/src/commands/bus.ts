@@ -11,7 +11,8 @@
  */
 
 import { useEffect, useLayoutEffect, useRef } from 'react';
-import type { CommandId, CommandPayload } from './registry';
+import { diagnostics } from '../state/diagnostics';
+import { COMMAND_CONSUMERS, type CommandId, type CommandPayload } from './registry';
 
 /**
  * A handler may return `true` to *claim* the command. Only `menu-copy` reads that (see
@@ -100,7 +101,10 @@ export function dispatchCommand<Id extends PayloadCommandId>(
 ): boolean;
 export function dispatchCommand(id: CommandId, payload?: unknown): boolean {
   const subscribed = handlers.get(id);
-  if (!subscribed || subscribed.size === 0) return false;
+  if (!subscribed || subscribed.size === 0) {
+    warnUnhandled(id);
+    return false;
+  }
 
   let claimed = false;
   for (const handler of [...subscribed]) {
@@ -129,6 +133,30 @@ export function useCommand<Id extends CommandId>(id: Id, handler: CommandHandler
     // Only the id: the handler is reached through the ref, so including it would tear the
     // subscription down and rebuild it on every render.
     [id]
+  );
+}
+
+/**
+ * The dead-command alarm, DEV builds only.
+ *
+ * `dispatchCommand` returning false is the honest answer for `menu-copy` (nobody claimed it, fall
+ * back to `execCommand`) but for the other 35 ids it means the user's menu click, palette entry or
+ * keystroke went nowhere — which is the exact failure PLAN.md 0.4 counted ten times in the Angular
+ * renderer and which no compiler catches, because the id is real and the payload type-checks. The
+ * registry's `COMMAND_CONSUMERS` already names who was supposed to handle it, so the warning says
+ * so: a developer who clicks a not-yet-owned menu item gets "Task 10 query editor" in the Output
+ * panel instead of silence.
+ *
+ * `import.meta.env.DEV` is statically replaced at build time, so the whole call — and the
+ * `COMMAND_CONSUMERS` lookup with it — is dropped from the production bundle. That is deliberate:
+ * a shipped app must not narrate its own wiring to an end user, and Phase B's real fix is a
+ * handler, not a nicer log line.
+ */
+function warnUnhandled(id: CommandId): void {
+  if (!import.meta.env.DEV) return;
+  diagnostics.warn(
+    `command "${id}" was dispatched with no handler subscribed`,
+    `expected consumer: ${COMMAND_CONSUMERS[id]}`
   );
 }
 
