@@ -262,6 +262,41 @@ describe('the placeholder prompt', () => {
     expect(editorPrefsStore.getState().flywayPlaceholderValues).toEqual({});
   });
 
+  it('abandons a SECOND run that arrives while the prompt is open, and reports it', async () => {
+    // Reachable through Query ▸ Execute from the native menu, which is not a keystroke and so is not
+    // stopped by the dialog's focus trap. Throwing here would be an unhandled rejection: the caller is a
+    // `void run(…)`.
+    const warnings: string[] = [];
+    teardowns.push(
+      setDiagnosticsSink({ error: () => undefined, warn: context => warnings.push(context) })
+    );
+    const execute = vi.fn(async () => okResult);
+    teardowns.push(installJoineryMock({ query: { execute } }));
+    const { api, unmount } = mountHook();
+    teardowns.push(unmount);
+
+    let first: Promise<void> | undefined;
+    await act(async () => {
+      first = api().run(context({ sql: 'SELECT ${schema}' }));
+    });
+    expect(api().prompting).toEqual(['schema']);
+
+    // The second one settles immediately, having done nothing.
+    await act(async () => {
+      await api().run(context({ sql: 'SELECT ${other}' }));
+    });
+    expect(warnings).toEqual(['ignored an execute while a placeholder prompt was open']);
+    expect(execute).not.toHaveBeenCalled();
+    // And the first is still live: its prompt is untouched and answering it still runs it.
+    expect(api().prompting).toEqual(['schema']);
+
+    await act(async () => {
+      api().submitPlaceholders({ schema: 'public' });
+      await first;
+    });
+    expect(execute).toHaveBeenCalledOnce();
+  });
+
   it('does not prompt for SQL with no placeholders', async () => {
     const execute = vi.fn(async () => okResult);
     teardowns.push(installJoineryMock({ query: { execute } }));

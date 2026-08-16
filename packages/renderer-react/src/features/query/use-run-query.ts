@@ -27,7 +27,7 @@ import { useCallback, useRef, useState } from 'react';
 import type { AppSettings } from '@joinery/shared';
 
 import { aiStore, selectAutoRenameEnabled } from '../../state/ai';
-import { notify } from '../../state/diagnostics';
+import { diagnostics, notify } from '../../state/diagnostics';
 import { queryExecutionStore } from '../../state/query-execution';
 import { queryHistoryStore } from '../../state/query-history';
 import { generateQueryTitle, tabStore } from '../../state/tab';
@@ -63,11 +63,17 @@ export function useRunQuery(): RunQuery {
 
   const promptForPlaceholders = useCallback(
     (placeholders: readonly string[]): Promise<Record<string, string> | null> => {
-      // A second prompt cannot open while one is up: the only caller awaits this, and the toolbar's
-      // execute is disabled while a run is in flight. Asserted rather than assumed, because a leaked
-      // resolver would hang the next run forever with no visible cause.
+      // A second prompt while one is open abandons the SECOND run rather than replacing the first
+      // resolver — which would strand it and hang the first run forever with no visible cause.
+      //
+      // Reachable: the dialog traps focus, so the editor's ⌃E cannot fire behind it, but Query ▸ Execute
+      // from the native menu is not a keystroke and arrives regardless. Reported rather than thrown,
+      // because the caller is a `void run(…)` and a throw there is an unhandled rejection.
       if (pending.current !== null) {
-        throw new Error('[useRunQuery] a placeholder prompt is already open');
+        diagnostics.warn('ignored an execute while a placeholder prompt was open', {
+          placeholders,
+        });
+        return Promise.resolve(null);
       }
       setPrompting(placeholders);
       return new Promise(resolve => {
