@@ -13,6 +13,7 @@ import {
   selectIsExecuting,
   selectResultFor,
   selectRunningCount,
+  selectSqlFor,
 } from './query-execution';
 
 const REQUEST = {
@@ -344,10 +345,87 @@ describe('setResult and forgetTab', () => {
   });
 });
 
+describe('the SQL that produced the result', () => {
+  it('is recorded with the result, and is the EXECUTED text', async () => {
+    quiet();
+    teardowns.push(installJoineryMock({ query: { execute: async () => okResult() } }));
+    const store = createQueryExecutionStore();
+
+    await store.getState().execute({ ...REQUEST, sql: 'SELECT id FROM customers' });
+
+    expect(selectSqlFor('tab-1')(store.getState())).toBe('SELECT id FROM customers');
+  });
+
+  it('is cleared the moment a new run starts, so it can never describe the old result', async () => {
+    quiet();
+    let release: (() => void) | undefined;
+    teardowns.push(
+      installJoineryMock({
+        query: {
+          execute: () =>
+            new Promise<QueryResult>(resolve => {
+              release = () => resolve(okResult('query-2'));
+            }),
+        },
+      })
+    );
+    const store = createQueryExecutionStore();
+    store.setState({
+      results: new Map([['tab-1', okResult('query-1')]]),
+      sqlByTab: new Map([['tab-1', 'SELECT 1']]),
+    });
+
+    const running = store.getState().execute({ ...REQUEST, sql: 'SELECT 2' });
+    expect(selectSqlFor('tab-1')(store.getState())).toBeNull();
+    expect(selectResultFor('tab-1')(store.getState())).toBeNull();
+
+    release?.();
+    await running;
+    expect(selectSqlFor('tab-1')(store.getState())).toBe('SELECT 2');
+  });
+
+  it('is recorded for a FAILED run too — the inspector still has a result to describe', async () => {
+    quiet();
+    teardowns.push(
+      installJoineryMock({
+        query: {
+          execute: () => Promise.reject(new Error('syntax error')),
+        },
+      })
+    );
+    const store = createQueryExecutionStore();
+
+    await store.getState().execute({ ...REQUEST, sql: 'SELEC 1' });
+
+    expect(selectSqlFor('tab-1')(store.getState())).toBe('SELEC 1');
+  });
+
+  it('travels with setResult, and is FORGOTTEN when setResult omits it', () => {
+    const store = createQueryExecutionStore();
+
+    store.getState().setResult('tab-1', okResult('snap-1'), 'SELECT * FROM snapshot');
+    expect(selectSqlFor('tab-1')(store.getState())).toBe('SELECT * FROM snapshot');
+
+    // A caller with no SQL to offer must not leave the previous statement attached to a new result.
+    store.getState().setResult('tab-1', okResult('snap-2'));
+    expect(selectSqlFor('tab-1')(store.getState())).toBeNull();
+  });
+
+  it('is dropped by forgetTab', () => {
+    const store = createQueryExecutionStore();
+    store.getState().setResult('tab-1', okResult(), 'SELECT 1');
+
+    store.getState().forgetTab('tab-1');
+
+    expect(selectSqlFor('tab-1')(store.getState())).toBeNull();
+  });
+});
+
 describe('the selectors', () => {
   it('answer for an undefined tab without throwing', () => {
     const store = createQueryExecutionStore();
     expect(selectIsExecuting(undefined)(store.getState())).toBe(false);
     expect(selectResultFor(undefined)(store.getState())).toBeNull();
+    expect(selectSqlFor(undefined)(store.getState())).toBeNull();
   });
 });

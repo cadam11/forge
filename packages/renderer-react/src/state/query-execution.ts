@@ -56,6 +56,20 @@ export interface QueryExecutionState {
   readonly running: ReadonlyMap<string, RunningQuery>;
   /** The current result per tab. Absent means "nothing has run in this tab yet". */
   readonly results: ReadonlyMap<string, QueryResult>;
+  /**
+   * The SQL that PRODUCED each tab's current result — not the editor's live text.
+   *
+   * Added by Task 14, which needs it for two things a result set cannot answer on its own: the row
+   * inspector resolves the queried table from it to fetch the FK metadata the PostgreSQL and MySQL
+   * executors do not attach (`main/.../query-executor.ts:94-125` enriches on the MSSQL path only),
+   * and the history panel's "capture this result" writes it into the snapshot.
+   *
+   * It has to be here rather than read from `getTabContent(tabId)`, because the editor's text drifts
+   * from the executed text the moment the user types — and an FK badge derived from a table the user
+   * has just finished typing over would offer a link the displayed rows do not have. It moves in
+   * lockstep with `results`: written by `execute`, replaced by `setResult`, dropped by `forgetTab`.
+   */
+  readonly sqlByTab: ReadonlyMap<string, string>;
 
   /**
    * Runs the SQL and stores the result. Resolves with the result it stored, or `null` when the
@@ -65,8 +79,14 @@ export interface QueryExecutionState {
   readonly execute: (request: ExecuteRequest) => Promise<QueryResult | null>;
   /** Cancels the tab's in-flight query, if any. */
   readonly cancel: (tabId: string) => Promise<void>;
-  /** Replaces a tab's displayed result — Task 14's "view this historical snapshot" path. */
-  readonly setResult: (tabId: string, result: QueryResult | null) => void;
+  /**
+   * Replaces a tab's displayed result — Task 14's "view this historical snapshot" path.
+   *
+   * `sql` is what produced the replacement (a snapshot's own `sql`), and omitting it FORGETS the
+   * tab's recorded SQL rather than leaving the previous run's in place: a result and the statement
+   * it came from must never be able to disagree.
+   */
+  readonly setResult: (tabId: string, result: QueryResult | null, sql?: string) => void;
   /** Forgets a tab's result and any running record. Called when the tab closes. */
   readonly forgetTab: (tabId: string) => void;
 }
@@ -114,6 +134,7 @@ export function createQueryExecutionStore() {
     return {
       running: new Map(),
       results: new Map(),
+      sqlByTab: new Map(),
 
       execute: async request => {
         if (!isIpcAvailable()) return null;
@@ -133,8 +154,11 @@ export function createQueryExecutionStore() {
           startedAt: Date.now(),
         });
         // Clear the previous result the moment a new run starts: leaving it up means a grid showing
-        // last query's rows under a spinner.
-        set(state => ({ results: patchMap(state.results, request.tabId, null) }));
+        // last query's rows under a spinner. The recorded SQL goes with it, for the same reason.
+        set(state => ({
+          results: patchMap(state.results, request.tabId, null),
+          sqlByTab: patchMap(state.sqlByTab, request.tabId, null),
+        }));
 
         try {
           const result = await ipc().query.execute({
@@ -151,7 +175,10 @@ export function createQueryExecutionStore() {
           // Superseded: another execute (or a cancel) replaced this tab's record while we waited.
           if (get().running.get(request.tabId)?.queryId !== queryId) return null;
 
-          set(state => ({ results: patchMap(state.results, request.tabId, result) }));
+          set(state => ({
+            results: patchMap(state.results, request.tabId, result),
+            sqlByTab: patchMap(state.sqlByTab, request.tabId, request.sql),
+          }));
           return result;
         } catch (error) {
           if (get().running.get(request.tabId)?.queryId !== queryId) return null;
@@ -164,7 +191,10 @@ export function createQueryExecutionStore() {
             executionTime: Date.now() - (get().running.get(request.tabId)?.startedAt ?? Date.now()),
           };
           diagnostics.error('query execution failed', error);
-          set(state => ({ results: patchMap(state.results, request.tabId, failure) }));
+          set(state => ({
+            results: patchMap(state.results, request.tabId, failure),
+            sqlByTab: patchMap(state.sqlByTab, request.tabId, request.sql),
+          }));
           return failure;
         } finally {
           // Only if it is still ours: a superseding execute has already installed its own record and
@@ -188,13 +218,17 @@ export function createQueryExecutionStore() {
         }
       },
 
-      setResult: (tabId, result) =>
-        set(state => ({ results: patchMap(state.results, tabId, result) })),
+      setResult: (tabId, result, sql) =>
+        set(state => ({
+          results: patchMap(state.results, tabId, result),
+          sqlByTab: patchMap(state.sqlByTab, tabId, sql ?? null),
+        })),
 
       forgetTab: tabId =>
         set(state => ({
           running: patchMap(state.running, tabId, null),
           results: patchMap(state.results, tabId, null),
+          sqlByTab: patchMap(state.sqlByTab, tabId, null),
         })),
     };
   });
@@ -222,4 +256,13 @@ export function selectRunningCount(state: Pick<QueryExecutionState, 'running'>):
 export function selectResultFor(tabId: string | undefined) {
   return (state: Pick<QueryExecutionState, 'results'>): QueryResult | null =>
     tabId === undefined ? null : (state.results.get(tabId) ?? null);
+}
+
+/**
+ * The statement that produced the tab's current result. A primitive, so a component may subscribe to
+ * it directly — the row inspector does, and it must not re-render on every keystroke.
+ */
+export function selectSqlFor(tabId: string | undefined) {
+  return (state: Pick<QueryExecutionState, 'sqlByTab'>): string | null =>
+    tabId === undefined ? null : (state.sqlByTab.get(tabId) ?? null);
 }
