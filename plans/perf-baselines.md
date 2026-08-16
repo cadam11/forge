@@ -196,3 +196,36 @@ Two things worth watching:
   side effects (`new Marked(...)`, `DOMPurify.addHook(...)`) and so survives tree-shaking
   wherever it is reachable. Mermaid adds ~3.5 MB of **lazily-loaded** chunks, fetched from
   the asar the first time a diagram appears.
+
+## React ERD, planned posture for 200 tables (2026-08-16, renderer-rewrite Task 18)
+
+**No measurement here yet — this is the design the Task 23 perf sweep is meant to hold to
+account.** It is written down now because the four mechanisms below are the reason the ERD
+has no numbers of its own, and a later reader should be able to tell "not measured" from
+"measured and fine".
+
+The target the plan sets for the sweep is **200 tables**, pan and zoom. Four mechanisms,
+all in `packages/renderer-react/src/features/erd/`:
+
+1. **The transform never goes through React.** `use-erd-viewport.ts` writes it onto the
+   content `<g>` with `setAttribute`, and the attribute is deliberately absent from that
+   element's JSX so React never fights it. A drag therefore costs zero reconciles. React
+   gets a throttled copy, published only when the cull set could have changed (`cullChanged`:
+   64px or 5%) or when a gesture ends.
+2. **Every node is a `memo`** whose props are its own layout (stable until the schema
+   changes) plus two stable callbacks, so a published transform reconciles the wrapper and
+   skips the node subtrees.
+3. **The node set is culled** to the viewport plus one full viewport of margin on every
+   side, so a pan of less than a screen cannot reveal an unmounted node. An unmeasured host
+   (jsdom) renders everything, which is both the right first paint and what makes unit-test
+   node counts deterministic.
+4. **Layout runs once per schema, not per frame.** `@dagrejs/dagre` replaces the Angular
+   hand-rolled BFS ranking, and `layoutErd` is memoized on the node array. Also gone rather
+   than ported: the Angular `updatePositions` called `getBBox()` on every edge label on every
+   simulation tick — a forced synchronous layout per edge per frame.
+
+What the sweep should therefore measure, and the budgets to argue with: frame gap during a
+sustained pan of a 200-table diagram (the grid's ≤50ms scroll step is the nearest existing
+precedent), node elements in the DOM at rest vs mid-pan (cull effectiveness — the analogue
+of the grid's "33 rows in the DOM"), and time from `open-erd` to first paint including the
+IPC fan-out (two metadata calls per table, batched 5 at a time, capped at `MAX_ERD_TABLES`).

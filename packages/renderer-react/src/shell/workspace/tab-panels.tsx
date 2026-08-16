@@ -1,12 +1,13 @@
 /**
  * The placeholder panels the dock mounts, one per tab type that has no real surface yet — welcome and
- * object (Task 19), erd (Task 18). This file goes with the last of them.
+ * object, both Task 19. This file goes with the last of them.
  *
- * **Neither the query panel nor the chat panel is here any more.** Task 10 replaced the first with
- * `features/query/QueryPanel`, behind the lazy boundary in `query-panel-host.tsx` next door (Monaco is
- * ~4MB of JavaScript, and a user on the welcome tab should not pay for it before they open a query);
- * Task 17 replaced the second with `features/chat/ChatTabPanel`, which needs no lazy boundary — the
- * markdown renderer it depends on is already in the eager chunk for the side panel's sake.
+ * **Three panels have left.** Task 10 replaced the query panel with `features/query/QueryPanel`,
+ * behind the lazy boundary in `query-panel-host.tsx` next door (Monaco is ~4MB of JavaScript, and a
+ * user on the welcome tab should not pay for it before they open a query); Task 17 replaced the chat
+ * panel with `features/chat/ChatTabPanel`, which needs no lazy boundary — the markdown renderer it
+ * depends on is already in the eager chunk for the side panel's sake; Task 18 replaced the ERD panel
+ * with `features/erd/ErdPanel`.
  *
  * They are deliberately not empty divs. A placeholder's job here is to prove the seams the shell
  * owns actually work end to end, and there are two:
@@ -19,7 +20,7 @@
  */
 
 import type { IDockviewPanelProps, IWatermarkPanelProps } from 'dockview-react';
-import { House, LayoutTemplate, Network, Table2, type LucideIcon } from 'lucide-react';
+import { House, LayoutTemplate, Table2, type LucideIcon } from 'lucide-react';
 
 import { Button, EmptyState, cn } from '../../ui';
 import { dispatchCommand } from '../../commands';
@@ -91,19 +92,6 @@ export function ObjectPanel(props: IDockviewPanelProps) {
       icon={Table2}
       title="Object details"
       description="The object detail surface lands in Task 19."
-      tab={tab}
-    />
-  );
-}
-
-export function ErdPanel(props: IDockviewPanelProps) {
-  const tab = useTabFromParams(props);
-  return (
-    <Placeholder
-      testId="panel-erd"
-      icon={Network}
-      title="Entity diagram"
-      description="The ERD canvas lands in Task 18."
       tab={tab}
     />
   );

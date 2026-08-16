@@ -37,6 +37,7 @@ import { Spinner, Toaster, TooltipProvider, cn, installToastNotifier } from '../
 import { dispatchCommand } from '../commands';
 import { BackupDialogs } from '../features/backup';
 import { ChatCommands } from '../features/chat';
+import { ErdCommands } from '../features/erd';
 import { CommandPalette } from '../features/command-palette';
 import { ConnectionDialogs } from '../features/connections';
 import { ObjectSearch } from '../features/object-search';
@@ -237,6 +238,9 @@ function ShellFrame() {
           It is mounted HERE rather than inside `ChatSidePanel` because a closed panel is unmounted — a
           handler in there could only ever close the assistant, never reopen it.
 
+          `ErdCommands` is Task 18's one, and it is here for a stronger version of the same reason: a
+          handler whose job is to OPEN an ERD tab cannot live inside the ERD tab.
+
           The four Task 16 surfaces are the same arrangement, and three of them own a keystroke of
           their own as well as a command — ⌘K/⇧⌘P for the palette, ⌘P for the object search, ⌥⌘S for the
           snippet library — because no menu item has those accelerators (`commands/catalogue.ts`). The
@@ -245,6 +249,7 @@ function ShellFrame() {
       <MenuBridge />
       <ShellCommands />
       <ChatCommands />
+      <ErdCommands />
       <ConnectionDialogs />
       <BackupDialogs />
       <RestoreDialogs />
