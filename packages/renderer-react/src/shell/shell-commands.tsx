@@ -7,21 +7,21 @@
  * file-open flow, the three-step refresh — are here rather than in the bridge, because the bridge's
  * only job is channel → command (see its header).
  *
- * Two commands open a **placeholder dialog**: Database ▸ Backup and Database ▸ Restore. Those are
- * two of PLAN.md 0.1's three broken menu items — implemented in Angular as `router.navigate()` into
- * a router with no outlet, so they did nothing and had done nothing for months. A placeholder is not
- * a fix, but it is the difference between "not built yet" and "silently broken", and Tasks 12/13
- * replace the dialog body without touching the wire.
+ * One command still opens a **placeholder dialog**: Database ▸ Restore. It is the last of PLAN.md
+ * 0.1's three broken menu items — implemented in Angular as `router.navigate()` into a router with no
+ * outlet, so it did nothing and had done nothing for months. A placeholder is not a fix, but it is the
+ * difference between "not built yet" and "silently broken", and Task 13 replaces the dialog body
+ * without touching the wire.
  *
- * The third, File ▸ New Connection, no longer has a placeholder: Task 9's
- * `features/connections/ConnectionDialogs` is the real consumer of `open-connection-dialog`, mounted
- * by `app-shell.tsx` beside this component. The one thing that still reaches for it from here is ⌘N
- * with nothing connected, which dispatches the command rather than owning a second copy of the
- * dialog.
+ * The other two no longer have placeholders. File ▸ New Connection is handled by Task 9's
+ * `features/connections/ConnectionDialogs`, and Database ▸ Backup by Task 12's
+ * `features/backup/BackupDialogs`; both are mounted by `app-shell.tsx` beside this component. The one
+ * thing that still reaches for the connection dialog from here is ⌘N with nothing connected, which
+ * dispatches the command rather than owning a second copy of the dialog.
  */
 
 import { useState } from 'react';
-import { Database, DatabaseBackup, HardDriveDownload } from 'lucide-react';
+import { Database, HardDriveDownload } from 'lucide-react';
 
 import {
   Button,
@@ -47,8 +47,12 @@ import { settingsStore } from '../state/settings';
 import { selectActiveTab, tabStore } from '../state/tab';
 import { workbenchStore } from '../state/workbench';
 
-/** Which placeholder is showing, or `null`. One piece of state, two dialogs. */
-type PlaceholderKind = 'backup' | 'restore';
+/**
+ * Which placeholder is showing, or `null`. A one-member union rather than a boolean, because Task 12
+ * removed the `'backup'` member and Task 13 removes the last one — at which point this whole component
+ * loses its render and becomes a pure handler table.
+ */
+type PlaceholderKind = 'restore';
 
 interface PlaceholderCopy {
   readonly title: string;
@@ -58,13 +62,6 @@ interface PlaceholderCopy {
 }
 
 const PLACEHOLDERS: Record<PlaceholderKind, PlaceholderCopy> = {
-  backup: {
-    title: 'Back up a database',
-    icon: DatabaseBackup,
-    description:
-      'The backup wizard, its progress stream and the missing-CLI-tools remediation view all land together.',
-    arrivesIn: 'Task 12',
-  },
   restore: {
     title: 'Restore a database',
     icon: HardDriveDownload,
@@ -74,9 +71,9 @@ const PLACEHOLDERS: Record<PlaceholderKind, PlaceholderCopy> = {
 };
 
 /**
- * The three placeholders. Each one names what would have been targeted — the connection and database
- * the real dialog will open against — because that is the part of the wire this task actually
- * delivers, and it is what makes the menu item's fix verifiable rather than cosmetic.
+ * The placeholder. It names what would have been targeted — the connection and database the real
+ * dialog will open against — because that is the part of the wire this task actually delivers, and it
+ * is what makes the menu item's fix verifiable rather than cosmetic.
  */
 function PlaceholderDialog({
   kind,
@@ -224,9 +221,8 @@ function newQuery(): void {
 export function ShellCommands() {
   const [placeholder, setPlaceholder] = useState<PlaceholderKind | null>(null);
 
-  // Two of PLAN.md 0.1's three broken menu items, now reaching something. The third,
-  // `open-connection-dialog`, is Task 9's `ConnectionDialogs`.
-  useCommand('open-backup-dialog', () => setPlaceholder('backup'));
+  // The last of PLAN.md 0.1's three broken menu items still on a placeholder. `open-connection-dialog`
+  // is Task 9's `ConnectionDialogs`; `open-backup-dialog` is Task 12's `BackupDialogs`.
   useCommand('open-restore-dialog', () => setPlaceholder('restore'));
 
   // Tabs.

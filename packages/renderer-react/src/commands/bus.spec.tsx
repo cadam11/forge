@@ -6,6 +6,7 @@
 import { StrictMode } from 'react';
 import { render, act } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { BackupDialogs } from '../features/backup';
 import { ConnectionDialogs } from '../features/connections';
 import { QueryCommands } from '../features/query/query-commands';
 import { IpcQueryProvider } from '../ipc';
@@ -40,12 +41,13 @@ afterEach(() => {
 });
 
 /**
- * Mounts the app's real command wiring — `ShellCommands` (the fourteen handlers Task 7 owns),
- * `StatusBar` (`cursor-position`), `ConnectionDialogs` (Task 9's three) and `QueryCommands` (Task 10's
- * twelve). Not a stand-in list of ids: the whole point of the ownership test below is that it fails when
- * a subscription is deleted, and only the real components can tell it. Every component that is mounted
- * purely to register handlers belongs here, and adding one without adding it here shows up as a command
- * that claims a shipped task and has no handler.
+ * Mounts the app's real command wiring — `ShellCommands` (the thirteen handlers Task 7 still owns after
+ * Task 12 took `open-backup-dialog` off its placeholder), `StatusBar` (`cursor-position`),
+ * `ConnectionDialogs` (Task 9's three), `QueryCommands` (Task 10's twelve) and `BackupDialogs` (Task
+ * 12's two). Not a stand-in list of ids: the whole point of the ownership test below is that it fails
+ * when a subscription is deleted, and only the real components can tell it. Every component that is
+ * mounted purely to register handlers belongs here, and adding one without adding it here shows up as a
+ * command that claims a shipped task and has no handler.
  *
  * `QueryCommands` is mounted directly rather than through the query panel, and that is why it exists as
  * its own component: the panel is a Monaco host and Monaco cannot be instantiated in jsdom. Its props are
@@ -62,6 +64,7 @@ function renderProductionWiring(): void {
         <ShellCommands />
         <StatusBar />
         <ConnectionDialogs />
+        <BackupDialogs />
         <QueryCommands
           isActive={() => true}
           onExecute={noop}
@@ -82,6 +85,14 @@ function renderProductionWiring(): void {
   );
   teardowns.push(unmount);
 }
+
+/**
+ * The tasks whose command wiring `renderProductionWiring` actually mounts. Both ownership tests read
+ * it: one says "a shipped task with no handler is a false claim", the other says "a shipped task's
+ * handler must be subscribed". Adding a task's component above without adding its number here makes
+ * the second test vacuous for it, which is why they share one list.
+ */
+const SHIPPED_TASKS: readonly number[] = [7, 9, 10, 12];
 
 /** The task number a consumer string names, or null when it names nobody. */
 function ownerTask(consumer: string): number | null {
@@ -126,9 +137,9 @@ describe('command ownership', () => {
     const dead = COMMAND_IDS.filter(id => {
       if (handlerCount(id) > 0) return false;
       const owner = ownerTask(COMMAND_CONSUMERS[id]);
-      // Tasks 7, 9 and 10 ARE this wiring, so one of those with no subscription is a false claim rather
-      // than a pending one — the only unhandled ids allowed are the ones a later task owns.
-      return owner === null || owner === 7 || owner === 9 || owner === 10;
+      // Tasks 7, 9, 10 and 12 ARE this wiring, so one of those with no subscription is a false claim
+      // rather than a pending one — the only unhandled ids allowed are the ones a later task owns.
+      return owner === null || SHIPPED_TASKS.includes(owner);
     });
 
     expect(dead).toEqual([]);
@@ -139,20 +150,21 @@ describe('command ownership', () => {
     // a SHIPPED task as its consumer while that task's wiring actually handles it.
     renderProductionWiring();
 
-    const shipped = [7, 9, 10];
     const claimed = COMMAND_IDS.filter(id =>
-      shipped.includes(ownerTask(COMMAND_CONSUMERS[id]) ?? -1)
+      SHIPPED_TASKS.includes(ownerTask(COMMAND_CONSUMERS[id]) ?? -1)
     );
     const unsubscribed = claimed.filter(id => handlerCount(id) === 0);
 
     expect(unsubscribed).toEqual([]);
     // A count as well, so deleting a handler *and* its registry claim in one edit is still a failure
-    // rather than a quietly smaller app: fourteen `useCommand` calls in `shell-commands.tsx`, plus the
-    // status bar's caret readout, plus Task 9's three in `features/connections`, plus Task 10's twelve.
-    // Two ids are claimed by two owners at once and so count once: `open-query-file` (the query editor
-    // when a query tab is active, the shell otherwise) and `cursor-position` (the status bar consumes,
-    // the editor produces).
-    expect(COMMAND_IDS.filter(id => handlerCount(id) > 0)).toHaveLength(29);
+    // rather than a quietly smaller app: thirteen `useCommand` calls in `shell-commands.tsx`, plus the
+    // status bar's caret readout, plus Task 9's three in `features/connections`, plus Task 10's twelve,
+    // plus Task 12's two in `features/backup`. Two ids are claimed by two owners at once and so count
+    // once: `open-query-file` (the query editor when a query tab is active, the shell otherwise) and
+    // `cursor-position` (the status bar consumes, the editor produces). Net +1 over Task 10's 29:
+    // `open-backup-dialog` moved from the shell to `BackupDialogs` rather than being added, and
+    // `backup-database` is the genuinely new one.
+    expect(COMMAND_IDS.filter(id => handlerCount(id) > 0)).toHaveLength(30);
   });
 });
 

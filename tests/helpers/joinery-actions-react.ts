@@ -170,6 +170,53 @@ export async function fillPostgresForm(window: Page, profileName: string): Promi
   await editor.getByLabel('Encrypt the connection', { exact: true }).uncheck();
 }
 
+/**
+ * The seeded MySQL container, mirroring `TEST_PG`.
+ *
+ * Declared here rather than imported from `db-fixtures.ts` for the reason `TEST_PG`'s own comment
+ * gives: that module is the integration tier's, and this tier only needs the four connection facts.
+ * The values match `TEST_CONNECTIONS.mysql` there.
+ */
+export const TEST_MYSQL = {
+  host: '127.0.0.1',
+  port: 13306,
+  user: 'root',
+  password: 'joinery',
+  database: 'joinery_test',
+} as const;
+
+/**
+ * Fill the open editor for the seeded MySQL container.
+ *
+ * Engine first, for the same load-bearing reason `fillPostgresForm` documents: `applyEngineChange`
+ * rewrites the port and the username.
+ */
+export async function fillMysqlForm(window: Page, profileName: string): Promise<void> {
+  const editor = connectionEditor(window);
+
+  await selectEditorOption(window, 'connection-engine', 'MySQL');
+  await editor.getByLabel('Connection name', { exact: true }).fill(profileName);
+  await editor.getByLabel('Server', { exact: true }).fill(TEST_MYSQL.host);
+  await editor.getByLabel('Port', { exact: true }).fill(String(TEST_MYSQL.port));
+  await editor.getByLabel('Username', { exact: true }).fill(TEST_MYSQL.user);
+  await editor.getByLabel('Password', { exact: true }).fill(TEST_MYSQL.password);
+  await editor.getByLabel('Default database', { exact: true }).fill(TEST_MYSQL.database);
+  // The dev MySQL image does not speak TLS, and Joinery defaults to encrypt-on.
+  await editor.getByLabel('Encrypt the connection', { exact: true }).uncheck();
+}
+
+/** Create one MySQL profile and connect with it, through the editor's own Connect button. */
+export async function createAndConnectMysql(window: Page, profileName: string): Promise<void> {
+  await openConnectionEditor(window);
+  await fillMysqlForm(window, profileName);
+  await connectionEditor(window).getByTestId('connection-connect').click();
+  await expect(connectionEditor(window)).toBeHidden({ timeout: CONNECT_TIMEOUT_MS });
+
+  const row = serverRow(window, profileName);
+  await expect(row).toBeVisible({ timeout: CONNECT_TIMEOUT_MS });
+  await expect(row).toHaveAttribute('aria-expanded', 'true', { timeout: CONNECT_TIMEOUT_MS });
+}
+
 /** Press Test and wait for the dialog to stop being busy. Returns the failure panel's locator. */
 export async function testConnectionInEditor(window: Page): Promise<Locator> {
   const editor = connectionEditor(window);
@@ -364,6 +411,90 @@ export async function disconnectServer(window: Page, profileName: string): Promi
   await expect(menu).toBeVisible({ timeout: UI_TIMEOUT_MS });
   await menu.getByTestId('sidebar-menu-disconnect').click();
   await expect(menu).toBeHidden({ timeout: UI_TIMEOUT_MS });
+}
+
+// ── The backup wizard (Task 12) ─────────────────────────────────────────────
+//
+// One dialog for the whole flow, including the server file browser: that step is a
+// body swap rather than a nested modal (PLAN.md §2.9), so there is exactly one
+// `backup-dialog` on screen at every point and no locator here has to disambiguate.
+//
+// Everything the dialog says, it says INLINE — J-42: a toast raised while a modal is
+// open is visible but inert, because Radix disables pointer events outside the dialog.
+// So the assertions below are on `backup-progress` / `backup-success` / `backup-error`,
+// never on a sonner toast, and `dismissToasts` is deliberately not used in this block
+// (it refuses to run with a dialog open, by its own precondition).
+
+/** How long a real dump of the seeded fixture database is allowed to take. */
+const BACKUP_TIMEOUT_MS = 120_000;
+
+/** The wizard. One per flow, whichever step it is showing. */
+export function backupDialog(window: Page): Locator {
+  return window.getByTestId('backup-dialog');
+}
+
+/**
+ * Open the wizard from the sidebar's footer action — the entry point that needs no context menu
+ * and is disabled until a database is selected, so reaching it also proves the selection landed.
+ *
+ * Waits for the **form**, not just for the dialog: on PG and MySQL the dialog opens on a
+ * host-tool probe (`backup-tools-checking`), and a caller that filled the path field as soon as
+ * the dialog appeared would race it.
+ */
+export async function openBackupDialog(window: Page): Promise<Locator> {
+  await window.getByTestId('sidebar-backup').click();
+  const dialog = backupDialog(window);
+  await expect(dialog).toBeVisible({ timeout: UI_TIMEOUT_MS });
+  await expect(dialog.getByTestId('backup-path')).toBeVisible({ timeout: UI_TIMEOUT_MS });
+  return dialog;
+}
+
+/** Open the wizard from a database node's context menu, which carries its own target. */
+export async function openBackupDialogFromNode(
+  window: Page,
+  databaseName: string
+): Promise<Locator> {
+  const menu = await openNodeMenu(window, databaseName);
+  await menu.getByTestId('sidebar-menu-backup').click();
+  const dialog = backupDialog(window);
+  await expect(dialog).toBeVisible({ timeout: UI_TIMEOUT_MS });
+  return dialog;
+}
+
+/**
+ * Fill the destination and run the backup, returning once it has reached a terminal state.
+ *
+ * The wait is on the inline success panel and its **path readout**, which is the dialog's own
+ * statement of what it wrote — the Angular spec waited on a snackbar, which is the thing J-42
+ * makes unreliable above a modal.
+ */
+export async function runBackupTo(window: Page, destination: string): Promise<void> {
+  const dialog = backupDialog(window);
+  const path = dialog.getByTestId('backup-path');
+  await path.fill(destination);
+  await expect(path).toHaveValue(destination);
+
+  await dialog.getByTestId('backup-start').click();
+  // The stream is inline and it is the only "it started" signal there is.
+  await expect(dialog.getByTestId('backup-progress')).toBeVisible({ timeout: UI_TIMEOUT_MS });
+  await expect(dialog.getByTestId('backup-success')).toBeVisible({ timeout: BACKUP_TIMEOUT_MS });
+  await expect(dialog.getByTestId('backup-success-path')).toHaveText(destination);
+}
+
+/** The missing-CLI-tools remediation view. Three of its testids are the legacy ones, verbatim. */
+export function missingCliTools(window: Page): Locator {
+  return window.getByTestId('missing-cli-tools');
+}
+
+/**
+ * The server file browser, once the wizard's Choose… button has swapped it in.
+ *
+ * Staged for Task 13 (restore wizard), which opens the same browser in `mode="open"` — no e2e spec
+ * calls it yet. Kept rather than deleted because the testid it names is Task 12's and the restore spec
+ * is the next one written; if Task 13 does not use it, delete it there.
+ */
+export function serverFileBrowser(window: Page): Locator {
+  return window.getByTestId('backup-file-browser');
 }
 
 // ── The query tab (Task 10) ─────────────────────────────────────────────────
