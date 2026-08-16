@@ -11,6 +11,7 @@ import { BackupDialogs } from '../features/backup';
 import { ChatCommands } from '../features/chat';
 import { CommandPalette } from '../features/command-palette';
 import { ConnectionDialogs } from '../features/connections';
+import { DatabaseDialogs } from '../features/databases';
 import { ObjectSearch } from '../features/object-search';
 import { QueryCommands } from '../features/query/query-commands';
 import { QueryHistoryHost } from '../features/query-history';
@@ -78,6 +79,7 @@ function renderProductionWiring(): void {
         <ChatCommands />
         <AiSetupHost />
         <QueryHistoryHost />
+        <DatabaseDialogs />
         <StatusBar />
         <ConnectionDialogs />
         <BackupDialogs />
@@ -198,8 +200,9 @@ describe('command ownership', () => {
     // bar consumes, the editor produces). 31 → 35 across Task 16 (four ids gained their FIRST handler,
     // none moved) → 36 across Task 17 (one new id, one moved owner) → 37 across Task 19a's
     // `AiSetupHost` (`open-ai-setup`, new) and `QueryHistoryHost`
-    // (`open-query-history`, previously registered-but-unowned) → 38.
-    expect(COMMAND_IDS.filter(id => handlerCount(id) > 0)).toHaveLength(38);
+    // (`open-query-history`, previously registered-but-unowned), plus `DatabaseDialogs`' three
+    // (`create-database`, `create-database-on-server`, `rename-database`) → 41.
+    expect(COMMAND_IDS.filter(id => handlerCount(id) > 0)).toHaveLength(41);
   });
 });
 

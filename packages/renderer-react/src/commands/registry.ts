@@ -305,7 +305,11 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
     'node, selected node).',
   'show-server-properties': 'Task 19 server-properties surface.',
 
-  'create-database': 'Task 19 create-database dialog.',
+  'create-database':
+    'Task 19a features/databases/DatabaseDialogs, mounted by the shell. Like the backup twin it ' +
+    'resolves its target through mostRecentConnectionId() — the native menu and the palette carry no ' +
+    'payload — and it refuses, with a reason, on an engine whose capabilities say database management ' +
+    'is not available.',
   'open-backup-dialog':
     'Task 12 features/backup/BackupDialogs, mounted by the shell. It resolves the target through ' +
     'mostRecentConnectionId() — not focus, which derives from the active query tab alone — and that ' +
@@ -354,8 +358,8 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
     'Task 9 features/connections/ConnectionDialogs, which resolves the payload id to a profile and ' +
     'opens the editor on it. Producer: Task 8 sidebar server context menu.',
   'create-database-on-server':
-    'Task 19 create-database dialog, targeting the payload connection rather than the focused ' +
-    'one. Producer: Task 8 sidebar (server context menu and database picker).',
+    'Task 19a features/databases/DatabaseDialogs, targeting the payload connection rather than the ' +
+    'focused one. Producer: Task 8 sidebar (server context menu and database picker).',
   'backup-database':
     'Task 12 features/backup/BackupDialogs, targeting the payload database rather than the focused ' +
     'one. Producer: Task 8 sidebar (database context menu and the footer action).',
@@ -363,7 +367,11 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
     'Task 13 features/restore/RestoreDialogs, targeting the payload connection — and its optional ' +
     'database, which pre-selects the restore target rather than naming what is read. Producer: ' +
     'Task 8 sidebar (server and database context menus, and the footer action).',
-  'rename-database': 'Task 19 rename-database dialog. Producer: Task 8 sidebar database menu.',
+  'rename-database':
+    'Task 19a features/databases/DatabaseDialogs. On success it re-points every tab bound to the old ' +
+    'name, drops the ERD cache for BOTH names and reloads the explorer — see ' +
+    'features/databases/database-invalidation.ts, and J-64 for the main-side signal that would do it ' +
+    'better. Producer: Task 8 sidebar database menu.',
   'delete-database':
     'Task 19 delete-database confirmation, which owns the in-use warning and the tab/node ' +
     'teardown. Producer: Task 8 sidebar database menu.',

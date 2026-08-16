@@ -38,6 +38,7 @@ import { dispatchCommand } from '../commands';
 import { AiSetupHost } from '../features/ai-setup';
 import { BackupDialogs } from '../features/backup';
 import { ChatCommands } from '../features/chat';
+import { DatabaseDialogs } from '../features/databases';
 import { ErdCommands } from '../features/erd';
 import { CommandPalette } from '../features/command-palette';
 import { ConnectionDialogs } from '../features/connections';
@@ -250,7 +251,9 @@ function ShellFrame() {
 
           `QueryHistoryHost` is Task 19a's `open-query-history` (⇧⌘H), here for the ERD reason again: the
           dialog's whole job is to open a new query tab, so a handler inside the query tab would have made
-          the menu item conditional on already having one.
+          the menu item conditional on already having one. `DatabaseDialogs` is Task 19a's three
+          database-management commands, and it is the same arrangement as `BackupDialogs`: the targetless
+          menu/palette entry resolves its server here, the sidebar's twins state theirs.
 
           The four Task 16 surfaces are the same arrangement, and three of them own a keystroke of
           their own as well as a command — ⌘K/⇧⌘P for the palette, ⌘P for the object search, ⌥⌘S for the
@@ -263,6 +266,7 @@ function ShellFrame() {
       <ErdCommands />
       <AiSetupHost />
       <QueryHistoryHost />
+      <DatabaseDialogs />
       <ConnectionDialogs />
       <BackupDialogs />
       <RestoreDialogs />

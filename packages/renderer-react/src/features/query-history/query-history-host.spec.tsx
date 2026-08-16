@@ -2,8 +2,8 @@
  * The history surface, from the command to the tab it opens.
  *
  * The two paths the brief names — **load** and **execute** — differ by exactly one flag on the new tab,
- * so they are asserted as a pair in three ways each (the row button, Enter/⇧Enter, and the double
- * click), because a shared handler that lost its flag would still pass a single-path test.
+ * so they are asserted as a pair through both of their affordances (the row's own button / the run
+ * button, and Enter / ⇧Enter): a shared handler that lost its flag would still pass a single-path test.
  */
 
 import { render, screen, waitFor } from '@testing-library/react';
