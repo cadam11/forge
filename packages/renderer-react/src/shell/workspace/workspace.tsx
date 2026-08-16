@@ -56,7 +56,14 @@ import {
 } from './dockview-sync';
 import { OutputPanel } from './output-panel';
 import { PanelTab, ReservedPanelTab } from './panel-tab';
-import { ChatPanel, ErdPanel, ObjectPanel, QueryPanel, WelcomePanel } from './tab-panels';
+import {
+  ChatPanel,
+  ErdPanel,
+  ObjectPanel,
+  QueryPanel,
+  WelcomePanel,
+  WorkspaceWatermark,
+} from './tab-panels';
 
 /** Matches the Angular layout save debounce (`golden-layout-container.component.ts:645`). */
 const LAYOUT_SAVE_DEBOUNCE_MS = 500;
@@ -212,6 +219,9 @@ export function Workspace() {
         theme={dockTheme(theme)}
         components={COMPONENTS}
         tabComponents={TAB_COMPONENTS}
+        // Dockview's own no-panels overlay paints nothing under this theme, so an empty workspace
+        // was a blank rectangle with no way back into the app.
+        watermarkComponent={WorkspaceWatermark}
         // No `getTabContextMenuItems`: the tab strip owns its own context menu (`panel-tab.tsx`,
         // the port of the Angular one), and Dockview's built-in tab menu is an enterprise module
         // this app does not have — passing the prop only earns a runtime warning telling you so.

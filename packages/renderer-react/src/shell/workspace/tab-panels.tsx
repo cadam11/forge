@@ -17,10 +17,11 @@
  *    surface in a screenshot or a demo.
  */
 
-import type { IDockviewPanelProps } from 'dockview-react';
-import { House, Network, Sparkles, Table2, type LucideIcon } from 'lucide-react';
+import type { IDockviewPanelProps, IWatermarkPanelProps } from 'dockview-react';
+import { House, LayoutTemplate, Network, Sparkles, Table2, type LucideIcon } from 'lucide-react';
 
-import { EmptyState, cn } from '../../ui';
+import { Button, EmptyState, cn } from '../../ui';
+import { dispatchCommand } from '../../commands';
 import { useTabStore, tabStore, type Tab } from '../../state/tab';
 
 /** Every panel is mounted with `params.tabId`; this is the one place that is read. */
@@ -158,5 +159,36 @@ export function ChatPanel(props: IDockviewPanelProps) {
       description="Streaming chat and tool confirmation land in Task 17."
       tab={tab}
     />
+  );
+}
+
+/**
+ * What the dock shows with no panels in it.
+ *
+ * Dockview's own watermark is a `noPanelsOverlay` it renders from vendor CSS, and under this theme
+ * it paints nothing at all — the workspace was a blank rectangle with no affordance in it, which is
+ * how an app looks broken rather than empty. One `EmptyState` and one way back in: `show-welcome` is
+ * a real command with a real handler, so this is the same wire the View menu uses.
+ */
+export function WorkspaceWatermark(_props: IWatermarkPanelProps) {
+  return (
+    <div
+      data-testid="workspace-empty"
+      className="flex h-full items-center justify-center bg-canvas p-6"
+    >
+      <EmptyState
+        icon={LayoutTemplate}
+        title="No tabs open"
+        description="Open a query with ⌘N, or start from the welcome tab."
+        action={
+          <Button
+            data-testid="workspace-empty-welcome"
+            onClick={() => dispatchCommand('show-welcome')}
+          >
+            Show welcome
+          </Button>
+        }
+      />
+    </div>
   );
 }
