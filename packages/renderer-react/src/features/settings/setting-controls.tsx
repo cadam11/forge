@@ -11,9 +11,58 @@
  * `<Input>`: see its header.
  */
 
-import { useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 
 import { Input } from '../../ui';
+
+/**
+ * The pending-draft registry, and why a settings dialog needs one.
+ *
+ * `NumberSetting` commits on blur or Enter (see its header for why not on every keystroke), and React
+ * hears a blur through a listener on the root container rather than on the field. Dismissing the dialog
+ * with **Escape** removes the focused field from the tree first, so Chromium's `focusout` — which does
+ * fire, on the now-detached input — bubbles into nothing and `onBlur` never runs. Measured in the real
+ * app: 18 typed into Font size, Escape, reopen, and the panel showed 14 again with no message. The scrim
+ * and the ✕ move focus while the field is still mounted, so their blur arrives and they commit.
+ *
+ * Rather than depend on that ordering, the dialog sweeps every mounted draft in `onOpenChange(false)`,
+ * which runs before the store closes and the fields go away. Each field registers the commit function it
+ * would have run on blur; the commit is idempotent (it writes only a value that differs from the stored
+ * one), so a field the user never touched contributes nothing and the ✕ path commits exactly once.
+ */
+type CommitDraft = () => void;
+
+const PendingDrafts = createContext<Set<CommitDraft> | null>(null);
+
+/**
+ * The registry, and the sweep that flushes it. Held by the surface that owns dismissal — the registry is
+ * one `Set` per dialog, so it cannot outlive it or be shared with another.
+ */
+export function usePendingDrafts(): {
+  readonly registry: Set<CommitDraft>;
+  readonly commitPendingDrafts: () => void;
+} {
+  const [registry] = useState(() => new Set<CommitDraft>());
+
+  const commitPendingDrafts = useCallback(() => {
+    // A copy: committing re-seeds the field's own draft, and a set being mutated mid-walk is not a
+    // shape to rely on. Bounded by the number of mounted number fields, which is at most a group's worth.
+    for (const commit of [...registry]) commit();
+  }, [registry]);
+
+  return { registry, commitPendingDrafts };
+}
+
+/** Puts a `usePendingDrafts` registry in reach of the `NumberSetting`s below it. */
+export function PendingDraftsProvider({
+  registry,
+  children,
+}: {
+  readonly registry: Set<CommitDraft>;
+  readonly children: ReactNode;
+}) {
+  return <PendingDrafts.Provider value={registry}>{children}</PendingDrafts.Provider>;
+}
 
 /**
  * One settings group. A stack separated by hairlines, which is `surfaces.md`'s second rung —
@@ -91,7 +140,7 @@ export function NumberSetting({
     setDraft(String(value));
   }
 
-  const commit = (): void => {
+  const commit = useCallback((): void => {
     const parsed = Number.parseInt(draft, 10);
     if (!Number.isFinite(parsed)) {
       setDraft(String(value));
@@ -100,7 +149,19 @@ export function NumberSetting({
     const clamped = Math.min(max, Math.max(min, parsed));
     setDraft(String(clamped));
     if (clamped !== value) onCommit(clamped);
-  };
+  }, [draft, value, min, max, onCommit]);
+
+  // The dismissal sweep: this field's blur-time commit, reachable by the dialog that is about to unmount
+  // it. Re-registered whenever `commit` changes identity — which is every render, since the caller's
+  // `onCommit` is a fresh arrow — so the registry never holds a commit that would write a stale draft.
+  const registry = useContext(PendingDrafts);
+  useEffect(() => {
+    if (registry === null) return undefined;
+    registry.add(commit);
+    return () => {
+      registry.delete(commit);
+    };
+  }, [registry, commit]);
 
   return (
     <SettingRow>

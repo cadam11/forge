@@ -57,6 +57,7 @@ import {
   QueryGroup,
   ResetToDefaults,
 } from './settings-groups';
+import { PendingDraftsProvider, usePendingDrafts } from './setting-controls';
 
 /** The four groups, in the order the strip lists them. */
 const GROUPS = ['appearance', 'editor', 'query', 'grid'] as const;
@@ -74,6 +75,7 @@ export function SettingsDialog() {
   const isOpen = useSettingsStore(state => state.isOpen);
   const [group, setGroup] = useState<SettingsGroupId>('appearance');
   const firstTab = useRef<HTMLButtonElement | null>(null);
+  const { registry, commitPendingDrafts } = usePendingDrafts();
 
   // Joinery ▸ Settings (⌘,). `open`, not `toggle`: the accelerator is handled by the native menu
   // (`main/src/menu.ts:21`), so pressing it a second time with the dialog up would close a dialog the
@@ -86,7 +88,13 @@ export function SettingsDialog() {
     <Dialog
       open
       onOpenChange={next => {
-        if (!next) settingsStore.getState().close();
+        if (next) return;
+        // BEFORE the store closes and the fields unmount: a `NumberSetting` holding an uncommitted draft
+        // loses it on Escape otherwise, because React hears blur at the root container and Escape detaches
+        // the focused field first. Measured in the real app, and `settings-dialog.spec.tsx` pins all three
+        // dismissal paths. Idempotent — an untouched field commits nothing.
+        commitPendingDrafts();
+        settingsStore.getState().close();
       }}
     >
       <DialogContent
@@ -106,41 +114,45 @@ export function SettingsDialog() {
           </DialogDescription>
         </DialogHeader>
 
-        {/* The strip sits OUTSIDE the scrolling body, so switching groups is reachable however far
+        {/* Every `NumberSetting` below registers its blur-time commit here, so the dismissal sweep
+            above can flush the drafts while the fields are still mounted. */}
+        <PendingDraftsProvider registry={registry}>
+          {/* The strip sits OUTSIDE the scrolling body, so switching groups is reachable however far
             down a group the user has scrolled. */}
-        <Tabs
-          value={group}
-          onValueChange={value => setGroup(value as SettingsGroupId)}
-          className="flex min-h-0 flex-1 flex-col"
-        >
-          <TabsList className="shrink-0 px-4">
-            {GROUPS.map((id, index) => (
-              <TabsTrigger
-                key={id}
-                value={id}
-                ref={index === 0 ? firstTab : undefined}
-                data-testid={`settings-tab-${id}`}
-              >
-                {GROUP_LABELS[id]}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+          <Tabs
+            value={group}
+            onValueChange={value => setGroup(value as SettingsGroupId)}
+            className="flex min-h-0 flex-1 flex-col"
+          >
+            <TabsList className="shrink-0 px-4">
+              {GROUPS.map((id, index) => (
+                <TabsTrigger
+                  key={id}
+                  value={id}
+                  ref={index === 0 ? firstTab : undefined}
+                  data-testid={`settings-tab-${id}`}
+                >
+                  {GROUP_LABELS[id]}
+                </TabsTrigger>
+              ))}
+            </TabsList>
 
-          <DialogBody>
-            <TabsContent value="appearance">
-              <AppearanceGroup />
-            </TabsContent>
-            <TabsContent value="editor">
-              <EditorGroup />
-            </TabsContent>
-            <TabsContent value="query">
-              <QueryGroup />
-            </TabsContent>
-            <TabsContent value="grid">
-              <GridGroup />
-            </TabsContent>
-          </DialogBody>
-        </Tabs>
+            <DialogBody>
+              <TabsContent value="appearance">
+                <AppearanceGroup />
+              </TabsContent>
+              <TabsContent value="editor">
+                <EditorGroup />
+              </TabsContent>
+              <TabsContent value="query">
+                <QueryGroup />
+              </TabsContent>
+              <TabsContent value="grid">
+                <GridGroup />
+              </TabsContent>
+            </DialogBody>
+          </Tabs>
+        </PendingDraftsProvider>
 
         <DialogActions className="justify-between">
           <ResetToDefaults />

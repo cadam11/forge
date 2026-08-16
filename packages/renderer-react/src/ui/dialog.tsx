@@ -71,7 +71,9 @@ export function DialogContent({
     <RadixDialog.Portal>
       {/* Ink in both themes: a scrim's job is to darken, and PROPOSAL's light theme
           dims to the same ink rather than to a grey. Layer 1 is correct here. */}
-      <RadixDialog.Overlay className="fixed inset-0 z-40 bg-j-ink/70" />
+      {/* Named for the suites: a click on the scrim is one of the three ways a dialog is dismissed,
+          and it is the only one with no element of its own to address. */}
+      <RadixDialog.Overlay data-testid="dialog-scrim" className="fixed inset-0 z-40 bg-j-ink/70" />
       <RadixDialog.Content
         className={cn(
           'fixed top-1/2 left-1/2 z-50 -translate-1/2',
