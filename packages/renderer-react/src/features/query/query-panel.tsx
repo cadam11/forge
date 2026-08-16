@@ -260,21 +260,37 @@ export function QueryPanel(props: IDockviewPanelProps) {
   // text from then on; see `<SqlEditor>`'s header for why the editor is not a controlled component.
   const initialValue = useMemo(() => tabStore.getState().getTabContent(tabId), [tabId]);
 
+  /**
+   * The handlers the toolbar and the command table SHARE, named once.
+   *
+   * Both surfaces drive the same five actions, and writing the arrow twice would let them drift — a
+   * toolbar Find that focused the editor and a ⌘F that did not is exactly the kind of difference nobody
+   * notices until a user reports it. The toolbar additionally owns Go to Line (no menu item has it) and
+   * the command table additionally owns save/open/comment/snippet.
+   */
+  const runEditorAction = useCallback(
+    (actionId: Parameters<SqlEditorHandle['runAction']>[0]) => () =>
+      editor.current?.runAction(actionId),
+    []
+  );
+  const cancel = useCallback(() => void queryExecutionStore.getState().cancel(tabId), [tabId]);
+  const toggleResults = useCallback(() => setResultsHidden(hidden => !hidden), []);
+
   return (
     <div className="flex h-full min-h-0 flex-col bg-canvas" data-testid="query-panel">
       <QueryCommands
         isActive={() => tabStore.getState().activeTabId === tabId}
         onExecute={execute}
         onExecuteSelection={executeSelection}
-        onCancel={() => void queryExecutionStore.getState().cancel(tabId)}
+        onCancel={cancel}
         onFormat={format}
-        onFind={() => editor.current?.runAction('actions.find')}
-        onReplace={() => editor.current?.runAction('editor.action.startFindReplaceAction')}
-        onToggleComment={() => editor.current?.runAction('editor.action.commentLine')}
+        onFind={runEditorAction('actions.find')}
+        onReplace={runEditorAction('editor.action.startFindReplaceAction')}
+        onToggleComment={runEditorAction('editor.action.commentLine')}
         onSave={() => save(false)}
         onSaveAs={() => save(true)}
         onOpenFile={openFile}
-        onToggleResults={() => setResultsHidden(hidden => !hidden)}
+        onToggleResults={toggleResults}
         onInsertSnippet={sql => editor.current?.insertSnippet(sql)}
       />
 
@@ -284,12 +300,12 @@ export function QueryPanel(props: IDockviewPanelProps) {
         connectionName={profile?.name ?? null}
         databaseName={tab?.databaseName ?? null}
         onExecute={execute}
-        onCancel={() => void queryExecutionStore.getState().cancel(tabId)}
+        onCancel={cancel}
         onFormat={format}
-        onFind={() => editor.current?.runAction('actions.find')}
-        onReplace={() => editor.current?.runAction('editor.action.startFindReplaceAction')}
-        onGoToLine={() => editor.current?.runAction('editor.action.gotoLine')}
-        onToggleResults={() => setResultsHidden(hidden => !hidden)}
+        onFind={runEditorAction('actions.find')}
+        onReplace={runEditorAction('editor.action.startFindReplaceAction')}
+        onGoToLine={runEditorAction('editor.action.gotoLine')}
+        onToggleResults={toggleResults}
       />
 
       <div ref={splitPane} className="flex min-h-0 grow flex-col">
