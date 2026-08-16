@@ -82,7 +82,8 @@ export interface ErdLink {
  *  - `!field.isPrimaryKey` — a column that is both PK and FK (the child half of a 1:1, or a
  *    junction table's composite key) draws no edge. That is a real loss of information rather than
  *    a rule, and it is kept because changing it changes the layout of every diagram; it is written
- *    down here rather than left implicit. See FOLLOW-UPS.
+ *    down here rather than left implicit. Tracked as **J-64** (item 1), with the other three ERD
+ *    follow-ups.
  *  - both endpoints must be in `nodes` — a focused ERD is a subgraph, so an FK pointing outside it
  *    has nothing to attach to.
  */
