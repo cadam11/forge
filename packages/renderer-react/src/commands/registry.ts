@@ -204,8 +204,10 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
   // The native menu. "Task 7 shell" means `shell/shell-commands.tsx`, which is where every
   // handler this task owns is registered, in one table.
   'open-connection-dialog':
-    'Task 9 connection editor. Task 7 shell registers a placeholder dialog so the menu item is ' +
-    'no longer the silent router no-op of PLAN.md 0.1.',
+    'Task 9 features/connections/ConnectionDialogs, mounted by the shell. Producers: the native ' +
+    'menu bridge (File ▸ New Connection — no longer the silent router no-op of PLAN.md 0.1), the ' +
+    'Task 8 sidebar header, its connection menu, the explorer empty state, and ⌘N with nothing ' +
+    'connected.',
   'new-query':
     'Task 7 shell (tabStore.openQueryTab, or the connection dialog when nothing is connected).',
   'open-query-file':
@@ -255,10 +257,12 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
 
   // The sidebar's eight targeted entry points. Producer for all of them: Task 8 sidebar
   // (`shell/sidebar/node-menu.tsx` and `connection-picker.tsx`).
-  'open-connection-manager': 'Task 9 connection manager. Producer: Task 8 sidebar connection menu.',
+  'open-connection-manager':
+    'Task 9 features/connections/ConnectionDialogs, which shows the manager. Producer: Task 8 ' +
+    'sidebar connection menu.',
   'edit-connection':
-    'Task 9 connection editor, opened on the profile in the payload. Producer: Task 8 sidebar ' +
-    'server context menu.',
+    'Task 9 features/connections/ConnectionDialogs, which resolves the payload id to a profile and ' +
+    'opens the editor on it. Producer: Task 8 sidebar server context menu.',
   'create-database-on-server':
     'Task 19 create-database dialog, targeting the payload connection rather than the focused ' +
     'one. Producer: Task 8 sidebar (server context menu and database picker).',

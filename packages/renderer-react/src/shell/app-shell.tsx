@@ -35,6 +35,7 @@ import { useEffect, useLayoutEffect, type CSSProperties } from 'react';
 
 import { Spinner, Toaster, TooltipProvider, cn, installToastNotifier } from '../ui';
 import { dispatchCommand } from '../commands';
+import { ConnectionDialogs } from '../features/connections';
 import { diagnostics } from '../state/diagnostics';
 import { installLogDiagnosticsSink, useLogStream } from '../state/logs';
 import { useTabStore } from '../state/tab';
@@ -215,9 +216,11 @@ function ShellFrame() {
         <StatusBar />
       </div>
 
-      {/* Non-visual mounts. All three render nothing and all three must exist exactly once. */}
+      {/* Non-visual mounts. Each renders nothing until something asks it to, and each must exist
+          exactly once. `ConnectionDialogs` is Task 9's consumer of the three connection commands. */}
       <MenuBridge />
       <ShellCommands />
+      <ConnectionDialogs />
       <Toaster theme={theme} />
     </TooltipProvider>
   );

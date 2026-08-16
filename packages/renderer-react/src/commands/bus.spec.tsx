@@ -6,6 +6,7 @@
 import { StrictMode } from 'react';
 import { render, act } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ConnectionDialogs } from '../features/connections';
 import { IpcQueryProvider } from '../ipc';
 import { setDiagnosticsSink } from '../state/diagnostics';
 import { ShellCommands } from '../shell/shell-commands';
@@ -38,9 +39,13 @@ afterEach(() => {
 });
 
 /**
- * Mounts the shell's real command wiring — `ShellCommands` (the fifteen handlers Task 7 owns) and
- * `StatusBar` (`cursor-position`). Not a stand-in list of ids: the whole point of the ownership test
- * below is that it fails when a subscription is deleted, and only the real components can tell it.
+ * Mounts the shell's real command wiring — `ShellCommands` (the fourteen handlers Task 7 owns),
+ * `StatusBar` (`cursor-position`) and `ConnectionDialogs` (Task 9's three). Not a stand-in list of
+ * ids: the whole point of the ownership test below is that it fails when a subscription is deleted,
+ * and only the real components can tell it. Every component `app-shell.tsx` mounts purely to
+ * register handlers belongs here, and adding one to the shell without adding it here shows up as a
+ * command that claims a shipped task and has no handler.
+ *
  * `TooltipProvider` because the status bar's controls carry tooltips.
  */
 function renderProductionWiring(): void {
@@ -49,6 +54,7 @@ function renderProductionWiring(): void {
       <TooltipProvider>
         <ShellCommands />
         <StatusBar />
+        <ConnectionDialogs />
       </TooltipProvider>
     </IpcQueryProvider>
   );
@@ -116,9 +122,11 @@ describe('command ownership', () => {
 
     expect(unsubscribed).toEqual([]);
     // A count as well, so deleting a handler *and* its registry claim in one edit is still a failure
-    // rather than a quietly smaller app: fifteen `useCommand` calls in `shell-commands.tsx` plus the
-    // status bar's caret readout.
-    expect(COMMAND_IDS.filter(id => handlerCount(id) > 0)).toHaveLength(16);
+    // rather than a quietly smaller app: fourteen `useCommand` calls in `shell-commands.tsx`, plus
+    // the status bar's caret readout, plus Task 9's three in `features/connections`.
+    // `open-connection-dialog` moved from the first group to the third when the placeholder dialog
+    // was replaced by the real editor, so the total went 16 → 18 rather than 16 → 19.
+    expect(COMMAND_IDS.filter(id => handlerCount(id) > 0)).toHaveLength(18);
   });
 });
 
