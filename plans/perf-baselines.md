@@ -131,8 +131,10 @@ they arrive through preload's real listener, the real store and the real `<Markd
 Every token carries markdown (a code fence every 50, then a table), because a tail of
 plain prose would give highlight.js nothing to do and understate the cost.
 
-A query tab with a live Monaco and an AG Grid full of rows is open beside the panel
-throughout — that is what makes the grid/editor zeroes mean anything. Every number is
+A query tab with a live Monaco and a live AG Grid is open beside the panel throughout —
+**five rows in that grid** (the seed's `customers` table), because what makes the
+grid/editor zeroes mean anything is that both are mounted and subscribed, not how much is
+in them; Task 11's numbers above are the ones that load the grid up. Every number is
 measured in-page by `MutationObserver` and by a `requestAnimationFrame` clock, with no
 instrumentation in the product. Darwin 25.5, M-series, 120Hz display.
 
@@ -140,31 +142,34 @@ instrumentation in the product. Darwin 25.5, M-series, 120Hz display.
 40ms interval (`services/ai/stream-coalescer.ts`), so a real 100-token/second answer
 reaches the renderer as ~25 messages a second. This bypasses that stage.
 
-| Metric                                             | Measured                                          | Budget                |
-| -------------------------------------------------- | ------------------------------------------------- | --------------------- |
-| Chunks delivered / elapsed                         | 3,000 in 32.8s (91/s)                             | —                     |
-| **DOM mutations in the streaming message**         | **520**                                           | ≤ 1,971 (3/window)    |
-| **DOM mutations in the 50 prior messages**         | **0**                                             | **0**                 |
-| **DOM mutations in the results grid**              | **0**                                             | **0**                 |
-| **DOM mutations in the Monaco editor**             | **0**                                             | **0**                 |
-| DOM mutations in chat over 20 editor keystrokes    | 0                                                 | 0                     |
-| Frame gap during the stream (median / p95 / worst) | 8 / 9 / 9 ms                                      | ≤ 34 p95, ≤ 120 worst |
-| Frames over 50ms in 30s                            | 0                                                 | ≤ 5                   |
-| Long tasks during the stream                       | 0 (0ms blocking)                                  | ≤ 120ms longest       |
-| Tail text after the stream                         | 29,026 chars, first/middle/last token all present | lossless              |
-| Completed bodies after `done`                      | 26 (25 prior + the finished one)                  | 26                    |
-| Working set, before the panel → after the stream   | 569 → 629 MB                                      | —                     |
+Every figure in this table is **one run** — the fix-round-1 re-run of 2026-08-16, whose
+JSON is `task-17-perf.json`. (The first version of this table mixed a mutation count from
+one run with a memory pair from another, which is how a table stops being a measurement.)
+
+| Metric                                                             | Measured                                          | Budget                |
+| ------------------------------------------------------------------ | ------------------------------------------------- | --------------------- |
+| Chunks delivered / elapsed                                         | 3,000 in 32.8s (92/s)                             | —                     |
+| **DOM mutations in the streaming message**                         | **523**                                           | ≤ 1,968 (3/window)    |
+| **DOM mutations in the 50 prior messages**                         | **0**                                             | **0**                 |
+| **DOM mutations in the results grid**                              | **0**                                             | **0**                 |
+| **DOM mutations in the Monaco editor**                             | **0**                                             | **0**                 |
+| DOM mutations in chat over 20 editor keystrokes                    | 0                                                 | 0                     |
+| Frame gap during the stream (median / p95 / worst)                 | 8 / 9 / 9 ms                                      | ≤ 34 p95, ≤ 120 worst |
+| Frames over 50ms in 30s                                            | 0                                                 | ≤ 5                   |
+| Long tasks during the stream                                       | 0 (0ms blocking)                                  | ≤ 120ms longest       |
+| Tail text after the stream                                         | 29,026 chars, first/middle/last token all present | lossless              |
+| Completed bodies after `done`                                      | 26 (25 prior + the finished one)                  | 26                    |
+| Working set: before the panel → after the stream → 5s after `done` | 557 → 653 → **508** MB                            | —                     |
 
 **The number the mitigation is for is the second row.** 3,000 chunks re-rendered 25
 completed markdown bodies **zero** times — the 75,000 `marked` + highlight.js + DOMPurify
 passes that a naive `useStore(store, s => s.streamingContent)` in the surface would have
-performed. The streaming message updated 521 times instead of 3,000, which is one update
+performed. The streaming message updated 523 times instead of 3,000, which is one update
 per ~63ms against a 50ms coalescing window (`features/chat/use-stream-tail.ts`).
 
-Four runs gave 520 / 521 / 563 / 569 tail mutations — the spread is frame timing, and the
-budget is 1,971 — with every zero above holding on every run and worst frame gaps of
-9–12ms. Memory is the noisiest figure (GC): 569 → 629 MB on one run, 515 → 710 MB on
-another.
+Five runs gave 520 / 521 / 523 / 563 / 569 tail mutations — the spread is frame timing, and
+the budget is 1,968 — with every zero above holding on every run and worst frame gaps of
+9–12ms.
 
 **The zeroes are instrument-verified.** A benchmark whose main-thread numbers can only
 ever be zero is not a measurement, so the same clock is read again while the page blocks
@@ -175,11 +180,17 @@ why the frame clock is the number that carries the argument.)
 
 Two things worth watching:
 
-- **Tens of MB across a 30-second stream** (+60 MB on one run, +195 MB on another). The transcript holds every message twice while
-  streaming (the store's `messages`, plus the tail's parsed DOM), and the 29 KB tail is
-  re-parsed on each flush. It settles after `done`, but a very long session in one
-  conversation is the case to re-measure if memory becomes a complaint.
-- **The eager bundle grew 28 KB** (1,421.02 → 1,449.29 kB; +7.9 kB gzip), which is the
+- **The stream's memory is transient, and that is now measured rather than assumed.**
+  +96 MB across the 30 seconds (557 → 653 MB): the transcript holds every message twice
+  while streaming (the store's `messages`, plus the tail's parsed DOM) and the 29 KB tail is
+  re-parsed on each flush. Five seconds after `done`, with a collection forced over CDP
+  (`HeapProfiler.collectGarbage`), the working set is **508 MB** — 145 MB below the peak and
+  49 MB below the pre-panel sample, which was itself never collected. So the stream retains
+  nothing; the number to watch is the _peak_, and a very long single conversation is still
+  the case to re-measure if memory becomes a complaint. Earlier revisions of this file and of
+  the Task 17 report said "it settles" with **no post-`done` sample at all**; the harness now
+  takes one every run (`memory.afterDoneMb`, `memory.gcForced`).
+- **The eager bundle grew 29 KB** (1,421.02 → 1,450.27 kB; +8 kB gzip), which is the
   chat feature's own code: `marked`, `highlight.js/lib/common` and DOMPurify were already
   in the entry chunk before this task, because `markdown/render-markdown.ts` has top-level
   side effects (`new Marked(...)`, `DOMPurify.addHook(...)`) and so survives tree-shaking
