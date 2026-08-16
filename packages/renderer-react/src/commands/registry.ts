@@ -41,6 +41,12 @@ export interface CommandPayloads {
   // id. `menu-copy` is the only channel with logic in the bridge, because it is the only one with
   // a claim-and-fall-back protocol.
   //
+  // The accelerator in each comment below is the one `packages/main/src/menu.ts` actually
+  // registers, and that file is the source of truth — Phase B reads these annotations when it
+  // renders a shortcut hint, so a drifted one becomes a wrong label in the UI. They are comments
+  // rather than data because the renderer may not import from `packages/main`; the mechanical
+  // check is a re-read of `menu.ts` whenever a binding moves.
+  //
   // Several of these consumers land in a later task, which is the same shape the six original
   // entries already had (`insert-snippet` → Task 10). What the registry enforces is that a
   // consumer is NAMED, not that it exists yet: the alternative — leaving the channel unsubscribed
@@ -65,12 +71,12 @@ export interface CommandPayloads {
   'editor-find': void;
   /** Edit ▸ Replace (⌥⌘F). */
   'editor-replace': void;
-  /** Edit ▸ Format SQL (⇧⌥F). */
+  /** Edit ▸ Format SQL (⇧⌘F). */
   'format-sql': void;
   /** Edit ▸ Toggle Comment (⌘/). */
   'toggle-comment': void;
 
-  /** Query ▸ Execute (⌘↩ / F5). */
+  /** Query ▸ Execute (⌘E — `registerAccelerator: false`, so Task 10's editor owns the keystroke). */
   'execute-query': void;
   /** Query ▸ Execute Selection (⇧⌘↩). */
   'execute-selection': void;
@@ -97,7 +103,7 @@ export interface CommandPayloads {
 
   /** View ▸ Welcome. */
   'show-welcome': void;
-  /** View ▸ Toggle Sidebar (⌘B). */
+  /** View ▸ Toggle Sidebar (⌘\). */
   'toggle-sidebar': void;
   /** View ▸ Toggle AI Chat (⇧⌘I). */
   'toggle-chat-panel': void;
@@ -106,9 +112,9 @@ export interface CommandPayloads {
   /** The Output / Console panel (⌘J). Not a menu channel — the shell's own shortcut. */
   'toggle-output-panel': void;
 
-  /** Window ▸ Next Tab (⌃⇥). */
+  /** Window ▸ Next Tab (⇧⌘] on macOS, Ctrl+Tab elsewhere). */
   'next-tab': void;
-  /** Window ▸ Previous Tab (⌃⇧⇥). */
+  /** Window ▸ Previous Tab (⇧⌘[ on macOS, ⌃⇧⇥ elsewhere). */
   'previous-tab': void;
 
   /** Joinery ▸ Settings (⌘,). */
