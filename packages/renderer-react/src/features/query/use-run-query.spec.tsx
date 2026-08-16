@@ -289,12 +289,45 @@ describe('the placeholder prompt', () => {
     expect(execute).not.toHaveBeenCalled();
     // And the first is still live: its prompt is untouched and answering it still runs it.
     expect(api().prompting).toEqual(['schema']);
+    // The refusal is also SAID, not only logged: the counter is what re-focuses the dialog's first
+    // field, so the user learns the prompt is what is blocking the run. A log entry alone reads as a
+    // menu item that did nothing.
+    expect(api().promptAttention).toBe(1);
+
+    // A third arrival bumps it again — the dialog's effect keys on the change, so a boolean would make
+    // every refusal after the first silent.
+    await act(async () => {
+      await api().run(context({ sql: 'SELECT ${third}' }));
+    });
+    expect(api().promptAttention).toBe(2);
 
     await act(async () => {
       api().submitPlaceholders({ schema: 'public' });
       await first;
     });
     expect(execute).toHaveBeenCalledOnce();
+    // Reset with the prompt, so the next one does not open mid-count and steal Radix's initial focus.
+    expect(api().promptAttention).toBe(0);
+  });
+
+  it('never raises the attention counter for a prompt that opens cleanly', async () => {
+    const execute = vi.fn(async () => okResult);
+    teardowns.push(installJoineryMock({ query: { execute } }));
+    const { api, unmount } = mountHook();
+    teardowns.push(unmount);
+
+    let run: Promise<void> | undefined;
+    await act(async () => {
+      run = api().run(context({ sql: 'SELECT ${schema}' }));
+    });
+
+    expect(api().prompting).toEqual(['schema']);
+    expect(api().promptAttention).toBe(0);
+
+    await act(async () => {
+      api().cancelPlaceholders();
+      await run;
+    });
   });
 
   it('does not prompt for SQL with no placeholders', async () => {

@@ -50,6 +50,15 @@ export interface RunQuery {
   readonly run: (context: RunContext) => Promise<void>;
   /** The placeholders currently being prompted for, or an empty array. Drives the dialog. */
   readonly prompting: readonly string[];
+  /**
+   * Bumped every time an execute is abandoned because this prompt was already open.
+   *
+   * The dialog re-focuses its first field when it changes, which is what makes the refusal
+   * self-explaining: the user asked to run something, the answer is "answer this first", and the way to
+   * say that in a UI is to put the caret in the thing that needs answering. Zero means "never
+   * happened", so a dialog that has just opened does not steal focus from Radix's own initial focus.
+   */
+  readonly promptAttention: number;
   /** The dialog's submit. */
   readonly submitPlaceholders: (values: Readonly<Record<string, string>>) => void;
   /** The dialog's cancel — and the backdrop, and Escape. */
@@ -58,6 +67,7 @@ export interface RunQuery {
 
 export function useRunQuery(): RunQuery {
   const [prompting, setPrompting] = useState<readonly string[]>([]);
+  const [promptAttention, setPromptAttention] = useState(0);
   /** The parked resolver for the placeholder prompt. `null` when no prompt is open. */
   const pending = useRef<((values: Record<string, string> | null) => void) | null>(null);
 
@@ -69,10 +79,16 @@ export function useRunQuery(): RunQuery {
       // Reachable: the dialog traps focus, so the editor's ⌃E cannot fire behind it, but Query ▸ Execute
       // from the native menu is not a keystroke and arrives regardless. Reported rather than thrown,
       // because the caller is a `void run(…)` and a throw there is an unhandled rejection.
+      //
+      // And re-focused, not only logged. A refusal whose only trace is a line in the Output panel looks
+      // to the user like the menu item did nothing; pulling the caret back to the field that is blocking
+      // the run says why, in the place they are already looking. The `diagnostics.warn` stays, because
+      // the abandoned run is still a thing a developer wants in the log.
       if (pending.current !== null) {
         diagnostics.warn('ignored an execute while a placeholder prompt was open', {
           placeholders,
         });
+        setPromptAttention(count => count + 1);
         return Promise.resolve(null);
       }
       setPrompting(placeholders);
@@ -87,6 +103,9 @@ export function useRunQuery(): RunQuery {
     const resolve = pending.current;
     pending.current = null;
     setPrompting([]);
+    // Reset with the prompt, so the next one starts at "never happened" and does not fight Radix's own
+    // initial focus with a stale count.
+    setPromptAttention(0);
     resolve?.(values);
   }, []);
 
@@ -137,6 +156,7 @@ export function useRunQuery(): RunQuery {
   return {
     run,
     prompting,
+    promptAttention,
     submitPlaceholders: useCallback(
       (values: Readonly<Record<string, string>>) => settlePrompt({ ...values }),
       [settlePrompt]
