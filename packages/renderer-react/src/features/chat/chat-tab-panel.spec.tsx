@@ -133,6 +133,39 @@ describe('a chat tab', () => {
     expect(double.liveSubscriptions()).toBe(0);
   });
 
+  it('releases the store when a DEACTIVATED tab is closed, which is the leaking case', async () => {
+    // The one an unmount cleanup cannot see: Dockview unmounts an inactive panel, so a tab closed while
+    // it is not in front never gets another unmount — and before the host watched `tabStore.tabs`, its
+    // store kept a live `chat:stream-chunk` listener for the rest of the session.
+    const tabId = tabStore.getState().openChatTab('conv-1');
+    const view = mountTab(tabId);
+    await waitFor(() => expect(view.getByTestId('chat-message')).toBeDefined());
+    expect(double.liveSubscriptions()).toBe(1);
+
+    // Deactivation first, then the close: the order that produces no cleanup.
+    view.unmount();
+    expect(liveChatStoreCount()).toBe(1);
+
+    tabStore.getState().closeTab(tabId);
+
+    expect(liveChatStoreCount()).toBe(0);
+    expect(double.liveSubscriptions()).toBe(0);
+  });
+
+  it('keeps the stores of the tabs that are still open when one closes', async () => {
+    const firstTab = tabStore.getState().openChatTab('conv-1');
+    const secondTab = tabStore.getState().openChatTab('conv-2');
+    mountTab(firstTab).unmount();
+    mountTab(secondTab).unmount();
+    expect(liveChatStoreCount()).toBe(2);
+
+    tabStore.getState().closeTab(firstTab);
+
+    expect(liveChatStoreCount()).toBe(1);
+    expect(double.liveSubscriptions()).toBe(1);
+    expect(chatStoreForTab(secondTab).getState().activeConversationId).toBe('conv-2');
+  });
+
   it('does not write another tab’s transcript', async () => {
     const firstTab = tabStore.getState().openChatTab('conv-1');
     const secondTab = tabStore.getState().openChatTab('conv-2');

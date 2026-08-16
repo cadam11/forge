@@ -24,7 +24,7 @@ import type { IDockviewPanelProps } from 'dockview-react';
 import { selectActiveConversation } from '../../state/chat';
 import { tabStore } from '../../state/tab';
 import { ChatSurface } from './chat-surface';
-import { chatStoreForTab, releaseChatStore } from './chat-store-host';
+import { chatStoreForTab } from './chat-store-host';
 
 /** The conversation a restored tab was opened against, out of the tab's own metadata. */
 function conversationIdFor(tabId: string): string | undefined {
@@ -62,16 +62,15 @@ export function ChatTabPanel(props: IDockviewPanelProps) {
   }, [conversationTitle, tabId]);
 
   /**
-   * Release the store when the TAB is gone — not merely when this component unmounts, which happens
-   * on every deactivation. Same shape as the query panel's `forgetTab` cleanup, and the same reason.
+   * **No release effect here, deliberately** — `chat-store-host.ts` watches `tabStore.tabs` and
+   * releases the store when the tab dies.
+   *
+   * An unmount cleanup guarded by "the tab is gone" (the query panel's `forgetTab` shape) reads as the
+   * obvious answer and misses the case that leaks: closing a tab that is not the active one removes a
+   * panel whose component Dockview already unmounted at deactivation, so no cleanup runs at the moment
+   * the tab ends and the store keeps its bridge subscription for the rest of the session. The host's
+   * comment carries the argument.
    */
-  useEffect(
-    () => () => {
-      if (tabStore.getState().tabs.some(tab => tab.id === tabId)) return;
-      releaseChatStore(tabId);
-    },
-    [tabId]
-  );
 
   return <ChatSurface store={store} mode="tab" />;
 }
