@@ -81,11 +81,15 @@
   --ag-wrapper-border-radius: 0;
 
   /* ── Type and metrics ──────────────────────────────────────────────────────────────────── */
-  /* Data is mono — it is aligned, compared and copied. Headers are interface type, because a header
-   * is prose: sentence case, read once (HOUSE-RULES §4). Angular set mono for both. */
+  /* Mono throughout, headers included — a column header here is a SQL identifier (`full_name`,
+   * `price_cents`), not prose, and it sits directly above mono data it has to align with. Weight, not
+   * family, is what separates the header row.
+   *
+   * `--ag-header-font-family` is deliberately NOT set: measured against the running app, the CSS theme
+   * ignores it for `.ag-header-cell-text` (the text inherits `--ag-font-family`), so declaring it would
+   * be a line that reads as a decision and paints nothing. Size and weight ARE honoured. */
   --ag-font-family: var(--font-technical);
   --ag-font-size: var(--text-sm);
-  --ag-header-font-family: var(--font-interface);
   --ag-header-font-size: var(--text-sm);
   --ag-header-font-weight: 500;
   /* `--ag-row-height` is set inline on the host from `GridSettings.rowHeight`; 24px is its default
