@@ -187,6 +187,36 @@ describe('with a provider configured', () => {
     expect(store.getState().streaming).toBe(false);
   });
 
+  it('keeps the half-answer when Stop is pressed, and says it was stopped', async () => {
+    // What this closes: the main process emits nothing at all on abort, so before this the cancel
+    // cleared `streamingContent` (unmounting the tail) and left the message marked `streaming: true` —
+    // a typing indicator that never stopped, over an answer that had been thrown away.
+    const { store } = await mount();
+
+    await userEvent.type(screen.getByTestId('chat-input'), 'why is this slow?{Enter}');
+    await waitFor(() => expect(store.getState().streaming).toBe(true));
+    double.emit({
+      conversationId: CONVERSATION_ID,
+      delta: 'Because the index on `orders(created_at)` is',
+      done: false,
+    });
+    await waitFor(() => expect(screen.getByTestId('chat-stream-tail')).not.toBeNull());
+
+    await userEvent.click(screen.getByTestId('chat-stop'));
+
+    // The tail's text is in the transcript, as a finished message.
+    const body = await screen.findByTestId('chat-message-body');
+    expect(body.textContent).toContain('Because the index on');
+    expect(body.textContent).toContain('stopped');
+    // Nothing is still writing, and nothing is still buffered.
+    expect(screen.queryByTestId('chat-typing')).toBeNull();
+    expect(screen.queryByTestId('chat-stream-tail')).toBeNull();
+    expect(store.getState().streaming).toBe(false);
+    expect(store.getState().streamingContent).toBe('');
+    expect(store.getState().messages.at(-1)?.streaming).toBe(false);
+    expect(double.cancels()).toEqual([CONVERSATION_ID]);
+  });
+
   it('carries a chosen model on the next message, and back to Auto when re-chosen', async () => {
     await mount();
 
@@ -236,7 +266,15 @@ describe('the transcript', () => {
 });
 
 describe('the tool-confirmation flow', () => {
-  /** Sends a message and puts a pending tool call on the assistant placeholder. */
+  /**
+   * Sends a message and puts a pending tool call on the assistant placeholder — **including the
+   * `done: true` the main process sends immediately afterwards.**
+   *
+   * That second chunk is not padding, it is the shape of the feature: `ChatService` breaks its agentic
+   * loop to wait for the user, so the stream ENDS while the confirmation waits. A helper that stopped
+   * at the toolCall chunk left every test in this block running against a state the app never reaches
+   * (a confirmation with `streaming: true`), which is how the composer came to be live underneath one.
+   */
   async function pendingConfirmation(store: ChatStore): Promise<void> {
     await store.getState().sendMessage('drop it');
     double.emit({
@@ -249,6 +287,7 @@ describe('the tool-confirmation flow', () => {
       },
       done: false,
     });
+    double.emit({ conversationId: CONVERSATION_ID, done: true });
   }
 
   it('states the tool, its description and its SQL — the description being what Angular never loaded', async () => {
@@ -274,6 +313,82 @@ describe('the tool-confirmation flow', () => {
     // Deliberately NOT patched locally: the tool has not run yet, and inventing a result here would
     // show an outcome the tool never produced. The card still reads as pending.
     expect(store.getState().messages.at(-1)?.toolCalls?.[0]?.pendingConfirmation).toBe(true);
+  });
+
+  it('runs a confirmed tool ONCE, however fast the button is clicked twice', async () => {
+    // `ChatService.confirmToolCall` has no already-confirmed guard: a second approval runs the tool
+    // again and starts a second agentic loop. For `execute_ddl` that is two DROP TABLEs from one
+    // double-click, so the card is armed once and both buttons disarm on the first click.
+    const { store } = await mount();
+    await pendingConfirmation(store);
+
+    const approve = await screen.findByTestId('chat-tool-approve');
+    const decline = screen.getByTestId('chat-tool-decline');
+    await userEvent.click(approve);
+    await userEvent.click(approve);
+
+    expect(double.confirmations()).toEqual([{ toolCallId: 'tool-1', confirmed: true }]);
+    // Visibly disarmed, not merely inert — and `Button`'s disabled-`primary` treatment drops the fill.
+    expect(approve.hasAttribute('disabled')).toBe(true);
+    expect(decline.hasAttribute('disabled')).toBe(true);
+    // No invented result: the card still reads as pending until the real `toolResult` chunk lands.
+    expect(store.getState().messages.at(-1)?.toolCalls?.[0]?.pendingConfirmation).toBe(true);
+  });
+
+  it('refuses to send another message while the confirmation is unanswered', async () => {
+    // The state this closes: the main process sends the `pendingConfirmation` chunk and then
+    // `done: true`, so `streaming` is FALSE while the card is on screen and an ungated composer is
+    // fully live. A message sent from it orphans the card — main's `confirmToolCall` looks the id up in
+    // the last assistant message, which the new turn displaces.
+    const { store } = await mount();
+    await pendingConfirmation(store);
+    await screen.findByTestId('chat-tool-confirm');
+
+    expect(store.getState().streaming).toBe(false);
+    const box = screen.getByTestId('chat-input') as HTMLTextAreaElement;
+    expect(box.disabled).toBe(true);
+    expect(box.getAttribute('placeholder')).toBe('Waiting on the tool request above');
+    expect(screen.getByTestId('chat-send').hasAttribute('disabled')).toBe(true);
+    // And it says why, where the refusal is.
+    expect(screen.getByTestId('chat-confirm-blocked').textContent).toContain('run it or cancel it');
+
+    const sendsBefore = double.sends().length;
+    await userEvent.type(box, 'never mind, do something else{Enter}');
+    expect(double.sends()).toHaveLength(sendsBefore);
+
+    // Answering the card gives the composer back.
+    await userEvent.click(screen.getByTestId('chat-tool-decline'));
+    await waitFor(() => expect(screen.queryByTestId('chat-confirm-blocked')).toBeNull());
+    expect((screen.getByTestId('chat-input') as HTMLTextAreaElement).disabled).toBe(false);
+  });
+
+  it('declines the tool call in the message that holds it, not the newest one', async () => {
+    // The positional patch this replaces wrote to "the last assistant message", which is only the right
+    // one while nothing has happened since. Here an assistant message follows the pending card.
+    const { store } = await mount();
+    await pendingConfirmation(store);
+
+    const withCard = store.getState().messages.at(-1)?.id;
+    store.setState(state => ({
+      messages: [
+        ...state.messages,
+        {
+          id: 'later-assistant',
+          role: 'assistant' as const,
+          content: 'Something else entirely.',
+          timestamp: '2026-08-16T09:05:00.000Z',
+          toolCalls: [],
+        },
+      ],
+    }));
+
+    await userEvent.click(await screen.findByTestId('chat-tool-decline'));
+
+    const patched = store.getState().messages.find(message => message.id === withCard);
+    expect(patched?.toolCalls?.[0]?.error).toBe('Cancelled by user');
+    expect(patched?.toolCalls?.[0]?.pendingConfirmation).toBe(false);
+    // The newer message was not touched, and grew no tool calls of its own.
+    expect(store.getState().messages.at(-1)?.toolCalls).toHaveLength(0);
   });
 
   it('declines, and says so immediately because no result chunk is coming', async () => {

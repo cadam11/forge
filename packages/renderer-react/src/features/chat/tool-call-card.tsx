@@ -13,12 +13,24 @@
  *    and reserves it for verification; a transcript with ten successful tool calls in it had ten
  *    green ticks. Success is the expected case and reads as muted here; only a FAILURE takes colour.
  *
- * ── The one filled affordance ──────────────────────────────────────────────────────────────
+ * ── The one filled affordance, and how it is actually kept to one ──────────────────────────
  *
  * HOUSE-RULES §5 allows at most one filled oxide affordance per visible surface. The composer's Send
- * is the surface's filled affordance at rest — but a pending confirmation only exists while the
- * stream is still open, and the composer shows **Stop** (outline) then, never Send. So "Run it" is
- * the one filled control on screen exactly when it is on screen, and the two can never compete.
+ * is the surface's filled affordance at rest, and **an earlier version of this comment claimed a
+ * confirmation could only exist while the stream was open, so the composer would be showing Stop.
+ * That is false.** The main process sends the `pendingConfirmation` chunk and then `done: true`,
+ * because it breaks its agentic loop to wait for the user — so `streaming` is already false when this
+ * card appears. What keeps the rule true is the gate: the composer refuses while a confirmation is
+ * pending (`selectHasPendingConfirmation`), and `Button`'s disabled-`primary` treatment drops the fill,
+ * so Send is on screen unarmed and unfilled while "Run it" is the one filled control.
+ *
+ * ── Approving is armed once ────────────────────────────────────────────────────────────────
+ *
+ * `ChatService.confirmToolCall` has no already-confirmed guard: a second approval executes the tool a
+ * second time and starts a second agentic loop, which for `execute_ddl` means two DROP TABLEs from one
+ * double-click. So the card disarms both buttons on the first click. It does NOT invent a result — the
+ * card still reads as pending until the real `toolResult` chunk lands, which is the same rule the store
+ * follows for the approve path.
  *
  * Expansion is LOCAL state, not a `Set` in the surface (`expandedTools` in Angular). A shared set
  * changes identity on every toggle, which re-renders every message in the transcript to open one
@@ -98,8 +110,22 @@ function ResultTable({ result }: { readonly result: unknown }) {
   );
 }
 
-/** The confirmation. Renders the description, the arguments, and two ways out. */
+/** The confirmation. Renders the description, the arguments, and two ways out — once. */
 function ConfirmCard({ toolCall, definition, onConfirm }: ToolCallCardProps) {
+  /**
+   * Answered, so neither button can fire again. Local to this card and gone when it unmounts, which is
+   * the right lifetime: a card that has been answered is replaced by the record of the tool call.
+   */
+  const [answered, setAnswered] = useState(false);
+
+  const answer = (confirmed: boolean) => (): void => {
+    // Guard as well as `disabled`, because a click already dispatched into React's queue must not slip
+    // through the re-render that disables the button.
+    if (answered) return;
+    setAnswered(true);
+    onConfirm(toolCall.id, confirmed);
+  };
+
   return (
     <div
       data-testid="chat-tool-confirm"
@@ -127,7 +153,8 @@ function ConfirmCard({ toolCall, definition, onConfirm }: ToolCallCardProps) {
           size="sm"
           variant="primary"
           data-testid="chat-tool-approve"
-          onClick={() => onConfirm(toolCall.id, true)}
+          disabled={answered}
+          onClick={answer(true)}
         >
           Run it
         </Button>
@@ -135,7 +162,8 @@ function ConfirmCard({ toolCall, definition, onConfirm }: ToolCallCardProps) {
           size="sm"
           variant="ghost"
           data-testid="chat-tool-decline"
-          onClick={() => onConfirm(toolCall.id, false)}
+          disabled={answered}
+          onClick={answer(false)}
         >
           Cancel
         </Button>

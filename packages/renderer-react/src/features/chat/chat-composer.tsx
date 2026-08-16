@@ -8,16 +8,24 @@
  * transcript per character — the chat equivalent of R2's "10k rows per keystroke". Nothing above the
  * composer needs to know what has been typed; `onSend` is called with it once.
  *
- * ── Send or Stop, never both ───────────────────────────────────────────────────────────────
+ * ── Two reasons the box refuses, and they are different states ─────────────────────────────
  *
- * While a stream is open the button cancels it, and the box is disabled — the Angular behaviour
- * (`:321-329`).
+ * 1. **A stream is open**: the button cancels it and the box is disabled — the Angular behaviour
+ *    (`:321-329`).
+ * 2. **A tool call is waiting on the user.** This one is NOT covered by the first, which is the trap:
+ *    the main process sends the `pendingConfirmation` chunk and then `done: true`, because it breaks
+ *    its agentic loop to wait for the answer — so `streaming` is false while the confirmation is on
+ *    screen. An ungated composer is therefore fully live with a filled Send in it, and a message sent
+ *    from it orphans the card (see `selectHasPendingConfirmation` in `state/chat.ts` for what breaks
+ *    on both sides of the bridge). The box says which of the two buttons above it is waiting.
  *
- * That is also what keeps HOUSE-RULES §5's "at most one filled oxide affordance per visible surface"
- * true with two filled buttons in the feature. **Send** is filled, because it is what this surface is
- * for; **Run it** on a tool confirmation is filled, because approving is what that card is for. They
- * cannot appear together: a confirmation only exists while the stream is open, and the composer is
- * showing Stop (outline) for exactly as long as that is true.
+ * Between them they are also what keeps HOUSE-RULES §5's "at most one filled oxide affordance per
+ * visible surface" true with two filled buttons in the feature. **Send** is filled, because it is what
+ * this surface is for; **Run it** on a tool confirmation is filled, because approving is what that card
+ * is for. They cannot both be armed: while a confirmation is pending, Send is disabled and `Button`'s
+ * disabled-`primary` treatment drops the fill entirely (`ui/button.tsx`), so the confirmation's Run it
+ * is the only filled control on screen. (An earlier version of this comment claimed the composer showed
+ * **Stop** throughout a confirmation. It does not — see above.)
  *
  * One deliberate difference from Angular: focus returns to the box when a stream **ends**, not on
  * every `streaming` read. The Angular effect fired on mount too and re-fired on any false read
@@ -54,6 +62,11 @@ export interface SelectedModel {
 
 export interface ChatComposerProps {
   readonly streaming: boolean;
+  /**
+   * A tool call in this conversation is waiting on the user. The box refuses until it is answered —
+   * see the header, and `selectHasPendingConfirmation`.
+   */
+  readonly awaitingConfirmation: boolean;
   /** No provider configured: the box states why instead of sending into a refusal. */
   readonly providerConfigured: boolean;
   readonly vendors: readonly AIVendor[];
@@ -137,6 +150,7 @@ function ModelPicker({
 
 export function ChatComposer({
   streaming,
+  awaitingConfirmation,
   providerConfigured,
   vendors,
   model,
@@ -146,22 +160,23 @@ export function ChatComposer({
 }: ChatComposerProps) {
   const [text, setText] = useState('');
   const box = useRef<HTMLTextAreaElement | null>(null);
-  const wasStreaming = useRef(false);
+  /** Whether the box was refusing on the previous render. See the effect. */
+  const wasBlocked = useRef(false);
 
-  // Mount, and every stream ending. See the header for why the transition — not the value — is the
-  // trigger. `focus()` on a detached node (an inactive Dockview panel) is a no-op, not an error.
+  // The box refuses while a stream runs OR while a confirmation waits: both are "not your turn".
+  const blocked = streaming || awaitingConfirmation;
+
+  // Mount, and every time the box becomes usable again. See the header for why the transition — not
+  // the value — is the trigger. `focus()` on a detached node (an inactive Dockview panel) is a no-op,
+  // not an error.
   useEffect(() => {
-    if (streaming) {
-      wasStreaming.current = true;
+    if (blocked) {
+      wasBlocked.current = true;
       return;
     }
-    if (!wasStreaming.current) {
-      box.current?.focus();
-      return;
-    }
-    wasStreaming.current = false;
+    wasBlocked.current = false;
     box.current?.focus();
-  }, [streaming]);
+  }, [blocked]);
 
   const send = (): void => {
     const message = text.trim();
@@ -170,7 +185,7 @@ export function ChatComposer({
     onSend(message);
   };
 
-  const canSend = providerConfigured && text.trim() !== '';
+  const canSend = providerConfigured && !blocked && text.trim() !== '';
 
   return (
     // The hairline spans the pane, because it is the pane's divider; the CONTENTS take the same 76ch
@@ -184,6 +199,14 @@ export function ChatComposer({
           </div>
         )}
 
+        {/* Why the box is refusing, said where the refusal is. Not a `role="alert"`: nothing has gone
+            wrong and the card above it already has the user's attention. */}
+        {awaitingConfirmation ? (
+          <p data-testid="chat-confirm-blocked" className="text-sm text-fg-muted text-pretty">
+            Answer the tool request above — run it or cancel it — before sending another message.
+          </p>
+        ) : null}
+
         <div className="flex min-w-0 items-end gap-1.5">
           <Textarea
             ref={box}
@@ -192,9 +215,13 @@ export function ChatComposer({
             data-testid="chat-input"
             rows={1}
             value={text}
-            disabled={streaming}
+            disabled={blocked}
             placeholder={
-              providerConfigured ? 'Ask about your database…' : 'Configure an AI provider to chat'
+              awaitingConfirmation
+                ? 'Waiting on the tool request above'
+                : providerConfigured
+                  ? 'Ask about your database…'
+                  : 'Configure an AI provider to chat'
             }
             onChange={event => setText(event.target.value)}
             onKeyDown={event => {

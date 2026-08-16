@@ -50,7 +50,11 @@ import {
   selectProfileFor,
   useConnectionStore,
 } from '../../state/connection';
-import { selectActiveConversation, type ChatStore } from '../../state/chat';
+import {
+  selectActiveConversation,
+  selectHasPendingConfirmation,
+  type ChatStore,
+} from '../../state/chat';
 import { selectEffectiveTheme, useSettingsStore } from '../../state/settings';
 import { tabStore, useTabStore } from '../../state/tab';
 import { Icon, Tooltip, cn } from '../../ui';
@@ -111,6 +115,9 @@ export function ChatSurface({ store, mode }: ChatSurfaceProps) {
   const conversationsExpanded = useStore(store, state => state.conversationsExpanded);
   const pendingUiAction = useStore(store, state => state.pendingUiAction);
   const activeConversation = useStore(store, selectActiveConversation);
+  // A pending tool confirmation is a second reason the composer refuses, and it is NOT a sub-case of
+  // `streaming` — the stream is already finished when the card appears. See the selector.
+  const awaitingConfirmation = useStore(store, selectHasPendingConfirmation);
 
   const providerConfigured = useAIStore(selectHasConfiguredVendors);
   const vendors = useAIStore(useShallow(selectEnabledVendors));
@@ -275,6 +282,7 @@ export function ChatSurface({ store, mode }: ChatSurfaceProps) {
 
       <ChatComposer
         streaming={streaming}
+        awaitingConfirmation={awaitingConfirmation}
         providerConfigured={providerConfigured}
         vendors={vendors}
         model={model}

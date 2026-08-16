@@ -104,6 +104,10 @@ export interface ChatStoreOptions {
  * the list unchanged when the last message is not an assistant message, exactly as the Angular
  * original did — a chunk that arrives after the placeholder is gone is dropped rather than
  * rewriting a user message.
+ *
+ * Only for the things that genuinely belong to the message being written: the delta, the `done`
+ * finalization, a brand-new tool call. Anything addressed by a tool-call ID goes through
+ * `patchToolCallById` instead — see its comment.
  */
 function patchLastAssistantMessage(
   messages: readonly ChatMessage[],
@@ -112,6 +116,50 @@ function patchLastAssistantMessage(
   const last = messages[messages.length - 1];
   if (last?.role !== 'assistant') return messages;
   return [...messages.slice(0, -1), patch(last)];
+}
+
+/**
+ * Patch ONE tool call, in whichever message holds it. Returns the list unchanged (by identity, so
+ * callers can detect the miss) when no message carries that id.
+ *
+ * Addressing by id rather than by "the last assistant message" is not tidiness. A tool
+ * confirmation outlives the stream that produced it: the main process sends the
+ * `pendingConfirmation` chunk and then `done: true` (`chat-service.ts` — it breaks the agentic loop
+ * to wait for the user), so the card sits in a *finished* message and any later message pushes it
+ * out of last position. The composer refuses to send while a confirmation is pending
+ * (`selectHasPendingConfirmation`), which is what stops that from happening at all — but "the
+ * decline silently patched a newer message" is exactly the class of bug a positional patch invites,
+ * and a result chunk that arrives late has the same shape.
+ *
+ * Identity is preserved for every message that is not the one being patched, which is what the R3
+ * memo boundary in `features/chat/chat-message.tsx` depends on.
+ */
+function patchToolCallById(
+  messages: readonly ChatMessage[],
+  toolCallId: string,
+  patch: (toolCall: ToolCallResult) => ToolCallResult
+): readonly ChatMessage[] {
+  const index = messages.findIndex(message =>
+    (message.toolCalls ?? []).some(toolCall => toolCall.id === toolCallId)
+  );
+  const target = messages[index];
+  if (target === undefined) return messages;
+
+  const toolCalls = (target.toolCalls ?? []).map(toolCall =>
+    toolCall.id === toolCallId ? patch(toolCall) : toolCall
+  );
+  return messages.map((message, at) => (at === index ? { ...target, toolCalls } : message));
+}
+
+/**
+ * What a stopped answer says. The main process emits NOTHING when a stream is aborted
+ * (`cancelStream` just aborts the controller), so the renderer is the only place that can write the
+ * partial answer into the transcript — and a truncated answer that does not say it was truncated is
+ * a lie about what the model said.
+ */
+function stoppedContent(partial: string): string {
+  const kept = partial.trimEnd();
+  return kept === '' ? '_Stopped before the answer began._' : `${kept}\n\n_— stopped_`;
 }
 
 export type ChatStore = ReturnType<typeof createChatStore>;
@@ -183,16 +231,20 @@ export function createChatStore(deps: ChatStoreDeps, options: ChatStoreOptions =
 
       const toolResult = chunk.toolResult;
       if (toolResult) {
-        set(state => ({
-          messages: patchLastAssistantMessage(state.messages, last => {
-            const toolCalls = (last.toolCalls ?? []).map(tc =>
-              tc.id === toolResult.id ? toolResult : tc
-            );
-            // Auto-executed tools never announced themselves as a toolCall first.
-            if (!toolCalls.some(tc => tc.id === toolResult.id)) toolCalls.push(toolResult);
-            return { ...last, toolCalls };
-          }),
-        }));
+        set(state => {
+          // By id first: a confirmed tool's result arrives after `done: true`, so the card it belongs
+          // to is not necessarily in the last message any more.
+          const patched = patchToolCallById(state.messages, toolResult.id, () => toolResult);
+          if (patched !== state.messages) return { messages: patched };
+          // Auto-executed tools never announced themselves as a toolCall first, so there is nothing
+          // to find and the running message is where the record belongs.
+          return {
+            messages: patchLastAssistantMessage(state.messages, last => ({
+              ...last,
+              toolCalls: [...(last.toolCalls ?? []), toolResult],
+            })),
+          };
+        });
       }
 
       if (chunk.uiAction) handleUiAction(chunk.uiAction);
@@ -394,18 +446,11 @@ export function createChatStore(deps: ChatStoreDeps, options: ChatStoreOptions =
         // toolResult chunk, and pre-empting it would show a result the tool never produced.
         if (!confirmed) {
           set(state => ({
-            messages: patchLastAssistantMessage(state.messages, last => ({
-              ...last,
-              toolCalls: (last.toolCalls ?? []).map(tc =>
-                tc.id === toolCallId
-                  ? {
-                      ...tc,
-                      pendingConfirmation: false,
-                      success: false,
-                      error: 'Cancelled by user',
-                    }
-                  : tc
-              ),
+            messages: patchToolCallById(state.messages, toolCallId, toolCall => ({
+              ...toolCall,
+              pendingConfirmation: false,
+              success: false,
+              error: 'Cancelled by user',
             })),
           }));
         }
@@ -425,7 +470,24 @@ export function createChatStore(deps: ChatStoreDeps, options: ChatStoreOptions =
         ipc()
           .chat.cancelStream(conversationId)
           .catch(error => diagnostics.warn('failed to cancel chat stream', error));
-        set({ streaming: false, streamingContent: '' });
+
+        // **The partial answer is finalized here, and only here.** Clearing `streamingContent`
+        // unmounts the tail, and the main process emits nothing at all on abort — no `done` chunk
+        // follows a cancel — so a cancel that only cleared the flags left the message marked
+        // `streaming: true` with an eternal typing indicator under it and the text the model had
+        // already produced thrown away. The content is read BEFORE the clear for that reason, and
+        // `stoppedContent` marks the truncation so the transcript does not read like a complete
+        // answer that happens to stop mid-sentence.
+        const partial = get().streamingContent;
+        set(state => ({
+          messages: patchLastAssistantMessage(state.messages, last =>
+            last.streaming === true
+              ? { ...last, content: stoppedContent(partial || last.content), streaming: false }
+              : last
+          ),
+          streaming: false,
+          streamingContent: '',
+        }));
       },
 
       consumeUiAction: () => {
@@ -493,4 +555,25 @@ export function selectActiveConversation(
 
 export function selectHasConversations(state: Pick<ChatStoreState, 'conversations'>): boolean {
   return state.conversations.length > 0;
+}
+
+/**
+ * Is a tool call in this conversation waiting on the user?
+ *
+ * The composer is gated on this as well as on `streaming`, because the two are not the same state and
+ * the second does not cover the first: the main process sends the `pendingConfirmation` chunk and then
+ * `done: true` (it breaks the agentic loop to wait), so while a confirmation is on screen
+ * `streaming` is **false** and an ungated composer is fully live with a filled Send in it. Sending
+ * then orphans the card — the local decline would patch a message that is no longer the one holding
+ * the tool call, and the main process's own `confirmToolCall` looks the id up in the LAST assistant
+ * message (`chat-service.ts:245`), which the new turn has just displaced, so approving does nothing
+ * at all and says nothing about it.
+ *
+ * Cheap by shape rather than by memoisation: the scan stops at the first pending call, and `messages`
+ * only changes once per message or tool event — never per token.
+ */
+export function selectHasPendingConfirmation(state: Pick<ChatStoreState, 'messages'>): boolean {
+  return state.messages.some(message =>
+    (message.toolCalls ?? []).some(toolCall => toolCall.pendingConfirmation === true)
+  );
 }
