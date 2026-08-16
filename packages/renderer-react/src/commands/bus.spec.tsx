@@ -26,10 +26,22 @@ describe('the registry', () => {
     }
   });
 
-  it('carries none of the ten dead palette dispatches from the audit', () => {
-    // PLAN.md 0.4: these had no listener anywhere in the Angular app. Task 16 adds each one back
-    // together with its handler, which is the only way the registry accepts it.
-    const dead = [
+  it('admits an audit-dead dispatch only once it has a consumer', () => {
+    // PLAN.md 0.4 listed ten palette dispatches with no listener anywhere in the Angular app. Task 4
+    // asserted the registry carried NONE of them, which was right while none had an owner.
+    //
+    // Task 7 changed that, and the change is the point rather than a regression: it wired the native
+    // menu, and six of those ten are menu actions whose handler now exists (`toggle-sidebar`,
+    // `refresh-explorer` and `open-settings` in the shell; `execute-query`, `format-sql` and
+    // `cancel-query` naming Task 10's editor). Two more arrived under clearer ids —
+    // `open-backup-dialog` / `open-restore-dialog`, PLAN.md 0.1's broken menu items, now reaching a
+    // placeholder dialog — and `toggle-results` as `toggle-results-panel`.
+    //
+    // So the assertion moves from the LIST to the RULE, which is what actually made those dispatches
+    // dead: an id may exist only alongside a named consumer. That is enforced at compile time by
+    // `Record<CommandId, string>` and above at runtime; here it is checked specifically against the
+    // ids the audit caught, because those are the ones a bulk port would resurrect without owners.
+    const auditDead = [
       'toggle-sidebar',
       'toggle-results',
       'execute-query',
@@ -41,7 +53,14 @@ describe('the registry', () => {
       'open-restore',
       'save-snippet',
     ];
-    expect(COMMAND_IDS.filter(id => dead.includes(id))).toEqual([]);
+
+    for (const id of COMMAND_IDS.filter(candidate => auditDead.includes(candidate))) {
+      expect(COMMAND_CONSUMERS[id].length).toBeGreaterThan(20);
+    }
+
+    // `save-snippet` has no owner until Task 16 builds the snippet library, so it must still be
+    // absent — the one member of the original list that this task did not earn.
+    expect(COMMAND_IDS).not.toContain('save-snippet');
   });
 });
 
