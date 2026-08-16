@@ -15,8 +15,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { ConfirmExecuteDialog } from './confirm-execute-dialog';
 import { PlaceholderDialog } from './placeholder-dialog';
 
-/** The three required callbacks, defaulted to no-ops so each test overrides only the one it asserts. */
+/**
+ * The required props, defaulted so each test overrides only the one it asserts. `gate: 'ctrl-e'` is the
+ * one-time shortcut confirmation, which is what this block is about; the setting's `always` gate has its
+ * own block below.
+ */
 const confirmProps = () => ({
+  gate: 'ctrl-e' as const,
   onCancel: () => undefined,
   onConfirm: () => undefined,
   onReturnFocus: () => undefined,
@@ -73,6 +78,42 @@ describe('the ⌃E confirmation', () => {
     await userEvent.keyboard('{Escape}');
     // The original's Escape listener was removed only on Escape, so cancelling any other way leaked it.
     expect(onCancel).toHaveBeenCalledTimes(2);
+  });
+});
+
+/*
+ * The second gate: `QuerySettings.confirmBeforeExecute`, which Task 15 wired and which the Angular panel
+ * wrote while nothing read it. Same dialog, and these assertions are the two things that MUST differ —
+ * otherwise a permanent confirmation would offer a hidden second way to turn a setting off.
+ */
+describe('the confirm-before-every-execute gate', () => {
+  const alwaysProps = () => ({ ...confirmProps(), gate: 'always' as const });
+
+  it('offers no "don’t ask me again" tick, and says where the switch is instead', () => {
+    render(<ConfirmExecuteDialog open {...alwaysProps()} />);
+
+    expect(screen.queryByTestId('query-confirm-execute-remember')).toBeNull();
+    expect(screen.getByRole('dialog').textContent).toContain('Settings');
+  });
+
+  it('cannot carry a tick over from a ⌃E confirmation that was cancelled', async () => {
+    // The component is not remounted between opens, so `remember` survives a cancel. It must not reach
+    // a confirmation raised by the setting, which offers no such choice.
+    const onConfirm = vi.fn();
+    const { rerender } = render(
+      <ConfirmExecuteDialog open {...confirmProps()} onConfirm={onConfirm} />
+    );
+    await userEvent.click(screen.getByTestId('query-confirm-execute-remember'));
+
+    rerender(<ConfirmExecuteDialog open {...alwaysProps()} onConfirm={onConfirm} />);
+    await userEvent.click(screen.getByTestId('query-confirm-execute-run'));
+
+    expect(onConfirm).toHaveBeenCalledWith(false);
+  });
+
+  it('names which gate it is, for the suites', () => {
+    render(<ConfirmExecuteDialog open {...alwaysProps()} />);
+    expect(screen.getByTestId('query-confirm-execute').getAttribute('data-gate')).toBe('always');
   });
 });
 

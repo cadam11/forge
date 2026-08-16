@@ -20,8 +20,19 @@
  * `editor-prefs.ts` — which is the migrated `joinery-ctrl-e-execute-confirmed` localStorage key
  * (PLAN.md 0.5), read through hydrated state rather than from `localStorage`.
  *
- * It is deliberately NOT `QuerySettings.confirmBeforeExecute`: that setting is a *permanent* confirm
- * on every execute, it is unread by anything in the Angular renderer, and Task 15 owns its panel.
+ * ── The second gate: `QuerySettings.confirmBeforeExecute` (Task 15) ────────────────────────
+ *
+ * That setting is a *permanent* confirm on every execute, and it was the third of the three query
+ * settings the Angular panel wrote while nothing read them — a live-looking toggle that changed nothing
+ * (J-44's class of defect). Task 15 wired it, and it lands in this dialog rather than a second one:
+ * both gates ask the identical question about the identical SQL, and two dialogs would be two chances to
+ * word it differently.
+ *
+ * `gate` is what differs. The ⌃E gate is a **one-time** confirmation, so it offers "Don't ask me again";
+ * the setting's gate is one the user switched on deliberately and can only switch off in Settings, so it
+ * offers no checkbox and says where the switch is instead. A "don't ask again" tick on the permanent
+ * gate would be a second, hidden way to turn a setting off — the state would then disagree with the
+ * switch that is still showing "on".
  */
 
 import { keyHint } from '../../utils/platform';
@@ -39,11 +50,22 @@ import {
 } from '../../ui';
 import { useRef, useState } from 'react';
 
+/**
+ * Which gate raised this dialog. `ctrl-e` is the one-time shortcut confirmation; `always` is
+ * `QuerySettings.confirmBeforeExecute`. See the file header for why one dialog serves both.
+ */
+export type ExecuteGate = 'ctrl-e' | 'always';
+
 export interface ConfirmExecuteDialogProps {
   readonly open: boolean;
+  /** Which confirmation this is. Decides the copy and whether "Don't ask me again" is offered. */
+  readonly gate: ExecuteGate;
   /** Closed without executing — backdrop, Escape, or Cancel. */
   readonly onCancel: () => void;
-  /** Execute. `remember` is the "Don't ask me again" tick, which the caller persists. */
+  /**
+   * Execute. `remember` is the "Don't ask me again" tick, which the caller persists — and it is always
+   * `false` for the `always` gate, which offers no such tick.
+   */
   readonly onConfirm: (remember: boolean) => void;
   /**
    * Where focus goes when this closes, and it is REQUIRED rather than optional.
@@ -58,6 +80,7 @@ export interface ConfirmExecuteDialogProps {
 
 export function ConfirmExecuteDialog({
   open,
+  gate,
   onCancel,
   onConfirm,
   onReturnFocus,
@@ -65,12 +88,15 @@ export function ConfirmExecuteDialog({
   const [remember, setRemember] = useState(false);
   const executeButton = useRef<HTMLButtonElement | null>(null);
   const shortcut = keyHint('E');
+  const oneTime = gate === 'ctrl-e';
 
   return (
     <Dialog open={open} onOpenChange={next => (next ? undefined : onCancel())}>
       <DialogContent
         size="sm"
         data-testid="query-confirm-execute"
+        // Which gate this is, for the suites: the two confirmations are otherwise the same dialog.
+        data-gate={gate}
         // The primary action, not the close button Radix would otherwise focus as the first tabbable
         // node. The Angular original did this with `setTimeout(…, 50)`; a ref plus Radix's own
         // open-autofocus hook needs no timer and cannot race the mount.
@@ -86,19 +112,22 @@ export function ConfirmExecuteDialog({
         <DialogHeader>
           <DialogTitle>Execute query?</DialogTitle>
           <DialogDescription>
-            {shortcut} runs the current query against the connected database. This matches the
-            familiar SSMS shortcut.
+            {oneTime
+              ? `${shortcut} runs the current query against the connected database. This matches the familiar SSMS shortcut.`
+              : 'This runs against the connected database. Settings ▸ Query is where to stop being asked.'}
           </DialogDescription>
         </DialogHeader>
-        <DialogBody>
-          <Checkbox
-            name="query-confirm-execute-remember"
-            label="Don't ask me again"
-            data-testid="query-confirm-execute-remember"
-            checked={remember}
-            onChange={event => setRemember(event.target.checked)}
-          />
-        </DialogBody>
+        {oneTime ? (
+          <DialogBody>
+            <Checkbox
+              name="query-confirm-execute-remember"
+              label="Don't ask me again"
+              data-testid="query-confirm-execute-remember"
+              checked={remember}
+              onChange={event => setRemember(event.target.checked)}
+            />
+          </DialogBody>
+        ) : null}
         <DialogActions>
           <DialogClose asChild>
             <Button variant="outline" data-testid="query-confirm-execute-cancel">
@@ -110,7 +139,10 @@ export function ConfirmExecuteDialog({
             ref={executeButton}
             variant="primary"
             data-testid="query-confirm-execute-run"
-            onClick={() => onConfirm(remember)}
+            // `oneTime &&`: the tick is only offered by the ⌃E gate, and this component is not
+            // remounted between opens — so a tick made and then cancelled must not leak into a later
+            // confirmation raised by the setting.
+            onClick={() => onConfirm(oneTime && remember)}
           >
             Execute
           </Button>

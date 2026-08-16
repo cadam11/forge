@@ -7,8 +7,9 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import type { QueryResult } from '@joinery/shared';
+import { DEFAULT_SETTINGS, type QueryResult } from '@joinery/shared';
 import { TooltipProvider } from '../../ui';
+import { settingsStore } from '../../state/settings';
 
 // jsdom has no layout, so a real AG Grid renders a header and no rows — see `results-grid.spec.tsx`.
 vi.mock('ag-grid-react', () => ({ AgGridReact: () => <div data-testid="ag-grid-double" /> }));
@@ -147,5 +148,37 @@ describe('counts and truncation', () => {
     expect(screen.getByTestId('query-messages').textContent).toContain(
       'Query executed successfully.'
     );
+  });
+
+  /*
+   * `QuerySettings.showExecutionTime`'s consumer assertion, and the whole reason the setting is allowed
+   * to ship a live-looking toggle: before Task 15 the duration line printed unconditionally while a
+   * toggle for it sat in Settings — J-44's class of defect, a control that persisted and changed nothing.
+   */
+  it('shows the duration line by default, and hides it when the setting is off', () => {
+    const shown = renderPane(
+      <QueryResults result={success({ resultSets: [] })} executing={false} tabId={TAB_ID} />
+    );
+    expect(screen.getByTestId('query-messages-execution-time').textContent).toContain('12');
+    shown.unmount();
+
+    settingsStore.setState({
+      settings: {
+        ...DEFAULT_SETTINGS,
+        query: { ...DEFAULT_SETTINGS.query, showExecutionTime: false },
+      },
+    });
+    try {
+      renderPane(
+        <QueryResults result={success({ resultSets: [] })} executing={false} tabId={TAB_ID} />
+      );
+      expect(screen.queryByTestId('query-messages-execution-time')).toBeNull();
+      // The rest of the pane is untouched: the setting hides one line, not the messages.
+      expect(screen.getByTestId('query-messages').textContent).toContain(
+        'Query executed successfully.'
+      );
+    } finally {
+      settingsStore.setState({ settings: DEFAULT_SETTINGS });
+    }
   });
 });
