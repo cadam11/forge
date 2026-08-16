@@ -1,3 +1,4 @@
+import { createRef, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -159,6 +160,99 @@ describe('Checkbox — the mixed state', () => {
 
     expect(seen[0]).toBeInstanceOf(HTMLInputElement);
     expect(seen[0]?.indeterminate).toBe(true);
+  });
+});
+
+describe('Select — the props the Root and the trigger split', () => {
+  /** Controlled, like a Task 8 caller whose open state lives in a store. */
+  function ControlledSelect({ onOpenChange }: { readonly onOpenChange: (open: boolean) => void }) {
+    const [open, setOpen] = useState(false);
+    return (
+      <>
+        <output data-testid="open-state">{String(open)}</output>
+        <Select
+          label="Engine"
+          name="engine"
+          defaultValue="postgres"
+          open={open}
+          onOpenChange={next => {
+            onOpenChange(next);
+            setOpen(next);
+          }}
+        >
+          <SelectItem value="postgres">PostgreSQL</SelectItem>
+          <SelectItem value="mysql">MySQL</SelectItem>
+        </Select>
+      </>
+    );
+  }
+
+  it('round-trips a controlled open state', async () => {
+    const onOpenChange = vi.fn();
+    render(<ControlledSelect onOpenChange={onOpenChange} />);
+
+    expect(screen.queryByRole('listbox')).toBeNull();
+
+    await userEvent.click(screen.getByLabelText('Engine'));
+
+    // The list is open because the callback wrote the state back, not because the trigger
+    // opened itself: a `Select` that ignored `open` would fail the second assertion only.
+    expect(onOpenChange).toHaveBeenLastCalledWith(true);
+    expect(screen.getByRole('listbox')).toBeDefined();
+
+    await userEvent.keyboard('{Escape}');
+
+    expect(onOpenChange).toHaveBeenLastCalledWith(false);
+    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(screen.getByTestId('open-state').textContent).toBe('false');
+  });
+
+  it('stays shut when the caller holds open false', async () => {
+    render(
+      <Select label="Engine" name="engine" open={false} onOpenChange={vi.fn()}>
+        <SelectItem value="postgres">PostgreSQL</SelectItem>
+      </Select>
+    );
+
+    await userEvent.click(screen.getByLabelText('Engine'));
+
+    // Controlled means controlled. Without this, "round-trips" above would pass on a component
+    // that merely opened itself and reported it.
+    expect(screen.queryByRole('listbox')).toBeNull();
+  });
+
+  it('passes the trigger’s own props through to the trigger', async () => {
+    const onBlur = vi.fn();
+    const ref = createRef<HTMLButtonElement>();
+    render(
+      <>
+        <Select
+          ref={ref}
+          label="Engine"
+          name="engine"
+          onBlur={onBlur}
+          form="connection-form"
+          aria-labelledby="external-label"
+          defaultValue="postgres"
+        >
+          <SelectItem value="postgres">PostgreSQL</SelectItem>
+        </Select>
+        <button type="button">Elsewhere</button>
+      </>
+    );
+
+    const trigger = screen.getByRole('combobox');
+    expect(ref.current).toBe(trigger);
+    expect(trigger.getAttribute('aria-labelledby')).toBe('external-label');
+    // `form` belongs to the hidden native <select> Radix renders for form participation, not to
+    // the trigger — a <button form> would submit the form instead of associating with it.
+    expect(trigger.getAttribute('form')).toBeNull();
+    expect(document.querySelector('select[form="connection-form"]')).not.toBeNull();
+
+    trigger.focus();
+    await userEvent.click(screen.getByRole('button', { name: 'Elsewhere' }));
+
+    expect(onBlur).toHaveBeenCalled();
   });
 });
 

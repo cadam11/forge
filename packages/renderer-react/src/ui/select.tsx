@@ -12,7 +12,17 @@
  * activates the trigger. See `field.tsx` for why that matters.
  *
  * Radix's Root renders a hidden native `<select name>` of its own for form participation, so
- * `name` is passed there and the visible trigger stays a button.
+ * `name`, `required` and `form` are passed there and the visible trigger stays a button.
+ *
+ * ## Why the props are split rather than hand-listed
+ *
+ * Everything the trigger is — a `<button>` — passes through by extending
+ * `ComponentPropsWithRef`, the same discipline as the other seventeen primitives, so `ref`,
+ * `onBlur`, `onFocus` and the `aria-*` attributes need no per-prop plumbing. The handful the
+ * Root owns instead (`value`, `open`, `name`, `form`, `disabled`, …) are listed explicitly and
+ * subtracted from the trigger's set, because the two disagree about what they mean: a
+ * `<button form>` submits a form, a Radix `Root form` associates the hidden `<select>` with
+ * one, and `disabled` has to reach the Root or the list would still open from the keyboard.
  */
 
 import type { ComponentPropsWithRef, ReactNode } from 'react';
@@ -36,7 +46,26 @@ import {
   MENU_SEPARATOR_CLASSES,
 } from './overlay';
 
-export interface SelectProps extends FieldOwnProps {
+/**
+ * The trigger's own props, minus the ones the Root owns or this component computes. Listed as
+ * an `Omit` rather than a re-declaration so a Radix upgrade that adds a button prop adds it
+ * here too.
+ */
+type SelectTriggerPassthrough = Omit<
+  ComponentPropsWithRef<typeof RadixSelect.Trigger>,
+  | 'asChild'
+  | 'children'
+  | 'name'
+  | 'value'
+  | 'form'
+  | 'disabled'
+  | 'required'
+  | 'id'
+  | 'aria-invalid'
+  | 'aria-describedby'
+>;
+
+export interface SelectProps extends FieldOwnProps, SelectTriggerPassthrough {
   readonly name: string;
   readonly value?: string;
   readonly defaultValue?: string;
@@ -44,11 +73,16 @@ export interface SelectProps extends FieldOwnProps {
   readonly placeholder?: string;
   readonly disabled?: boolean;
   readonly required?: boolean;
+  /** Associates the hidden native `<select>` with a form it is not nested inside. */
+  readonly form?: string;
+  /** Controlled open state. Pair with `onOpenChange`, or use `defaultOpen` and neither. */
+  readonly open?: boolean;
+  readonly defaultOpen?: boolean;
+  readonly onOpenChange?: (open: boolean) => void;
   readonly id?: string;
   /** Classes for the trigger — the control element. The wrapper takes `fieldClassName`. */
   readonly className?: string;
   readonly 'data-testid'?: string;
-  readonly 'aria-label'?: string;
   /** `SelectItem` / `SelectGroup` / `SelectSeparator`. */
   readonly children: ReactNode;
 }
@@ -67,9 +101,13 @@ export function Select({
   placeholder,
   disabled,
   required,
+  form,
+  open,
+  defaultOpen,
+  onOpenChange,
   children,
   'data-testid': testId,
-  'aria-label': ariaLabel,
+  ...trigger
 }: SelectProps) {
   const ids = useFieldIds(id);
   return (
@@ -81,11 +119,17 @@ export function Select({
         onValueChange={onValueChange}
         disabled={disabled}
         required={required}
+        form={form}
+        open={open}
+        defaultOpen={defaultOpen}
+        onOpenChange={onOpenChange}
       >
         <RadixSelect.Trigger
+          // The caller's props first, so nothing below can be clobbered by a passthrough —
+          // the id in particular is what the `<label for>` points at.
+          {...trigger}
           id={ids.controlId}
           data-testid={testId}
-          aria-label={ariaLabel}
           aria-invalid={error === undefined ? undefined : true}
           aria-describedby={describedBy(ids, { hint, error })}
           className={cn(
