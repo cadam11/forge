@@ -25,17 +25,16 @@
 
 import { useState } from 'react';
 
-import { useCommand } from '../../commands';
 import {
   COMMAND_CATALOGUE,
   COMMAND_GROUPS,
   COMMAND_GROUP_LABELS,
-  formatAccelerator,
   formatAcceleratorList,
+  useCommand,
   type AcceleratorSource,
   type CommandGroup,
-} from '../../commands/catalogue';
-import type { CommandId } from '../../commands/registry';
+  type CommandId,
+} from '../../commands';
 import { SURFACE_SHORTCUTS } from '../command-palette/palette-actions';
 import {
   Dialog,
@@ -91,9 +90,9 @@ export function shortcutRows(): readonly ShortcutRow[] {
 
   for (const shortcut of SURFACE_SHORTCUTS) {
     rows.push({
-      keys: shortcut.keys
-        .map(keys => formatAccelerator({ source: 'renderer', keys }))
-        .filter((formatted): formatted is string => formatted !== null),
+      // One accelerator at a time through the same formatter the commands use, so a surface shortcut
+      // cannot render its keys by a different rule than a command's.
+      keys: shortcut.keys.flatMap(keys => formatAcceleratorList({ source: 'renderer', keys })),
       label: shortcut.label,
       hint: shortcut.hint,
       group: shortcut.group,

@@ -32,8 +32,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { dispatchCommand } from '../../commands';
-import { COMMAND_GROUP_LABELS } from '../../commands/catalogue';
+import { COMMAND_GROUP_LABELS, dispatchCommand } from '../../commands';
 import { ipc, isIpcAvailable } from '../../ipc';
 import { diagnostics } from '../../state/diagnostics';
 import { selectHasAnyConnection, useConnectionStore } from '../../state/connection';

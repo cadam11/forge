@@ -26,7 +26,7 @@
 import { Layers, Monitor, Moon, SquareX, Sun, type LucideIcon } from 'lucide-react';
 import type { ThemePreference } from '@joinery/shared';
 
-import type { AcceleratorKeys, CommandGroup } from '../../commands/catalogue';
+import type { AcceleratorKeys, CommandGroup } from '../../commands';
 import { settingsStore } from '../../state/settings';
 import { selectActiveTab, tabStore } from '../../state/tab';
 import { THEME_OPTIONS } from '../../shell/status-bar';

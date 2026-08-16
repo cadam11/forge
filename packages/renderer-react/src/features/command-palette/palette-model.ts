@@ -29,15 +29,17 @@ import type { LucideIcon } from 'lucide-react';
 import { Clock } from 'lucide-react';
 import type { QueryHistoryEntry } from '@joinery/shared';
 
-import { handlerCount, type PayloadlessCommandId } from '../../commands';
 import {
   COMMAND_CATALOGUE,
+  COMMAND_CONSUMERS,
   COMMAND_GROUPS,
   commandAccelerator,
+  handlerCount,
   type CommandGroup,
+  type CommandId,
   type PaletteRequirement,
-} from '../../commands/catalogue';
-import { COMMAND_CONSUMERS, type CommandId } from '../../commands/registry';
+  type PayloadlessCommandId,
+} from '../../commands';
 import { PALETTE_ACTIONS, type PaletteAction, type PaletteActionId } from './palette-actions';
 
 /** Why a row is not actionable, or that it is. */
