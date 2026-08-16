@@ -36,6 +36,7 @@ import { useEffect, useLayoutEffect, type CSSProperties } from 'react';
 import { Spinner, Toaster, TooltipProvider, cn, installToastNotifier } from '../ui';
 import { dispatchCommand } from '../commands';
 import { BackupDialogs } from '../features/backup';
+import { ChatCommands } from '../features/chat';
 import { CommandPalette } from '../features/command-palette';
 import { ConnectionDialogs } from '../features/connections';
 import { ObjectSearch } from '../features/object-search';
@@ -231,6 +232,11 @@ function ShellFrame() {
           which moved out of `ShellCommands` for the same reason: the surface that reads the store flag
           is the one that must set it, or ⌘, is handled twice.
 
+          `ChatCommands` is Task 17's two: ⇧⌘I's `toggle-chat-panel` (taken over from `ShellCommands`,
+          because the surface that owns the flag must be the one place that sets it) and `open-chat-tab`.
+          It is mounted HERE rather than inside `ChatSidePanel` because a closed panel is unmounted — a
+          handler in there could only ever close the assistant, never reopen it.
+
           The four Task 16 surfaces are the same arrangement, and three of them own a keystroke of
           their own as well as a command — ⌘K/⇧⌘P for the palette, ⌘P for the object search, ⌥⌘S for the
           snippet library — because no menu item has those accelerators (`commands/catalogue.ts`). The
@@ -238,6 +244,7 @@ function ShellFrame() {
           arrives as `show-shortcuts` through the bridge like everything else. */}
       <MenuBridge />
       <ShellCommands />
+      <ChatCommands />
       <ConnectionDialogs />
       <BackupDialogs />
       <RestoreDialogs />

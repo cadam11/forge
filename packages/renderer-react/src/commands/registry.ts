@@ -107,6 +107,13 @@ export interface CommandPayloads {
   'toggle-sidebar': void;
   /** View ▸ Toggle AI Chat (⇧⌘I). */
   'toggle-chat-panel': void;
+  /**
+   * Open the assistant as a dock tab. No menu item and no keystroke: the Angular app could only
+   * reach the chat tab from the ⧉ button inside the side panel, so the palette had no way to open
+   * one at all. The panel button stays (it carries the CURRENT conversation across, which a palette
+   * entry cannot); this is the targetless twin that opens a fresh one.
+   */
+  'open-chat-tab': void;
   /** View ▸ Toggle Results. */
   'toggle-results-panel': void;
   /** The Output / Console panel (⌘J). Not a menu channel — the shell's own shortcut. */
@@ -302,7 +309,15 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
 
   'show-welcome': 'Task 7 shell (tabStore.showWelcome).',
   'toggle-sidebar': 'Task 7 shell (workbenchStore.toggleSidebar).',
-  'toggle-chat-panel': 'Task 7 shell (chatPanelStore.togglePanel).',
+  'toggle-chat-panel':
+    'Task 17 features/chat/ChatCommands, mounted by the shell. It calls chatPanelStore.togglePanel() ' +
+    'itself — the Task 7 handler that held this wire while no chat surface existed is deleted, so ⇧⌘I ' +
+    'is handled exactly once. NOT inside the panel: a closed side panel is unmounted, and a handler ' +
+    'there could only ever close the assistant. Producers: the native menu bridge (View ▸ Toggle AI ' +
+    'Chat), the status bar toggle and the Task 16 palette.',
+  'open-chat-tab':
+    'Task 17 features/chat/ChatCommands (tabStore.openChatTab). Producer: the Task 16 palette — the ' +
+    'panel’s own ⧉ button calls the store directly, because it carries the active conversation with it.',
   'toggle-results-panel': 'Task 10 query tab (its results pane).',
   'toggle-output-panel': 'Task 7 shell (logStore.toggle). Producer: the shell ⌘J shortcut.',
 

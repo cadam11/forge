@@ -65,6 +65,7 @@ import {
   Keyboard,
   Layers,
   Locate,
+  MessageSquare,
   MousePointer,
   Network,
   PanelBottom,
@@ -506,6 +507,15 @@ export const COMMAND_CATALOGUE: { [Id in CommandId]: CatalogueEntry<Id> } = {
     accelerator: menuKey('CmdOrCtrl+Shift+I'),
     palette: IN_PALETTE,
     keywords: ['ai', 'chat'],
+  },
+  'open-chat-tab': {
+    label: 'Open assistant as a tab',
+    hint: 'A full-width chat in the dock, with its own conversation',
+    group: 'view',
+    icon: MessageSquare,
+    accelerator: null,
+    palette: IN_PALETTE,
+    keywords: ['ai', 'chat', 'assistant', 'tab'],
   },
   'toggle-results-panel': {
     label: 'Toggle results panel',

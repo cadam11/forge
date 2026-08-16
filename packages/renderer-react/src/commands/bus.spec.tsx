@@ -7,6 +7,7 @@ import { StrictMode } from 'react';
 import { render, act } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BackupDialogs } from '../features/backup';
+import { ChatCommands } from '../features/chat';
 import { CommandPalette } from '../features/command-palette';
 import { ConnectionDialogs } from '../features/connections';
 import { ObjectSearch } from '../features/object-search';
@@ -49,7 +50,7 @@ afterEach(() => {
 /**
  * Mounts the app's real command wiring — `ShellCommands` (the eleven handlers Task 7 still owns after
  * Tasks 12, 13 and 15 took `open-backup-dialog`, `open-restore-dialog` and `open-settings` off their
- * placeholders), `StatusBar` (`cursor-position`), `ConnectionDialogs` (Task 9's three), `QueryCommands`
+ * placeholders, and Task 17 took `toggle-chat-panel`), `ChatCommands` (Task 17's two), `StatusBar` (`cursor-position`), `ConnectionDialogs` (Task 9's three), `QueryCommands`
  * (Task 10's twelve), `BackupDialogs` (Task 12's two), `RestoreDialogs` (Task 13's two),
  * `SettingsDialog` (Task 15's one) and Task 16's four overlays (`ObjectSearch`, `SnippetLibrary`,
  * `ShortcutsDialog` — and `CommandPalette`, which subscribes to nothing but is mounted so the
@@ -72,6 +73,7 @@ function renderProductionWiring(): void {
     <IpcQueryProvider>
       <TooltipProvider>
         <ShellCommands />
+        <ChatCommands />
         <StatusBar />
         <ConnectionDialogs />
         <BackupDialogs />
@@ -108,7 +110,7 @@ function renderProductionWiring(): void {
  * handler must be subscribed". Adding a task's component above without adding its number here makes
  * the second test vacuous for it, which is why they share one list.
  */
-const SHIPPED_TASKS: readonly number[] = [7, 9, 10, 12, 13, 15, 16];
+const SHIPPED_TASKS: readonly number[] = [7, 9, 10, 12, 13, 15, 16, 17];
 
 /** The task number a consumer string names, or null when it names nobody. */
 function ownerTask(consumer: string): number | null {
@@ -178,11 +180,13 @@ describe('command ownership', () => {
     // plus Task 16's `reveal-explorer-node`), plus the status bar's caret readout, plus Task 9's three
     // in `features/connections`, plus Task 10's twelve, plus Task 12's two in `features/backup`, plus
     // Task 13's two in `features/restore`, plus Task 15's one in `features/settings`, plus Task 16's
-    // three overlay takeovers (`open-object-search`, `open-snippets`, `show-shortcuts`). Two ids are
-    // claimed by two owners at once and so count once: `open-query-file` (the query editor when a query
-    // tab is active, the shell otherwise) and `cursor-position` (the status bar consumes, the editor
-    // produces). 31 → 35 across Task 16: four ids gained their FIRST handler, and none moved.
-    expect(COMMAND_IDS.filter(id => handlerCount(id) > 0)).toHaveLength(35);
+    // three overlay takeovers (`open-object-search`, `open-snippets`, `show-shortcuts`), plus Task 17's
+    // two in `features/chat` — `toggle-chat-panel`, which MOVED off the shell, and `open-chat-tab`,
+    // which is new. Two ids are claimed by two owners at once and so count once: `open-query-file` (the
+    // query editor when a query tab is active, the shell otherwise) and `cursor-position` (the status
+    // bar consumes, the editor produces). 31 → 35 across Task 16 (four ids gained their FIRST handler,
+    // none moved) → 36 across Task 17 (one new id, one moved owner).
+    expect(COMMAND_IDS.filter(id => handlerCount(id) > 0)).toHaveLength(36);
   });
 });
 

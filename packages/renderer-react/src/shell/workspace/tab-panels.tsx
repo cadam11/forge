@@ -1,10 +1,12 @@
 /**
  * The placeholder panels the dock mounts, one per tab type that has no real surface yet — welcome and
- * object (Task 19), erd (Task 18), chat (Task 17). This file goes with the last of them.
+ * object (Task 19), erd (Task 18). This file goes with the last of them.
  *
- * **The query panel is no longer here.** Task 10 replaced it with `features/query/QueryPanel`, and the
- * lazy boundary that mounts it lives in `query-panel-host.tsx` next door: Monaco is ~4MB of JavaScript,
- * and a user on the welcome tab should not pay for it before they open a query.
+ * **Neither the query panel nor the chat panel is here any more.** Task 10 replaced the first with
+ * `features/query/QueryPanel`, behind the lazy boundary in `query-panel-host.tsx` next door (Monaco is
+ * ~4MB of JavaScript, and a user on the welcome tab should not pay for it before they open a query);
+ * Task 17 replaced the second with `features/chat/ChatTabPanel`, which needs no lazy boundary — the
+ * markdown renderer it depends on is already in the eager chunk for the side panel's sake.
  *
  * They are deliberately not empty divs. A placeholder's job here is to prove the seams the shell
  * owns actually work end to end, and there are two:
@@ -17,7 +19,7 @@
  */
 
 import type { IDockviewPanelProps, IWatermarkPanelProps } from 'dockview-react';
-import { House, LayoutTemplate, Network, Sparkles, Table2, type LucideIcon } from 'lucide-react';
+import { House, LayoutTemplate, Network, Table2, type LucideIcon } from 'lucide-react';
 
 import { Button, EmptyState, cn } from '../../ui';
 import { dispatchCommand } from '../../commands';
@@ -102,19 +104,6 @@ export function ErdPanel(props: IDockviewPanelProps) {
       icon={Network}
       title="Entity diagram"
       description="The ERD canvas lands in Task 18."
-      tab={tab}
-    />
-  );
-}
-
-export function ChatPanel(props: IDockviewPanelProps) {
-  const tab = useTabFromParams(props);
-  return (
-    <Placeholder
-      testId="panel-chat"
-      icon={Sparkles}
-      title="AI chat"
-      description="Streaming chat and tool confirmation land in Task 17."
       tab={tab}
     />
   );

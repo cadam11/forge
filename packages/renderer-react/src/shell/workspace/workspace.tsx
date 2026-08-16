@@ -57,7 +57,8 @@ import {
 import { OutputPanel } from './output-panel';
 import { PanelTab, ReservedPanelTab } from './panel-tab';
 import { QueryPanelHost } from './query-panel-host';
-import { ChatPanel, ErdPanel, ObjectPanel, WelcomePanel, WorkspaceWatermark } from './tab-panels';
+import { ChatTabPanel } from '../../features/chat';
+import { ErdPanel, ObjectPanel, WelcomePanel, WorkspaceWatermark } from './tab-panels';
 
 /** Matches the Angular layout save debounce (`golden-layout-container.component.ts:645`). */
 const LAYOUT_SAVE_DEBOUNCE_MS = 500;
@@ -66,13 +67,15 @@ const LAYOUT_SAVE_DEBOUNCE_MS = 500;
  * The five surfaces the dock mounts, plus the one reserved panel. Keys match `panelComponentFor`.
  *
  * `query` is the only one behind a lazy boundary — see `query-panel-host.tsx` for the 5MB reason.
+ * `chat` is Task 17's real surface (the same one the side panel renders, with its own store instance
+ * per tab); `object`, `erd` and `welcome` are still placeholders naming the task that replaces them.
  */
 const COMPONENTS: IDockviewReactProps['components'] = {
   welcome: WelcomePanel,
   query: QueryPanelHost,
   object: ObjectPanel,
   erd: ErdPanel,
-  chat: ChatPanel,
+  chat: ChatTabPanel,
   output: () => <OutputPanel />,
 };
 
