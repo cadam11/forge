@@ -33,6 +33,31 @@ export default defineConfig({
     strictPort: true,
   },
 
+  resolve: {
+    /**
+     * ONE copy of `ag-grid-community` in the bundle, and this is not an optimisation.
+     *
+     * `nodeLinker: hoisted` (pnpm-workspace.yaml) puts a single version of each package at the repo
+     * root, and that slot is taken by the **Angular** renderer's `ag-grid-community@35`. So this
+     * package's `@36` lands in `packages/renderer-react/node_modules`, while `ag-grid-react@36` —
+     * hoisted to the root, with `ag-grid-community@36` pinned as an exact dependency rather than a
+     * peer — gets its own nested `@36`. Two physical copies of the same version.
+     *
+     * That is fatal rather than merely wasteful: `ModuleRegistry` is module state.
+     * `results-grid.tsx` registers `AllCommunityModule` on the copy IT imports, the grid runs on the
+     * copy `ag-grid-react` imports, and the grid then reports every feature as unregistered — AG
+     * Grid error #200 for RowSelection, QuickFilter, ColumnFilter, CellStyle, NumberFilter, Tooltip
+     * and ColumnAutoSize. Measured: that is exactly what the unit tier printed before this line
+     * existed. A grid with no sorting and no filtering, with the only symptom a console error.
+     *
+     * `dedupe` resolves the specifier from this package's root, which is the `@36` next to us — the
+     * exact version `ag-grid-react` pins. It goes away at cutover, when the Angular renderer and its
+     * `@35` are deleted and the root slot is free. `vitest.config.ts` states the same rule as an
+     * explicit alias, for the same reason.
+     */
+    dedupe: ['ag-grid-community'],
+  },
+
   optimizeDeps: {
     // The mermaid/dagre chain is CJS-only: Angular needed it declared as
     // `allowedCommonJsDependencies` (angular.json:21) and Vite needs it

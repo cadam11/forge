@@ -65,6 +65,26 @@ export default defineConfig({
           testTimeout: 30000,
           hookTimeout: 30000,
           setupFiles: ['./packages/renderer-react/src/test/setup.ts'],
+
+          // ONE copy of ag-grid-community, stated as an absolute path.
+          //
+          // `packages/renderer-react/vite.config.ts` has the full argument (two physical copies of
+          // `@36` exist under `nodeLinker: hoisted`, and `ModuleRegistry` is module state, so the
+          // grid reports every feature unregistered). It fixes the app with `resolve.dedupe`, which
+          // resolves from ITS root; this config's root is the repo, where the deduped copy would be
+          // the Angular renderer's `@35` — the wrong major to run `@36` code against. So the path is
+          // spelled out, the same way `@joinery/shared`, keytar and ssh2 are in the node project.
+          alias: {
+            'ag-grid-community': new URL(
+              './packages/renderer-react/node_modules/ag-grid-community/dist/package/main.esm.mjs',
+              import.meta.url
+            ).pathname,
+          },
+          // The alias alone is not enough: Vitest externalises `node_modules` by default, so
+          // `ag-grid-react`'s own `import 'ag-grid-community'` is resolved by Node and never sees it.
+          // Inlining that one package puts it through Vite's resolution, where the alias applies —
+          // which is what makes both halves of the grid share one `ModuleRegistry`.
+          server: { deps: { inline: ['ag-grid-react'] } },
         },
       },
     ],
