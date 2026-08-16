@@ -1,13 +1,14 @@
 /**
- * The placeholder panels the dock mounts, one per tab type that has no real surface yet — welcome and
- * object, both Task 19. This file goes with the last of them.
+ * The placeholder panels the dock mounts, one per tab type that has no real surface yet — welcome
+ * alone now. This file goes with it.
  *
- * **Three panels have left.** Task 10 replaced the query panel with `features/query/QueryPanel`,
+ * **Four panels have left.** Task 10 replaced the query panel with `features/query/QueryPanel`,
  * behind the lazy boundary in `query-panel-host.tsx` next door (Monaco is ~4MB of JavaScript, and a
  * user on the welcome tab should not pay for it before they open a query); Task 17 replaced the chat
  * panel with `features/chat/ChatTabPanel`, which needs no lazy boundary — the markdown renderer it
  * depends on is already in the eager chunk for the side panel's sake; Task 18 replaced the ERD panel
- * with `features/erd/ErdPanel`.
+ * with `features/erd/ErdPanel`; Task 19a replaced the object panel with
+ * `features/object-detail/ObjectPanel`.
  *
  * They are deliberately not empty divs. A placeholder's job here is to prove the seams the shell
  * owns actually work end to end, and there are two:
@@ -20,7 +21,7 @@
  */
 
 import type { IDockviewPanelProps, IWatermarkPanelProps } from 'dockview-react';
-import { House, LayoutTemplate, Table2, type LucideIcon } from 'lucide-react';
+import { House, LayoutTemplate, type LucideIcon } from 'lucide-react';
 
 import { Button, EmptyState, cn } from '../../ui';
 import { dispatchCommand } from '../../commands';
@@ -79,19 +80,6 @@ export function WelcomePanel(props: IDockviewPanelProps) {
       icon={House}
       title="Joinery"
       description="The welcome surface lands in Task 19. The shell, the dock and the status bar are what this build is proving."
-      tab={tab}
-    />
-  );
-}
-
-export function ObjectPanel(props: IDockviewPanelProps) {
-  const tab = useTabFromParams(props);
-  return (
-    <Placeholder
-      testId="panel-object"
-      icon={Table2}
-      title="Object details"
-      description="The object detail surface lands in Task 19."
       tab={tab}
     />
   );

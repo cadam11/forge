@@ -59,7 +59,8 @@ import { PanelTab, ReservedPanelTab } from './panel-tab';
 import { QueryPanelHost } from './query-panel-host';
 import { ChatTabPanel } from '../../features/chat';
 import { ErdPanel } from '../../features/erd';
-import { ObjectPanel, WelcomePanel, WorkspaceWatermark } from './tab-panels';
+import { ObjectPanel } from '../../features/object-detail';
+import { WelcomePanel, WorkspaceWatermark } from './tab-panels';
 
 /** Matches the Angular layout save debounce (`golden-layout-container.component.ts:645`). */
 const LAYOUT_SAVE_DEBOUNCE_MS = 500;
@@ -69,7 +70,7 @@ const LAYOUT_SAVE_DEBOUNCE_MS = 500;
  *
  * `query` is the only one behind a lazy boundary — see `query-panel-host.tsx` for the 5MB reason.
  * `chat` is Task 17's real surface (the same one the side panel renders, with its own store instance
- * per tab) and `erd` is Task 18's; `object` and `welcome` are still placeholders naming the task that
+ * per tab), `erd` is Task 18's and `object` is Task 19a's; `welcome` is still a placeholder naming the task that
  * replaces them.
  *
  * `erd` is NOT behind a lazy boundary. Its heaviest dependency is `@dagrejs/dagre` at ~40KB, which is
