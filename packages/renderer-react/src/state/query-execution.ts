@@ -73,9 +73,26 @@ export interface QueryExecutionState {
 
 export type QueryExecutionStore = ReturnType<typeof createQueryExecutionStore>;
 
-/** `query-${Date.now()}` — the Angular id format (`:1811`), kept so main-process logs stay greppable. */
+/**
+ * A monotonic counter behind `nextQueryId`, module-scoped because the ids must be unique across every
+ * store instance in the page (the app has one; the tests make several) and a per-store counter would
+ * let two of them mint the same id. Nothing else may read it.
+ */
+let queryIdCounter = 0;
+
+/**
+ * `query-<millis>-<n>` — the Angular id format (`:1811`) plus a monotonic suffix.
+ *
+ * The prefix and the timestamp are kept so main-process logs stay greppable, but `Date.now()` alone is
+ * NOT unique: two executes in the same millisecond produce the same id, and this store's supersede rule
+ * is `running.get(tabId)?.queryId !== queryId`. Equal ids make that comparison say "still ours" for a
+ * request that has in fact been replaced, so the superseded run stores its result over the newer one's
+ * and the `finally` clears the newer one's running record. Two executes a millisecond apart is exactly
+ * what a double-click on Execute, or an auto-execute racing a keystroke, produces.
+ */
 function nextQueryId(): string {
-  return `query-${Date.now()}`;
+  queryIdCounter += 1;
+  return `query-${Date.now()}-${queryIdCounter}`;
 }
 
 export function createQueryExecutionStore() {

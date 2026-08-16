@@ -97,7 +97,60 @@ describe('execute', () => {
         database: 'shop',
       })
     );
-    expect(execute.mock.calls[0]?.[0].queryId).toMatch(/^query-\d+$/);
+    // `query-<millis>-<n>`: the Angular prefix and timestamp, so main-process logs stay greppable,
+    // plus the monotonic suffix that makes two runs in one millisecond distinguishable.
+    expect(execute.mock.calls[0]?.[0].queryId).toMatch(/^query-\d+-\d+$/);
+  });
+
+  /**
+   * The collision window, opened deliberately.
+   *
+   * With `query-${Date.now()}` alone, two executes inside one millisecond mint the SAME id — and the
+   * supersede rule is an id comparison (`running.get(tabId)?.queryId !== queryId`). Equal ids make that
+   * comparison answer "still ours" for a request that has been replaced, so the superseded first run
+   * writes its result over the second's and the `finally` clears the second's running record. Fake
+   * timers freeze the clock so the window is the whole test rather than a race that reproduces once in
+   * a thousand runs.
+   */
+  it('keeps the supersede rule working for two executes in the SAME millisecond', async () => {
+    quiet();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-16T00:00:00.000Z'));
+
+    const ids: string[] = [];
+    let resolveFirst: ((result: QueryResult) => void) | undefined;
+    let call = 0;
+    teardowns.push(
+      installJoineryMock({
+        query: {
+          cancel: async () => undefined,
+          execute: (request: QueryRequest) => {
+            ids.push(request.queryId ?? '');
+            call += 1;
+            if (call === 1) return new Promise<QueryResult>(resolve => (resolveFirst = resolve));
+            return Promise.resolve({ ...okResult('second'), queryId: request.queryId });
+          },
+        },
+      })
+    );
+    const store = createQueryExecutionStore();
+
+    const first = store.getState().execute(REQUEST);
+    const second = store.getState().execute(REQUEST);
+    const secondResult = await second;
+
+    // Same clock, different ids — which is the fix, stated as the precondition of everything below.
+    expect(new Date().getMilliseconds()).toBe(0);
+    expect(ids).toHaveLength(2);
+    expect(ids[0]).not.toBe(ids[1]);
+
+    // And the rule holds: the first run's late result is dropped, the second's is what the tab shows,
+    // and the tab is not left marked as running by the loser's `finally`.
+    resolveFirst?.(okResult(ids[0]));
+    expect(await first).toBeNull();
+    expect(selectResultFor('tab-1')(store.getState())?.queryId).toBe(ids[1]);
+    expect(secondResult?.queryId).toBe(ids[1]);
+    expect(selectIsExecuting('tab-1')(store.getState())).toBe(false);
   });
 
   it('clears the previous result the moment a new run starts', async () => {
