@@ -1,19 +1,35 @@
-import { THEME_PREFERENCES, type ResolvedTheme, type ThemePreference } from './use-preview-theme';
-
 /**
- * The three-state control the theme depends on (`system` | `light` | `dark`). Not a
- * primitive — Task 6 owns the real button set; this is the minimum needed to prove both
- * canvases render and that the choice survives a reload.
+ * The three-state theme control on the two dev pages.
+ *
+ * ── Task 7 removed the duplicate ──────────────────────────────────────────────────────────
+ *
+ * Until this task there were two writers of `[data-theme]`: the settings store (the real one) and
+ * `dev/use-preview-theme.ts`, a local hook the preview pages used because Task 2 predated the store.
+ * That hook is **deleted**, and this component reads and writes the settings store instead. The
+ * settings store is now the only `[data-theme]` writer anywhere in the package — which is the
+ * property that makes "the theme is settled in one place" checkable by grepping for
+ * `setAttribute('data-theme'`.
+ *
+ * The three `data-testid`s and the `data-resolved` attribute are unchanged, because the Task 2 and
+ * Task 6 gate scripts drive this control and read that attribute; rewiring the internals must not
+ * invalidate their evidence.
  */
-export function ThemeSwitch({
-  preference,
-  resolved,
-  onChange,
-}: {
-  preference: ThemePreference;
-  resolved: ResolvedTheme;
-  onChange: (next: ThemePreference) => void;
-}) {
+
+import type { ThemePreference } from '@joinery/shared';
+
+import {
+  settingsStore,
+  selectEffectiveTheme,
+  selectTheme,
+  useSettingsStore,
+} from '../state/settings';
+
+export const THEME_PREFERENCES: readonly ThemePreference[] = ['system', 'light', 'dark'];
+
+export function ThemeSwitch() {
+  const preference = useSettingsStore(selectTheme);
+  const resolved = useSettingsStore(selectEffectiveTheme);
+
   return (
     <div className="flex items-center gap-3">
       <p
@@ -43,7 +59,7 @@ export function ThemeSwitch({
             type="button"
             data-testid={`theme-${value}`}
             aria-pressed={preference === value}
-            onClick={() => onChange(value)}
+            onClick={() => settingsStore.getState().updateTheme(value)}
             className="h-7 px-3 font-mono text-2xs tracking-eyebrow text-fg-muted uppercase not-last:border-r not-last:border-rule-strong hover:bg-hover focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus aria-pressed:bg-accent-subtle aria-pressed:text-fg"
           >
             {value}

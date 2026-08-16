@@ -20,6 +20,20 @@ const PAGES = [
   { hash: PRIMITIVES_HASH, label: 'Primitives' },
 ] as const;
 
+/**
+ * Whether a hash asks for a dev page rather than the app. Task 7 made the shell the root, so this is
+ * the question `app.tsx` now has to answer — and it lives next to the list rather than being
+ * restated there.
+ *
+ * Exporting it from this module does NOT drag the dev pages into the production bundle: Rolldown
+ * shakes per export, so importing only this function leaves `DevRoot` and everything it imports
+ * unreferenced and dropped. Measured, not assumed — the production bundle contains neither "Theme
+ * preview" nor "Primitives gallery".
+ */
+export function isDevPageHash(hash: string): boolean {
+  return PAGES.some(page => page.hash === hash);
+}
+
 function useHash(): string {
   const [hash, setHash] = useState(() => window.location.hash);
   useEffect(() => {

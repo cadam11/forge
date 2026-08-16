@@ -82,8 +82,8 @@ import {
   type TreeNode,
 } from '../ui';
 import { Eyebrow, Section } from './preview-parts';
+import { selectEffectiveTheme, useSettingsStore } from '../state/settings';
 import { ThemeSwitch } from './theme-switch';
-import { usePreviewTheme } from './use-preview-theme';
 
 const MARKDOWN_SAMPLE = [
   '## Verify before anything changes',
@@ -464,7 +464,8 @@ function ToastRow() {
 }
 
 export function PrimitivesGallery() {
-  const { preference, resolved, setPreference } = usePreviewTheme();
+  // The settings store, not the deleted local hook: Task 7 made it the only `[data-theme]` writer.
+  const resolved = useSettingsStore(selectEffectiveTheme);
   return (
     <TooltipProvider>
       <div
@@ -476,7 +477,7 @@ export function PrimitivesGallery() {
             <Eyebrow>joinery · ui primitives</Eyebrow>
             <h1 className="font-display text-display-sm text-fg">Primitives gallery</h1>
           </div>
-          <ThemeSwitch preference={preference} resolved={resolved} onChange={setPreference} />
+          <ThemeSwitch />
         </header>
 
         <main className="flex flex-col gap-10 px-6 py-8">
