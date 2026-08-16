@@ -24,6 +24,10 @@
  *    so every ⌘S opened a dialog. The path is remembered on the tab and reused; Save As always prompts.
  * 3. **A cancelled dialog is not an error.** `result.canceled` is checked before `filePath`, so
  *    dismissing the sheet is silent instead of reaching the failure toast.
+ * 4. **A freshly OPENED file is not unsaved work either.** Fix 1's mirror image, and it was missing:
+ *    reading a file replaces the editor's text, which fires `setTabContent`, which measures the new
+ *    text against a clean baseline that is still the old text — so a tab the user had not touched came
+ *    up dirty, with the unsaved dot and the close guard. `adoptOpenedFile` below moves the baseline.
  */
 
 import { ipc, isIpcAvailable } from '../../ipc';
@@ -112,6 +116,37 @@ export async function saveQueryToFile(options: {
     notify.error('Failed to save query');
     diagnostics.error('failed to save query to file', error);
   }
+}
+
+/**
+ * The store half of opening a file: the tab now holds this text, from this path, and is CLEAN.
+ *
+ * Separate from `openQueryFile` because the editor sits between them — the panel writes the text into
+ * Monaco and then calls this — and separate from the panel because the ordering is the whole point and
+ * it is worth a test. The order:
+ *
+ *  1. `setTabContent`, so the store's copy is the file's text whether or not Monaco's change event has
+ *     already reported it (it has, synchronously, but this function must not depend on that);
+ *  2. the path onto the tab's metadata, so ⌘S reuses it instead of prompting;
+ *  3. `markClean`, which moves the clean baseline to what was just read. Without it the tab is dirty
+ *     the instant it opens: the baseline is still whatever the tab held before, `setTabContent`
+ *     compares against that, and Task 7's unsaved-work guard warns about a file the user has not
+ *     edited. It goes LAST because it reads the content back through `getTabContent`.
+ */
+export function adoptOpenedFile(options: {
+  readonly tabId: string;
+  readonly path: string;
+  readonly content: string;
+}): void {
+  const tabs = tabStore.getState();
+  tabs.setTabContent(options.tabId, options.content);
+  tabs.updateTab(options.tabId, {
+    metadata: {
+      ...tabStore.getState().tabs.find(tab => tab.id === options.tabId)?.metadata,
+      [FILE_PATH_METADATA_KEY]: options.path,
+    },
+  });
+  tabs.markClean(options.tabId);
 }
 
 /** Reads a `.sql` file. Resolves with its contents and path, or `null` when the dialog was dismissed. */

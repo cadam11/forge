@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installJoineryMock, removeJoineryMock } from '../../test/joinery-mock';
 import { setDiagnosticsSink, setNotifier } from '../../state/diagnostics';
 import { tabStore } from '../../state/tab';
-import { openQueryFile, rememberedFilePath, saveQueryToFile } from './query-files';
+import { adoptOpenedFile, openQueryFile, rememberedFilePath, saveQueryToFile } from './query-files';
 
 const teardowns: (() => void)[] = [];
 const notifications: string[] = [];
@@ -240,5 +240,45 @@ describe('openQueryFile', () => {
     // The Angular version swallowed this into a bare `console.error`.
     expect(notifications).toEqual(['error:Failed to open query file']);
     expect(errors).toEqual(['failed to open a query file']);
+  });
+});
+
+describe('adoptOpenedFile', () => {
+  it('leaves the tab CLEAN, holding the file’s text, remembering its path', () => {
+    // Reached from a tab the user HAS edited, which is the case that made the bug visible: the clean
+    // baseline is `select 1` and the content is `select 2`, so opening a file over it used to compare
+    // the file's text against `select 1` and come up dirty.
+    const tabId = dirtyTab();
+
+    adoptOpenedFile({ tabId, path: '/tmp/from-disk.sql', content: 'SELECT 42' });
+
+    const tab = tabStore.getState().tabs.find(candidate => candidate.id === tabId);
+    expect(tabStore.getState().getTabContent(tabId)).toBe('SELECT 42');
+    expect(tab?.isDirty).toBe(false);
+    expect(rememberedFilePath(tab?.metadata)).toBe('/tmp/from-disk.sql');
+    // The baseline moved with it, so a ⌘S guard measures against the file rather than against nothing.
+    expect(tabStore.getState().getCleanBaseline(tabId)).toBe('SELECT 42');
+  });
+
+  it('goes dirty again on the first edit after the open', () => {
+    const tabId = dirtyTab();
+    adoptOpenedFile({ tabId, path: '/tmp/from-disk.sql', content: 'SELECT 42' });
+
+    tabStore.getState().setTabContent(tabId, 'SELECT 43');
+
+    // The other half of "clean": a baseline that swallowed every subsequent edit would be just as wrong
+    // as one that never moved.
+    expect(tabStore.getState().tabs.find(candidate => candidate.id === tabId)?.isDirty).toBe(true);
+  });
+
+  it('keeps the tab’s other metadata', () => {
+    const tabId = dirtyTab();
+    tabStore.getState().updateTab(tabId, { metadata: { scrollTop: 120 } });
+
+    adoptOpenedFile({ tabId, path: '/tmp/from-disk.sql', content: 'SELECT 42' });
+
+    expect(
+      tabStore.getState().tabs.find(candidate => candidate.id === tabId)?.metadata
+    ).toMatchObject({ scrollTop: 120, filePath: '/tmp/from-disk.sql' });
   });
 });
