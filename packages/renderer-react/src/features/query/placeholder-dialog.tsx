@@ -32,7 +32,7 @@
  * `WHERE id = `.
  */
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import {
   Button,
@@ -56,6 +56,12 @@ export interface PlaceholderDialogProps {
   readonly onSubmit: (values: Readonly<Record<string, string>>) => void;
   /** Where focus goes when this closes. See `ConfirmExecuteDialog` — same reason, same shape. */
   readonly onReturnFocus: () => void;
+  /**
+   * A counter of executes that were refused because this prompt is open (`useRunQuery`'s
+   * `promptAttention`). Every increase re-focuses the first field. `0` — the initial value — does
+   * nothing, so Radix keeps its own initial focus when the dialog first appears.
+   */
+  readonly attention: number;
 }
 
 export function PlaceholderDialog({
@@ -64,6 +70,7 @@ export function PlaceholderDialog({
   onCancel,
   onSubmit,
   onReturnFocus,
+  attention,
 }: PlaceholderDialogProps) {
   /**
    * Keyed by placeholder name, seeded from the remembered values.
@@ -77,6 +84,21 @@ export function PlaceholderDialog({
   );
 
   const blankCount = placeholders.filter(name => (values[name] ?? '').trim() === '').length;
+
+  /**
+   * Answer this before you run anything else.
+   *
+   * A second Execute while this dialog is open is abandoned by `useRunQuery` — correctly, since
+   * replacing the parked resolver would hang the first run — and a refusal a user cannot see reads as a
+   * menu item that did nothing. Pulling the caret back into the first field, and selecting what is in
+   * it, says which thing is blocking the run without a second toast.
+   */
+  const firstField = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    if (attention === 0) return;
+    firstField.current?.focus();
+    firstField.current?.select();
+  }, [attention]);
 
   const submit = (event: FormEvent): void => {
     event.preventDefault();
@@ -103,9 +125,10 @@ export function PlaceholderDialog({
             </DialogDescription>
           </DialogHeader>
           <DialogBody className="flex flex-col gap-3">
-            {placeholders.map(name => (
+            {placeholders.map((name, index) => (
               <Input
                 key={name}
+                ref={index === 0 ? firstField : undefined}
                 name={`placeholder-${name}`}
                 // The label IS the token, mono, so it reads as the thing it will replace.
                 label={`\${${name}}`}

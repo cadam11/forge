@@ -56,7 +56,7 @@ import { QueryCommands } from './query-commands';
 import { QueryResults } from './query-results';
 import { QueryToolbar } from './query-toolbar';
 import { editorPrefsStore, useEditorPrefsStore } from '../../state/editor-prefs';
-import { openQueryFile, rememberedFilePath, saveQueryToFile } from './query-files';
+import { adoptOpenedFile, openQueryFile, rememberedFilePath, saveQueryToFile } from './query-files';
 import { useRunQuery } from './use-run-query';
 
 /** Arrow-key step for the split divider, in percent. 2% is ~12px in a 600px pane. */
@@ -126,12 +126,25 @@ export function QueryPanel(props: IDockviewPanelProps) {
    * `executeSelection$` to `this.executeQuery()`), so "Execute Selection" with nothing selected ran the
    * whole buffer and the menu item was a duplicate. Here it means what it says: the selection, and a
    * refusal when there is none. `'all'` is passed as the scope so a selection-less invocation cannot fall
-   * through to the current statement either — the check below is the only outcome.
+   * through to the current statement either — `hasSelection()` is the only thing that decides.
+   *
+   * **`hasSelection()`, not "the selected text differs from the buffer".** That was the first version of
+   * this function and it refused the most obvious way to use the command: ⌘A, then Execute Selection.
+   * Selecting everything IS a selection, the user said so, and the answer "select some SQL to execute"
+   * is nonsense. It was also wrong for a one-line document, where selecting the line equals the buffer.
+   * Monaco already knows — `getSelection().isEmpty()` is a zero-width check — so the question is asked
+   * of the editor instead of inferred from a string comparison.
    */
   const executeSelection = useCallback((): void => {
-    const selection = editor.current?.textToExecute('all') ?? '';
-    const whole = editor.current?.getValue() ?? '';
-    if (selection === whole || selection.trim() === '') {
+    const instance = editor.current;
+    if (instance === null || !instance.hasSelection()) {
+      notify.warning('Select some SQL to execute');
+      return;
+    }
+    const selection = instance.textToExecute('all');
+    // A selection of nothing but whitespace is a real selection to Monaco (see `statements.ts`), and
+    // there is nothing to run in it. Same wording, because it is the same instruction to the user.
+    if (selection.trim() === '') {
       notify.warning('Select some SQL to execute');
       return;
     }
@@ -183,12 +196,9 @@ export function QueryPanel(props: IDockviewPanelProps) {
     void openQueryFile().then(opened => {
       if (opened === null) return;
       editor.current?.setValue(opened.content);
-      tabStore.getState().updateTab(tabId, {
-        metadata: {
-          ...tabStore.getState().tabs.find(candidate => candidate.id === tabId)?.metadata,
-          filePath: opened.path,
-        },
-      });
+      // The path, the store's copy of the text, and the clean baseline — see `adoptOpenedFile`. It runs
+      // after the editor write because `markClean` reads the tab's content back.
+      adoptOpenedFile({ tabId, path: opened.path, content: opened.content });
     });
   }, [tabId]);
 
@@ -383,6 +393,9 @@ export function QueryPanel(props: IDockviewPanelProps) {
           // previous prompt's answers. See `PlaceholderDialog`'s state comment.
           key={runQuery.prompting.join('|')}
           placeholders={runQuery.prompting}
+          // A second Execute while this is open is refused; the counter is what makes the refusal
+          // visible instead of silent. See `useRunQuery`'s `promptAttention`.
+          attention={runQuery.promptAttention}
           remembered={rememberedPlaceholders}
           onCancel={runQuery.cancelPlaceholders}
           onSubmit={runQuery.submitPlaceholders}

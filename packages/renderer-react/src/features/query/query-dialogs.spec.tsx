@@ -83,6 +83,7 @@ describe('the placeholder prompt', () => {
     onCancel: () => undefined,
     onSubmit: () => undefined,
     onReturnFocus: () => undefined,
+    attention: 0,
   };
 
   it('labels each field with the token it will replace', () => {
@@ -148,6 +149,47 @@ describe('the placeholder prompt', () => {
 
     expect(onCancel).toHaveBeenCalledTimes(2);
     expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  /**
+   * The visible half of "a second execute during an open prompt is abandoned".
+   *
+   * `useRunQuery` refuses the second run and logs it; the log is invisible to a user, who sees a menu
+   * item that appeared to do nothing. Every bump of `attention` pulls the caret back into the first
+   * field, which says what is blocking the run in the place they are already looking.
+   */
+  it('re-focuses the first field each time an execute is refused', async () => {
+    const { rerender } = render(<PlaceholderDialog {...props} />);
+    const first = screen.getByLabelText('${schema}') as HTMLInputElement;
+    const second = screen.getByLabelText('${suffix}') as HTMLInputElement;
+
+    // Move focus away, the way a user filling the form does.
+    await userEvent.click(second);
+    expect(document.activeElement).toBe(second);
+
+    rerender(<PlaceholderDialog {...props} attention={1} />);
+    expect(document.activeElement).toBe(first);
+    // Selected, not just focused, so typing replaces the remembered value instead of appending to it.
+    expect(first.selectionStart).toBe(0);
+    expect(first.selectionEnd).toBe('public'.length);
+
+    // And again for a THIRD execute — a counter rather than a boolean is what makes the second refusal
+    // do something too.
+    await userEvent.click(second);
+    rerender(<PlaceholderDialog {...props} attention={2} />);
+    expect(document.activeElement).toBe(first);
+  });
+
+  it('does not touch focus while nothing has been refused', async () => {
+    const { rerender } = render(<PlaceholderDialog {...props} />);
+    const second = screen.getByLabelText('${suffix}') as HTMLInputElement;
+
+    await userEvent.click(second);
+    // A re-render for any other reason must leave the caret where the user put it — which is why the
+    // effect keys on the counter and not on the dialog being open.
+    rerender(<PlaceholderDialog {...props} remembered={{ schema: 'public' }} />);
+
+    expect(document.activeElement).toBe(second);
   });
 
   it('renders a value containing markup as text, not as HTML', () => {
