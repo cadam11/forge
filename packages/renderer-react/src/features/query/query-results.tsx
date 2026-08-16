@@ -1,84 +1,44 @@
 /**
- * The query tab's results pane — **the structure, with the grid left out.**
- *
- * PLAN.md's Task 11 owns the grid itself (`ag-grid-react`, all 26 `--ag-*` from tokens, sort/filter,
- * the three copy formats, export), and this task's constraint is explicit: "the query tab renders
- * results into a placeholder section (structure ready for the grid, no ag-grid dep yet)". So everything
- * around the cells is real — the result-set tabs, the row counts, the truncation notice, the Messages
- * pane, the error state, the empty state — and the cells are a labelled slot.
- *
- * It is not an empty div, for the same reason Task 7's panel placeholders were not: what is here has to
- * prove the seams work. The tabs come from `result.resultSets`, so a multi-statement batch is exercised;
- * the counts come from `rowCount ?? rows.length`, which is the field the executor sets when it truncates
- * main-side; and the error path renders `result.error`, which is what a failed execute produces.
+ * The query tab's results pane: the result-set tabs, the Messages pane, and the four states that are
+ * not a grid — executing, nothing-run-yet, failed, and a batch whose statement returned no rows at all.
+ * The cells themselves are `<ResultsGrid>`'s (Task 11 replaced this file's placeholder slot with it).
  *
  * Replaces `query.component.ts:388-531`, whose result tabs were hand-rolled `<button class="result-tab">`
  * elements with a `[class.active]` binding and an `activeTab()` signal holding strings like `'result-0'`
  * — parsed back out with `parseInt(tab.replace('result-', ''), 10)` to find the result set. Radix `Tabs`
  * owns the roving focus and the `aria-selected` wiring instead, and the value is still the index because
  * that is what identifies a result set.
+ *
+ * ── Why this component is memoised ────────────────────────────────────────────────────────────
+ *
+ * It is the R2 boundary (PLAN.md's grid-performance risk). `QueryPanel` re-renders for reasons that have
+ * nothing to do with the result — the first keystroke after a save flips `isDirty`, which writes the tab
+ * store — and without `memo` here every one of those would re-render the grid beneath it. The props are
+ * chosen so the memo can actually hold: `result` is the object the execution store's `results` Map holds
+ * (identity changes only when a query lands) and the other two are primitives. Adding a prop that is
+ * built in the panel's render body — an array, an object literal, an inline arrow — would silently defeat
+ * this, which is what `render-isolation.spec.tsx` exists to catch.
  */
 
+import { memo } from 'react';
 import { Terminal } from 'lucide-react';
 import type { QueryResult, ResultSet } from '@joinery/shared';
 
 import { EmptyState, Spinner, Tabs, TabsContent, TabsList, TabsTrigger, cn } from '../../ui';
+import { ResultsGrid } from './results-grid';
 
 const MESSAGES_TAB = 'messages';
 
 export interface QueryResultsProps {
   readonly result: QueryResult | null;
   readonly executing: boolean;
+  /** Whose results these are. Passed to the grid so File ▸ Export Results can find the active one. */
+  readonly tabId: string;
 }
 
-/** The count the header shows: the true received count when the rows were capped main-side. */
+/** The count a tab label shows: the true received count when the rows were capped main-side. */
 function rowCountOf(resultSet: ResultSet): number {
   return resultSet.rowCount ?? resultSet.rows.length;
-}
-
-/**
- * One result set's slot. Column names are real (they come back with the result and cost nothing), the
- * cells are Task 11's.
- */
-function ResultSetSlot({ resultSet }: { readonly resultSet: ResultSet }) {
-  const rows = rowCountOf(resultSet);
-  return (
-    <div className="flex min-h-0 flex-col gap-2 p-3" data-testid="query-result-set">
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <p className="font-mono text-2xs tracking-eyebrow text-fg-muted uppercase">
-          <span data-testid="query-result-rows" className="tabular-nums">
-            {rows}
-          </span>{' '}
-          {rows === 1 ? 'row' : 'rows'} · {resultSet.columns.length}{' '}
-          {resultSet.columns.length === 1 ? 'column' : 'columns'}
-        </p>
-        {resultSet.truncated === true ? (
-          <p data-testid="query-result-truncated" className="text-xs text-warning">
-            Truncated to your maximum row setting.
-          </p>
-        ) : null}
-      </div>
-
-      {/* The column header row, hairline-ruled per `tables.md`'s look. The rows below it are the
-          grid's, and saying so beats an empty rectangle a reader could mistake for "no data". */}
-      <div className="min-h-0 overflow-auto rounded-sm border border-rule">
-        <div className="flex items-center gap-4 border-b border-rule bg-surface px-3 py-1.5">
-          {resultSet.columns.map(column => (
-            <span
-              key={column.name}
-              data-testid="query-result-column"
-              className="font-mono text-xs whitespace-nowrap text-fg"
-            >
-              {column.name}
-            </span>
-          ))}
-        </div>
-        <p className="px-3 py-2 text-md text-fg-muted">
-          The results grid lands in Task 11. The result is in the store and its shape is above.
-        </p>
-      </div>
-    </div>
-  );
 }
 
 /** The Messages pane. Ported from `:491-500`, including the "executed successfully" fallback. */
@@ -103,7 +63,11 @@ function MessagesSlot({ result }: { readonly result: QueryResult }) {
   );
 }
 
-export function QueryResults({ result, executing }: QueryResultsProps) {
+export const QueryResults = memo(function QueryResults({
+  result,
+  executing,
+  tabId,
+}: QueryResultsProps) {
   if (executing) {
     return (
       <div
@@ -182,7 +146,9 @@ export function QueryResults({ result, executing }: QueryResultsProps) {
 
       {resultSets.map((resultSet, index) => (
         <TabsContent key={index} value={String(index)} className="flex min-h-0 grow flex-col">
-          <ResultSetSlot resultSet={resultSet} />
+          {/* Radix unmounts the inactive tab's content, so exactly one grid per query tab exists at a
+              time — which is what keeps a ten-statement batch from mounting ten grids. */}
+          <ResultsGrid resultSet={resultSet} tabId={tabId} />
         </TabsContent>
       ))}
       <TabsContent value={MESSAGES_TAB} className="min-h-0 grow overflow-auto">
@@ -190,4 +156,4 @@ export function QueryResults({ result, executing }: QueryResultsProps) {
       </TabsContent>
     </Tabs>
   );
-}
+});

@@ -1,0 +1,247 @@
+/*
+ * The Joinery grid theme: every `--ag-*` AG Grid paints from, re-pointed at the Layer 2 semantic
+ * tokens. The same arrangement as `shell/dockview-theme.css`, for the same reasons — read that file's
+ * header first; this one only records what is different about AG Grid.
+ *
+ * ── Why the legacy CSS themes and not the v33+ Theming API ────────────────────────────────────
+ *
+ * AG Grid 36 ships both: a JS `Theme` object (`themeQuartz.withParams({…})`) and the older CSS
+ * themes, reachable with `theme="legacy"` on the grid. This renderer uses the CSS themes because the
+ * unit of theming here is a **CSS custom property that flips with `[data-theme]`** — every value below
+ * is `var(--color-…)`, and those already change with the attribute, so one declaration block serves
+ * both themes and neither React nor a memoised theme object is in the loop. Handing the JS API a
+ * `var()` string would work, but it puts a build step and an object identity between a token and a
+ * painted pixel for no gain. It is also the direct port: `results-grid.component.ts:921-957` set
+ * these same variables, so the Angular → React diff is readable line by line.
+ *
+ * The cost is recorded rather than hidden: the CSS themes are deprecated and will go in a future
+ * major. When they do, the migration is a `themeQuartz.withParams()` object whose values are these
+ * same `var(--color-…)` strings — the *names* differ in places (`--ag-data-color` became
+ * `--ag-cell-text-color`), which is why both spellings are set below where they diverge.
+ *
+ * ── The two theme classes ─────────────────────────────────────────────────────────────────────
+ *
+ * `results-grid.tsx` binds `ag-theme-quartz` or `ag-theme-quartz-dark` to the EFFECTIVE theme and
+ * always adds `ag-theme-joinery`. The vendor class is the base — it gives every `--ag-*` a value,
+ * including the structural ones this file has no opinion about — and it is bound rather than fixed
+ * because the two vendor classes differ in more than colour (`color-scheme`, the resize-handle
+ * display, the icon font's optical weight). Angular hardcoded `ag-theme-quartz-dark` (`:213`), which
+ * is exactly the bug: an ivory user got a dark grid.
+ *
+ * Both classes are one-class selectors, so SOURCE ORDER decides. `styles/theme.css` imports the two
+ * vendor stylesheets immediately before this file; neither import may move.
+ *
+ * ── The house rules this file enforces on a vendor grid ───────────────────────────────────────
+ *
+ * HOUSE-RULES §4 ("`tables.md` is a look, not a markup contract"): horizontal row rules only, no
+ * vertical lines, no outer border, sentence-case headers that never wrap. Quartz ships vertical
+ * column separators and a wrapper border; both are removed below. HOUSE-RULES §5 (closed palette):
+ * the Angular theme reached for `--status-info` — a blue — for boolean cells, FK cells and every
+ * checkbox, and `--status-warning` for every date cell. There is no blue here, and amber is reserved
+ * for caution, so those two treatments are re-cut: numbers and dates get alignment and tabular
+ * figures, FK cells get the accent's link treatment, and nothing decorative spends a status colour.
+ */
+
+.ag-theme-joinery {
+  /* ── Surfaces and text ─────────────────────────────────────────────────────────────────── */
+  --ag-background-color: var(--color-canvas);
+  --ag-foreground-color: var(--color-fg);
+  /* `--ag-data-color` is the cell text in the CSS themes; `--ag-text-color` is the same value in the
+   * Theming API's vocabulary. Both are set so neither spelling falls back to a vendor grey. */
+  --ag-data-color: var(--color-fg);
+  --ag-text-color: var(--color-fg);
+  --ag-secondary-foreground-color: var(--color-fg-muted);
+  --ag-subtle-text-color: var(--color-fg-muted);
+  --ag-disabled-foreground-color: var(--color-fg-subtle);
+  --ag-header-background-color: var(--color-chrome);
+  --ag-header-foreground-color: var(--color-fg-muted);
+  --ag-subheader-background-color: var(--color-chrome);
+  --ag-control-panel-background-color: var(--color-surface);
+  --ag-pinned-row-background-color: var(--color-surface);
+
+  /* Row states. Alternating rows are a persisted setting, so the odd-row colour is only stepped
+   * away from the canvas when `.ag-theme-joinery-striped` is also present (see results-grid.tsx). */
+  --ag-odd-row-background-color: var(--color-canvas);
+  --ag-row-hover-color: var(--color-hover);
+  --ag-selected-row-background-color: var(--color-accent-subtle);
+  --ag-column-hover-color: var(--color-hover);
+  --ag-header-cell-hover-background-color: var(--color-hover);
+  --ag-header-cell-moving-background-color: var(--color-elevated);
+  --ag-row-loading-skeleton-effect-color: var(--color-hover);
+
+  /* ── Rules. Horizontal only: the column separator and the wrapper border are cleared. ───── */
+  --ag-border-color: var(--color-rule);
+  --ag-row-border-color: var(--color-rule);
+  --ag-row-border-style: solid;
+  --ag-row-border-width: 1px;
+  --ag-secondary-border-color: var(--color-rule);
+  --ag-header-column-separator-color: transparent;
+  --ag-header-column-resize-handle-color: var(--color-rule-strong);
+  --ag-border-radius: var(--radius-sm);
+  --ag-wrapper-border-radius: 0;
+
+  /* ── Type and metrics ──────────────────────────────────────────────────────────────────── */
+  /* Mono throughout, headers included — a column header here is a SQL identifier (`full_name`,
+   * `price_cents`), not prose, and it sits directly above mono data it has to align with. Weight, not
+   * family, is what separates the header row.
+   *
+   * `--ag-header-font-family` is deliberately NOT set: measured against the running app, the CSS theme
+   * ignores it for `.ag-header-cell-text` (the text inherits `--ag-font-family`), so declaring it would
+   * be a line that reads as a decision and paints nothing. Size and weight ARE honoured. */
+  --ag-font-family: var(--font-technical);
+  --ag-font-size: var(--text-sm);
+  --ag-header-font-size: var(--text-sm);
+  --ag-header-font-weight: 500;
+  /* Row height is ALSO passed as the grid's own `rowHeight` prop from `GridSettings.rowHeight` — that
+   * is what the grid measures its virtualization with, and it wins. This declaration is the CSS side of
+   * the same number (cell line-height and the theme's internal padding) and the fallback before the
+   * settings store hydrates; 24px is the setting's default. Header 32px, both rungs on the spacing
+   * ladder (HOUSE-RULES §6). */
+  --ag-row-height: --spacing(6);
+  --ag-header-height: --spacing(8);
+  --ag-cell-horizontal-padding: --spacing(2);
+  --ag-cell-widget-spacing: --spacing(1.5);
+  --ag-icon-size: var(--icon-sm);
+  --ag-list-item-height: --spacing(7);
+
+  /* ── Accent and interaction ────────────────────────────────────────────────────────────── */
+  /* Quartz derives its own focus and checkbox treatments from `--ag-active-color`, so pointing it
+   * at the accent is what stops the vendor blue appearing in surfaces this file never names. */
+  --ag-active-color: var(--color-accent);
+  --ag-range-selection-background-color: var(--color-accent-subtle);
+  --ag-range-selection-border-color: var(--color-accent);
+  --ag-range-selection-highlight-color: var(--color-accent);
+  --ag-range-header-highlight-color: var(--color-accent-subtle);
+  --ag-checkbox-background-color: var(--color-surface);
+  --ag-checkbox-checked-color: var(--color-accent);
+  --ag-checkbox-unchecked-color: var(--color-rule-strong);
+  --ag-checkbox-indeterminate-color: var(--color-accent);
+  --ag-column-drag-indicator-color: var(--color-accent);
+  --ag-row-drag-indicator-color: var(--color-accent);
+  --ag-selected-tab-underline-color: var(--color-accent);
+  --ag-row-numbers-selected-color: var(--color-accent-subtle);
+
+  /* Inputs — the floating filters and the filter popups. */
+  --ag-input-border-color: var(--color-rule-strong);
+  --ag-input-focus-border-color: var(--color-focus);
+  --ag-input-text-color: var(--color-fg);
+  --ag-input-disabled-background-color: var(--color-surface);
+  --ag-input-disabled-border-color: var(--color-rule);
+  --ag-input-border-color-invalid: var(--color-danger);
+  --ag-invalid-color: var(--color-danger);
+  /* A focus ring, not elevation — the `--shadow-*` namespace is cleared for a reason (HOUSE-RULES
+   * §3), and a 2px accent-subtle ring is the same treatment the app's own inputs use. */
+  --ag-input-focus-box-shadow: 0 0 0 2px var(--color-accent-subtle);
+  --ag-input-error-focus-box-shadow: 0 0 0 2px var(--color-danger);
+
+  /* ── Floating surfaces. `--overlay-shadow` is the one survivor: a ring under ink, a real
+   *    shadow under ivory. ─────────────────────────────────────────────────────────────────── */
+  --ag-menu-background-color: var(--color-elevated);
+  --ag-menu-border-color: var(--color-rule-strong);
+  --ag-panel-background-color: var(--color-elevated);
+  --ag-panel-border-color: var(--color-rule-strong);
+  --ag-tooltip-background-color: var(--color-elevated);
+  --ag-popup-shadow: var(--overlay-shadow);
+  --ag-card-shadow: var(--overlay-shadow);
+  --ag-dropdown-shadow: var(--overlay-shadow);
+  /* The scrim, matching `ui/dialog.tsx`'s `bg-j-ink/70`. `color-mix` rather than a hand-written
+   * rgba so the ink constant is named once, in theme.css. */
+  --ag-modal-overlay-background-color: color-mix(in srgb, var(--color-j-ink) 70%, transparent);
+
+  /* Icons: the sort arrows, the filter funnel, the menu glyphs. */
+  --ag-icon-font-color: var(--color-fg-muted);
+  --ag-quartz-icon-hover-color: var(--color-fg);
+  --ag-quartz-icon-active-color: var(--color-accent);
+  --ag-icon-button-hover-background-color: var(--color-hover);
+  --ag-icon-button-hover-color: var(--color-fg);
+
+  /* Find, and the value-change flash. Community features that paint with a colour if reached at
+   * all; left on vendor defaults they would paint the yellow and green AG Grid ships. */
+  --ag-find-match-background-color: var(--color-accent-subtle);
+  --ag-find-match-color: var(--color-fg);
+  --ag-find-active-match-background-color: var(--color-accent);
+  --ag-find-active-match-color: var(--color-accent-fill-fg);
+  --ag-value-change-delta-up-color: var(--color-success);
+  --ag-value-change-delta-down-color: var(--color-danger);
+  --ag-value-change-value-highlight-background-color: var(--color-accent-subtle);
+  --ag-chip-background-color: var(--color-surface);
+  --ag-chip-border-color: var(--color-rule);
+}
+
+/* `GridSettings.alternatingRowColors`. One step, not a stripe: `--color-surface` is the same rung
+ * the app's wells sit on, and it stays under the hairline row rule rather than replacing it. */
+.ag-theme-joinery-striped {
+  --ag-odd-row-background-color: var(--color-surface);
+}
+
+/* ── Structure ────────────────────────────────────────────────────────────────────────────── */
+
+/* No outer border and no card: the rows sit on the canvas, and the panel around them already has
+ * its own rules (HOUSE-RULES §4). */
+.ag-theme-joinery .ag-root-wrapper {
+  border: none;
+}
+
+.ag-theme-joinery .ag-header {
+  border-bottom: 1px solid var(--color-rule-strong);
+}
+
+/* Headers never wrap and never shout: sentence case as the SQL returned it, ellipsised when the
+ * column is narrower than its name (the full name is in the header tooltip either way). */
+.ag-theme-joinery .ag-header-cell-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Vertical cell borders are what HOUSE-RULES §4 removes; the horizontal rule is what it keeps. */
+.ag-theme-joinery .ag-cell {
+  border-right: none;
+}
+
+/* NULL is the absence of a value, so it reads as metadata rather than as the string "NULL".
+ * `fg-muted`, not `fg-subtle`: subtle measures 3.65:1 on the ivory canvas. */
+.ag-theme-joinery .ag-cell.cell-null {
+  color: var(--color-fg-muted);
+  font-style: italic;
+}
+
+/* Numbers align on their last digit; dates align on their fields. Neither spends a colour. */
+.ag-theme-joinery .ag-cell.cell-number {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.ag-theme-joinery .ag-cell.cell-date {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Two-state metadata. Muted rather than the Angular blue. */
+.ag-theme-joinery .ag-cell.cell-boolean {
+  color: var(--color-fg-muted);
+}
+
+/* A foreign key is a link to a row that exists somewhere else, so it gets link treatment. Task 14
+ * makes it clickable; until then the affordance is honest about being a reference. */
+.ag-theme-joinery .ag-cell.cell-fk {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+
+.ag-theme-joinery .ag-cell.cell-fk:hover {
+  text-decoration-style: solid;
+}
+
+/* The ordinal column. Chrome-backed so it reads as a gutter rather than as data, and separated by
+ * the one vertical rule in the grid — it is a boundary between chrome and content, not a column
+ * divider. */
+.ag-theme-joinery .ag-cell.row-number-cell {
+  background-color: var(--color-chrome);
+  color: var(--color-fg-muted);
+  text-align: right;
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  border-right: 1px solid var(--color-rule);
+}

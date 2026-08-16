@@ -367,7 +367,10 @@ export function QueryPanel(props: IDockviewPanelProps) {
               onReset={() => workbenchStore.getState().resetEditorHeightPercent()}
             />
             <div className={cn('flex min-h-0 grow flex-col')}>
-              <QueryResults result={result} executing={executing} />
+              {/* Three props, all of them stable across a panel re-render: `<QueryResults>` is
+                  memoised and that is the R2 boundary — see its header. Nothing built in this render
+                  body may be passed here. */}
+              <QueryResults result={result} executing={executing} tabId={tabId} />
             </div>
           </>
         )}

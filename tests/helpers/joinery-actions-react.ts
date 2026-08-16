@@ -457,6 +457,107 @@ export async function executeQuery(window: Page): Promise<void> {
   await expect(window.getByTestId('status-executing')).toBeHidden({ timeout: CONNECT_TIMEOUT_MS });
 }
 
+// ── The results grid (Task 11) ──────────────────────────────────────────────
+//
+// AG Grid is a vendor surface, so its internals are located structurally —
+// `.ag-row`, `.ag-header-cell`, `[col-id]` — which is the exemption PLAN.md's
+// test-hook rule grants ("Vendor internals (`.monaco-editor`, `.ag-*`,
+// Dockview's classes) may be located structurally"). Everything Joinery owns
+// around the cells has a `results-*` testid.
+//
+// Two AG Grid 36 facts these helpers exist to hold in one place, both probed
+// against the running app rather than read from the docs:
+//
+//  1. rows live in `.ag-grid-scrolling-container`, not the `.ag-center-cols-container`
+//     of the v32-era DOM the Angular suite knew, and one row element carries
+//     every cell including the pinned ones;
+//  2. rows are ABSOLUTELY POSITIONED AND RECYCLED, so DOM order is not visual
+//     order. `row-index` is the only honest ordering, which is why
+//     `gridColumnValues` sorts by it. A spec that read `.ag-row` in DOM order
+//     would conclude a visibly descending grid had not sorted.
+
+/** The grid host. Joinery's element, not AG Grid's. */
+export function resultsGrid(window: Page): Locator {
+  return window.getByTestId('results-grid');
+}
+
+/** Every rendered row. The grid virtualizes, so this is rows *in view*. */
+export function gridRows(window: Page): Locator {
+  return resultsGrid(window).locator('.ag-grid-scrolling-container .ag-row');
+}
+
+/** The data column headers, in order — without the ordinal gutter or the checkbox column. */
+export async function gridColumnHeaders(window: Page): Promise<string[]> {
+  return resultsGrid(window)
+    .locator(
+      '.ag-header-row-column .ag-header-cell:not([col-id="rowNumber"]):not([col-id="ag-Grid-SelectionColumn"]) .ag-header-cell-text'
+    )
+    .allTextContents();
+}
+
+/**
+ * One column's rendered values, in DISPLAYED order (see fact 2 above).
+ *
+ * Returns what the cells show, which is the formatted value — `NULL` for an absent one, a grouped
+ * integer for a number. The raw values are what the clipboard carries; that is asserted separately.
+ */
+export async function gridColumnValues(window: Page, colId: string): Promise<string[]> {
+  const rows = await gridRows(window).evaluateAll((elements, column) => {
+    return elements
+      .map(element => ({
+        index: Number(element.getAttribute('row-index')),
+        value: element.querySelector(`.ag-cell[col-id="${column}"]`)?.textContent ?? '',
+      }))
+      .sort((a, b) => a.index - b.index)
+      .map(entry => entry.value);
+  }, colId);
+  return rows;
+}
+
+/** Click a column header once: unsorted → ascending → descending, as AG Grid cycles it. */
+export async function sortGridColumn(window: Page, colId: string): Promise<void> {
+  await resultsGrid(window)
+    .locator(`.ag-header-row-column .ag-header-cell[col-id="${colId}"] .ag-header-cell-label`)
+    .click();
+}
+
+/** What the grid says about a column's sort, through the ARIA contract rather than a class. */
+export function gridSortState(window: Page, colId: string): Locator {
+  return resultsGrid(window).locator(`.ag-header-row-column .ag-header-cell[col-id="${colId}"]`);
+}
+
+/**
+ * Tick a row's checkbox, addressed by its DISPLAYED index.
+ *
+ * The input inside the wrapper is the hit target; clicking the cell around it does nothing.
+ */
+export async function selectGridRow(window: Page, displayedIndex: number): Promise<void> {
+  await resultsGrid(window)
+    .locator(`.ag-grid-scrolling-container .ag-row[row-index="${displayedIndex}"]`)
+    .locator('.ag-cell[col-id="ag-Grid-SelectionColumn"] input')
+    .click({ force: true });
+}
+
+/**
+ * Press the toolbar's Copy button and return what landed on the system clipboard.
+ *
+ * Read through Electron's own `clipboard` module in the MAIN process rather than
+ * `navigator.clipboard.readText()` in the page: the renderer's read requires a permission prompt
+ * that a headless Electron never answers, while the main-process module is synchronous and needs no
+ * permission. It is also the honest assertion — what is being checked is that the bytes reached the
+ * *system* clipboard, which is where the user's next ⌘V reads from.
+ */
+export async function copyGridSelection(app: ElectronApplication, window: Page): Promise<string> {
+  await app.evaluate(({ clipboard }) => clipboard.writeText(''));
+  await window.getByTestId('results-copy').click();
+  // The toast is the copy's own completion signal: the component only fires it once
+  // `navigator.clipboard.writeText` has resolved.
+  await expect(
+    window.locator('[data-sonner-toast]').filter({ hasText: 'to clipboard' })
+  ).toBeVisible({ timeout: UI_TIMEOUT_MS });
+  return app.evaluate(({ clipboard }) => clipboard.readText());
+}
+
 /**
  * Fires one of the native menu's `menu:*` channels from the main process.
  *

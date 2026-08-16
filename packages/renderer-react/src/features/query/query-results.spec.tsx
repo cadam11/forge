@@ -1,13 +1,26 @@
 /**
- * The results pane's five states. The cells are Task 11's; everything around them is this task's, and this
- * is what "structure ready for the grid" means concretely.
+ * The results pane's states, and the result-set tabs over them. The grid itself has its own spec
+ * (`results-grid.spec.tsx`) and its own double, which is why AG Grid is mocked here too: what this file
+ * is about is which of the five states the pane chooses, and one of them is "a grid".
  */
 
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { QueryResult } from '@joinery/shared';
-import { QueryResults } from './query-results';
+import { TooltipProvider } from '../../ui';
+
+// jsdom has no layout, so a real AG Grid renders a header and no rows — see `results-grid.spec.tsx`.
+vi.mock('ag-grid-react', () => ({ AgGridReact: () => <div data-testid="ag-grid-double" /> }));
+
+const { QueryResults } = await import('./query-results');
+
+const TAB_ID = 'tab-1';
+
+/** The pane's toolbar is tooltipped, so the provider the shell mounts once has to be here. */
+function renderPane(element: React.ReactElement) {
+  return render(<TooltipProvider>{element}</TooltipProvider>);
+}
 
 const resultSet = (rows: number, columns: string[], extra: Record<string, unknown> = {}) => ({
   columns: columns.map(name => ({ name, dataType: 'text' })) as never,
@@ -25,21 +38,22 @@ const success = (overrides: Partial<QueryResult> = {}): QueryResult => ({
 
 describe('states', () => {
   it('shows a spinner while a query is running, even with a previous result present', () => {
-    render(<QueryResults result={success()} executing />);
+    renderPane(<QueryResults result={success()} executing tabId={TAB_ID} />);
     expect(screen.getByTestId('query-results-executing')).toBeTruthy();
     expect(screen.queryByTestId('query-results')).toBeNull();
   });
 
   it('invites the user to run something when nothing has run', () => {
-    render(<QueryResults result={null} executing={false} />);
+    renderPane(<QueryResults result={null} executing={false} tabId={TAB_ID} />);
     expect(screen.getByTestId('query-results-empty').textContent).toContain('No results yet');
   });
 
   it('shows the error text a failed query returned', () => {
-    render(
+    renderPane(
       <QueryResults
         result={{ queryId: 'q', success: false, error: 'relation "nope" does not exist' }}
         executing={false}
+        tabId={TAB_ID}
       />
     );
     expect(screen.getByTestId('query-results-error-text').textContent).toBe(
@@ -50,20 +64,20 @@ describe('states', () => {
   });
 
   it('lands on the first result set when there is one', () => {
-    render(<QueryResults result={success()} executing={false} />);
-    expect(screen.getByTestId('query-result-rows').textContent).toBe('2');
-    expect(screen.getAllByTestId('query-result-column').map(node => node.textContent)).toEqual([
-      'id',
-      'email',
-    ]);
+    renderPane(<QueryResults result={success()} executing={false} tabId={TAB_ID} />);
+    // The counts are the grid toolbar's now, and the columns are the grid's own header cells — which
+    // is why the count is what this spec asserts and `results-grid.spec.tsx` asserts the colDefs.
+    expect(screen.getByTestId('results-row-count').textContent).toBe('2');
+    expect(screen.getByTestId('results-column-count').textContent).toBe('2 cols');
   });
 
   it('lands on Messages for a statement with no result sets', () => {
     // An INSERT or a DDL. The Angular version made the same choice (`:1838`).
-    render(
+    renderPane(
       <QueryResults
         result={success({ resultSets: [], rowsAffected: 3, messages: ['3 rows inserted'] })}
         executing={false}
+        tabId={TAB_ID}
       />
     );
     expect(screen.getByTestId('query-messages').textContent).toContain('3 rows inserted');
@@ -73,12 +87,13 @@ describe('states', () => {
 
 describe('multi-statement batches', () => {
   it('shows one tab per result set, each with its row count, plus Messages', () => {
-    render(
+    renderPane(
       <QueryResults
         result={success({
           resultSets: [resultSet(2, ['a']), resultSet(5, ['b', 'c'])],
         })}
         executing={false}
+        tabId={TAB_ID}
       />
     );
 
@@ -88,42 +103,47 @@ describe('multi-statement batches', () => {
   });
 
   it('switches result sets', async () => {
-    render(
+    renderPane(
       <QueryResults
         result={success({ resultSets: [resultSet(2, ['a']), resultSet(5, ['b'])] })}
         executing={false}
+        tabId={TAB_ID}
       />
     );
 
     await userEvent.click(screen.getAllByTestId('query-results-tab')[1] as HTMLElement);
 
-    expect(screen.getByTestId('query-result-rows').textContent).toBe('5');
-    expect(screen.getByTestId('query-result-column').textContent).toBe('b');
+    expect(screen.getByTestId('results-row-count').textContent).toBe('5');
+    expect(screen.getByTestId('results-column-count').textContent).toBe('1 col');
   });
 });
 
 describe('counts and truncation', () => {
   it('prefers the true received count over the rows it was handed', () => {
     // The executor caps `rows` at the user's `maxRowsToDisplay` and reports the real count separately.
-    render(
+    renderPane(
       <QueryResults
         result={success({
           resultSets: [resultSet(10, ['a'], { rowCount: 40_000, truncated: true })],
         })}
         executing={false}
+        tabId={TAB_ID}
       />
     );
-    expect(screen.getByTestId('query-result-rows').textContent).toBe('40000');
-    expect(screen.getByTestId('query-result-truncated')).toBeTruthy();
+    expect(screen.getByTestId('results-row-count').textContent).toBe('40,000');
+    expect(screen.getByTestId('results-displayed-count').textContent).toBe('10');
+    expect(screen.getByTestId('results-truncated')).toBeTruthy();
   });
 
   it('says nothing about truncation when nothing was truncated', () => {
-    render(<QueryResults result={success()} executing={false} />);
-    expect(screen.queryByTestId('query-result-truncated')).toBeNull();
+    renderPane(<QueryResults result={success()} executing={false} tabId={TAB_ID} />);
+    expect(screen.queryByTestId('results-truncated')).toBeNull();
   });
 
   it('falls back to "executed successfully" when a statement returned no messages', () => {
-    render(<QueryResults result={success({ resultSets: [] })} executing={false} />);
+    renderPane(
+      <QueryResults result={success({ resultSets: [] })} executing={false} tabId={TAB_ID} />
+    );
     expect(screen.getByTestId('query-messages').textContent).toContain(
       'Query executed successfully.'
     );
