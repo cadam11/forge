@@ -305,6 +305,32 @@ describe('the object search', () => {
     expect(getChildren).not.toHaveBeenCalled();
   });
 
+  it('says a failed metadata read failed, instead of showing an empty database', async () => {
+    // The Angular version caught per folder and returned `[]`, so a permissions error and an empty
+    // schema looked identical. `diagnostics` gets the cause; the row gets the message.
+    const reported: string[] = [];
+    teardowns.push(
+      setDiagnosticsSink({
+        error: context => reported.push(context),
+        warn: () => undefined,
+      })
+    );
+    getChildren.mockImplementation(() =>
+      Promise.reject(new Error('permission denied for schema public'))
+    );
+
+    mount();
+    await userEvent.keyboard('{Meta>}p{/Meta}');
+    await screen.findByTestId('objsearch-overlay');
+
+    await waitFor(() =>
+      expect(screen.getByTestId('objsearch-empty-reason').textContent).toContain(
+        'permission denied for schema public'
+      )
+    );
+    expect(reported.some(context => context.includes('object index'))).toBe(true);
+  });
+
   it('says so when a search matches nothing', async () => {
     mount();
     await open();

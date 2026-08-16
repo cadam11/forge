@@ -28,6 +28,7 @@ import { Locate, Table2 } from 'lucide-react';
 
 import { dispatchCommand, useCommand } from '../../commands';
 import { useIpcQuery } from '../../ipc';
+import { diagnostics } from '../../state/diagnostics';
 import { selectCapabilitiesFor, useCapabilitiesStore } from '../../state/capabilities';
 import { useMostRecentConnectionId } from '../../state/connection';
 import {
@@ -84,6 +85,15 @@ export function ObjectSearch() {
     enabled: open,
     supportsRoutines: capabilities.supportsStoredProcedures,
   });
+
+  // Reported as well as rendered: the Output panel is where a failing metadata query is debuggable,
+  // and the row below is where the user learns their search is incomplete. Keyed on the message so a
+  // retry that fails the same way does not fill the log.
+  const failure = index.error?.message ?? null;
+  useEffect(() => {
+    if (failure === null) return;
+    diagnostics.error('failed to load the object index for the search overlay', failure);
+  }, [failure]);
 
   const visible = useMemo(
     () =>
@@ -180,12 +190,14 @@ export function ObjectSearch() {
       ) : (
         <>
           <CommandOverlayEmpty testId="objsearch-empty">
-            <span>
-              {index.loading
-                ? 'Loading objects…'
-                : query.length === 0
-                  ? 'This database has no objects to show'
-                  : `Nothing matches “${query}”`}
+            <span data-testid="objsearch-empty-reason">
+              {index.error !== null
+                ? `Could not read this database’s objects: ${index.error.message}`
+                : index.loading
+                  ? 'Loading objects…'
+                  : query.length === 0
+                    ? 'This database has no objects to show'
+                    : `Nothing matches “${query}”`}
             </span>
           </CommandOverlayEmpty>
 
@@ -274,6 +286,15 @@ interface ObjectIndexOptions {
 interface ObjectIndex {
   readonly objects: readonly SearchableObject[];
   readonly loading: boolean;
+  /**
+   * The first folder read that failed, or `null`.
+   *
+   * Surfaced rather than swallowed: a failed metadata query would otherwise render as "this database
+   * has no objects", which is the same screen a genuinely empty database gives and sends the user
+   * looking for the wrong problem. The Angular version's `catch { return [] }` per folder
+   * (`object-search.component.ts:401-411`) is exactly that failure.
+   */
+  readonly error: Error | null;
 }
 
 /**
@@ -336,5 +357,6 @@ function useObjectIndex(options: ObjectIndexOptions): ObjectIndex {
   return {
     objects,
     loading: tables.isFetching || views.isFetching || procedures.isFetching || functions.isFetching,
+    error: tables.error ?? views.error ?? procedures.error ?? functions.error ?? null,
   };
 }
