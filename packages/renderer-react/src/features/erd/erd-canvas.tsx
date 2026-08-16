@@ -54,7 +54,7 @@ import {
 } from './erd-layout';
 import { relatedNodeIds, type ErdNode } from './erd-model';
 import { visibleEdges, visibleNodes } from './erd-viewport';
-import type { ErdViewport } from './use-erd-viewport';
+import { isDiagramBackground, type ErdViewport } from './use-erd-viewport';
 
 /** How a node is painted. Selection and adjacency are the only two states the diagram has. */
 type NodeState = 'plain' | 'related' | 'selected';
@@ -135,13 +135,12 @@ export function ErdCanvas({ layout, viewport, selectedNodeId, onSelect, onOpen }
    * of a background DRAG too because d3-zoom does not suppress the click — so "any background press
    * clears the selection" is the shipped behaviour, not a simplification of it. `pointerdown` rather
    * than `click` because a `div` with an `onClick` and no role is a `jsx-a11y` error, and this
-   * element's job is a gesture surface, not a control.
+   * element's job is a gesture surface, not a control. `isDiagramBackground` is shared with the pan
+   * guard so the two can never disagree about what counts as background.
    */
   const onPointerDown = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
-      if (event.target === event.currentTarget || isBackgroundElement(event.target)) {
-        onSelect(null);
-      }
+      if (isDiagramBackground(event.target)) onSelect(null);
       beginGesture(event);
     },
     [beginGesture, onSelect]
@@ -399,9 +398,4 @@ function ErdRowShape({ row, width, top }: ErdRowShapeProps) {
       </text>
     </>
   );
-}
-
-/** The `<svg>` itself is the diagram's background; anything else was a node. */
-function isBackgroundElement(target: EventTarget): boolean {
-  return target instanceof Element && target.tagName === 'svg';
 }

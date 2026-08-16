@@ -44,8 +44,21 @@ import {
 const WHEEL_SETTLE_MS = 120;
 
 export interface ErdViewport {
-  /** Goes on the element that owns the size and the gestures. */
-  readonly hostRef: React.RefObject<HTMLDivElement | null>;
+  /**
+   * Goes on the element that owns the size and the gestures.
+   *
+   * A **callback ref**, not a ref object, and that is a bug fix rather than a style choice. This hook
+   * is called by `erd-panel.tsx` and the ref is attached in `erd-canvas.tsx`, which the panel does not
+   * render until the schema has resolved. With a ref object, every effect below ran once — while the
+   * panel was still showing its spinner, with `hostRef.current === null` — took its early return, and
+   * never re-ran, because its dependencies never changed again. Measured consequence: the
+   * `ResizeObserver` was never installed (so the viewport stayed 0×0 and fit-on-load was a no-op) and
+   * the wheel listener was never attached (so the diagram could not be zoomed with a trackpad at all).
+   * Caught by the e2e tier, which is the only place a real wheel event exists.
+   *
+   * A callback ref puts the element in state, so the effects re-run the moment it arrives.
+   */
+  readonly hostRef: (node: HTMLDivElement | null) => void;
   /** Goes on the `<g>` that holds the diagram. Give it NO `transform` prop. */
   readonly contentRef: React.RefObject<SVGGElement | null>;
   /** The published transform: for the zoom readout and for culling, not for painting. */
@@ -64,7 +77,16 @@ export interface ErdViewport {
 }
 
 export function useErdViewport(layout: Pick<ErdLayout, 'width' | 'height'>): ErdViewport {
-  const hostRef = useRef<HTMLDivElement | null>(null);
+  /** The gesture surface, in state rather than a ref — see `ErdViewport.hostRef`. */
+  const [host, setHost] = useState<HTMLDivElement | null>(null);
+  const hostRef = useCallback((node: HTMLDivElement | null) => {
+    setHost(node);
+  }, []);
+
+  /**
+   * The content group stays a ref object, because nothing needs to REACT to its arrival: the layout
+   * effect below runs after every commit and writes the transform onto whatever is there.
+   */
   const contentRef = useRef<SVGGElement | null>(null);
 
   /** The live transform. The DOM follows this; React follows `published`. */
@@ -100,7 +122,6 @@ export function useErdViewport(layout: Pick<ErdLayout, 'width' | 'height'>): Erd
 
   // ── Measurement ────────────────────────────────────────────────────────────────────────────────
   useEffect(() => {
-    const host = hostRef.current;
     if (host === null) return;
 
     const measure = (): void => {
@@ -118,30 +139,39 @@ export function useErdViewport(layout: Pick<ErdLayout, 'width' | 'height'>): Erd
     const observer = new ResizeObserver(measure);
     observer.observe(host);
     return () => observer.disconnect();
-  }, []);
+  }, [host]);
 
   // ── Fit on load ────────────────────────────────────────────────────────────────────────────────
   //
-  // Once per layout, and not on a resize: `fitOnLoad` in the Angular config ran inside `setupERD`,
-  // which reran when the schema changed. Refitting on every resize would throw away the user's pan
-  // every time they dragged a dock divider.
+  // `fitOnLoad` in the Angular config ran inside `setupERD`, which reran when the schema changed. This
+  // refits on a size change too, and **only until the user has moved the diagram themselves** —
+  // `adjusted` is what makes that safe, and it earned its place: the details rail opens for the focus
+  // table one commit after the schema resolves, taking 320px off the canvas, so a fit computed before
+  // it appeared left the focus table clipped off the left edge. Visible in the Task 18 e2e screenshot.
+  // Refitting unconditionally on every resize would instead throw away a user's pan whenever they
+  // dragged a dock divider, which is why it stops at the first gesture.
+  const adjusted = useRef(false);
   const fittedFor = useRef<unknown>(null);
   useEffect(() => {
     if (viewport.width <= 0 || viewport.height <= 0) return;
-    if (fittedFor.current === layout) return;
+    const changedLayout = fittedFor.current !== layout;
+    if (adjusted.current && !changedLayout) return;
+
     fittedFor.current = layout;
+    // A new schema is a new diagram: it gets a fit whether or not the last one was adjusted.
+    if (changedLayout) adjusted.current = false;
     apply(fitTransform(layout, viewport));
     publish();
   }, [apply, layout, publish, viewport]);
 
   // ── Wheel ──────────────────────────────────────────────────────────────────────────────────────
   useEffect(() => {
-    const host = hostRef.current;
     if (host === null) return;
 
     let settle: number | undefined;
     const onWheel = (event: WheelEvent): void => {
       event.preventDefault();
+      adjusted.current = true;
       const box = host.getBoundingClientRect();
       const factor = wheelZoomFactor(event.deltaY, event.ctrlKey);
       apply(
@@ -163,7 +193,7 @@ export function useErdViewport(layout: Pick<ErdLayout, 'width' | 'height'>): Erd
       host.removeEventListener('wheel', onWheel);
       if (settle !== undefined) window.clearTimeout(settle);
     };
-  }, [apply, publish]);
+  }, [apply, host, publish]);
 
   // ── Pan ────────────────────────────────────────────────────────────────────────────────────────
   const panFrom = useRef<{ x: number; y: number; pointerId: number } | null>(null);
@@ -172,7 +202,7 @@ export function useErdViewport(layout: Pick<ErdLayout, 'width' | 'height'>): Erd
     // Left button only, and only on the background: a press that started on a node is that node's
     // click, and the middle/right buttons belong to the browser and the context menu.
     if (event.button !== 0) return;
-    if (event.target !== event.currentTarget && !isBackground(event.target)) return;
+    if (!isDiagramBackground(event.target)) return;
 
     panFrom.current = { x: event.clientX, y: event.clientY, pointerId: event.pointerId };
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -184,6 +214,7 @@ export function useErdViewport(layout: Pick<ErdLayout, 'width' | 'height'>): Erd
       const from = panFrom.current;
       if (from === null || from.pointerId !== event.pointerId) return;
 
+      adjusted.current = true;
       apply(panBy(liveRef.current, event.clientX - from.x, event.clientY - from.y));
       panFrom.current = { ...from, x: event.clientX, y: event.clientY };
     },
@@ -208,27 +239,34 @@ export function useErdViewport(layout: Pick<ErdLayout, 'width' | 'height'>): Erd
   );
 
   const zoomIn = useCallback(() => {
+    adjusted.current = true;
     apply(zoomAbout(liveRef.current, centre, ZOOM_STEP));
     publish();
   }, [apply, centre, publish]);
 
   const zoomOut = useCallback(() => {
+    adjusted.current = true;
     apply(zoomAbout(liveRef.current, centre, 1 / ZOOM_STEP));
     publish();
   }, [apply, centre, publish]);
 
+  // Fit deliberately does NOT mark the diagram adjusted: asking for the fitted view is asking for the
+  // view that follows the panel's size, so a later resize may refit it again.
   const fit = useCallback(() => {
+    adjusted.current = false;
     apply(fitTransform(layout, viewport));
     publish();
   }, [apply, layout, publish, viewport]);
 
   const reset = useCallback(() => {
+    adjusted.current = true;
     apply(IDENTITY);
     publish();
   }, [apply, publish]);
 
   const centreOn = useCallback(
     (node: ErdLayoutNode) => {
+      adjusted.current = true;
       const k = clampZoom(Math.max(liveRef.current.k, 1));
       apply({
         k,
@@ -258,13 +296,18 @@ export function useErdViewport(layout: Pick<ErdLayout, 'width' | 'height'>): Erd
 }
 
 /**
- * Whether a press landed on the diagram's own background rather than on a node.
+ * Whether a press landed on the diagram's background rather than on a table box.
  *
- * The `<svg>` and the background `<rect>` both count; anything inside a node's `<g>` does not. Asking
- * the element rather than stopping propagation in the node keeps the node component free of
+ * Stated as "not inside a node" rather than as a list of the elements that count as background, and
+ * that is the second bug the e2e tier caught: the first version tested `tagName === 'svg'`, which is
+ * true for a press into empty space and false for the several other things Chromium can name as the
+ * target of a press over an SVG — so a background drag silently did nothing. The intent was always
+ * "a press that started on a node belongs to that node", so this asks exactly that.
+ *
+ * Asking the element rather than stopping propagation inside the node keeps the node component free of
  * viewport concerns.
  */
-function isBackground(target: EventTarget): boolean {
+export function isDiagramBackground(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false;
-  return target.tagName === 'svg' || target.getAttribute('data-erd-background') === 'true';
+  return target.closest('[data-erd-node-id]') === null;
 }

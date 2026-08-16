@@ -403,6 +403,32 @@ describe('the toolbar', () => {
   });
 });
 
+describe('the gesture surface attaches to a canvas that mounts late', () => {
+  /**
+   * The regression this pins cost two e2e failures and is invisible in a happy-path render.
+   *
+   * `useErdViewport` is called by the PANEL and its host ref is attached by the CANVAS, which the panel
+   * does not render until the schema resolves. With a ref object, every effect in the hook ran once —
+   * during the spinner, with a null ref — returned early, and never re-ran: no `ResizeObserver`, so the
+   * viewport stayed 0×0 and fit-on-load did nothing, and no wheel listener, so the diagram could not be
+   * zoomed by wheel or trackpad at all. A callback ref is the fix, and this is the test that keeps it.
+   */
+  it('zooms on a wheel event delivered after the canvas appeared', async () => {
+    mount(erdTab());
+    // The spinner first, which is the whole point: the host does not exist yet.
+    expect(screen.getByTestId('erd-loading')).toBeTruthy();
+    await waitFor(() => expect(screen.getByTestId('erd-canvas')).toBeTruthy());
+
+    screen
+      .getByTestId('erd-canvas')
+      .dispatchEvent(
+        new WheelEvent('wheel', { deltaY: -300, clientX: 40, clientY: 40, bubbles: true })
+      );
+
+    await waitFor(() => expect(screen.getByTestId('erd-zoom-level').textContent).not.toBe('100%'));
+  });
+});
+
 describe('double-clicking a node', () => {
   it('opens its object tab', async () => {
     const user = userEvent.setup();
