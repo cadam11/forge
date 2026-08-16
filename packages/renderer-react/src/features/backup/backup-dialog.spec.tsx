@@ -10,8 +10,9 @@
  *  - **No toast, ever, while the dialog is open.** J-42: sonner sits above Radix's scrim but Radix
  *    disables pointer events on everything outside the dialog, so a toast raised here is visible and
  *    inert. The Angular dialog reported five different outcomes that way. A recording notifier is
- *    installed for every test in this file and asserted empty, which is a guard rather than a
- *    description — the next person to reach for `notify` inside this component fails this file.
+ *    installed in every `beforeEach` — so a stray `notify` is capturable anywhere — and asserted empty
+ *    at each of the outcomes Angular toasted: the completion, the failure, the probe error, the
+ *    re-check failure, the clipboard copy, and now the refusal to start a second dump.
  *  - **The progress stream reaches a terminal state.** `backup.onProgress` is the only signal a dump
  *    has finished; a subscription that is torn down or bound to the wrong operation shows up as a
  *    dialog that spins forever, which is exactly what a screenshot cannot catch.
@@ -44,8 +45,8 @@ import { IpcQueryProvider } from '../../ipc';
 import { TooltipProvider } from '../../ui';
 import { connectionStore } from '../../state/connection';
 import { setDiagnosticsSink, setNotifier } from '../../state/diagnostics';
-import { BackupDialog } from './backup-dialog';
-import { BackupDialogs } from './backup-dialogs';
+import { BackupDialog, type BackupRunCoordination } from './backup-dialog';
+import { BackupDialogs, resetBackupRunsForTests } from './backup-dialogs';
 
 const CONNECTION_ID = 'conn-1';
 const DATABASE = 'joinery_test';
@@ -156,7 +157,29 @@ function installBridge(tools: CliDepsResult): Bridge {
   return installed;
 }
 
-function mountDialog(engine: DatabaseEngine, onDismiss = () => undefined) {
+/**
+ * An in-flight record that knows about nothing.
+ *
+ * The real one lives in `backup-dialogs.tsx` and outlives the dialog, so the tests that exercise it
+ * mount `BackupDialogs` (see "one run at a time, across close and re-open"). Everything else in this
+ * file is about the dialog on its own, and an inert record keeps that separation honest: the dialog's
+ * `isForeignRun` answering `false` is exactly the state it is in before any other run exists.
+ */
+function inertRun(): BackupRunCoordination {
+  return {
+    inFlight: null,
+    onStarted: () => undefined,
+    onBound: () => undefined,
+    onFailedToStart: () => undefined,
+    isForeignRun: () => false,
+  };
+}
+
+function mountDialog(
+  engine: DatabaseEngine,
+  onDismiss = () => undefined,
+  run: BackupRunCoordination = inertRun()
+) {
   return render(
     <IpcQueryProvider>
       <TooltipProvider>
@@ -164,6 +187,7 @@ function mountDialog(engine: DatabaseEngine, onDismiss = () => undefined) {
           connectionId={CONNECTION_ID}
           databaseName={DATABASE}
           engine={engine}
+          run={run}
           onDismiss={onDismiss}
         />
       </TooltipProvider>
@@ -226,6 +250,9 @@ beforeEach(() => {
 afterEach(() => {
   while (teardowns.length > 0) teardowns.pop()?.();
   removeJoineryMock();
+  // The in-flight record is module state by design (it outlives the dialog), so it has to be cleared
+  // or a test that starts a dump blocks the next one.
+  resetBackupRunsForTests();
   connectionStore.setState({
     profiles: [],
     connectedProfileIds: new Set(),
@@ -719,6 +746,26 @@ describe('running a backup', () => {
     expect(screen.queryByTestId('backup-success')).toBeNull();
   });
 
+  it('binds the operation id the START reply carried, before any event arrives', async () => {
+    // Preload declares `backup.start` as `Promise<void>`, but every engine's handler returns the id
+    // (`backup.ipc.ts:49`), so the dialog recovers it by inspection — and is then armed against a
+    // sibling operation's events from the first tick rather than from its own first event. Correcting
+    // the preload declaration is J-48 item h.
+    bridge.start.mockResolvedValueOnce('op-mine');
+    const user = userEvent.setup();
+    await mountOnForm('postgresql');
+    await setPath(user, '/tmp/sales.dump');
+    await user.click(screen.getByTestId('backup-start'));
+    await screen.findByTestId('backup-progress');
+
+    act(() => {
+      bridge.progress.emit({ backupId: 'op-other', status: 'completed', percentComplete: 100 });
+    });
+
+    expect(screen.queryByTestId('backup-success')).toBeNull();
+    expect(screen.getByTestId('backup-progress')).toBeTruthy();
+  });
+
   it('leaves exactly one live progress subscription', async () => {
     const { unmount } = await mountOnForm('postgresql');
     expect(bridge.progress.liveCount()).toBe(1);
@@ -729,20 +776,20 @@ describe('running a backup', () => {
 
 // ── the command wiring ───────────────────────────────────────────────────────────────────────
 
+function mountConsumer() {
+  return render(
+    <IpcQueryProvider>
+      <TooltipProvider>
+        <BackupDialogs />
+      </TooltipProvider>
+    </IpcQueryProvider>
+  );
+}
+
 describe('the two backup commands', () => {
   beforeEach(() => {
     bridge = installBridge(TOOLS_PRESENT);
   });
-
-  function mountConsumer() {
-    return render(
-      <IpcQueryProvider>
-        <TooltipProvider>
-          <BackupDialogs />
-        </TooltipProvider>
-      </IpcQueryProvider>
-    );
-  }
 
   it('renders nothing until a command arrives', () => {
     mountConsumer();
@@ -770,7 +817,10 @@ describe('the two backup commands', () => {
     expect(dialog.textContent).toContain('Back up orders_db');
   });
 
-  it('resolves the menu’s payload-free command from the focused connection', async () => {
+  // Not "the focused connection": `mostRecentConnectionId()` is what resolves it, and the two differ.
+  // Focus derives from the active query tab alone, so this connection — connected, with a database
+  // chosen, and no query tab open — has no focus at all and the menu item would refuse for it.
+  it('resolves the menu’s payload-free command through mostRecentConnectionId, not focus', async () => {
     connectionStore.setState({
       profiles: [profile('mssql')],
       connectedProfileIds: new Set([CONNECTION_ID]),
@@ -809,5 +859,139 @@ describe('the two backup commands', () => {
 
     expect(screen.queryByTestId('backup-dialog')).toBeNull();
     expect(notifications).toEqual(['error: That connection no longer exists.']);
+  });
+});
+
+// ── one dump at a time ───────────────────────────────────────────────────────────────────────
+//
+// The dump outlives its dialog — closing does not stop it, because nothing can (J-48 item e). Nothing
+// in `packages/main` refuses a second dump of the same database either: `pg-backup.ts` mints a fresh
+// operation id per call and never looks at the destination, so two `pg_dump` processes interleave into
+// one archive and BOTH report success (J-48 item f). These tests are the renderer-side mitigation, and
+// they are written through `BackupDialogs` rather than the dialog because the record surviving the
+// close is the whole point.
+
+describe('one run at a time, across close and re-open', () => {
+  beforeEach(() => {
+    bridge = installBridge(TOOLS_PRESENT);
+    connectionStore.setState({
+      profiles: [profile('postgresql')],
+      connectedProfileIds: new Set([CONNECTION_ID]),
+      selectedDatabaseByConnection: new Map([[CONNECTION_ID, DATABASE]]),
+    });
+  });
+
+  /** Open the wizard on one database and start a dump to `path`. Leaves the dialog open. */
+  async function startRun(
+    user: ReturnType<typeof userEvent.setup>,
+    databaseName: string,
+    path: string
+  ): Promise<void> {
+    act(() => {
+      dispatchCommand('backup-database', { connectionId: CONNECTION_ID, databaseName });
+    });
+    await screen.findByTestId('backup-path');
+    await setPath(user, path);
+    await user.click(screen.getByTestId('backup-start'));
+    await screen.findByTestId('backup-progress');
+  }
+
+  it('refuses a second dump of the same database when the dialog is re-opened onto it', async () => {
+    const user = userEvent.setup();
+    mountConsumer();
+    await startRun(user, DATABASE, '/tmp/sales.dump');
+
+    // The bridge double resolves `start` with `undefined`, as its preload declaration promises; the
+    // real handler returns the operation id and the dialog binds it immediately. Here the first
+    // progress line is what binds it, which is the fallback path.
+    act(() => {
+      bridge.progress.emit({ backupId: 'op-1', status: 'running', percentComplete: -1 });
+    });
+
+    // Close it. The dump keeps going — the dialog says so, and there is no cancel to offer.
+    await user.click(screen.getByTestId('backup-close'));
+    await waitFor(() => expect(screen.queryByTestId('backup-dialog')).toBeNull());
+
+    // Re-open on the same database, which is the sequence that used to start a second `pg_dump`.
+    act(() => {
+      dispatchCommand('backup-database', { connectionId: CONNECTION_ID, databaseName: DATABASE });
+    });
+
+    const note = await screen.findByTestId('backup-in-flight');
+    expect(note.textContent).toContain('A backup of this database is still running');
+    expect(note.textContent).toContain('/tmp/sales.dump');
+
+    // Blocked, not warned: the button is refused and pressing it reaches no bridge call.
+    const startButton = screen.getByTestId('backup-start') as HTMLButtonElement;
+    expect(startButton.disabled).toBe(true);
+    await user.click(startButton);
+    expect(bridge.start).toHaveBeenCalledOnce();
+
+    // The other way a form gets submitted. Implicit submission is suppressed by the disabled default
+    // button, and `startBackup` refuses as well — belt and braces, asserted at the behaviour.
+    await user.click(screen.getByTestId('backup-path'));
+    await user.keyboard('{Enter}');
+    expect(bridge.start).toHaveBeenCalledOnce();
+
+    // …and it is a statement inside the dialog, not a toast above it (J-42).
+    expect(notifications).toEqual([]);
+  });
+
+  it('lifts the refusal as soon as the first dump reports it is done', async () => {
+    const user = userEvent.setup();
+    mountConsumer();
+    await startRun(user, DATABASE, '/tmp/sales.dump');
+    act(() => {
+      bridge.progress.emit({ backupId: 'op-1', status: 'running', percentComplete: -1 });
+    });
+    await user.click(screen.getByTestId('backup-close'));
+    await waitFor(() => expect(screen.queryByTestId('backup-dialog')).toBeNull());
+
+    // The run finishes with no dialog on screen at all, which is why the subscription that retires it
+    // is on `BackupDialogs` and not on the wizard.
+    act(() => {
+      bridge.progress.emit({ backupId: 'op-1', status: 'completed', percentComplete: 100 });
+    });
+
+    act(() => {
+      dispatchCommand('backup-database', { connectionId: CONNECTION_ID, databaseName: DATABASE });
+    });
+
+    await screen.findByTestId('backup-path');
+    expect(screen.queryByTestId('backup-in-flight')).toBeNull();
+    expect((screen.getByTestId('backup-start') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('never lets an older run’s completion be adopted by a newer one', async () => {
+    const user = userEvent.setup();
+    mountConsumer();
+
+    // Run A, bound to op-a, then closed while it is still going.
+    await startRun(user, 'orders_db', '/tmp/orders.dump');
+    act(() => {
+      bridge.progress.emit({ backupId: 'op-a', status: 'running', percentComplete: -1 });
+    });
+    await user.click(screen.getByTestId('backup-close'));
+    await waitFor(() => expect(screen.queryByTestId('backup-dialog')).toBeNull());
+
+    // Run B, on a different database, so the record does not refuse it. It has no id of its own yet.
+    await startRun(user, DATABASE, '/tmp/sales.dump');
+
+    // A finishes. Without the record this event would be the first one B ever saw, and B would report
+    // a success for a file it never wrote.
+    act(() => {
+      bridge.progress.emit({ backupId: 'op-a', status: 'completed', percentComplete: 100 });
+    });
+
+    expect(screen.queryByTestId('backup-success')).toBeNull();
+    expect(screen.getByTestId('backup-progress')).toBeTruthy();
+
+    // B's own completion still lands.
+    act(() => {
+      bridge.progress.emit({ backupId: 'op-b', status: 'completed', percentComplete: 100 });
+    });
+    const success = await screen.findByTestId('backup-success');
+    expect(success.textContent).toContain('Backup complete');
+    expect(screen.getByTestId('backup-success-path').textContent).toBe('/tmp/sales.dump');
   });
 });

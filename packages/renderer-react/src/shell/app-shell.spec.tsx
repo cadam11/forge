@@ -34,7 +34,9 @@ const inertSubscription = () => () => undefined;
  * The bridge members the shell touches on mount. Deliberately not the whole `JoineryAPI` — see the
  * header of `test/joinery-mock.ts` — but it does have to include every `on*` member the shell
  * subscribes to, because `useIpcEvent` calls them for real: the 31 `menu.on*` channels the bridge
- * routes, plus `logs.onEntry` and `theme.onChanged`.
+ * routes, plus `logs.onEntry`, `theme.onChanged`, and `backup.onProgress` — `BackupDialogs` holds that
+ * last one for the app's lifetime rather than only while its dialog is open, because a dump outlives
+ * the dialog and its in-flight record has to be retired when it finishes (see `backup-dialogs.tsx`).
  */
 function installShellBridge(double: AppStateDouble): void {
   const menu = Object.fromEntries(MENU_CHANNELS.map(channel => [channel, inertSubscription]));
@@ -43,6 +45,7 @@ function installShellBridge(double: AppStateDouble): void {
     installJoineryMock({
       app: { ...double.app, getVersion: () => Promise.resolve('1.2.3') },
       connection: { list: () => Promise.resolve([]) },
+      backup: { onProgress: inertSubscription },
       logs: {
         getRecent: () => Promise.resolve([]),
         append: () => Promise.resolve(),

@@ -38,7 +38,7 @@
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
-import { CircleCheck, CircleX, DatabaseBackup, FolderOpen } from 'lucide-react';
+import { CircleCheck, CircleX, DatabaseBackup, FolderOpen, TriangleAlert } from 'lucide-react';
 import type { BackupHistoryEntry, BackupRequest, DatabaseEngine } from '@joinery/shared';
 
 import {
@@ -68,6 +68,7 @@ import {
   BACKUP_TYPES,
   applyProgress,
   backupTsql,
+  bindRunId,
   cliEngineFor,
   defaultBackupValues,
   destinationIsServerSide,
@@ -82,16 +83,44 @@ import {
   type BackupPhase,
 } from './backup-model';
 
+/**
+ * The window's record of dumps that are still running, as this dialog needs it.
+ *
+ * The record itself lives in `backup-dialogs.tsx` because a dump outlives the dialog that started it —
+ * see that file's header. Passed in rather than read here so this component keeps one source of truth
+ * for "is something already running", and so its spec can mount it with an inert one.
+ */
+export interface BackupRunCoordination {
+  /** A run against **this** database that has not reported a terminal event yet, or `null`. */
+  readonly inFlight: { readonly path: string } | null;
+  /** This dialog has just asked the main process to start a dump to `path`. */
+  readonly onStarted: (path: string) => void;
+  /** The operation id of this dialog's run, as soon as it is known. */
+  readonly onBound: (backupId: string) => void;
+  /** The start call was refused, so there is no run to record — retire the entry `onStarted` made. */
+  readonly onFailedToStart: () => void;
+  /** Whether an operation id belongs to some *other* run — `applyProgress`'s guard. */
+  readonly isForeignRun: (backupId: string) => boolean;
+}
+
 export interface BackupDialogProps {
   readonly connectionId: string;
   readonly databaseName: string;
   /** The profile's engine. Every option decision in this dialog reads it. */
   readonly engine: DatabaseEngine;
+  /** The in-flight record, which outlives this dialog. */
+  readonly run: BackupRunCoordination;
   /** Escape, the close button, or Close/Cancel. */
   readonly onDismiss: () => void;
 }
 
-export function BackupDialog({ connectionId, databaseName, engine, onDismiss }: BackupDialogProps) {
+export function BackupDialog({
+  connectionId,
+  databaseName,
+  engine,
+  run,
+  onDismiss,
+}: BackupDialogProps) {
   const options = engineBackupOptions(engine);
   const cliEngine = cliEngineFor(engine);
   const serverSide = destinationIsServerSide(engine);
@@ -196,12 +225,21 @@ export function BackupDialog({ connectionId, databaseName, engine, onDismiss }: 
   // returns the SAME object when the event is not ours — an unrelated operation's progress costs no
   // render.
   useIpcEvent('backup', 'onProgress', progress => {
+    // Asked here rather than inside the updater: the updater has to be pure, and this is a read of
+    // state outside React that a double-invoked updater should not be making.
+    const foreign = run.isForeignRun(progress.backupId);
     // `null` means no action has moved the dialog off the probe's phase, so no backup of ours is
     // running and there is nothing for this event to change.
-    setActionPhase(previous => (previous === null ? null : applyProgress(previous, progress)));
+    setActionPhase(previous =>
+      previous === null ? null : applyProgress(previous, progress, () => foreign)
+    );
   });
 
   const startBackup = form.handleSubmit(current => {
+    // A dump of this database that this window started is still going, and neither end can stop it
+    // (J-48 items e and f). Refusing is the only answer that cannot corrupt an archive.
+    if (run.inFlight !== null) return;
+
     const path = current.backupPath.trim();
     if (path === '') {
       setActionHint('Choose where the backup should be written.');
@@ -222,14 +260,28 @@ export function BackupDialog({ connectionId, databaseName, engine, onDismiss }: 
 
     setActionHint(undefined);
     setActionPhase({ kind: 'running', path, backupId: null, progress: null });
+    run.onStarted(path);
 
     // The mutation resolves as soon as the main process has *started* the operation; completion
     // arrives on `onProgress`. A rejection here means it never started at all, which is a terminal
     // failure for this attempt.
     start.mutate([request], {
+      onSuccess: started => {
+        // `backup.start` is declared `Promise<void>` in preload, but every engine's handler returns
+        // the operation id (`backup.ipc.ts:49`) — so the id is recovered by inspection rather than by
+        // type, and the dialog carries on binding from the first event if it is ever absent. Fixing
+        // the preload declaration is J-48 item h.
+        const id: unknown = started;
+        if (typeof id !== 'string' || id === '') return;
+        setActionPhase(previous => (previous === null ? null : bindRunId(previous, id)));
+        run.onBound(id);
+      },
       onError: error => {
         diagnostics.error('the backup could not be started', error);
         setActionPhase({ kind: 'failed', message: error.message });
+        // Nothing is running, so the record must not keep saying one is — otherwise a refused start
+        // locks this database out of the feature for the rest of the session.
+        run.onFailedToStart();
       },
     });
   });
@@ -518,7 +570,7 @@ export function BackupDialog({ connectionId, databaseName, engine, onDismiss }: 
           // action row, which is visible and means nothing.
           data-testid="backup-answer-band"
         >
-          {answerPanel(phase)}
+          {answerPanel(phase, run.inFlight)}
         </FormAnswerBand>
 
         <DialogActions>
@@ -546,6 +598,9 @@ export function BackupDialog({ connectionId, databaseName, engine, onDismiss }: 
               variant="primary"
               type="submit"
               leadingIcon={DatabaseBackup}
+              // Refused while this window's own dump of this database is still going. The band above
+              // says why; see `InFlightPanel`.
+              disabled={run.inFlight !== null}
               data-testid="backup-start"
             >
               Start backup
@@ -564,11 +619,43 @@ export function BackupDialog({ connectionId, databaseName, engine, onDismiss }: 
  * the band renders nothing only when `children` is `null`, and three sibling ternaries produce an array
  * of three nulls, which is not.
  */
-function answerPanel(phase: BackupPhase): ReactNode {
+function answerPanel(phase: BackupPhase, inFlight: { readonly path: string } | null): ReactNode {
   if (phase.kind === 'running') return <ProgressPanel phase={phase} />;
   if (phase.kind === 'done') return <DonePanel path={phase.path} elapsedMs={phase.elapsedMs} />;
   if (phase.kind === 'failed') return <FailedPanel message={phase.message} />;
+  // The form, re-opened onto a dump that is still going. Stated here rather than as a hint because it
+  // is the reason the button next to it will not do anything.
+  if (inFlight !== null) return <InFlightPanel path={inFlight.path} />;
   return null;
+}
+
+/**
+ * The re-opened dialog, over a dump that is still running.
+ *
+ * Blocking rather than warning, and the reason is that neither end can undo the alternative: nothing
+ * in `packages/main` refuses a second dump of the same database (J-48 item f — `pg-backup.ts` mints a
+ * fresh operation id per call and never looks at the destination), two `pg_dump` processes writing one
+ * archive corrupt it while **both** report success, and there is no working cancel to recover with
+ * (J-48 item e). A warning the user can click past buys nothing here: the run they would be racing is
+ * one they started seconds ago and can simply wait out.
+ */
+function InFlightPanel({ path }: { readonly path: string }) {
+  return (
+    <div
+      className="flex items-start gap-2 rounded-sm border-l-2 border-warning bg-surface p-3"
+      data-testid="backup-in-flight"
+    >
+      <Icon icon={TriangleAlert} size="md" className="mt-0.5 shrink-0 stroke-warning" />
+      <div className="flex min-w-0 flex-col gap-1">
+        <p className="text-md text-fg">A backup of this database is still running</p>
+        <p className="text-sm break-words text-fg-muted text-pretty">
+          Started from this window and writing to{' '}
+          <span className="font-mono break-all">{path}</span>. Wait for it to finish before starting
+          another — a second dump can’t be cancelled and can corrupt the first one’s file.
+        </p>
+      </div>
+    </div>
+  );
 }
 
 /**

@@ -18,11 +18,15 @@
  *  - the `server-path.ts` helpers, for the browser's path arithmetic.
  *
  * `BackupDialog` itself is exported for its spec and for nothing else — the app reaches it only through
- * the command bus.
+ * the command bus. `BackupRunCoordination` comes with it (the spec has to hand it one), and
+ * `resetBackupRunsForTests` exists because the in-flight record is module state that would otherwise
+ * outlive a test — see `backup-dialogs.tsx`'s header for why the record is not component state. Task 13
+ * will want the same guard for restores, and it should reuse this record rather than start a second one:
+ * a restore of a database that is mid-dump is the same class of collision.
  */
 
-export { BackupDialog, type BackupDialogProps } from './backup-dialog';
-export { BackupDialogs } from './backup-dialogs';
+export { BackupDialog, type BackupDialogProps, type BackupRunCoordination } from './backup-dialog';
+export { BackupDialogs, resetBackupRunsForTests } from './backup-dialogs';
 export { MissingCliTools, type MissingCliToolsProps } from './missing-cli-tools';
 export {
   ServerFileBrowser,
@@ -32,6 +36,7 @@ export {
 export {
   applyProgress,
   backupTsql,
+  bindRunId,
   BACKUP_TYPES,
   cliEngineFor,
   defaultBackupValues,

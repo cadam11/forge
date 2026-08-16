@@ -27,7 +27,7 @@
  *     full backup overwriting the file, offered under a label promising a log backup. That is
  *     worse than not offering it, so `BACKUP_TYPES` stops at Differential.
  *
- * All four are main-process gaps, recorded as follow-ups. Reproducing the controls would have
+ * All four are main-process gaps, filed as **J-48** (items a–d). Reproducing the controls would have
  * reproduced exactly the class of bug PLAN.md 0.4 exists to kill: an affordance indistinguishable
  * from a working one.
  */
@@ -239,10 +239,11 @@ export type BackupPhase =
   /**
    * A backup is in flight.
    *
-   * `backupId` is learned from the first progress event rather than generated here: `backup.start`
-   * is typed `Promise<void>` in preload even though the main handler returns the id, and PG/MySQL
-   * mint their own uuid regardless of `BackupRequest.backupId` (`pg-backup.ts:47`). The event is the
-   * only honest source.
+   * `backupId` is learned rather than generated here: PG/MySQL mint their own uuid regardless of
+   * `BackupRequest.backupId` (`pg-backup.ts:47`), so the main process is the only honest source. It is
+   * bound from the START reply where that reply carries it (`bindRunId`) and from the first progress
+   * event otherwise — `null` is the window in between, which `applyProgress` guards with the caller's
+   * in-flight record.
    *
    * `path` is captured at start rather than read from the form when the run finishes, so the
    * terminal state names the file that was actually written even if the form is later reset.
@@ -294,17 +295,52 @@ export function derivePhase(engine: DatabaseEngine, probe: ToolsProbe): BackupPh
 }
 
 /**
+ * Bind a running phase to the operation id `backup.start` answered with, once.
+ *
+ * The id is bound as early as it can be — from the START reply rather than from the first progress
+ * event — so the identity check in `applyProgress` is armed from the first tick instead of only after
+ * an event has already been adopted. `backup.start` is typed `Promise<void>` in preload while the main
+ * handler returns the id (`backup.ipc.ts:49`), so the caller has to recover it at runtime; that
+ * mistyping is J-48 item h.
+ *
+ * A no-op unless the phase is still running and still unbound: an event that got there first is the
+ * better answer, because it came from the operation that is actually reporting.
+ */
+export function bindRunId(phase: BackupPhase, backupId: string): BackupPhase {
+  if (phase.kind !== 'running') return phase;
+  if (phase.backupId !== null) return phase;
+  return { ...phase, backupId };
+}
+
+/**
  * Fold one `backup.onProgress` event into the phase.
  *
  * Ignores events that arrive while no backup of ours is running — the channel is per-window, not
  * per-dialog, so a restore's sibling channel or a stale event from a previous invocation must not
  * resurrect a closed flow. That is also why the returned phase is the *same object* when nothing
  * changed: the caller sets state unconditionally and `Object.is` keeps the render out.
+ *
+ * `isForeignRun` is what protects the window before the id is bound. A dump the user started, closed
+ * the dialog on, and left running keeps emitting on this same channel; its `completed` could otherwise
+ * be adopted by a *later* run that has not learned its own id yet, and the dialog would report a
+ * success for a file it never wrote. The caller answers from the in-flight record it keeps across
+ * dialog lifetimes (`backup-dialogs.tsx`), so only ids known to belong to another run are refused —
+ * an unknown id is still ours, which is what keeps a `completed`-first stream (a dump that finishes
+ * before its first progress line) from hanging the dialog on a spinner.
  */
-export function applyProgress(phase: BackupPhase, progress: BackupProgress): BackupPhase {
+export function applyProgress(
+  phase: BackupPhase,
+  progress: BackupProgress,
+  isForeignRun: (backupId: string) => boolean = () => false
+): BackupPhase {
   if (phase.kind !== 'running') return phase;
-  // A second operation's events cannot reach a dialog that has already bound its id.
-  if (phase.backupId !== null && progress.backupId !== phase.backupId) return phase;
+  // A second operation's events cannot reach a dialog that has already bound its id; before it has
+  // one, they cannot reach it either if the window knows they belong to a different run.
+  if (phase.backupId !== null) {
+    if (progress.backupId !== phase.backupId) return phase;
+  } else if (isForeignRun(progress.backupId)) {
+    return phase;
+  }
 
   if (progress.status === 'completed') {
     return { kind: 'done', path: phase.path, ...(elapsed(progress) ?? {}) };

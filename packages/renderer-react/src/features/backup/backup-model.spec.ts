@@ -14,6 +14,7 @@ import type { BackupProgress, CliDepsResult, DatabaseEngine } from '@joinery/sha
 import {
   BACKUP_TYPES,
   applyProgress,
+  bindRunId,
   backupTsql,
   cliEngineFor,
   defaultBackupValues,
@@ -273,8 +274,9 @@ describe('applyProgress', () => {
   };
 
   it('binds the operation id from the first event', () => {
-    // `backup.start` is typed `Promise<void>` in preload and PG/MySQL mint their own uuid regardless of
-    // `BackupRequest.backupId`, so the event is the only honest source of the id.
+    // The fallback source. PG/MySQL mint their own uuid regardless of `BackupRequest.backupId`, so the
+    // main process is the only honest source of the id; `bindRunId` takes it from the START reply where
+    // that reply carries it, and this is what happens when it does not.
     const next = applyProgress(running, progress({ backupId: 'op-9' }));
     expect(next).toEqual({
       kind: 'running',
@@ -289,6 +291,48 @@ describe('applyProgress', () => {
     const next = applyProgress(bound, progress({ backupId: 'op-2', status: 'completed' }));
     // The same object, so the caller's unconditional `setState` costs no render.
     expect(next).toBe(bound);
+  });
+
+  it('refuses a completion from a run the window knows is somebody else’s', () => {
+    // The reviewed hole: a dump the user closed the dialog on keeps emitting on this same channel, and
+    // its `completed` used to be adopted by whichever run had not learned its own id yet — reporting a
+    // success for a file this dialog never wrote.
+    const next = applyProgress(
+      running,
+      progress({ backupId: 'op-older', status: 'completed' }),
+      backupId => backupId === 'op-older'
+    );
+    expect(next).toBe(running);
+  });
+
+  it('still adopts an unknown id, so a completion that arrives first cannot hang the dialog', () => {
+    // The other half of the same comparison: only ids the window can *prove* belong to another run are
+    // refused. A dump that finishes before it emits a single progress line is otherwise a spinner
+    // forever.
+    const next = applyProgress(
+      running,
+      progress({ backupId: 'op-9', status: 'completed' }),
+      backupId => backupId === 'op-older'
+    );
+    expect(next).toEqual({ kind: 'done', path: '/tmp/sales.dump' });
+  });
+
+  it('binds the id from the START reply, before any event can bind it wrong', () => {
+    const bound = bindRunId(running, 'op-7');
+    expect(bound).toEqual({ ...running, backupId: 'op-7' });
+    // Armed from that moment: a foreign completion is refused by identity alone, with no help from the
+    // in-flight record.
+    expect(applyProgress(bound, progress({ backupId: 'op-older', status: 'completed' }))).toBe(
+      bound
+    );
+  });
+
+  it('never re-binds a run, and never binds a phase that is not running', () => {
+    const bound = bindRunId(running, 'op-7');
+    // An event got there first; that answer came from the operation that is actually reporting.
+    expect(bindRunId(bound, 'op-8')).toBe(bound);
+    const done: BackupPhase = { kind: 'done', path: '/tmp/sales.dump' };
+    expect(bindRunId(done, 'op-8')).toBe(done);
   });
 
   it('ignores every event while no backup of ours is running', () => {
