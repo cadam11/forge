@@ -8,7 +8,8 @@
  *  - the **geometry**: toolbar / editor / divider / results, and the persisted split between the last two;
  *  - the **bindings** between the tab and the editor: initial content, content → `setTabContent`, caret →
  *    the status bar, engine → the tokenizer;
- *  - the **⌃E confirm gate**, which is a keystroke's gate and not the menu item's;
+ *  - the **two execute gates**: ⌃E's one-time confirmation, which is a keystroke's and not the menu
+ *    item's, and `QuerySettings.confirmBeforeExecute`, which is every entry point's (Task 15);
  *  - **auto-execute**, for a tab opened from the explorer or an FK link with SQL already in it;
  *  - the **`layout()` on re-activation** that PLAN.md R5 finding 4 requires.
  *
@@ -50,7 +51,7 @@ import {
   workbenchStore,
 } from '../../state/workbench';
 import { cn } from '../../ui';
-import { ConfirmExecuteDialog } from './confirm-execute-dialog';
+import { ConfirmExecuteDialog, type ExecuteGate } from './confirm-execute-dialog';
 import { PlaceholderDialog } from './placeholder-dialog';
 import { QueryCommands } from './query-commands';
 import { QueryResults } from './query-results';
@@ -85,7 +86,20 @@ export function QueryPanel(props: IDockviewPanelProps) {
   /** The split container, measured at drag start so a percentage divider knows what 1px is worth. */
   const splitPane = useRef<HTMLDivElement | null>(null);
   const [resultsHidden, setResultsHidden] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  /**
+   * The run waiting on a confirmation: the SQL it would send, and which gate stopped it. `null` when
+   * nothing is waiting, which is also what closes the dialog.
+   *
+   * The SQL is captured when the gate opens rather than re-read when it closes. Both are correct — the
+   * dialog is modal, so the document cannot change underneath — but capturing makes ONE code path serve
+   * a whole-editor run and a selection run, and it is the selection that needs it: `executeSelection`
+   * has already validated a selection by the time the gate opens, and re-deriving it afterwards would
+   * be a second chance to disagree with the check that let it through.
+   */
+  const [pendingRun, setPendingRun] = useState<{
+    readonly sql: string;
+    readonly gate: ExecuteGate;
+  } | null>(null);
 
   const runQuery = useRunQuery();
 
@@ -111,13 +125,38 @@ export function QueryPanel(props: IDockviewPanelProps) {
     [tabId]
   );
 
-  /** Execute what the caret, the selection and the `executeScope` setting select. */
+  /** Send SQL to the executor, with no gate. Everything below funnels here, and so does the dialog. */
+  const runNow = useCallback(
+    (sql: string): void => {
+      void runQuery.run(runContext(sql));
+    },
+    [runContext, runQuery]
+  );
+
+  /** What the caret, the selection and the `executeScope` setting select. */
+  const statementSql = useCallback(
+    (): string =>
+      editor.current?.textToExecute(useSettingsStore.getState().settings.query.executeScope) ?? '',
+    []
+  );
+
+  /**
+   * Execute. Consumed by the toolbar button, Query ▸ Execute, ⌘↩ and F5 — every ungated entry point,
+   * which is what makes `QuerySettings.confirmBeforeExecute` a real setting rather than a keystroke's
+   * private business: switching it on means *every* one of those asks first.
+   *
+   * Read from the store at press time, not through a subscription, for the same reason `runContext` is
+   * a function: this callback is installed once into Monaco keybindings and a captured value would be
+   * whatever the setting was when the editor mounted.
+   */
   const execute = useCallback((): void => {
-    const sql = editor.current?.textToExecute(
-      useSettingsStore.getState().settings.query.executeScope
-    );
-    void runQuery.run(runContext(sql ?? ''));
-  }, [runContext, runQuery]);
+    const sql = statementSql();
+    if (useSettingsStore.getState().settings.query.confirmBeforeExecute) {
+      setPendingRun({ sql, gate: 'always' });
+      return;
+    }
+    runNow(sql);
+  }, [runNow, statementSql]);
 
   /**
    * Query ▸ Execute Selection (⇧⌘↩).
@@ -148,17 +187,35 @@ export function QueryPanel(props: IDockviewPanelProps) {
       notify.warning('Select some SQL to execute');
       return;
     }
-    void runQuery.run(runContext(selection));
-  }, [runContext, runQuery]);
-
-  /** ⌃E / ⌘E: the one-time gate, then execute. Ported from `handleCtrlEExecute` (`:1545-1553`). */
-  const executeWithGate = useCallback((): void => {
-    if (editorPrefsStore.getState().confirmedCtrlEExecute) {
-      execute();
+    // The refusals come FIRST and the confirmation second: being asked "execute this?" and then told
+    // there was nothing to execute would be the wrong order to learn that in.
+    if (useSettingsStore.getState().settings.query.confirmBeforeExecute) {
+      setPendingRun({ sql: selection, gate: 'always' });
       return;
     }
-    setConfirmOpen(true);
-  }, [execute]);
+    runNow(selection);
+  }, [runNow]);
+
+  /**
+   * ⌃E / ⌘E: the gate, then execute. Ported from `handleCtrlEExecute` (`:1545-1553`).
+   *
+   * Two gates can apply and the ORDER matters. `confirmBeforeExecute` is checked first, because it is
+   * the stronger statement — a user who asked to confirm every execute has asked to confirm this one,
+   * and the ⌃E gate's "Don't ask me again" must not appear on a confirmation that the setting will raise
+   * again next time regardless. Only when the setting is off does the one-time shortcut gate apply.
+   */
+  const executeWithGate = useCallback((): void => {
+    const sql = statementSql();
+    if (useSettingsStore.getState().settings.query.confirmBeforeExecute) {
+      setPendingRun({ sql, gate: 'always' });
+      return;
+    }
+    if (editorPrefsStore.getState().confirmedCtrlEExecute) {
+      runNow(sql);
+      return;
+    }
+    setPendingRun({ sql, gate: 'ctrl-e' });
+  }, [runNow, statementSql]);
 
   const format = useCallback((): void => {
     const sql = editor.current?.getValue() ?? '';
@@ -210,13 +267,18 @@ export function QueryPanel(props: IDockviewPanelProps) {
    * Here the effect runs after the editor's own mount effect has installed the handle, so there is nothing
    * to wait for: the flag is cleared and the run starts on the same commit. The clear happens FIRST, which
    * is what stops a re-render from running it twice.
+   *
+   * **Not gated by `confirmBeforeExecute`, deliberately.** The flag is only ever set by an explicit
+   * action that already named the query — the explorer's "select top 1000", an FK link — so the tab
+   * arriving with a result is what the user asked for. A confirmation here would ask "execute this?"
+   * about SQL the user has not seen yet, in a tab that opened because they clicked something else.
    */
   useEffect(() => {
     if (tab?.autoExecute !== true || tab.type !== 'query') return;
     tabStore.getState().clearAutoExecute(tabId);
     const sql = tabStore.getState().getTabContent(tabId);
     if (sql.trim() === '') return;
-    void runQuery.run(runContext(sql));
+    runNow(sql);
     // `runQuery` and `runContext` are stable for the tab's lifetime; the trigger is the flag.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab?.autoExecute, tabId]);
@@ -377,16 +439,22 @@ export function QueryPanel(props: IDockviewPanelProps) {
       </div>
 
       <ConfirmExecuteDialog
-        open={confirmOpen}
+        open={pendingRun !== null}
+        // `?? 'ctrl-e'` is unreachable while the dialog is open — the prop above is exactly
+        // `pendingRun !== null` — and it is a default rather than a non-null assertion so that a closed
+        // dialog still type-checks without one.
+        gate={pendingRun?.gate ?? 'ctrl-e'}
         // Focus goes back to the editor either way — see `onReturnFocus`. It has to be Radix's
         // close-autofocus hook rather than a `focus()` inside these handlers: Radix moves focus AFTER
         // they run, so an earlier call is simply overridden.
         onReturnFocus={() => editor.current?.focus()}
-        onCancel={() => setConfirmOpen(false)}
+        onCancel={() => setPendingRun(null)}
         onConfirm={remember => {
-          setConfirmOpen(false);
+          const confirmed = pendingRun;
+          setPendingRun(null);
+          if (confirmed === null) return;
           if (remember) editorPrefsStore.getState().confirmCtrlEExecute();
-          execute();
+          runNow(confirmed.sql);
         }}
       />
 

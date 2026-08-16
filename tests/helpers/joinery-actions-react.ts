@@ -913,3 +913,101 @@ export async function captureResult(window: Page, expectedPinned: number): Promi
 export function pinnedHistoryRows(window: Page): Locator {
   return historyRows(window).and(window.locator('[data-pinned="true"]'));
 }
+
+// ── The settings panel (Task 15) ────────────────────────────────────────────
+//
+// One prefix, `settings-*`, and one entry point: the panel is opened by the
+// `menu:open-settings` channel, which is what ⌘, sends. There is no button for
+// it in the app chrome, so `sendMenuCommand` is not a shortcut around the UI
+// here — it IS the UI.
+//
+// Every control is located by testid and every value is read back through the
+// consumer rather than through the control, because that is the whole point of
+// this surface's tests (J-44): a toggle that flips and changes nothing is the
+// defect, so asserting the toggle flipped proves nothing.
+
+/** The four groups, which are Radix tabs — an inactive one is not in the DOM. */
+export type SettingsGroup = 'appearance' | 'editor' | 'query' | 'grid';
+
+/** The panel, if it is open. */
+export function settingsDialog(window: Page): Locator {
+  return window.getByTestId('settings-dialog');
+}
+
+/** Opens the panel the way ⌘, does, and waits for it. */
+export async function openSettings(app: ElectronApplication, window: Page): Promise<Locator> {
+  await sendMenuCommand(app, 'menu:open-settings');
+  const dialog = settingsDialog(window);
+  await expect(dialog).toBeVisible({ timeout: UI_TIMEOUT_MS });
+  return dialog;
+}
+
+/** Switches to one of the four groups and waits for its controls to be in the DOM. */
+export async function openSettingsGroup(window: Page, group: SettingsGroup): Promise<Locator> {
+  await window.getByTestId(`settings-tab-${group}`).click();
+  const groupElement = window.getByTestId(`settings-group-${group}`);
+  await expect(groupElement).toBeVisible({ timeout: UI_TIMEOUT_MS });
+  return groupElement;
+}
+
+/** Closes the panel with Escape, which is Radix's own dismissal. */
+export async function closeSettings(window: Page): Promise<void> {
+  await window.keyboard.press('Escape');
+  await expect(settingsDialog(window)).toBeHidden({ timeout: UI_TIMEOUT_MS });
+}
+
+/**
+ * Picks one of the three theme states in the panel and waits for the DOM to have adopted it.
+ *
+ * The wait is on `[data-theme]`, not on the radio: the settings store is the single writer of that
+ * attribute, and the resolved value is the only observable proof the change landed. `system` resolves
+ * through Electron's `nativeTheme`, so this returns the resolved value rather than asserting one.
+ */
+export async function setTheme(
+  window: Page,
+  preference: 'system' | 'light' | 'dark'
+): Promise<string> {
+  await window.getByTestId(`settings-theme-${preference}`).check();
+  if (preference !== 'system') {
+    await expect(window.locator('html')).toHaveAttribute('data-theme', preference, {
+      timeout: UI_TIMEOUT_MS,
+    });
+    return preference;
+  }
+  // Whatever the OS says. Never the literal `system` — see `state/settings.ts`.
+  await expect(window.locator('html')).toHaveAttribute('data-theme', /^(dark|light)$/, {
+    timeout: UI_TIMEOUT_MS,
+  });
+  return (await window.locator('html').getAttribute('data-theme')) ?? '';
+}
+
+/** What the store has actually written to `<html>`. */
+export async function resolvedTheme(window: Page): Promise<string | null> {
+  return window.locator('html').getAttribute('data-theme');
+}
+
+/**
+ * Sets a numeric setting and commits it with Enter.
+ *
+ * `NumberSetting` holds a draft and commits on blur or Enter rather than on every keystroke — a field
+ * that committed per character would resize every open editor while the user was still typing, and
+ * would clamp their next keystroke against a value they never chose. So `fill` alone changes nothing,
+ * and pressing Enter is part of the interaction rather than a workaround for it.
+ */
+export async function setNumberSetting(window: Page, testId: string, value: number): Promise<void> {
+  const field = window.getByTestId(testId);
+  await field.fill(String(value));
+  await field.press('Enter');
+  await expect(field).toHaveValue(String(value), { timeout: UI_TIMEOUT_MS });
+}
+
+/** Sets a switch to an explicit state. Idempotent, so a spec can state what it wants. */
+export async function setToggleSetting(
+  window: Page,
+  testId: string,
+  checked: boolean
+): Promise<void> {
+  const toggle = window.getByTestId(testId);
+  if (checked) await toggle.check();
+  else await toggle.uncheck();
+}

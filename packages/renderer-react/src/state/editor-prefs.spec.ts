@@ -85,6 +85,35 @@ describe('confirmCtrlEExecute', () => {
   });
 });
 
+/*
+ * The way back, which Task 15's settings panel is the only caller of. The ⌃E dialog can only ever set the
+ * flag, so without this the user's "don't ask me again" was permanent — and a settings control for it
+ * would have been decorative if the store had no action to call.
+ */
+describe('resetCtrlEExecuteConfirmation', () => {
+  it('persists the reset, so the gate is back on the next launch too', async () => {
+    const fake = fakePersistence({ confirmedCtrlEExecute: true });
+    const store = createEditorPrefsStore(fake.persistence);
+    store.getState().hydrate({ confirmedCtrlEExecute: true, flywayPlaceholderValues: {} });
+
+    store.getState().resetCtrlEExecuteConfirmation();
+
+    expect(selectConfirmedCtrlEExecute(store.getState())).toBe(false);
+    await vi.waitFor(() => expect(fake.state.confirmedCtrlEExecute).toBe(false));
+  });
+
+  it('writes nothing when there was nothing to reset', () => {
+    const fake = fakePersistence();
+    const store = createEditorPrefsStore(fake.persistence);
+    store.getState().hydrate({ confirmedCtrlEExecute: false, flywayPlaceholderValues: {} });
+
+    store.getState().resetCtrlEExecuteConfirmation();
+
+    // Which is what lets the panel DISABLE the button rather than offering a press that does nothing.
+    expect(fake.update).not.toHaveBeenCalled();
+  });
+});
+
 describe('rememberPlaceholderValues', () => {
   it('merges over what was remembered rather than replacing it', async () => {
     const fake = fakePersistence();

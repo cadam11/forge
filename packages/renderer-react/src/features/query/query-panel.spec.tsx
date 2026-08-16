@@ -13,16 +13,26 @@
  * bus, the real tab store and the real execution store. What is under test is the wiring between them.
  */
 
-import { act, render } from '@testing-library/react';
+import { useEffect } from 'react';
+import { act, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { IDockviewPanelProps } from 'dockview-react';
-import type { ExecuteScope, QueryRequest, QueryResult } from '@joinery/shared';
+import {
+  DEFAULT_SETTINGS,
+  type AppSettings,
+  type ExecuteScope,
+  type QueryRequest,
+  type QueryResult,
+} from '@joinery/shared';
 
 import { installJoineryMock, removeJoineryMock } from '../../test/joinery-mock';
 import { dispatchCommand } from '../../commands';
 import { setDiagnosticsSink, setNotifier } from '../../state/diagnostics';
 import { connectionStore } from '../../state/connection';
+import { editorPrefsStore } from '../../state/editor-prefs';
 import { queryExecutionStore } from '../../state/query-execution';
+import { settingsStore } from '../../state/settings';
 import { tabStore } from '../../state/tab';
 import { TooltipProvider } from '../../ui';
 
@@ -39,7 +49,20 @@ const editorState = {
   selection: '',
   hasSelection: false,
   setValues: [] as string[],
+  /**
+   * The last `editorSettings` the panel handed the editor, and how many times the editor MOUNTED.
+   *
+   * Task 15's half of the settings chain is asserted through these two: a settings change must reach an
+   * editor that is already open (a new prop) rather than a new one (a remount, which would discard the
+   * document and the undo stack). `sql-editor.spec.tsx` owns the other half — the prop reaching Monaco's
+   * `updateOptions`.
+   */
+  settings: undefined as AppSettings['editor'] | undefined,
+  mounts: 0,
 };
+
+/** The panel's ⌃E handler, which in the real editor is a Monaco keybinding rather than a DOM event. */
+const editorShortcut: { current: (() => void) | null } = { current: null };
 
 const handle = {
   getValue: () => editorState.value,
@@ -61,12 +84,23 @@ vi.mock('../../editor', () => ({
   // The host div carries the testid the real one does, so a locator in this file reads like the e2e one.
   SqlEditor: ({
     handleRef,
+    editorSettings,
+    onExecuteShortcut,
     'data-testid': testId,
   }: {
     handleRef: { current: unknown };
+    editorSettings: AppSettings['editor'];
+    onExecuteShortcut: () => void;
     'data-testid'?: string;
   }) => {
     handleRef.current = handle;
+    editorState.settings = editorSettings;
+    editorShortcut.current = onExecuteShortcut;
+    // A mount counter has to be an effect, not a render-body increment: React may render twice for one
+    // mount, and what is being asserted is that the editor was not REBUILT.
+    useEffect(() => {
+      editorState.mounts += 1;
+    }, []);
     return <div data-testid={testId} />;
   },
   formatSql: (sql: string) => sql.toUpperCase(),
@@ -120,6 +154,8 @@ beforeEach(() => {
   editorState.selection = '';
   editorState.hasSelection = false;
   editorState.setValues = [];
+  editorState.settings = undefined;
+  editorShortcut.current = null;
   notifications.length = 0;
   teardowns.push(
     setDiagnosticsSink({ error: () => undefined, warn: () => undefined }),
@@ -260,5 +296,178 @@ describe('open-query-file', () => {
     expect(tab?.isDirty).toBe(false);
     expect(tab?.metadata?.['filePath']).toBe('/tmp/a.sql');
     expect(tabStore.getState().getTabContent(tabId)).toBe('SELECT 42;');
+  });
+});
+
+// ── The two execute gates (Task 15) ────────────────────────────────────────────────────────
+//
+// `QuerySettings.confirmBeforeExecute` was the third of the three query settings the Angular panel
+// wrote while nothing read them — J-44's class of defect. Task 15 wired it HERE, at the panel, because
+// this is the one place every user-initiated run passes through; that is also what makes it assertable
+// without Monaco, since `../../editor` is already a double in this file.
+
+describe('confirmBeforeExecute', () => {
+  const setConfirmBeforeExecute = (value: boolean): void => {
+    settingsStore.setState({
+      settings: {
+        ...DEFAULT_SETTINGS,
+        query: { ...DEFAULT_SETTINGS.query, confirmBeforeExecute: value },
+      },
+    });
+  };
+
+  afterEach(() => {
+    settingsStore.setState({ settings: DEFAULT_SETTINGS });
+    editorPrefsStore.setState({ confirmedCtrlEExecute: false });
+  });
+
+  it('gates plain Execute, and runs the SQL that was on screen when it was confirmed', async () => {
+    const execute = vi.fn(async (_request: QueryRequest) => okResult);
+    teardowns.push(installJoineryMock({ query: { execute } }));
+    setConfirmBeforeExecute(true);
+    const { unmount } = mountPanel('DELETE FROM orders;');
+    teardowns.push(unmount);
+
+    await invoke('execute-query');
+
+    // Nothing ran, and the dialog says which gate stopped it.
+    expect(execute).not.toHaveBeenCalled();
+    const dialog = screen.getByTestId('query-confirm-execute');
+    expect(dialog.getAttribute('data-gate')).toBe('always');
+    // The permanent gate offers no "don't ask me again" — that would be a second, hidden way to turn
+    // the setting off, leaving the switch in Settings showing "on".
+    expect(screen.queryByTestId('query-confirm-execute-remember')).toBeNull();
+
+    await userEvent.click(screen.getByTestId('query-confirm-execute-run'));
+
+    expect(execute).toHaveBeenCalledOnce();
+    expect(execute.mock.calls[0]?.[0].sql).toBe('DELETE FROM orders;');
+  });
+
+  it('runs nothing when the confirmation is cancelled', async () => {
+    const execute = vi.fn(async (_request: QueryRequest) => okResult);
+    teardowns.push(installJoineryMock({ query: { execute } }));
+    setConfirmBeforeExecute(true);
+    const { unmount } = mountPanel('DELETE FROM orders;');
+    teardowns.push(unmount);
+
+    await invoke('execute-query');
+    await userEvent.click(screen.getByTestId('query-confirm-execute-cancel'));
+
+    expect(execute).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('query-confirm-execute')).toBeNull();
+  });
+
+  it('gates Execute Selection too — after the refusals, not before them', async () => {
+    const execute = vi.fn(async (_request: QueryRequest) => okResult);
+    teardowns.push(installJoineryMock({ query: { execute } }));
+    setConfirmBeforeExecute(true);
+    const { unmount } = mountPanel('SELECT 1;\nSELECT 2;');
+    teardowns.push(unmount);
+
+    // No selection: the refusal comes first, and no confirmation is raised for a run that cannot happen.
+    await invoke('execute-selection');
+    expect(screen.queryByTestId('query-confirm-execute')).toBeNull();
+    expect(notifications).toContain('warning:Select some SQL to execute');
+
+    editorState.hasSelection = true;
+    editorState.selection = 'SELECT 2;';
+    await invoke('execute-selection');
+    await userEvent.click(screen.getByTestId('query-confirm-execute-run'));
+
+    // The SELECTION, not the buffer: the gate captures the SQL when it opens rather than re-deriving it.
+    expect(execute.mock.calls[0]?.[0].sql).toBe('SELECT 2;');
+  });
+
+  it('takes precedence over the one-time ⌃E gate, which cannot dismiss it', async () => {
+    const execute = vi.fn(async (_request: QueryRequest) => okResult);
+    teardowns.push(installJoineryMock({ query: { execute } }));
+    setConfirmBeforeExecute(true);
+    // Already ticked "don't ask me again" for ⌃E — which must not skip a confirmation the SETTING wants.
+    editorPrefsStore.setState({ confirmedCtrlEExecute: true, hydrated: true });
+    const { unmount } = mountPanel('SELECT 1;');
+    teardowns.push(unmount);
+
+    // ⌃E is a Monaco keybinding, so the editor double's `onExecuteShortcut` is the entry point.
+    await act(async () => {
+      editorShortcut.current?.();
+      await Promise.resolve();
+    });
+
+    expect(execute).not.toHaveBeenCalled();
+    expect(screen.getByTestId('query-confirm-execute').getAttribute('data-gate')).toBe('always');
+  });
+
+  /*
+   * The consequence of Task 15's "Ask me again" button, asserted where it is observable. The tick is
+   * one-way from the ⌃E dialog itself, so before that button there was no way back at all — this is what
+   * makes it a real control rather than a decorative one.
+   */
+  it('re-arms the ⌃E gate when the confirmation is reset', async () => {
+    const execute = vi.fn(async (_request: QueryRequest) => okResult);
+    teardowns.push(installJoineryMock({ query: { execute } }));
+    const { unmount } = mountPanel('SELECT 1;');
+    teardowns.push(unmount);
+
+    const pressCtrlE = async (): Promise<void> => {
+      await act(async () => {
+        editorShortcut.current?.();
+        await Promise.resolve();
+      });
+    };
+
+    // Never confirmed: the one-time gate appears.
+    await pressCtrlE();
+    expect(screen.getByTestId('query-confirm-execute').getAttribute('data-gate')).toBe('ctrl-e');
+    await userEvent.click(screen.getByTestId('query-confirm-execute-remember'));
+    await userEvent.click(screen.getByTestId('query-confirm-execute-run'));
+    expect(editorPrefsStore.getState().confirmedCtrlEExecute).toBe(true);
+
+    // Confirmed: straight through.
+    await pressCtrlE();
+    expect(screen.queryByTestId('query-confirm-execute')).toBeNull();
+
+    // Reset from the settings panel: the gate is back.
+    act(() => editorPrefsStore.getState().resetCtrlEExecuteConfirmation());
+    await pressCtrlE();
+    expect(screen.getByTestId('query-confirm-execute').getAttribute('data-gate')).toBe('ctrl-e');
+  });
+
+  it('leaves every entry point ungated when the setting is off', async () => {
+    const execute = vi.fn(async (_request: QueryRequest) => okResult);
+    teardowns.push(installJoineryMock({ query: { execute } }));
+    setConfirmBeforeExecute(false);
+    const { unmount } = mountPanel('SELECT 1;');
+    teardowns.push(unmount);
+
+    await invoke('execute-query');
+
+    expect(screen.queryByTestId('query-confirm-execute')).toBeNull();
+    expect(execute).toHaveBeenCalledOnce();
+  });
+});
+
+// ── Editor settings reach an ALREADY-MOUNTED editor (Task 15) ──────────────────────────────
+
+describe('editor settings', () => {
+  afterEach(() => settingsStore.setState({ settings: DEFAULT_SETTINGS }));
+
+  it('re-renders the open editor with the new settings rather than remounting it', () => {
+    const { unmount } = mountPanel('SELECT 1;');
+    teardowns.push(unmount);
+
+    const mountsBefore = editorState.mounts;
+    expect(editorState.settings?.fontSize).toBe(DEFAULT_SETTINGS.editor.fontSize);
+
+    act(() => {
+      settingsStore.getState().updateEditorSetting('fontSize', 18);
+    });
+
+    // The panel subscribes through `selectEditorSettings`, so the editor gets a new prop — and
+    // `sql-editor.spec.tsx`'s "pushes changed settings through updateOptions instead of recreating"
+    // owns the other half: the prop reaches Monaco without the instance being rebuilt. A remount here
+    // would discard the document and the undo stack, which is what that half is protecting.
+    expect(editorState.settings?.fontSize).toBe(18);
+    expect(editorState.mounts).toBe(mountsBefore);
   });
 });

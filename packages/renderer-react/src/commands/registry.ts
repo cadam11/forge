@@ -273,8 +273,9 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
   'previous-tab': 'Task 7 shell (tabStore.previousTab).',
 
   'open-settings':
-    'Task 15 settings panel. Task 7 shell opens the store flag it reads (settingsStore.open), ' +
-    'so the wire is live before the panel exists.',
+    'Task 15 features/settings/SettingsDialog, mounted by the shell. It calls settingsStore.open() ' +
+    'itself — the Task 7 placeholder that held this wire while no panel existed is deleted, so ⌘, is ' +
+    'handled exactly once.',
 
   // The sidebar's eight targeted entry points. Producer for all of them: Task 8 sidebar
   // (`shell/sidebar/node-menu.tsx` and `connection-picker.tsx`).

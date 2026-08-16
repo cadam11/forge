@@ -42,6 +42,7 @@ import {
   useQueryExecutionStore,
 } from '../../state/query-execution';
 import { queryResultsStore } from '../../state/query-results';
+import { useSettingsStore } from '../../state/settings';
 import { diagnostics, notify } from '../../state/diagnostics';
 import { useTabStore } from '../../state/tab';
 import { EmptyState, Spinner, Tabs, TabsContent, TabsList, TabsTrigger, cn } from '../../ui';
@@ -65,9 +66,18 @@ function rowCountOf(resultSet: ResultSet): number {
   return resultSet.rowCount ?? resultSet.rows.length;
 }
 
-/** The Messages pane. Ported from `:491-500`, including the "executed successfully" fallback. */
+/**
+ * The Messages pane. Ported from `:491-500`, including the "executed successfully" fallback.
+ *
+ * The duration line is the consumer of `QuerySettings.showExecutionTime`, which was the second of the
+ * three query settings the Angular panel wrote and nothing read (J-44's class of defect): the pane
+ * printed "Execution time: Nms" unconditionally while a toggle for it sat in Settings. The subscription
+ * is here rather than in `<QueryResults>` so the pane the setting affects is the only thing a settings
+ * change re-renders — `<QueryResults>`'s memo and the grid below it are untouched (R2).
+ */
 function MessagesSlot({ result }: { readonly result: QueryResult }) {
   const messages = result.messages ?? [];
+  const showExecutionTime = useSettingsStore(state => state.settings.query.showExecutionTime);
   return (
     <div className="flex flex-col gap-2 p-3" data-testid="query-messages">
       <pre className="whitespace-pre-wrap font-mono text-sm text-fg">
@@ -78,11 +88,15 @@ function MessagesSlot({ result }: { readonly result: QueryResult }) {
           <span className="tabular-nums">{result.rowsAffected}</span> rows affected
         </p>
       )}
-      <p className="text-md text-fg-muted">
-        Execution time:{' '}
-        <span className="tabular-nums">{result.executionTime ?? result.executionTimeMs ?? 0}</span>
-        ms
-      </p>
+      {showExecutionTime ? (
+        <p className="text-md text-fg-muted" data-testid="query-messages-execution-time">
+          Execution time:{' '}
+          <span className="tabular-nums">
+            {result.executionTime ?? result.executionTimeMs ?? 0}
+          </span>
+          ms
+        </p>
+      ) : null}
     </div>
   );
 }
