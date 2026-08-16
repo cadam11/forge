@@ -191,6 +191,21 @@ export interface CommandPayloads {
   /** Producer: the palette. Consumer: the snippet library. */
   'open-snippets': void;
 
+  // ── The two surfaces the Angular palette could reach and this one cannot yet (Task 16) ─────
+  //
+  // The Angular palette offered "Open ERD Diagram" and "Compare Database Schemas", and both worked —
+  // they were two of its sixteen entries that were NOT dead. Their surfaces land later (ERD is Task 18,
+  // schema diff is inside Task 19's SHOULD tier, PLAN.md §4), so the honest options were to drop the
+  // entries until then or to register the commands now with their owners named. Registered: a palette
+  // that silently lost two features a user had is worse than one that says "not wired yet — Task 18",
+  // and the ownership test already refuses a claim on a task that HAS shipped. Neither is wired to a
+  // placeholder — Task 7 deleted the last of those on purpose.
+
+  /** Open an entity-relationship diagram for the current database. */
+  'open-erd': void;
+  /** Compare two databases' schemas. */
+  'open-schema-diff': void;
+
   // ── Reveal in the explorer (Task 16) ───────────────────────────────────────────────────────
   //
   // The object search finds an object by name and has to be able to show the user *where* it is,
@@ -339,6 +354,14 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
   'open-snippets':
     'Task 16 features/snippet-library/SnippetLibrary, mounted by the shell. Producers: Task 16 ' +
     'palette and its own ⌥⌘S shortcut.',
+
+  'open-erd':
+    'Task 18 ERD canvas (the `erd` tab type already exists and the sidebar\'s "Show Relationships" ' +
+    'opens one; what is missing is a database-level entry point that does not need a node). Producer: ' +
+    'Task 16 palette.',
+  'open-schema-diff':
+    "Task 19 schema-diff dialog (PLAN.md §4 lists it in that task's SHOULD tier). Producer: Task 16 " +
+    'palette — it was a palette-only entry point in Angular too.',
 
   'reveal-explorer-node':
     'Task 7 shell (`shell-commands.tsx`): it uncollapses the pane, expands the four levels down to ' +

@@ -50,6 +50,7 @@ import {
   DatabasePlus,
   Download,
   FileCode,
+  GitCompare,
   HardDriveDownload,
   House,
   Info,
@@ -57,6 +58,7 @@ import {
   Layers,
   Locate,
   MousePointer,
+  Network,
   PanelBottom,
   PanelLeft,
   Pencil,
@@ -542,6 +544,25 @@ export const COMMAND_CATALOGUE: Record<CommandId, CommandDisplay> = {
     accelerator: rendererKey({ mac: 'Cmd+Option+S', other: 'Ctrl+Alt+S' }),
     palette: IN_PALETTE,
     keywords: ['snippets', 'templates', 'saved'],
+  },
+
+  'open-erd': {
+    label: 'Open ERD diagram',
+    hint: 'Entity-relationship diagram for the current database',
+    group: 'view',
+    icon: Network,
+    accelerator: null,
+    palette: NEEDS_CONNECTION,
+    keywords: ['diagram', 'relationships', 'schema', 'graph'],
+  },
+  'open-schema-diff': {
+    label: 'Compare database schemas',
+    hint: 'Diff tables, columns and objects between two databases',
+    group: 'database',
+    icon: GitCompare,
+    accelerator: null,
+    palette: NEEDS_CONNECTION,
+    keywords: ['diff', 'compare', 'schema'],
   },
 
   // ── Not palette entries ───────────────────────────────────────────────────────────────────
