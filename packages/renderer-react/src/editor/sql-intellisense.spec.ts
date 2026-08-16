@@ -3,13 +3,14 @@
  *
  * PLAN.md §1.6 requires `sql-intellisense.service.ts` to be ported near-verbatim, and "near-verbatim"
  * is only a checkable claim if something asserts the parts a reader cannot eyeball: the completion
- * KINDS (raw numbers, three of them off by one against Monaco's enum — deliberately kept), the
- * `sortText` ordering that decides what the widget shows first, the bracket-quoting in every
+ * KINDS (raw numbers, now held against Monaco's own enum rather than the original's five wrong ones),
+ * the `sortText` ordering that decides what the widget shows first, the bracket-quoting in every
  * `insertText`, the seven context branches, and the ghost-text prompt.
  *
- * All of it runs without Monaco: the module imports Monaco as types only, and the model is the
- * three-method structural shape the service declares. That is the payoff for keeping the narrow types
- * the original had.
+ * All of it runs without a Monaco EDITOR: the module under test imports Monaco as types only, and the
+ * model is the three-method structural shape the service declares. That is the payoff for keeping the
+ * narrow types the original had. The one runtime Monaco import is the generated enum module below,
+ * which has no imports of its own.
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -22,17 +23,23 @@ import {
   type MonacoLanguagesApi,
 } from './sql-intellisense';
 
-/** Monaco's real enum values, for the assertions below. Not imported — that would pull Monaco in. */
-const KIND = {
-  Method: 1,
-  Function: 2,
-  Field: 3,
-  Variable: 4,
-  Class: 5,
-  Interface: 7,
-  Keyword: 17,
-  Snippet: 27,
-};
+/**
+ * Monaco's real enum, IMPORTED — the whole point of this file's kind assertions.
+ *
+ * `standaloneEnums.js` is the generated leaf module that `standaloneLanguages.js:595` re-exports as
+ * `monaco.languages.CompletionItemKind`, so this is the same object the editor uses. It is imported
+ * instead of the editor API because it has **zero imports of its own**: no DOM, no workers, nothing
+ * jsdom has to fake. `sql-intellisense.ts` itself still imports Monaco as types only, and this is the
+ * one runtime Monaco import in its test.
+ *
+ * A hand-copied table here would have proved nothing. It did not, in fact, prove anything: the first
+ * version of this file copied `Snippet: 27` out of the Angular service, which had been correct under
+ * Monaco 0.52 and was silently wrong under the 0.56 this package pins (0.56 inserted `Tool = 27`).
+ */
+import {
+  CompletionItemInsertTextRule,
+  CompletionItemKind as KIND,
+} from 'monaco-editor/editor/common/standalone/standaloneEnums.js';
 
 const CUSTOMERS: ColumnInfo[] = [
   { name: 'id', dataType: 'int', isNullable: false, isPrimaryKey: true } as ColumnInfo,
@@ -238,21 +245,57 @@ describe('context detection', () => {
 });
 
 describe('the completion items themselves', () => {
-  it('keeps the original kinds, including the three that are off by one', async () => {
+  /**
+   * The kind of every producer, against the ENUM MEMBER it is meant to be.
+   *
+   * This is the assertion that the Angular table's five wrong numbers no longer ship, and — because
+   * every expectation reads through the imported enum rather than a literal — it is also the assertion
+   * that a future Monaco bump which renumbers `CompletionItemKind` fails loudly here instead of
+   * quietly changing a glyph in the suggest widget. That is not hypothetical: 0.56 inserted
+   * `User`/`Issue`/`Tool` at 25-27 and pushed `Snippet` from 27 to 28, which is how the snippet items
+   * came to wear the `Tool` icon.
+   */
+  it('gives every producer the kind Monaco’s enum names, not the Angular numbers', async () => {
     const setup = harness();
     const byLabel = new Map((await completionsFor('SEL', setup)).map(s => [s.label, s]));
     expect(byLabel.get('SELECT')?.kind).toBe(KIND.Keyword);
+    // 28 under 0.56. The Angular original's 27 is `Tool` here.
     expect(byLabel.get('cte')?.kind).toBe(KIND.Snippet);
     expect(byLabel.get('public.customers')?.kind).toBe(KIND.Class);
 
     const views = await completionsFor('SELECT * FROM ', harness());
     expect(views.find(s => s.label === 'public.active_customers')?.kind).toBe(KIND.Interface);
 
-    // The two a user sees, and both are the original's numbers rather than Monaco's names:
-    // a column asks for `Field` and gets `Variable`; a procedure asks for `Function` and gets
-    // `Constructor`. Asserted so the deviation is recorded, not discovered.
-    expect((await completionsFor('SELECT customers.|'))[0]?.kind).toBe(KIND.Variable);
+    // The two a user sees on every list, and the two the Angular renderer got wrong: a column asked
+    // for `Field` and was handed `Variable`'s number; a procedure asked for `Function` and was handed
+    // `Constructor`'s.
+    expect((await completionsFor('SELECT customers.|'))[0]?.kind).toBe(KIND.Field);
     expect((await completionsFor('EXEC '))[0]?.kind).toBe(KIND.Function);
+  });
+
+  /**
+   * The numbers themselves, pinned one by one.
+   *
+   * The test above proves each producer agrees with the enum; this one proves the eight literals in
+   * `COMPLETION_ITEM_KIND` are the eight the enum defines — including `Method` and `Variable`, which
+   * no producer uses and which the test above therefore cannot reach. Together they mean a Monaco bump
+   * that renumbers anything in this table fails, whether or not a completion producer reads it.
+   */
+  it('pins every number in the kind table to the enum member it names', () => {
+    // Written as literal → member so a diff shows the number that shipped next to what it means.
+    expect(17).toBe(KIND.Keyword);
+    expect(28).toBe(KIND.Snippet);
+    expect(5).toBe(KIND.Class);
+    expect(7).toBe(KIND.Interface);
+    expect(1).toBe(KIND.Function);
+    expect(0).toBe(KIND.Method);
+    expect(3).toBe(KIND.Field);
+    expect(4).toBe(KIND.Variable);
+    // The four the Angular renderer shipped, so the fix cannot be silently reverted.
+    expect(KIND.Constructor).toBe(2); // was `Function`
+    expect(KIND.Variable).not.toBe(KIND.Class); // `Variable: 5` was a duplicate of `Class`
+    // And the snippet insert-text rule, from the same generated module and the same class of hazard.
+    expect(4).toBe(CompletionItemInsertTextRule.InsertAsSnippet);
   });
 
   it('orders keywords, then snippets, then tables, then views', async () => {

@@ -3,9 +3,11 @@
  * behind both.
  *
  * **Ported near-verbatim from `packages/renderer/src/app/core/services/sql-intellisense.service.ts`
- * (768 LOC), as PLAN.md §1.6 requires.** Every keyword, every snippet, every completion-kind number,
- * every `sortText`, every context-detection regex and the whole ghost-text prompt are byte-identical
- * to the Angular original. What changed is only the seams that cannot survive the move:
+ * (768 LOC), as PLAN.md §1.6 requires.** Every keyword, every snippet, every `sortText`, every
+ * context-detection regex and the whole ghost-text prompt are byte-identical to the Angular original.
+ * The completion-KIND numbers are the exception and are corrected — see `COMPLETION_ITEM_KIND` below,
+ * which explains all five and the spec that pins them. What else changed is only the seams that cannot
+ * survive the move:
  *
  *  - Angular DI (`inject(ConnectionStateService)`, `inject(AIStateService)`, `inject(IpcService)`)
  *    becomes an explicit `IntellisenseDeps` object, passed in by the one caller. That is the "narrow
@@ -17,7 +19,7 @@
  *  - `console.error` becomes `diagnostics.error`, so a failed metadata load lands in the Output panel
  *    instead of a devtools console nobody has open.
  *
- * ── Two things the port deliberately CHANGES, both recorded in the task report ───────────────
+ * ── Three things the port deliberately CHANGES, all recorded in the task report ──────────────
  *
  * **1. The rich completion provider is now wired.** In the Angular app the only entry point anything
  * ever called was `registerGhostTextProvider` (`query.component.ts:1490` — the single call site in
@@ -35,6 +37,10 @@
  * functions, one of which is a superset of the other, means the author's intent is the superset. The
  * regexes, ranges and sort orders are unchanged either way.
  *
+ * **3. The completion-kind numbers are Monaco's, not the original's.** Five of the eight were wrong;
+ * two of those five decide a glyph a user sees on every completion list. `COMPLETION_ITEM_KIND` below
+ * has the table, the reason for each, and the spec that pins each number to the enum member it names.
+ *
  * **What is NOT fixed here:** the Angular original populates `tablesCache` only — `viewsCache`,
  * `proceduresCache` and `functionsCache` are declared, read by three completion producers, and never
  * written, so view and procedure completions were always empty. `loadMetadata` now fills views and
@@ -48,38 +54,49 @@ import type { ColumnInfo, ObjectMetadata } from '@joinery/shared';
 import { diagnostics } from '../state/diagnostics';
 
 /**
- * Monaco completion-item kinds, as NUMBERS.
+ * Monaco completion-item kinds, as NUMBERS — **corrected against Monaco's own enum, which is this
+ * port's one deliberate divergence from the Angular original's numbers.**
  *
- * Verbatim from the original (`sql-intellisense.service.ts:84-93`) — which means three of them are
- * **off by one against Monaco's real enum**, and the numbers are kept anyway. Monaco's
- * `CompletionItemKind` is `Method=0, Function=1, Constructor=2, Field=3, Variable=4, Class=5,
- * Struct=6, Interface=7, … Keyword=17, … Snippet=27`, so what these names actually select is:
+ * The Angular table (`sql-intellisense.service.ts:84-93`) is wrong in five of its eight entries: four
+ * uniformly one too high, and one — `Snippet` — one too low against the version this package pins. It
+ * shipped that way, so the wrong glyph is what a user of the Angular app sees. The first pass of this
+ * port carried the numbers forward to keep the diff readable and recorded a follow-up; this is that
+ * follow-up, applied. What each name selects, against `monaco.languages.CompletionItemKind`:
  *
- *   Keyword: 17   → Keyword      ✓
- *   Snippet: 27   → Snippet      ✓
- *   Class: 5      → Class        ✓ (tables)
- *   Interface: 7  → Interface    ✓ (views)
- *   Function: 2   → Constructor  ✗ (stored procedures get the constructor glyph)
- *   Method: 1     → Function     ✗ (unused: nothing reads `Method`)
- *   Field: 4      → Variable     ✗ (columns get the variable glyph)
- *   Variable: 5   → Class        ✗ (unused, and a duplicate of `Class`)
+ *   | name      | Angular | here | why                                                       |
+ *   | Keyword   |      17 |   17 | already right                                             |
+ *   | Class     |       5 |    5 | already right (tables)                                    |
+ *   | Interface |       7 |    7 | already right (views)                                     |
+ *   | Function  |       2 |    1 | 2 is `Constructor` — stored procedures wore its glyph      |
+ *   | Field     |       4 |    3 | 4 is `Variable` — columns wore its glyph                   |
+ *   | Method    |       1 |    0 | 1 is `Function`; unused here, but wrong is wrong          |
+ *   | Variable  |       5 |    4 | 5 is `Class`; unused, and was a silent duplicate of it     |
+ *   | Snippet   |      27 |   28 | **0.56 inserted `Tool = 27`** — see below                  |
  *
- * The two that a user sees are the procedure and column glyphs. They are wrong in the shipped app and
- * they are wrong here, because PLAN.md §1.6 says port near-verbatim and a reviewer diffing this file
- * against the Angular original should find the same numbers. Recorded as a follow-up in the task
- * report — it is a three-number fix, and it is a decision about shipped behaviour rather than a port.
+ * The two that a user sees on every completion list are the procedure and the column glyphs.
  *
- * Numbers rather than the enum is also what lets this module import Monaco as types only.
+ * `Snippet` is the interesting one, and it is not an off-by-one of the same kind: `27` was correct when
+ * the Angular renderer pinned Monaco 0.52, and 0.56 inserted `User = 25, Issue = 26, Tool = 27` ahead
+ * of it, pushing `Snippet` to 28. So the ten SQL snippets were rendering with the `Tool` glyph purely
+ * because the dependency moved underneath a hardcoded number. That is exactly the failure mode
+ * `sql-intellisense.spec.ts` now pins: every number in this table is asserted equal to the enum member
+ * it names, imported from Monaco, so the next bump that shifts the enum fails a test rather than
+ * quietly changing an icon.
+ *
+ * Numbers rather than the enum **in this module** is still deliberate: it is what lets the whole file
+ * import Monaco as types only, which is what lets its tests run it with no Monaco at all. The spec is
+ * the one place that pays for a runtime import, and it imports the generated leaf enum module rather
+ * than the editor API.
  */
 const COMPLETION_ITEM_KIND = {
   Keyword: 17,
-  Snippet: 27,
+  Snippet: 28,
   Class: 5, // Table
   Interface: 7, // View
-  Function: 2, // Stored Procedure
-  Method: 1, // Function
-  Field: 4, // Column
-  Variable: 5,
+  Function: 1, // Stored Procedure
+  Method: 0, // Function (unused — nothing reads `Method`)
+  Field: 3, // Column
+  Variable: 4,
 } as const;
 
 /** `InsertAsSnippet`. The original spelled it `insertTextRules: 4` with the same comment. */
