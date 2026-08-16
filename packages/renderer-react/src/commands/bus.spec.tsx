@@ -5,17 +5,61 @@
 
 import { StrictMode } from 'react';
 import { render, act } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { IpcQueryProvider } from '../ipc';
+import { setDiagnosticsSink } from '../state/diagnostics';
+import { ShellCommands } from '../shell/shell-commands';
+import { StatusBar } from '../shell/status-bar';
+import { TooltipProvider } from '../ui';
 import { dispatchCommand, handlerCount, subscribeCommand, useCommand } from './bus';
 import { COMMAND_CONSUMERS, COMMAND_IDS } from './registry';
 
 const teardowns: (() => void)[] = [];
+
+/** Every DEV warning `dispatchCommand` emitted during a test. See the unhandled-dispatch block. */
+let warnings: string[] = [];
+
+beforeEach(() => {
+  warnings = [];
+  // Installed for the whole file, not just the warning tests: several tests below dispatch into an
+  // empty table on purpose, and the default sink is the console.
+  teardowns.push(
+    setDiagnosticsSink({
+      error: () => undefined,
+      warn: (context, cause) => warnings.push(`${context} :: ${String(cause)}`),
+    })
+  );
+});
 
 afterEach(() => {
   while (teardowns.length > 0) teardowns.pop()?.();
   // Nothing may leak between tests: the handler table is module state.
   for (const id of COMMAND_IDS) expect(handlerCount(id)).toBe(0);
 });
+
+/**
+ * Mounts the shell's real command wiring — `ShellCommands` (the fifteen handlers Task 7 owns) and
+ * `StatusBar` (`cursor-position`). Not a stand-in list of ids: the whole point of the ownership test
+ * below is that it fails when a subscription is deleted, and only the real components can tell it.
+ * `TooltipProvider` because the status bar's controls carry tooltips.
+ */
+function renderProductionWiring(): void {
+  const { unmount } = render(
+    <IpcQueryProvider>
+      <TooltipProvider>
+        <ShellCommands />
+        <StatusBar />
+      </TooltipProvider>
+    </IpcQueryProvider>
+  );
+  teardowns.push(unmount);
+}
+
+/** The task number a consumer string names, or null when it names nobody. */
+function ownerTask(consumer: string): number | null {
+  const match = /^Task (\d+)\b/.exec(consumer);
+  return match?.[1] === undefined ? null : Number(match[1]);
+}
 
 describe('the registry', () => {
   it('names a consumer for every command', () => {
@@ -26,41 +70,55 @@ describe('the registry', () => {
     }
   });
 
-  it('admits an audit-dead dispatch only once it has a consumer', () => {
-    // PLAN.md 0.4 listed ten palette dispatches with no listener anywhere in the Angular app. Task 4
-    // asserted the registry carried NONE of them, which was right while none had an owner.
-    //
-    // Task 7 changed that, and the change is the point rather than a regression: it wired the native
-    // menu, and six of those ten are menu actions whose handler now exists (`toggle-sidebar`,
-    // `refresh-explorer` and `open-settings` in the shell; `execute-query`, `format-sql` and
-    // `cancel-query` naming Task 10's editor). Two more arrived under clearer ids —
-    // `open-backup-dialog` / `open-restore-dialog`, PLAN.md 0.1's broken menu items, now reaching a
-    // placeholder dialog — and `toggle-results` as `toggle-results-panel`.
-    //
-    // So the assertion moves from the LIST to the RULE, which is what actually made those dispatches
-    // dead: an id may exist only alongside a named consumer. That is enforced at compile time by
-    // `Record<CommandId, string>` and above at runtime; here it is checked specifically against the
-    // ids the audit caught, because those are the ones a bulk port would resurrect without owners.
-    const auditDead = [
-      'toggle-sidebar',
-      'toggle-results',
-      'execute-query',
-      'format-sql',
-      'cancel-query',
-      'refresh-explorer',
-      'open-settings',
-      'open-backup',
-      'open-restore',
-      'save-snippet',
-    ];
-
-    for (const id of COMMAND_IDS.filter(candidate => auditDead.includes(candidate))) {
-      expect(COMMAND_CONSUMERS[id].length).toBeGreaterThan(20);
-    }
-
-    // `save-snippet` has no owner until Task 16 builds the snippet library, so it must still be
-    // absent — the one member of the original list that this task did not earn.
+  it('has no id whose owner is unnamed', () => {
+    // `save-snippet` is the one member of PLAN.md 0.4's ten dead palette dispatches that Task 7 did
+    // not earn an owner for — the snippet library is Task 16 — so it must still be absent entirely.
+    // The other nine are covered by the ownership rule below, which is a stronger statement than the
+    // list this used to be.
     expect(COMMAND_IDS).not.toContain('save-snippet');
+
+    const unnamed = COMMAND_IDS.filter(id => ownerTask(COMMAND_CONSUMERS[id]) === null);
+    expect(unnamed).toEqual([]);
+  });
+});
+
+/**
+ * The dead-command class of bug, made machine-checkable.
+ *
+ * PLAN.md 0.4's finding was not "the registry has bad entries" — it was that a dispatch with no
+ * listener is indistinguishable from a working one, so ten palette items did nothing for months. The
+ * compile-time `Record<CommandId, string>` forces a consumer to be *named*; nothing forced the name
+ * to be *true*. These two tests are that missing half, and between them they leave exactly one legal
+ * state for every id: a live handler, or a task number that has not shipped yet.
+ */
+describe('command ownership', () => {
+  it('gives every command either a live handler or a named future task', () => {
+    renderProductionWiring();
+
+    const dead = COMMAND_IDS.filter(id => {
+      if (handlerCount(id) > 0) return false;
+      const owner = ownerTask(COMMAND_CONSUMERS[id]);
+      // Task 7 IS this wiring, so "Task 7 shell" with no subscription is a false claim, not a
+      // pending one — the only unhandled ids allowed are the ones a later task owns.
+      return owner === null || owner === 7;
+    });
+
+    expect(dead).toEqual([]);
+  });
+
+  it('subscribes every command whose consumer says Task 7', () => {
+    // The other direction, and the one that fails if a `useCommand` call is deleted: an id may only
+    // claim Task 7 as its consumer while Task 7's wiring actually handles it.
+    renderProductionWiring();
+
+    const claimedByTask7 = COMMAND_IDS.filter(id => ownerTask(COMMAND_CONSUMERS[id]) === 7);
+    const unsubscribed = claimedByTask7.filter(id => handlerCount(id) === 0);
+
+    expect(unsubscribed).toEqual([]);
+    // A count as well, so deleting a handler *and* its registry claim in one edit is still a failure
+    // rather than a quietly smaller app: fifteen `useCommand` calls in `shell-commands.tsx` plus the
+    // status bar's caret readout.
+    expect(COMMAND_IDS.filter(id => handlerCount(id) > 0)).toHaveLength(16);
   });
 });
 
@@ -90,6 +148,38 @@ describe('dispatchCommand / subscribeCommand', () => {
 
     teardowns.push(subscribeCommand('menu-copy', () => true));
     expect(dispatchCommand('menu-copy')).toBe(true);
+  });
+
+  it('warns in DEV when a dispatch reaches nobody, naming the expected consumer', () => {
+    // The other half of the dead-command guard. `false` is a return value only the menu bridge reads;
+    // for the other thirty-five ids "nothing was subscribed" means the user's click went nowhere, and
+    // this is the only place that can say so.
+    expect(dispatchCommand('open-query-history')).toBe(false);
+
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain('open-query-history');
+    expect(warnings[0]).toContain(COMMAND_CONSUMERS['open-query-history']);
+  });
+
+  it('says nothing about an unhandled dispatch outside DEV', () => {
+    // The guard is `import.meta.env.DEV`, which Vite replaces with `false` in the production bundle
+    // — so this branch is dead code in a shipped app rather than a suppressed log line. Stubbed here
+    // because "no production noise" is a requirement, and a requirement nothing checks drifts.
+    vi.stubEnv('DEV', false);
+    try {
+      expect(dispatchCommand('open-query-history')).toBe(false);
+      expect(warnings).toEqual([]);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('does not warn when a handler is subscribed but declines to claim', () => {
+    // `menu-copy` returning false with a live subscriber is the protocol working, not a dead command.
+    teardowns.push(subscribeCommand('menu-copy', () => undefined));
+
+    expect(dispatchCommand('menu-copy')).toBe(false);
+    expect(warnings).toEqual([]);
   });
 
   it('runs every handler even after one has claimed', () => {
