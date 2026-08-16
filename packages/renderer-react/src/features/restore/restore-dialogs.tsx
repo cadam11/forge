@@ -33,7 +33,7 @@
  * database is chosen *inside* the dialog, so this component cannot know which key to watch.
  */
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import type { DatabaseEngine } from '@joinery/shared';
 
 import { useCommand } from '../../commands';
@@ -41,6 +41,7 @@ import { useIpcEvent, useIpcQuery } from '../../ipc';
 import { selectCapabilitiesFor, useCapabilitiesStore } from '../../state/capabilities';
 import { connectionStore, selectProfileFor, useConnectionStore } from '../../state/connection';
 import { dbOperationsStore } from '../../state/db-operations';
+import { explorerStore } from '../../state/explorer';
 import { diagnostics, notify } from '../../state/diagnostics';
 import { RestoreDialog } from './restore-dialog';
 import { restoreOperationId } from './restore-model';
@@ -89,6 +90,45 @@ export function RestoreDialogs() {
     databases.data === undefined ? null : databases.data.map(database => database.name);
 
   /**
+   * A restore landed: re-read everything that now describes the server wrongly.
+   *
+   * Three reads, because three caches disagree after a restore and each is owned by someone else:
+   * the connection store's database list (which the database picker renders), this component's own
+   * `database.list` query (which decides whether the *next* restore is destructive), and the
+   * explorer's server node children (which is what the sidebar tree actually shows — a freshly
+   * created database is invisible there until the node is refreshed, which the e2e caught).
+   *
+   * `useCallback` because the dialog runs this from an effect keyed on it; an inline arrow would make
+   * that effect fire on every render.
+   *
+   * **A caveat worth knowing:** `MetadataService.listDatabases` caches for 60 seconds and only
+   * `backup-restore.ts` (MSSQL) invalidates it after a restore — `pg-backup.ts` and
+   * `mysql-backup.ts` never do. On PostgreSQL the `database.create` this wizard runs first happens to
+   * invalidate it (`database.ipc.ts:45`), so the new database is visible; a MySQL restore into a
+   * database the prelude creates can lag by up to a minute. That is a main-process gap, filed as a
+   * follow-up rather than papered over here.
+   */
+  const handleRestored = useCallback((): void => {
+    if (connectionId === null) return;
+    void loadDatabases(connectionId).catch(error => {
+      diagnostics.error('the database list could not be reloaded after a restore', error);
+    });
+    void databases.refetch();
+
+    const explorer = explorerStore.getState();
+    const serverNode = explorer.rootNodes.find(
+      node => node.type === 'server' && node.connectionId === connectionId
+    );
+    if (serverNode === undefined) return;
+    void explorer.refreshNode(serverNode.id).catch(error => {
+      diagnostics.error('the explorer could not be refreshed after a restore', error);
+    });
+    // `databases.refetch` is not in the dependency list: TanStack keeps it stable per query instance,
+    // and including it would only reintroduce the identity churn `useCallback` is here to stop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectionId, loadDatabases]);
+
+  /**
    * Resolve a connection to a full target, or report why not.
    *
    * The toast is legal here and only here: nothing is open yet, so it is not a toast above a modal
@@ -129,15 +169,7 @@ export function RestoreDialogs() {
       databaseName={target.databaseName}
       databases={knownDatabases}
       canCreateDatabases={capabilities.supportsDatabaseManagement}
-      onRestored={() => {
-        // The restore either created a database the sidebar has never heard of or replaced one it now
-        // has stale figures for. Both fixed by re-reading the list; the failure is logged rather than
-        // toasted, because the dialog is still open (J-42) and the restore itself did succeed.
-        void loadDatabases(target.connectionId).catch(error => {
-          diagnostics.error('the database list could not be reloaded after a restore', error);
-        });
-        void databases.refetch();
-      }}
+      onRestored={handleRestored}
       onDismiss={() => setTarget(null)}
     />
   );

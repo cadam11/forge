@@ -351,8 +351,8 @@ describe('the confirmation cannot be got around', () => {
     await setField(user, 'restore-target-name', 'sales');
 
     // The primary button is not even called Start any more.
-    expect(screen.queryByTestId('restore-start')).toBeNull();
-    await user.click(screen.getByTestId('restore-review'));
+    expect(screen.getByTestId('restore-submit').textContent).toContain('Review the restore');
+    await user.click(screen.getByTestId('restore-submit'));
 
     // It landed on the confirmation and nothing has been asked of the main process.
     await screen.findByTestId('restore-confirm');
@@ -365,7 +365,7 @@ describe('the confirmation cannot be got around', () => {
     await mountOnForm('postgresql');
     await setField(user, 'restore-path', '/tmp/sales.dump');
     await setField(user, 'restore-target-name', 'sales');
-    await user.click(screen.getByTestId('restore-review'));
+    await user.click(screen.getByTestId('restore-submit'));
     await screen.findByTestId('restore-confirm');
 
     const confirm = screen.getByTestId('restore-confirm-start') as HTMLButtonElement;
@@ -393,7 +393,7 @@ describe('the confirmation cannot be got around', () => {
     await mountOnForm('postgresql');
     await setField(user, 'restore-path', '/tmp/sales.dump');
     await setField(user, 'restore-target-name', 'sales');
-    await user.click(screen.getByTestId('restore-review'));
+    await user.click(screen.getByTestId('restore-submit'));
 
     const box = await screen.findByTestId('restore-confirm-input');
     await user.type(box, 'nope{Enter}');
@@ -411,7 +411,7 @@ describe('the confirmation cannot be got around', () => {
     await fillNewTarget(user, 'sales');
 
     expect(screen.getByTestId('restore-target-note').textContent).toContain('already exists');
-    await user.click(screen.getByTestId('restore-review'));
+    await user.click(screen.getByTestId('restore-submit'));
     await screen.findByTestId('restore-confirm');
     expect(bridge.start).not.toHaveBeenCalled();
   });
@@ -423,7 +423,7 @@ describe('the confirmation cannot be got around', () => {
     await fillNewTarget(user, 'definitely_fresh');
 
     expect(screen.getByTestId('restore-target-note').textContent).toContain('could not read');
-    await user.click(screen.getByTestId('restore-review'));
+    await user.click(screen.getByTestId('restore-submit'));
     const confirm = await screen.findByTestId('restore-confirm');
     expect(confirm.textContent).toContain('cannot tell whether');
     expect(bridge.start).not.toHaveBeenCalled();
@@ -436,8 +436,8 @@ describe('the confirmation cannot be got around', () => {
     await mountOnForm('postgresql');
     await fillNewTarget(user, 'sales_copy');
 
-    expect(screen.queryByTestId('restore-review')).toBeNull();
-    await user.click(screen.getByTestId('restore-start'));
+    expect(screen.getByTestId('restore-submit').textContent).toContain('Start restore');
+    await user.click(screen.getByTestId('restore-submit'));
 
     await screen.findByTestId('restore-progress');
     expect(screen.queryByTestId('restore-confirm')).toBeNull();
@@ -449,7 +449,7 @@ describe('the confirmation cannot be got around', () => {
     await mountOnForm('mysql');
     await setField(user, 'restore-path', '/tmp/sales.sql');
     await setField(user, 'restore-target-name', 'sales');
-    await user.click(screen.getByTestId('restore-review'));
+    await user.click(screen.getByTestId('restore-submit'));
 
     const confirm = await screen.findByTestId('restore-confirm');
     expect(confirm.textContent).toContain('sales already exists');
@@ -461,7 +461,7 @@ describe('the confirmation cannot be got around', () => {
     await mountOnForm('postgresql');
     await setField(user, 'restore-path', '/tmp/sales.dump');
     await setField(user, 'restore-target-name', 'sales');
-    await user.click(screen.getByTestId('restore-review'));
+    await user.click(screen.getByTestId('restore-submit'));
     await user.type(await screen.findByTestId('restore-confirm-input'), 'sales');
 
     await user.click(screen.getByTestId('restore-confirm-back'));
@@ -471,7 +471,7 @@ describe('the confirmation cannot be got around', () => {
       '/tmp/sales.dump'
     );
     // …and the confirmation NOT still satisfied, or Review→confirm would be a single click.
-    await user.click(screen.getByTestId('restore-review'));
+    await user.click(screen.getByTestId('restore-submit'));
     expect((screen.getByTestId('restore-confirm-start') as HTMLButtonElement).disabled).toBe(true);
     expect(bridge.start).not.toHaveBeenCalled();
   });
@@ -480,7 +480,7 @@ describe('the confirmation cannot be got around', () => {
     const user = userEvent.setup();
     await mountOnForm('postgresql');
     await fillNewTarget(user, 'sales');
-    await user.click(screen.getByTestId('restore-review'));
+    await user.click(screen.getByTestId('restore-submit'));
     await user.type(await screen.findByTestId('restore-confirm-input'), 'sales');
     await user.click(screen.getByTestId('restore-confirm-start'));
     await screen.findByTestId('restore-progress');
@@ -667,7 +667,7 @@ describe('running a restore', () => {
     const user = userEvent.setup();
     await mountOnForm('postgresql');
 
-    await user.click(screen.getByTestId('restore-review'));
+    await user.click(screen.getByTestId('restore-submit'));
 
     expect(screen.getByTestId('restore-hint').textContent).toMatch(/backup file/i);
     expect(bridge.start).not.toHaveBeenCalled();
@@ -677,7 +677,7 @@ describe('running a restore', () => {
     const user = userEvent.setup();
     await mountOnForm('postgresql');
     await fillNewTarget(user, 'sales_copy');
-    await user.click(screen.getByTestId('restore-start'));
+    await user.click(screen.getByTestId('restore-submit'));
 
     await waitFor(() =>
       expect(bridge.createDatabase).toHaveBeenCalledWith(CONNECTION_ID, { name: 'sales_copy' })
@@ -697,7 +697,7 @@ describe('running a restore', () => {
     const user = userEvent.setup();
     await mountOnForm('postgresql');
     await fillNewTarget(user, 'sales');
-    await user.click(screen.getByTestId('restore-review'));
+    await user.click(screen.getByTestId('restore-submit'));
     await user.type(await screen.findByTestId('restore-confirm-input'), 'sales');
     await user.click(screen.getByTestId('restore-confirm-start'));
 
@@ -714,7 +714,7 @@ describe('running a restore', () => {
     });
     await mountOnForm('postgresql');
     await fillNewTarget(user, 'sales_copy');
-    await user.click(screen.getByTestId('restore-start'));
+    await user.click(screen.getByTestId('restore-submit'));
 
     const failure = await screen.findByTestId('restore-error');
     expect(failure.textContent).toContain('permission denied');
@@ -731,7 +731,7 @@ describe('running a restore', () => {
     await user.click(screen.getByTestId('restore-overwrite'));
     await user.click(screen.getByTestId('restore-norecovery'));
 
-    await user.click(screen.getByTestId('restore-review'));
+    await user.click(screen.getByTestId('restore-submit'));
     await user.type(await screen.findByTestId('restore-confirm-input'), 'sales');
     await user.click(screen.getByTestId('restore-confirm-start'));
 
@@ -748,7 +748,7 @@ describe('running a restore', () => {
     const user = userEvent.setup();
     await mountOnForm('postgresql');
     await fillNewTarget(user, 'sales_copy');
-    await user.click(screen.getByTestId('restore-start'));
+    await user.click(screen.getByTestId('restore-submit'));
 
     await screen.findByTestId('restore-progress');
     act(() => {
@@ -772,7 +772,7 @@ describe('running a restore', () => {
     const restored: string[] = [];
     await mountOnForm('postgresql', { onRestored: name => restored.push(name) });
     await fillNewTarget(user, 'sales_copy');
-    await user.click(screen.getByTestId('restore-start'));
+    await user.click(screen.getByTestId('restore-submit'));
     await screen.findByTestId('restore-progress');
 
     act(() => {
@@ -799,7 +799,7 @@ describe('running a restore', () => {
     const user = userEvent.setup();
     await mountOnForm('postgresql');
     await fillNewTarget(user, 'sales_copy');
-    await user.click(screen.getByTestId('restore-start'));
+    await user.click(screen.getByTestId('restore-submit'));
     await screen.findByTestId('restore-progress');
 
     act(() => {
@@ -826,7 +826,7 @@ describe('running a restore', () => {
     const user = userEvent.setup();
     await mountOnForm('postgresql');
     await fillNewTarget(user, 'sales_copy');
-    await user.click(screen.getByTestId('restore-start'));
+    await user.click(screen.getByTestId('restore-submit'));
     await screen.findByTestId('restore-progress');
 
     act(() => {
@@ -852,7 +852,7 @@ describe('running a restore', () => {
     bridge.start.mockRejectedValueOnce(new Error('Connection profile not found'));
     await mountOnForm('postgresql');
     await fillNewTarget(user, 'sales_copy');
-    await user.click(screen.getByTestId('restore-start'));
+    await user.click(screen.getByTestId('restore-submit'));
 
     const failure = await screen.findByTestId('restore-error');
     expect(failure.textContent).toContain('Connection profile not found');
@@ -862,7 +862,7 @@ describe('running a restore', () => {
     const user = userEvent.setup();
     await mountOnForm('postgresql');
     await fillNewTarget(user, 'sales_copy');
-    await user.click(screen.getByTestId('restore-start'));
+    await user.click(screen.getByTestId('restore-submit'));
     await screen.findByTestId('restore-progress');
 
     act(() => {
@@ -919,7 +919,7 @@ describe('the target picker', () => {
     await mountOnForm('mysql');
     await setField(user, 'restore-path', '/tmp/sales.sql');
     await setField(user, 'restore-target-name', 'sales-copy');
-    await user.click(screen.getByTestId('restore-start'));
+    await user.click(screen.getByTestId('restore-submit'));
 
     expect(screen.getByTestId('restore-hint').textContent).toMatch(/letters, digits/);
     expect(bridge.start).not.toHaveBeenCalled();
@@ -929,7 +929,7 @@ describe('the target picker', () => {
     const user = userEvent.setup();
     await mountOnForm('mssql', { databaseName: 'sales' });
     await setField(user, 'restore-path', 'C:\\Backups\\sales.bak');
-    await user.click(screen.getByTestId('restore-review'));
+    await user.click(screen.getByTestId('restore-submit'));
 
     expect(screen.getByTestId('restore-hint').textContent).toMatch(/Overwrite/);
     expect(screen.queryByTestId('restore-confirm')).toBeNull();
@@ -1020,7 +1020,7 @@ describe('one operation at a time, across the two features', () => {
     const user = userEvent.setup();
     const first = await mountOnForm('postgresql');
     await fillNewTarget(user, 'sales_copy');
-    await user.click(screen.getByTestId('restore-start'));
+    await user.click(screen.getByTestId('restore-submit'));
     await screen.findByTestId('restore-progress');
     act(() => {
       bridge.progress.emit({
@@ -1040,7 +1040,7 @@ describe('one operation at a time, across the two features', () => {
 
     const note = await screen.findByTestId('restore-in-flight');
     expect(note.textContent).toContain('A restore into this database is still running');
-    const startButton = screen.getByTestId('restore-start') as HTMLButtonElement;
+    const startButton = screen.getByTestId('restore-submit') as HTMLButtonElement;
     expect(startButton.disabled).toBe(true);
     await user.click(startButton);
     expect(bridge.start).toHaveBeenCalledOnce();
@@ -1065,7 +1065,7 @@ describe('one operation at a time, across the two features', () => {
     });
     await screen.findByTestId('restore-path');
     await fillNewTarget(user, 'sales_copy');
-    await user.click(screen.getByTestId('restore-start'));
+    await user.click(screen.getByTestId('restore-submit'));
     await screen.findByTestId('restore-progress');
     act(() => {
       bridge.progress.emit({
@@ -1095,6 +1095,6 @@ describe('one operation at a time, across the two features', () => {
     await fillNewTarget(user, 'sales_copy');
 
     expect(screen.queryByTestId('restore-in-flight')).toBeNull();
-    expect((screen.getByTestId('restore-start') as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByTestId('restore-submit') as HTMLButtonElement).disabled).toBe(false);
   });
 });

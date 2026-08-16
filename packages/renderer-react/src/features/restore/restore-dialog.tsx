@@ -302,36 +302,37 @@ export function RestoreDialog({
   const openExternal = useIpcMutation({ namespace: 'app', operation: 'openExternal' });
 
   useIpcEvent('restore', 'onProgress', progress => {
-    /**
-     * The transition this event caused, if it is the one that finished the restore.
-     *
-     * Collected here and acted on *after* the updater rather than inside it: the updater has to be
-     * safe to invoke twice (StrictMode does), and reloading the database list twice would be a
-     * duplicated IPC round trip. Assigning the same string twice is not.
-     */
-    let restored: string | null = null;
-
     setActionPhase(previous => {
       if (previous === null) return null;
-      // The key is read off the phase rather than off a ref or a render closure, because the phase
-      // the updater is handed is the *latest* one — `runPlan` registers the run and schedules the
-      // phase in the same tick, so a closure captured at render time can still say `options` and
-      // answer "no key", which would make a genuinely foreign id look adoptable.
+      // The key is read off the phase rather than off a render closure, because the phase the updater
+      // is handed is the *latest* one — `runPlan` registers the run and schedules the phase in the
+      // same tick, so a closure captured at render time can still say `options` and answer "no key",
+      // which would make a genuinely foreign id look adoptable. The store read is idempotent, so a
+      // double-invoked updater (StrictMode) cannot make it lie.
       const key =
         'plan' in previous ? dbOperationKey(connectionId, previous.plan.targetDatabase) : null;
-      const next = applyRestoreProgress(previous, progress, operationId =>
-        // A read, not a write: idempotent, so a double-invoked updater cannot make it lie.
+      return applyRestoreProgress(previous, progress, operationId =>
         isRunOwnedByAnother(dbOperationsStore.getState(), key, operationId)
       );
-      if (next.kind === 'done' && previous.kind !== 'done') restored = next.plan.targetDatabase;
-      return next;
     });
-
-    // The restore either created a database the sidebar has never heard of, or replaced one whose
-    // figures it is now wrong about. Either way the list has to be re-read, and an event handler is
-    // where a side effect belongs.
-    if (restored !== null) onRestored(restored);
   });
+
+  /**
+   * Tell the host a restore landed, so it can re-read the database list.
+   *
+   * An effect keyed on the finished target, and it has to be — the first attempt collected the
+   * transition inside the `setActionPhase` updater and called `onRestored` after it, which **never
+   * fired**: React does not invoke an updater synchronously, so the variable it assigned was still
+   * `null` by the time the line after read it. The e2e caught it as a sidebar that never learned about
+   * the database it had just created. Derived from the phase instead, which cannot be out of step with
+   * it, and it fires once because the value only changes on the transition. `onRestored` is
+   * `useCallback`-stable in the host for the same reason.
+   */
+  const restoredTarget = phase.kind === 'done' ? phase.plan.targetDatabase : null;
+  useEffect(() => {
+    if (restoredTarget === null) return;
+    onRestored(restoredTarget);
+  }, [restoredTarget, onRestored]);
 
   /**
    * Ask the main process to run the plan, having already earned the right to.
@@ -753,12 +754,17 @@ export function RestoreDialog({
               />
             ) : null}
 
-            <TargetNote
-              engine={engine}
-              kind={targetKind}
-              name={values.targetDatabase.trim()}
-              canCreateDatabases={canCreateDatabases}
-            />
+            {/* Only while the form can still be acted on. The note is about what pressing the button
+                WOULD do, and after a restore has landed "…you will be asked to confirm" describes a
+                step that is already behind the user — the gate's success shot caught it saying so. */}
+            {controlsDisabled ? null : (
+              <TargetNote
+                engine={engine}
+                kind={targetKind}
+                name={values.targetDatabase.trim()}
+                canCreateDatabases={canCreateDatabases}
+              />
+            )}
           </FormSection>
 
           <FormSection title="Options">
@@ -868,7 +874,11 @@ export function RestoreDialog({
               type="submit"
               leadingIcon={HardDriveDownload}
               disabled={inFlight !== null}
-              data-testid={confirmationRequired(targetKind) ? 'restore-review' : 'restore-start'}
+              // One testid whatever the label says, because it names the control rather than the
+              // state: an id that flipped would make "the safe path skips the confirmation" a test
+              // about a selector instead of about the flow. The LABEL is the signal, and both specs
+              // assert on it.
+              data-testid="restore-submit"
             >
               {confirmationRequired(targetKind) ? 'Review the restore' : 'Start restore'}
             </Button>
