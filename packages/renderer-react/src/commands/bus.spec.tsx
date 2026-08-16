@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BackupDialogs } from '../features/backup';
 import { ConnectionDialogs } from '../features/connections';
 import { QueryCommands } from '../features/query/query-commands';
+import { RestoreDialogs } from '../features/restore';
 import { IpcQueryProvider } from '../ipc';
 import { setDiagnosticsSink } from '../state/diagnostics';
 import { ShellCommands } from '../shell/shell-commands';
@@ -41,13 +42,14 @@ afterEach(() => {
 });
 
 /**
- * Mounts the app's real command wiring — `ShellCommands` (the thirteen handlers Task 7 still owns after
- * Task 12 took `open-backup-dialog` off its placeholder), `StatusBar` (`cursor-position`),
- * `ConnectionDialogs` (Task 9's three), `QueryCommands` (Task 10's twelve) and `BackupDialogs` (Task
- * 12's two). Not a stand-in list of ids: the whole point of the ownership test below is that it fails
- * when a subscription is deleted, and only the real components can tell it. Every component that is
- * mounted purely to register handlers belongs here, and adding one without adding it here shows up as a
- * command that claims a shipped task and has no handler.
+ * Mounts the app's real command wiring — `ShellCommands` (the twelve handlers Task 7 still owns after
+ * Tasks 12 and 13 took `open-backup-dialog` and `open-restore-dialog` off their placeholders),
+ * `StatusBar` (`cursor-position`), `ConnectionDialogs` (Task 9's three), `QueryCommands` (Task 10's
+ * twelve), `BackupDialogs` (Task 12's two) and `RestoreDialogs` (Task 13's two). Not a stand-in list of
+ * ids: the whole point of the ownership test below is that it fails when a subscription is deleted, and
+ * only the real components can tell it. Every component that is mounted purely to register handlers
+ * belongs here, and adding one without adding it here shows up as a command that claims a shipped task
+ * and has no handler.
  *
  * `QueryCommands` is mounted directly rather than through the query panel, and that is why it exists as
  * its own component: the panel is a Monaco host and Monaco cannot be instantiated in jsdom. Its props are
@@ -65,6 +67,7 @@ function renderProductionWiring(): void {
         <StatusBar />
         <ConnectionDialogs />
         <BackupDialogs />
+        <RestoreDialogs />
         <QueryCommands
           isActive={() => true}
           onExecute={noop}
@@ -92,7 +95,7 @@ function renderProductionWiring(): void {
  * handler must be subscribed". Adding a task's component above without adding its number here makes
  * the second test vacuous for it, which is why they share one list.
  */
-const SHIPPED_TASKS: readonly number[] = [7, 9, 10, 12];
+const SHIPPED_TASKS: readonly number[] = [7, 9, 10, 12, 13];
 
 /** The task number a consumer string names, or null when it names nobody. */
 function ownerTask(consumer: string): number | null {
@@ -137,8 +140,8 @@ describe('command ownership', () => {
     const dead = COMMAND_IDS.filter(id => {
       if (handlerCount(id) > 0) return false;
       const owner = ownerTask(COMMAND_CONSUMERS[id]);
-      // Tasks 7, 9, 10 and 12 ARE this wiring, so one of those with no subscription is a false claim
-      // rather than a pending one — the only unhandled ids allowed are the ones a later task owns.
+      // Tasks 7, 9, 10, 12 and 13 ARE this wiring, so one of those with no subscription is a false
+      // claim rather than a pending one — the only unhandled ids allowed are the ones a later task owns.
       return owner === null || SHIPPED_TASKS.includes(owner);
     });
 
@@ -157,14 +160,14 @@ describe('command ownership', () => {
 
     expect(unsubscribed).toEqual([]);
     // A count as well, so deleting a handler *and* its registry claim in one edit is still a failure
-    // rather than a quietly smaller app: thirteen `useCommand` calls in `shell-commands.tsx`, plus the
+    // rather than a quietly smaller app: twelve `useCommand` calls in `shell-commands.tsx`, plus the
     // status bar's caret readout, plus Task 9's three in `features/connections`, plus Task 10's twelve,
-    // plus Task 12's two in `features/backup`. Two ids are claimed by two owners at once and so count
-    // once: `open-query-file` (the query editor when a query tab is active, the shell otherwise) and
-    // `cursor-position` (the status bar consumes, the editor produces). Net +1 over Task 10's 29:
-    // `open-backup-dialog` moved from the shell to `BackupDialogs` rather than being added, and
-    // `backup-database` is the genuinely new one.
-    expect(COMMAND_IDS.filter(id => handlerCount(id) > 0)).toHaveLength(30);
+    // plus Task 12's two in `features/backup`, plus Task 13's two in `features/restore`. Two ids are
+    // claimed by two owners at once and so count once: `open-query-file` (the query editor when a query
+    // tab is active, the shell otherwise) and `cursor-position` (the status bar consumes, the editor
+    // produces). Net +1 over Task 12's 30: `open-restore-dialog` moved from the shell to
+    // `RestoreDialogs` rather than being added, and `restore-database` is the genuinely new one.
+    expect(COMMAND_IDS.filter(id => handlerCount(id) > 0)).toHaveLength(31);
   });
 });
 

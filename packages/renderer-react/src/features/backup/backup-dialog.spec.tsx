@@ -44,9 +44,10 @@ import { dispatchCommand } from '../../commands';
 import { IpcQueryProvider } from '../../ipc';
 import { TooltipProvider } from '../../ui';
 import { connectionStore } from '../../state/connection';
+import { resetDbOperationsForTests } from '../../state/db-operations';
 import { setDiagnosticsSink, setNotifier } from '../../state/diagnostics';
 import { BackupDialog, type BackupRunCoordination } from './backup-dialog';
-import { BackupDialogs, resetBackupRunsForTests } from './backup-dialogs';
+import { BackupDialogs } from './backup-dialogs';
 
 const CONNECTION_ID = 'conn-1';
 const DATABASE = 'joinery_test';
@@ -250,9 +251,9 @@ beforeEach(() => {
 afterEach(() => {
   while (teardowns.length > 0) teardowns.pop()?.();
   removeJoineryMock();
-  // The in-flight record is module state by design (it outlives the dialog), so it has to be cleared
-  // or a test that starts a dump blocks the next one.
-  resetBackupRunsForTests();
+  // The in-flight record outlives the dialog by design (`state/db-operations.ts`), so it has to be
+  // cleared or a test that starts a dump blocks the next one.
+  resetDbOperationsForTests();
   connectionStore.setState({
     profiles: [],
     connectedProfileIds: new Set(),

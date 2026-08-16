@@ -229,13 +229,24 @@ export function formatBytes(bytes: number): string {
 // left `backing` false with a stale `progress` and no visible statement of the failure, because the
 // failure went to a toast that a modal makes inert (J-42).
 
-export type BackupPhase =
+/**
+ * The three phases the **probe alone** implies — i.e. everything before the user has done anything.
+ *
+ * A type of its own, and not only for tidiness: the restore wizard's phase union has a different
+ * `running`/`done` (it names a target database, not a file it wrote) but exactly these three openings,
+ * because the tools probe is the same call for the same reason on both. Naming the shared part is what
+ * lets `derivePhase` and `phaseForToolsResult` serve both wizards without either one owning a copy.
+ */
+export type ProbePhase =
   /** The host-tool probe is out. PG/MySQL only; MSSQL skips straight to `options`. */
   | { readonly kind: 'checking' }
   /** The probe came back short. Carries the whole result so the view can name what is missing. */
   | { readonly kind: 'tools-missing'; readonly result: CliDepsResult }
   /** The form. */
-  | { readonly kind: 'options' }
+  | { readonly kind: 'options' };
+
+export type BackupPhase =
+  | ProbePhase
   /**
    * A backup is in flight.
    *
@@ -260,7 +271,7 @@ export type BackupPhase =
   | { readonly kind: 'failed'; readonly message: string };
 
 /** What a completed probe means. `allAvailable` with no instructions is still a pass. */
-export function phaseForToolsResult(result: CliDepsResult): BackupPhase {
+export function phaseForToolsResult(result: CliDepsResult): ProbePhase {
   return result.allAvailable ? { kind: 'options' } : { kind: 'tools-missing', result };
 }
 
@@ -287,7 +298,7 @@ export interface ToolsProbe {
  * A **failed probe opens the form.** Failing to ask is not the same as being told no: the tools may
  * well be there, and the backup is the user's to attempt. The reason is stated above the button.
  */
-export function derivePhase(engine: DatabaseEngine, probe: ToolsProbe): BackupPhase {
+export function derivePhase(engine: DatabaseEngine, probe: ToolsProbe): ProbePhase {
   if (cliEngineFor(engine) === null) return { kind: 'options' };
   if (probe.failed) return { kind: 'options' };
   if (probe.result === undefined) return { kind: 'checking' };
@@ -359,13 +370,25 @@ function elapsed(progress: BackupProgress): { elapsedMs: number } | null {
 }
 
 /**
+ * The one field a percentage needs, so the restore wizard can pass its own event shape.
+ *
+ * `RestoreProgress` and `BackupProgress` differ only in the name of their id field, and a percentage
+ * does not read it — so the parameter is narrowed to what is actually used rather than the restore
+ * event being cast to a backup one.
+ */
+export interface PercentReadout {
+  readonly percentComplete: number;
+}
+
+/**
  * The percentage to paint, or `null` for an indeterminate bar.
  *
- * `pg-backup.ts:296` reports `-1` on purpose — pg_dump and mysqldump emit phase lines, never a
- * percentage — and the Angular bar rendered that as `0%` next to an indeterminate track, which read
- * as a stalled backup. `null` is the honest answer and the bar has a mode for it.
+ * `pg-backup.ts:296` reports `-1` on purpose — pg_dump, pg_restore, mysqldump and the mysql client
+ * all emit phase lines and never a percentage — and the Angular bar rendered that as `0%` next to an
+ * indeterminate track, which read as a stalled operation. `null` is the honest answer and the bar has
+ * a mode for it.
  */
-export function progressPercent(progress: BackupProgress | null): number | null {
+export function progressPercent(progress: PercentReadout | null): number | null {
   if (progress === null) return null;
   const percent = progress.percentComplete;
   if (!Number.isFinite(percent) || percent < 0) return null;

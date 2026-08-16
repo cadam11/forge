@@ -243,7 +243,10 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
     'connection’s default database, because the native menu carries no payload (PLAN.md 0.1 item 2 — ' +
     'no longer the silent router no-op, and no longer the Task 7 placeholder either).',
   'open-restore-dialog':
-    'Task 13 restore dialog. Task 7 shell registers a placeholder dialog (PLAN.md 0.1 item 3).',
+    'Task 13 features/restore/RestoreDialogs, mounted by the shell. It resolves the target through ' +
+    'mostRecentConnectionId() — not focus — because the native menu carries no payload, and it needs ' +
+    'no database name at all: a restore creates its target (PLAN.md 0.1 item 3 — the last of the ' +
+    'three silent router no-ops, and no longer the Task 7 placeholder either).',
   'show-database-properties': 'Task 19 database-properties surface.',
 
   'show-welcome': 'Task 7 shell (tabStore.showWelcome).',
@@ -274,8 +277,9 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
     'Task 12 features/backup/BackupDialogs, targeting the payload database rather than the focused ' +
     'one. Producer: Task 8 sidebar (database context menu and the footer action).',
   'restore-database':
-    'Task 13 restore dialog, targeting the payload connection. Producer: Task 8 sidebar (server ' +
-    'and database context menus, and the footer action).',
+    'Task 13 features/restore/RestoreDialogs, targeting the payload connection — and its optional ' +
+    'database, which pre-selects the restore target rather than naming what is read. Producer: ' +
+    'Task 8 sidebar (server and database context menus, and the footer action).',
   'rename-database': 'Task 19 rename-database dialog. Producer: Task 8 sidebar database menu.',
   'delete-database':
     'Task 19 delete-database confirmation, which owns the in-use warning and the tab/node ' +
