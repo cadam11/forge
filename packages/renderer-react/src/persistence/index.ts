@@ -38,6 +38,7 @@ export {
   REACT_LAYOUT_COMPONENT_TYPE,
   REACT_LAYOUT_VERSION,
   type LayoutPersistence,
+  type LayoutWriteResult,
   type ReactLayoutPayload,
 } from './layout';
 

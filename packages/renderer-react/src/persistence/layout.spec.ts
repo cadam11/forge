@@ -113,8 +113,40 @@ describe('React layout payload', () => {
 });
 
 describe('layout persistence', () => {
-  it('reads back what it saved', async () => {
+  /**
+   * An instance with the restore-before-save gate already open. Every test that exercises
+   * `save()` uses it, because the gate is not what those tests are about; the two tests that ARE
+   * about the gate build their own instance and leave it shut.
+   */
+  const unlockedPersistence = () => {
     const layout = createLayoutPersistence(createRendererStatePersistence());
+    layout.unlock();
+    return layout;
+  };
+
+  it('refuses to save until the restore has unlocked it', async () => {
+    // The layout half of the restore-before-save contract. Dockview fires onDidLayoutChange while
+    // it builds its initial empty state, so the workspace has a live save subscription before it
+    // has any panels; without this gate that empty state overwrites the saved arrangement.
+    const layout = createLayoutPersistence(createRendererStatePersistence());
+
+    expect(layout.isUnlocked()).toBe(false);
+    expect(await layout.save(PAYLOAD)).toBe('locked');
+    expect(bridge.calls.saveLayout).toBe(0);
+    expect(bridge.calls.setState).toBe(0);
+  });
+
+  it('saves once unlocked, and stays unlocked', async () => {
+    const layout = createLayoutPersistence(createRendererStatePersistence());
+    layout.unlock();
+
+    expect(layout.isUnlocked()).toBe(true);
+    expect(await layout.save(PAYLOAD)).toBe('saved');
+    expect(await layout.save({ ...PAYLOAD, activeTabId: 'tab-2' })).toBe('saved');
+  });
+
+  it('reads back what it saved', async () => {
+    const layout = unlockedPersistence();
 
     expect(await layout.save(PAYLOAD)).toBe('saved');
     expect(await layout.read()).toEqual(PAYLOAD);
@@ -137,7 +169,7 @@ describe('layout persistence', () => {
     const seeded = createAppStateDouble({ goldenLayoutConfig: GOLDEN_LAYOUT });
     removeJoineryMock();
     installJoineryMock({ app: seeded.app });
-    const layout = createLayoutPersistence(createRendererStatePersistence());
+    const layout = unlockedPersistence();
 
     await layout.save(PAYLOAD);
 
@@ -163,7 +195,7 @@ describe('layout persistence', () => {
         saveLayout: seeded.app.saveLayout,
       },
     });
-    const layout = createLayoutPersistence(createRendererStatePersistence());
+    const layout = unlockedPersistence();
 
     expect(await layout.save(PAYLOAD)).toBe('failed');
     expect(seeded.snapshot().goldenLayoutConfig).toEqual(GOLDEN_LAYOUT);
@@ -183,7 +215,7 @@ describe('layout persistence', () => {
         saveLayout: seeded.app.saveLayout,
       },
     });
-    const layout = createLayoutPersistence(createRendererStatePersistence());
+    const layout = unlockedPersistence();
 
     expect(await layout.save(PAYLOAD)).toBe('failed');
     failing = false;
@@ -192,7 +224,7 @@ describe('layout persistence', () => {
   });
 
   it('archives nothing on a fresh install', async () => {
-    const layout = createLayoutPersistence(createRendererStatePersistence());
+    const layout = unlockedPersistence();
 
     await layout.save(PAYLOAD);
 
@@ -202,7 +234,7 @@ describe('layout persistence', () => {
 
   it('reports an unavailable bridge rather than throwing', async () => {
     removeJoineryMock();
-    const layout = createLayoutPersistence(createRendererStatePersistence());
+    const layout = unlockedPersistence();
 
     expect(await layout.read()).toBeUndefined();
     expect(await layout.save(PAYLOAD)).toBe('unavailable');
@@ -219,8 +251,6 @@ describe('layout persistence', () => {
       },
     });
 
-    expect(await createLayoutPersistence(createRendererStatePersistence()).save(PAYLOAD)).toBe(
-      'failed'
-    );
+    expect(await unlockedPersistence().save(PAYLOAD)).toBe('failed');
   });
 });

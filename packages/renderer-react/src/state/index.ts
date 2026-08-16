@@ -10,7 +10,7 @@
  *
  *   capabilities → explorer → connection → chat
  *                       tab ↗          ↗
- *   settings, ai, query-results, query-history  (independent)
+ *   settings, ai, query-results, query-history, logs, workbench  (independent)
  *
  * One import-time effect comes with that: the chat panel store subscribes to `chat.onStreamChunk`
  * if the bridge is present. A module that only needs one store should import that store's file
@@ -41,6 +41,35 @@ export {
   type DiagnosticsSink,
   type Notifier,
 } from './diagnostics';
+
+export {
+  createLogStore,
+  describeCause,
+  installLogDiagnosticsSink,
+  logStore,
+  selectErrorCount,
+  selectErrorEntries,
+  useLogStore,
+  useLogStream,
+  type LogStore,
+  type LogStoreOptions,
+  type LogStoreState,
+} from './logs';
+
+export {
+  CHAT_PANEL_DEFAULT_WIDTH,
+  CHAT_PANEL_MAX_WIDTH,
+  CHAT_PANEL_MIN_WIDTH,
+  clampWidth,
+  createWorkbenchStore,
+  SIDEBAR_DEFAULT_WIDTH,
+  SIDEBAR_MAX_WIDTH,
+  SIDEBAR_MIN_WIDTH,
+  useWorkbenchStore,
+  workbenchStore,
+  type WorkbenchState,
+  type WorkbenchStore,
+} from './workbench';
 
 export {
   schemaFolderDefs,

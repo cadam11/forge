@@ -95,20 +95,44 @@ export interface WorkspaceHydrationDeps {
 }
 
 /**
- * Restores the saved tabs for a restored connection and reads the saved React layout.
+ * Restores the saved tabs, reads the saved React layout, and — last — opens the two persistence
+ * gates. **This function is the restore-before-save contract.**
  *
- * `connectionId` is required for the same reason `restoreTabs` requires it: a persisted tab whose
- * own `connectionId` is missing adopts this one, and the Angular renderer only restored tabs once
- * a connection had come back (`app.component.ts:120-124`). Keeping that parity means this task
- * changes no restore semantics — it only moves where the call is made from.
+ * ── Why the unlock lives here ─────────────────────────────────────────────────────────────
+ *
+ * `tabStore.saveTabs` and `layoutPersistence.save` both refuse to write until they are unlocked,
+ * and this is the only caller of either unlock. So "no tab or layout write may fire before the
+ * restore has completed" is not a rule the shell has to remember: it is the shape of the code.
+ * A component that saves too early gets a no-op instead of overwriting the user's saved SQL with
+ * an empty list. `TabStoreState.unlockPersistence` documents the loss in full.
+ *
+ * The two unlocks are the last statements, after both awaits, and nothing between them can
+ * throw — `restoreTabs` and `layout.read()` each catch and report their own failures, which is
+ * what makes "restored, or tried and reported" the only state this function returns in.
+ *
+ * ── Why `connectionId` is nullable now ────────────────────────────────────────────────────
+ *
+ * The Angular renderer restored tabs only if a connection had come back
+ * (`app.component.ts:120-124`) and skipped the restore entirely otherwise. Under a gate that is
+ * no longer safe to copy: skipping the restore would either leave the gate shut for the session
+ * (tabs silently stop persisting) or open it over an unrestored store (the loss the gate exists
+ * to prevent). So the restore always runs. A persisted tab carries its own `connectionId` and
+ * only falls back to this one when it has none, so restoring with no live connection yields the
+ * user's tabs pointing at connections that are not up — which is what a reconnect fixes, and is
+ * strictly better than discarding their SQL.
  */
 export async function hydrateWorkspace(
-  connectionId: string,
+  connectionId: string | null,
   deps: WorkspaceHydrationDeps = {}
 ): Promise<ReactLayoutPayload | undefined> {
   const tabs = deps.tabs ?? tabStore;
   const layout = deps.layout ?? layoutPersistence;
 
-  await tabs.getState().restoreTabs(connectionId);
-  return layout.read();
+  await tabs.getState().restoreTabs(connectionId ?? '');
+  const payload = await layout.read();
+
+  tabs.getState().unlockPersistence();
+  layout.unlock();
+
+  return payload;
 }

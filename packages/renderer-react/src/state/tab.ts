@@ -168,8 +168,31 @@ export interface TabStoreState {
   readonly nextTab: () => void;
   readonly previousTab: () => void;
 
+  /**
+   * Persists the query tabs. **Does nothing until `unlockPersistence` has been called** — see
+   * that action, and the `writesUnlocked` closure in `createTabStore`.
+   */
   readonly saveTabs: () => Promise<void>;
   readonly restoreTabs: (connectionId: string) => Promise<void>;
+
+  /**
+   * Opens the `saveTabs` write path. Called exactly once, by `persistence/hydrate.ts`'s
+   * `hydrateWorkspace`, as its last statement — after the restore has finished.
+   *
+   * This is the restore-before-save contract, and it is a gate rather than a convention because
+   * the failure it prevents is silent and total. `saveTabs` serializes the SQL of every query
+   * tab; if anything writes before the restore has put the saved tabs back, it writes the tabs
+   * it can see — usually none — over the user's saved work, and there is no second copy. The
+   * Angular renderer had exactly this shape and only avoided the bug by ordering
+   * (`app.component.ts:116-124`), which is to say by nobody having written a store action that
+   * saves during startup yet.
+   *
+   * Idempotent, and there is deliberately no `lockPersistence`: a gate that can be closed again
+   * is a gate someone can close at the wrong moment.
+   */
+  readonly unlockPersistence: () => void;
+  /** Whether the write path is open. For tests and for the boot-sequence assertion. */
+  readonly isPersistenceUnlocked: () => boolean;
   readonly syncTabsFromLayout: (layoutTabStates: readonly LayoutTabState[]) => void;
 
   /**
@@ -192,6 +215,13 @@ export function createTabStore(persistence: RendererStatePersistence = rendererS
   const contentMap = new Map<string, string>();
   const cleanContentMap = new Map<string, string>();
   let saveTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  /**
+   * The restore-before-save gate. See `TabStoreState.unlockPersistence` for the data loss it
+   * exists to close. A closure variable rather than store state, for the same reason the
+   * settings store's `writesUnlocked` is one: nothing renders it, and no component may flip it.
+   */
+  let writesUnlocked = false;
 
   /**
    * Fire-and-forget: closing the Welcome tab must not wait on IPC, and `update()` serializes and
@@ -522,7 +552,18 @@ export function createTabStore(persistence: RendererStatePersistence = rendererS
         if (previous) set({ activeTabId: previous.id });
       },
 
+      unlockPersistence: () => {
+        writesUnlocked = true;
+      },
+
+      isPersistenceUnlocked: () => writesUnlocked,
+
       saveTabs: async () => {
+        // The gate. Silent on purpose: every startup action that opens the Welcome tab or
+        // activates a restored one calls through here, so warning would fire several times on
+        // every launch and say nothing a reader could act on. The one thing worth knowing —
+        // whether the gate is still shut — is `isPersistenceUnlocked()`.
+        if (!writesUnlocked) return;
         if (!isIpcAvailable()) return;
         try {
           // Query tabs only — results / object / welcome tabs are not worth restoring.

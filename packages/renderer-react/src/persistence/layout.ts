@@ -102,6 +102,9 @@ export function isLegacyGoldenLayout(config: LayoutConfig | undefined): config i
   return config !== undefined && decodeReactLayout(config) === undefined;
 }
 
+/** `locked` is the restore-before-save gate refusing the write — see `LayoutPersistence.unlock`. */
+export type LayoutWriteResult = 'saved' | 'locked' | 'unavailable' | 'failed';
+
 export interface LayoutPersistence {
   /**
    * The stored React layout, or `undefined` when there is none to honour. Read-only: a Golden
@@ -109,7 +112,21 @@ export interface LayoutPersistence {
    */
   read(): Promise<ReactLayoutPayload | undefined>;
   /** Persists a React layout, archiving an Angular one on the way past. */
-  save(payload: ReactLayoutPayload): Promise<'saved' | 'unavailable' | 'failed'>;
+  save(payload: ReactLayoutPayload): Promise<LayoutWriteResult>;
+  /**
+   * Opens the write path. Called exactly once, by `hydrate.ts`'s `hydrateWorkspace`, after the
+   * restore has finished — the same gate `tabStore.unlockPersistence` opens, for the same
+   * reason, at the other of the two write paths startup can race.
+   *
+   * The layout half is the cheaper loss of the two (a window arrangement, not the user's SQL)
+   * but it is the likelier one: Dockview fires `onDidLayoutChange` while it builds its initial
+   * empty state, so the workspace component has a live "save the layout" subscription before it
+   * has any panels. Gating at the leaf means a mistake in that component's effect ordering
+   * cannot overwrite the saved arrangement with the empty one.
+   */
+  unlock(): void;
+  /** Whether the write path is open. For tests and for the boot-sequence assertion. */
+  isUnlocked(): boolean;
 }
 
 export function createLayoutPersistence(
@@ -122,7 +139,16 @@ export function createLayoutPersistence(
    */
   let archiveSettled = false;
 
+  /** The restore-before-save gate. See `LayoutPersistence.unlock`. */
+  let writesUnlocked = false;
+
   return {
+    unlock: () => {
+      writesUnlocked = true;
+    },
+
+    isUnlocked: () => writesUnlocked,
+
     read: async () => {
       if (!isIpcAvailable()) return undefined;
       try {
@@ -134,6 +160,7 @@ export function createLayoutPersistence(
     },
 
     save: async payload => {
+      if (!writesUnlocked) return 'locked';
       if (!isIpcAvailable()) return 'unavailable';
       try {
         // Decision C authorises discarding the Golden Layout tree. Keeping a copy anyway costs one
