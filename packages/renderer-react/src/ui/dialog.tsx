@@ -57,12 +57,30 @@ export const DialogTrigger = RadixDialog.Trigger;
 /** Same asChild contract as the trigger. Used for a Cancel button in `DialogActions`. */
 export const DialogClose = RadixDialog.Close;
 
+/**
+ * Where the dialog sits. `center` is the default and is right for anything with actions to press;
+ * `top` is the search-overlay position — a palette anchored near the top of the window so the list
+ * grows downward into stable space instead of pushing the input around as results arrive. The two
+ * are the only positions this app has (`ui/command-overlay.tsx` is the only `top` caller).
+ */
+export type DialogAlign = 'center' | 'top';
+
+const ALIGN_CLASSES: Record<string, string> = {
+  center: 'top-1/2 -translate-1/2',
+  // 12vh rather than a fixed rem: the overlay has to look anchored in an 600px-tall window and in a
+  // 1200px one, and a percentage of the viewport is the one measure that does both. `max-h` keeps it
+  // inside the window either way.
+  top: 'top-[12vh] -translate-x-1/2',
+};
+
 export interface DialogContentProps extends ComponentPropsWithRef<typeof RadixDialog.Content> {
   readonly size?: DialogSize;
+  readonly align?: DialogAlign;
 }
 
 export function DialogContent({
   size = DEFAULT_SIZE,
+  align = 'center',
   className,
   children,
   ...rest
@@ -76,7 +94,8 @@ export function DialogContent({
       <RadixDialog.Overlay data-testid="dialog-scrim" className="fixed inset-0 z-40 bg-j-ink/70" />
       <RadixDialog.Content
         className={cn(
-          'fixed top-1/2 left-1/2 z-50 -translate-1/2',
+          'fixed left-1/2 z-50',
+          ALIGN_CLASSES[align] ?? ALIGN_CLASSES['center'],
           'flex max-h-[85dvh] w-[calc(100%-2rem)] flex-col overflow-hidden',
           // rounded-md is the ceiling — HOUSE-RULES §6: nothing is rounder than 6px,
           // dialogs included.

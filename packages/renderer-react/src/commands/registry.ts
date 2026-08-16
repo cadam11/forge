@@ -191,6 +191,43 @@ export interface CommandPayloads {
   /** Producer: the palette. Consumer: the snippet library. */
   'open-snippets': void;
 
+  // ── The two surfaces the Angular palette could reach and this one cannot yet (Task 16) ─────
+  //
+  // The Angular palette offered "Open ERD Diagram" and "Compare Database Schemas", and both worked —
+  // they were two of its sixteen entries that were NOT dead. Their surfaces land later (ERD is Task 18,
+  // schema diff is inside Task 19's SHOULD tier, PLAN.md §4), so the honest options were to drop the
+  // entries until then or to register the commands now with their owners named. Registered: a palette
+  // that silently lost two features a user had is worse than one that says "not wired yet — Task 18",
+  // and the ownership test already refuses a claim on a task that HAS shipped. Neither is wired to a
+  // placeholder — Task 7 deleted the last of those on purpose.
+
+  /** Open an entity-relationship diagram for the current database. */
+  'open-erd': void;
+  /** Compare two databases' schemas. */
+  'open-schema-diff': void;
+
+  // ── Reveal in the explorer (Task 16) ───────────────────────────────────────────────────────
+  //
+  // The object search finds an object by name and has to be able to show the user *where* it is,
+  // which means expanding four levels of a lazily-loaded, virtualized tree and scrolling to a row
+  // that is not mounted yet. Only the sidebar can do the last part — it owns the `TreeHandle`
+  // (`shell/sidebar/sidebar.tsx`, the reveal API Task 6 built) — and the object search is a portalled
+  // overlay with no relationship to it in the React tree. So this is exactly the case the bus is for.
+
+  /**
+   * Expand the path down to one object and scroll it into view in the sidebar tree.
+   *
+   * The same five fields `show-object-properties` carries, because they are what names an object
+   * unambiguously; `state/explorer-path.ts` turns them into the node ids the tree uses.
+   */
+  'reveal-explorer-node': {
+    connectionId: string;
+    databaseName: string;
+    schema: string;
+    objectName: string;
+    objectType: string;
+  };
+
   // ── The query tab's sub-panels (Task 14) ───────────────────────────────────────────────────
   //
   // One command, because one of the three surfaces needs a keyboard path that is not a click on the
@@ -309,9 +346,28 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
   'cursor-position': 'Task 7 status bar. Producer: Task 10 Monaco editor.',
   'insert-snippet': 'Task 10 query editor. Producer: Task 16 snippet library.',
   'show-shortcuts':
-    'Task 16 shortcuts cheatsheet. Producers: Task 7 shell shortcut, Task 16 palette.',
-  'open-object-search': 'Task 16 object search. Producer: Task 16 palette.',
-  'open-snippets': 'Task 16 snippet library. Producer: Task 16 palette.',
+    'Task 16 features/shortcuts-dialog/ShortcutsDialog, mounted by the shell. Producers: the native ' +
+    'menu bridge (Help ▸ Keyboard Shortcuts, ⇧⌘/) and the Task 16 palette.',
+  'open-object-search':
+    'Task 16 features/object-search/ObjectSearch, mounted by the shell. Producers: Task 16 palette ' +
+    'and its own ⌘P shortcut.',
+  'open-snippets':
+    'Task 16 features/snippet-library/SnippetLibrary, mounted by the shell. Producers: Task 16 ' +
+    'palette and its own ⌥⌘S shortcut.',
+
+  'open-erd':
+    'Task 18 ERD canvas (the `erd` tab type already exists and the sidebar\'s "Show Relationships" ' +
+    'opens one; what is missing is a database-level entry point that does not need a node). Producer: ' +
+    'Task 16 palette.',
+  'open-schema-diff':
+    "Task 19 schema-diff dialog (PLAN.md §4 lists it in that task's SHOULD tier). Producer: Task 16 " +
+    'palette — it was a palette-only entry point in Angular too.',
+
+  'reveal-explorer-node':
+    'Task 7 shell (`shell-commands.tsx`): it uncollapses the pane, expands the four levels down to ' +
+    'the object and leaves a reveal request in the explorer store. The Task 8 sidebar honours that ' +
+    'request with its TreeHandle — the handler is NOT there because a collapsed sidebar is unmounted, ' +
+    'and this command has to work from a collapsed state. Producer: Task 16 object search.',
 
   'results-row-open':
     'Task 11/14 results grid (it owns the displayed order, so it assembles the payload the rail ' +

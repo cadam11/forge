@@ -7,10 +7,14 @@ import { StrictMode } from 'react';
 import { render, act } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BackupDialogs } from '../features/backup';
+import { CommandPalette } from '../features/command-palette';
 import { ConnectionDialogs } from '../features/connections';
+import { ObjectSearch } from '../features/object-search';
 import { QueryCommands } from '../features/query/query-commands';
 import { RestoreDialogs } from '../features/restore';
 import { SettingsDialog } from '../features/settings';
+import { ShortcutsDialog } from '../features/shortcuts-dialog';
+import { SnippetLibrary } from '../features/snippet-library';
 import { IpcQueryProvider } from '../ipc';
 import { setDiagnosticsSink } from '../state/diagnostics';
 import { ShellCommands } from '../shell/shell-commands';
@@ -46,8 +50,10 @@ afterEach(() => {
  * Mounts the app's real command wiring — `ShellCommands` (the eleven handlers Task 7 still owns after
  * Tasks 12, 13 and 15 took `open-backup-dialog`, `open-restore-dialog` and `open-settings` off their
  * placeholders), `StatusBar` (`cursor-position`), `ConnectionDialogs` (Task 9's three), `QueryCommands`
- * (Task 10's twelve), `BackupDialogs` (Task 12's two), `RestoreDialogs` (Task 13's two) and
- * `SettingsDialog` (Task 15's one). Not a stand-in list of
+ * (Task 10's twelve), `BackupDialogs` (Task 12's two), `RestoreDialogs` (Task 13's two),
+ * `SettingsDialog` (Task 15's one) and Task 16's four overlays (`ObjectSearch`, `SnippetLibrary`,
+ * `ShortcutsDialog` — and `CommandPalette`, which subscribes to nothing but is mounted so the
+ * `open-*` commands it produces are proven to reach a consumer). Not a stand-in list of
  * ids: the whole point of the ownership test below is that it fails when a subscription is deleted, and
  * only the real components can tell it. Every component that is mounted purely to register handlers
  * belongs here, and adding one without adding it here shows up as a command that claims a shipped task
@@ -71,6 +77,10 @@ function renderProductionWiring(): void {
         <BackupDialogs />
         <RestoreDialogs />
         <SettingsDialog />
+        <CommandPalette />
+        <ObjectSearch />
+        <SnippetLibrary />
+        <ShortcutsDialog />
         <QueryCommands
           isActive={() => true}
           onExecute={noop}
@@ -98,7 +108,7 @@ function renderProductionWiring(): void {
  * handler must be subscribed". Adding a task's component above without adding its number here makes
  * the second test vacuous for it, which is why they share one list.
  */
-const SHIPPED_TASKS: readonly number[] = [7, 9, 10, 12, 13, 15];
+const SHIPPED_TASKS: readonly number[] = [7, 9, 10, 12, 13, 15, 16];
 
 /** The task number a consumer string names, or null when it names nobody. */
 function ownerTask(consumer: string): number | null {
@@ -116,10 +126,11 @@ describe('the registry', () => {
   });
 
   it('has no id whose owner is unnamed', () => {
-    // `save-snippet` is the one member of PLAN.md 0.4's ten dead palette dispatches that Task 7 did
-    // not earn an owner for — the snippet library is Task 16 — so it must still be absent entirely.
-    // The other nine are covered by the ownership rule below, which is a stronger statement than the
-    // list this used to be.
+    // `save-snippet` was PLAN.md 0.4's tenth dead palette dispatch, and it is STILL absent — Task 16
+    // built the snippet library without it, because "save the current query as a snippet" is a button
+    // inside that surface rather than a message between two surfaces. A command would have been a
+    // channel with one producer and one consumer in the same component (`palette-actions.ts` explains
+    // why that shape is refused).
     expect(COMMAND_IDS).not.toContain('save-snippet');
 
     const unnamed = COMMAND_IDS.filter(id => ownerTask(COMMAND_CONSUMERS[id]) === null);
@@ -163,15 +174,15 @@ describe('command ownership', () => {
 
     expect(unsubscribed).toEqual([]);
     // A count as well, so deleting a handler *and* its registry claim in one edit is still a failure
-    // rather than a quietly smaller app: eleven `useCommand` calls in `shell-commands.tsx`, plus the
-    // status bar's caret readout, plus Task 9's three in `features/connections`, plus Task 10's twelve,
-    // plus Task 12's two in `features/backup`, plus Task 13's two in `features/restore`, plus Task 15's
-    // one in `features/settings`. Two ids are claimed by two owners at once and so count once:
-    // `open-query-file` (the query editor when a query tab is active, the shell otherwise) and
-    // `cursor-position` (the status bar consumes, the editor produces). Unchanged at 31 across Task 15:
-    // `open-settings` MOVED from the shell to `SettingsDialog` rather than being added, which is what a
-    // takeover looks like from here — the total is the same and the owner is not.
-    expect(COMMAND_IDS.filter(id => handlerCount(id) > 0)).toHaveLength(31);
+    // rather than a quietly smaller app: twelve `useCommand` calls in `shell-commands.tsx` (eleven,
+    // plus Task 16's `reveal-explorer-node`), plus the status bar's caret readout, plus Task 9's three
+    // in `features/connections`, plus Task 10's twelve, plus Task 12's two in `features/backup`, plus
+    // Task 13's two in `features/restore`, plus Task 15's one in `features/settings`, plus Task 16's
+    // three overlay takeovers (`open-object-search`, `open-snippets`, `show-shortcuts`). Two ids are
+    // claimed by two owners at once and so count once: `open-query-file` (the query editor when a query
+    // tab is active, the shell otherwise) and `cursor-position` (the status bar consumes, the editor
+    // produces). 31 → 35 across Task 16: four ids gained their FIRST handler, and none moved.
+    expect(COMMAND_IDS.filter(id => handlerCount(id) > 0)).toHaveLength(35);
   });
 });
 

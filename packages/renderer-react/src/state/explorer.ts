@@ -20,6 +20,15 @@ import { ipc } from '../ipc';
 import { capabilitiesStore, selectCapabilitiesFor, type CapabilitiesStore } from './capabilities';
 import { diagnostics, notify } from './diagnostics';
 import { schemaFolderDefs, tableSubFolderDefs } from './explorer-folders';
+// The id scheme lives in one place — `explorer-path.ts` — because Task 16's reveal has to assemble
+// the same ids from the outside to walk down to an object.
+import {
+  databaseNodeId,
+  objectNodeId,
+  schemaFolderNodeId,
+  schemaNodeId,
+  serverNodeId,
+} from './explorer-path';
 
 export type NodeType =
   | 'server'
@@ -156,6 +165,16 @@ export interface ExplorerStoreState {
   readonly rootNodes: readonly TreeNode[];
   readonly selectedNodeId: string | null;
   readonly expandedNodeIds: ReadonlySet<string>;
+  /**
+   * A node the tree should scroll into view and focus, or `null`.
+   *
+   * The handoff between "expand the path" (a store job, four IPC round trips —
+   * `shell/sidebar/node-actions.ts`) and "scroll to the row" (a view job that needs the sidebar's
+   * `TreeHandle`, because the row may not be mounted). It is store state rather than a callback
+   * because the sidebar is UNMOUNTED while collapsed: a reveal that arrives then has to be waiting
+   * when the pane comes back, and the tree's effect finds it on mount. Cleared by whoever honours it.
+   */
+  readonly revealRequest: string | null;
 
   readonly addServerNode: (connectionId: string, serverName: string) => void;
   readonly removeServerNode: (connectionId: string) => void;
@@ -173,6 +192,10 @@ export interface ExplorerStoreState {
   readonly toggleNode: (nodeId: string) => void;
   readonly selectNode: (nodeId: string | null) => void;
   readonly refreshNode: (nodeId: string) => Promise<void>;
+  /** Asks the tree to scroll `nodeId` into view and focus it. */
+  readonly requestReveal: (nodeId: string) => void;
+  /** Marks a reveal request as honoured. Idempotent. */
+  readonly clearRevealRequest: () => void;
   readonly clear: () => void;
 }
 
@@ -197,7 +220,7 @@ export function createExplorerStore(deps: ExplorerStoreDeps) {
       selectCapabilitiesFor(connectionId)(deps.capabilities.getState());
 
     const databaseNode = (connectionId: string, databaseName: string): TreeNode => ({
-      id: `db-${connectionId}-${databaseName}`,
+      id: databaseNodeId(connectionId, databaseName),
       name: databaseName,
       type: 'database',
       icon: ICONS.database,
@@ -225,7 +248,7 @@ export function createExplorerStore(deps: ExplorerStoreDeps) {
       // The generic children handler with path='schemas' — same call the Angular tree made.
       const schemas = await ipc().explorer.getChildren(connectionId, databaseName, 'schemas');
       return schemas.map(schema => ({
-        id: `schema-${connectionId}-${databaseName}-${schema.name}`,
+        id: schemaNodeId(connectionId, databaseName, schema.name),
         name: schema.name,
         type: 'schema' as const,
         icon: ICONS.schema,
@@ -245,7 +268,7 @@ export function createExplorerStore(deps: ExplorerStoreDeps) {
       schema: string
     ): TreeNode[] =>
       schemaFolderDefs(capabilitiesFor(connectionId)).map(folder => ({
-        id: `folder-${connectionId}-${databaseName}-${schema}-${folder.type}`,
+        id: schemaFolderNodeId(connectionId, databaseName, schema, folder.type),
         name: folder.name,
         type: 'folder' as const,
         icon: folder.icon,
@@ -280,7 +303,12 @@ export function createExplorerStore(deps: ExplorerStoreDeps) {
     const metadataToNode = (metadata: ObjectMetadata, parent: TreeNode): TreeNode => {
       const type = metadata.type.toLowerCase() as NodeType;
       return {
-        id: `obj-${parent.connectionId}-${parent.databaseName}-${metadata.schema}.${metadata.name}`,
+        id: objectNodeId(
+          parent.connectionId ?? '',
+          parent.databaseName ?? '',
+          metadata.schema,
+          metadata.name
+        ),
         // Just the name — the tree is already grouped by schema.
         name: metadata.name,
         type,
@@ -497,10 +525,11 @@ export function createExplorerStore(deps: ExplorerStoreDeps) {
       rootNodes: [],
       selectedNodeId: null,
       expandedNodeIds: new Set<string>(),
+      revealRequest: null,
 
       addServerNode: (connectionId, serverName) => {
         const node: TreeNode = {
-          id: `server-${connectionId}`,
+          id: serverNodeId(connectionId),
           name: serverName,
           type: 'server',
           icon: ICONS.server,
@@ -532,7 +561,7 @@ export function createExplorerStore(deps: ExplorerStoreDeps) {
        */
       addDatabaseNodeLocal: (connectionId, databaseName) =>
         set(state => ({
-          rootNodes: mapServerChildren(state.rootNodes, `server-${connectionId}`, children =>
+          rootNodes: mapServerChildren(state.rootNodes, serverNodeId(connectionId), children =>
             children.some(c => c.databaseName === databaseName)
               ? null
               : [...children, databaseNode(connectionId, databaseName)]
@@ -541,7 +570,7 @@ export function createExplorerStore(deps: ExplorerStoreDeps) {
 
       removeDatabaseNodeLocal: (connectionId, databaseName) =>
         set(state => ({
-          rootNodes: mapServerChildren(state.rootNodes, `server-${connectionId}`, children =>
+          rootNodes: mapServerChildren(state.rootNodes, serverNodeId(connectionId), children =>
             children.some(c => c.databaseName === databaseName)
               ? children.filter(c => c.databaseName !== databaseName)
               : null
@@ -550,13 +579,13 @@ export function createExplorerStore(deps: ExplorerStoreDeps) {
 
       renameDatabaseNodeLocal: (connectionId, oldName, newName) =>
         set(state => ({
-          rootNodes: mapServerChildren(state.rootNodes, `server-${connectionId}`, children =>
+          rootNodes: mapServerChildren(state.rootNodes, serverNodeId(connectionId), children =>
             children.some(c => c.databaseName === oldName)
               ? children.map(c =>
                   c.databaseName === oldName
                     ? {
                         ...c,
-                        id: `db-${connectionId}-${newName}`,
+                        id: databaseNodeId(connectionId, newName),
                         name: newName,
                         databaseName: newName,
                         path: newName,
@@ -630,9 +659,21 @@ export function createExplorerStore(deps: ExplorerStoreDeps) {
         }
       },
 
+      requestReveal: nodeId => set({ revealRequest: nodeId }),
+
+      clearRevealRequest: () => {
+        if (get().revealRequest === null) return;
+        set({ revealRequest: null });
+      },
+
       clear: () => {
         loadingNodeIds.clear();
-        set({ rootNodes: [], selectedNodeId: null, expandedNodeIds: new Set() });
+        set({
+          rootNodes: [],
+          selectedNodeId: null,
+          expandedNodeIds: new Set(),
+          revealRequest: null,
+        });
       },
     };
   });

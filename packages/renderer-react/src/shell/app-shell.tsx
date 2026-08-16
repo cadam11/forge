@@ -36,9 +36,13 @@ import { useEffect, useLayoutEffect, type CSSProperties } from 'react';
 import { Spinner, Toaster, TooltipProvider, cn, installToastNotifier } from '../ui';
 import { dispatchCommand } from '../commands';
 import { BackupDialogs } from '../features/backup';
+import { CommandPalette } from '../features/command-palette';
 import { ConnectionDialogs } from '../features/connections';
+import { ObjectSearch } from '../features/object-search';
 import { RestoreDialogs } from '../features/restore';
 import { SettingsDialog } from '../features/settings';
+import { ShortcutsDialog } from '../features/shortcuts-dialog';
+import { SnippetLibrary } from '../features/snippet-library';
 import { diagnostics } from '../state/diagnostics';
 import { installLogDiagnosticsSink, useLogStream } from '../state/logs';
 import { useTabStore } from '../state/tab';
@@ -225,13 +229,23 @@ function ShellFrame() {
           13's consumer of the two restore ones — which is also what emptied `ShellCommands` of the
           last of PLAN.md 0.1's placeholders. `SettingsDialog` is Task 15's consumer of `open-settings`,
           which moved out of `ShellCommands` for the same reason: the surface that reads the store flag
-          is the one that must set it, or ⌘, is handled twice. */}
+          is the one that must set it, or ⌘, is handled twice.
+
+          The four Task 16 surfaces are the same arrangement, and three of them own a keystroke of
+          their own as well as a command — ⌘K/⇧⌘P for the palette, ⌘P for the object search, ⌥⌘S for the
+          snippet library — because no menu item has those accelerators (`commands/catalogue.ts`). The
+          cheatsheet has no keystroke of its own: Help ▸ Keyboard Shortcuts (⇧⌘/) is a menu item, so it
+          arrives as `show-shortcuts` through the bridge like everything else. */}
       <MenuBridge />
       <ShellCommands />
       <ConnectionDialogs />
       <BackupDialogs />
       <RestoreDialogs />
       <SettingsDialog />
+      <CommandPalette />
+      <ObjectSearch />
+      <SnippetLibrary />
+      <ShortcutsDialog />
       <Toaster theme={theme} />
     </TooltipProvider>
   );

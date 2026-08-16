@@ -13,6 +13,7 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from './context-menu';
+import { CommandOverlay, CommandOverlayGroup, CommandOverlayRow } from './command-overlay';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './dialog';
 import {
   DropdownMenu,
@@ -156,6 +157,35 @@ describe('the portalled primitives merge className too', () => {
     );
 
     expect(screen.getByTestId('subject').className).toContain(MARKER);
+  });
+
+  it('CommandOverlay', () => {
+    // Portalled and cmdk-backed: its surface only exists while it is open, so it belongs here rather
+    // than in the table above. Added with Task 16, which is what put a search overlay in `src/ui`.
+    render(
+      <CommandOverlay
+        open
+        onOpenChange={vi.fn()}
+        label="Overlay"
+        placeholder="Type…"
+        value=""
+        onValueChange={vi.fn()}
+        testIdPrefix="subject"
+        className={MARKER}
+      >
+        <CommandOverlayGroup heading="Group">
+          <CommandOverlayRow value="one" onSelect={vi.fn()} testId="subject-row">
+            One
+          </CommandOverlayRow>
+        </CommandOverlayGroup>
+      </CommandOverlay>
+    );
+
+    expect(screen.getByTestId('subject-overlay').className).toContain(MARKER);
+    // The prefix reaches every part, which is the contract the three feature suites key on.
+    expect(screen.getByTestId('subject-input')).toBeDefined();
+    expect(screen.getByTestId('subject-list')).toBeDefined();
+    expect(screen.getByTestId('subject-row')).toBeDefined();
   });
 
   it('DropdownMenuContent', async () => {

@@ -26,6 +26,7 @@ import { explorerStore } from '../state/explorer';
 import { logStore } from '../state/logs';
 import { selectActiveTab, tabStore } from '../state/tab';
 import { workbenchStore } from '../state/workbench';
+import { revealObjectInExplorer } from './sidebar/node-actions';
 
 /**
  * Opens a .sql file into a new query tab.
@@ -151,6 +152,19 @@ export function ShellCommands() {
   });
   useCommand('refresh-explorer', () => {
     void refreshExplorer();
+  });
+
+  // Reveal (Task 16's object search is the producer). The store half only: uncollapse the pane,
+  // expand the four levels down to the object, select it, and leave a reveal request for the tree.
+  // The scroll needs the sidebar's `TreeHandle` and happens there — and the handler cannot live there,
+  // because a collapsed sidebar is not mounted and this command has to work from a collapsed state.
+  useCommand('reveal-explorer-node', payload => {
+    void (async () => {
+      workbenchStore.getState().setSidebarCollapsed(false);
+      const nodeId = await revealObjectInExplorer(payload);
+      if (nodeId === null) return;
+      explorerStore.getState().requestReveal(nodeId);
+    })();
   });
 
   // Nothing to render: every dialog this component used to stand in for is owned by its own feature.
