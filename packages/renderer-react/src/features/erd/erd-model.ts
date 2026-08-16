@@ -180,20 +180,12 @@ export function relatedNodeIds(
  */
 export const MAX_RELATED_DEPTH = 6;
 
-/**
- * `nodeId` plus everything within `depth` hops of it — the subgraph a focused ERD shows.
+/*
+ * `applyFocusMode` (`erd-diagram.component.ts:764-782`) is deliberately NOT ported.
  *
- * Ported from `applyFocusMode` (`erd-diagram.component.ts:764-782`). The node order of the input is
- * preserved, which `erd-layout.ts` relies on for nothing (it sorts) but a reader does.
+ * It filtered the node set down to a focus table's neighbourhood — necessary in Angular, where the
+ * diagram component was handed every node the tab had loaded and had to narrow them itself. Here the
+ * narrowing happens one layer earlier and for free: `buildErdForTable` only ever FETCHES the focus
+ * table and its FK neighbourhood, so the node set already IS the subgraph. A second filter over the
+ * same set would be a no-op with a comment claiming otherwise.
  */
-export function focusSubgraph(
-  nodes: readonly ErdNode[],
-  focusNodeId: string | null,
-  depth: number
-): readonly ErdNode[] {
-  if (focusNodeId === null) return nodes;
-  if (!nodes.some(node => node.id === focusNodeId)) return nodes;
-
-  const visible = new Set([focusNodeId, ...relatedNodeIds(nodes, focusNodeId, depth)]);
-  return nodes.filter(node => visible.has(node.id));
-}

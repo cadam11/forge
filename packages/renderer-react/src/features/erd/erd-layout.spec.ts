@@ -19,6 +19,7 @@ import {
   NODE_WIDTH,
   ROW_HEIGHT,
   topRoundedRectPath,
+  truncateLabel,
 } from './erd-layout';
 import type { ErdField, ErdNode } from './erd-model';
 
@@ -314,5 +315,26 @@ describe('path builders', () => {
   it('is empty rather than malformed for a degenerate route', () => {
     expect(edgePath([{ x: 1, y: 2 }])).toBe('');
     expect(edgePath([])).toBe('');
+  });
+});
+
+describe('truncateLabel', () => {
+  it('leaves a label inside the budget alone', () => {
+    expect(truncateLabel('customer_id', 12)).toBe('customer_id');
+    expect(truncateLabel('exactlytwelve', 13)).toBe('exactlytwelve');
+  });
+
+  it('never returns more characters than the budget, ellipsis included', () => {
+    expect(truncateLabel('a_very_long_column_name', 12)).toBe('a_very_long…');
+    expect([...truncateLabel('a_very_long_column_name', 12)]).toHaveLength(12);
+  });
+
+  it('counts code points, so an emoji-bearing name is not cut in half', () => {
+    // `.length` would report 2 for the surrogate pair and slice between its halves.
+    expect(truncateLabel('ab🍎cd', 4)).toBe('ab🍎…');
+  });
+
+  it('is empty for a zero budget rather than a lone ellipsis', () => {
+    expect(truncateLabel('anything', 0)).toBe('');
   });
 });

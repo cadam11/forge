@@ -259,6 +259,23 @@ function compareIds(left: string, right: string): number {
   return left < right ? -1 : 1;
 }
 
+/**
+ * A label clipped to a character budget, with an ellipsis when it was clipped.
+ *
+ * SVG has no `text-overflow`, and the alternatives are worse: `textLength` squashes glyphs, and
+ * measuring with `getComputedTextLength` is a forced layout per label — 200 tables is a few thousand
+ * of them. A character budget derived from the box width is approximate in the last few pixels and
+ * costs nothing, which is the right trade for a diagram whose whole point is the shape rather than the
+ * text. The ellipsis is one character and replaces the last one, so the result never exceeds the
+ * budget.
+ */
+export function truncateLabel(text: string, budget: number): string {
+  const characters = [...text];
+  if (budget <= 0) return '';
+  if (characters.length <= budget) return text;
+  return `${characters.slice(0, budget - 1).join('')}…`;
+}
+
 /** An SVG path for a rectangle with only its TOP corners rounded — the node header bar. */
 export function topRoundedRectPath(width: number, height: number, radius: number): string {
   const r = Math.min(radius, width / 2, height);
