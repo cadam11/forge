@@ -21,6 +21,7 @@ import {
   createPostgresProfile,
   ensureJoineryTestSeeded,
   executeQuery,
+  gridColumnHeaders,
   openNodeMenu,
   openQueryTab,
   queryEditor,
@@ -190,7 +191,7 @@ test.describe('Joinery (React) — the query editor', () => {
       // execute" — the toast asserted absent below.
       await expect(window.getByTestId('status-executing')).toBeHidden({ timeout: 20_000 });
       await expect(window.getByTestId('query-results')).toBeVisible();
-      await expect(window.getByTestId('query-result-column')).toHaveCount(2);
+      expect(await gridColumnHeaders(window)).toEqual(['id', 'email']);
       await expect(
         window.locator('[data-sonner-toast]').filter({ hasText: 'Select some SQL to execute' })
       ).toHaveCount(0);
@@ -204,11 +205,12 @@ test.describe('Joinery (React) — the query editor', () => {
 
       await executeQuery(window);
 
-      // The pane is the structure, not the grid (Task 11), so what is asserted is the shape the store
-      // received: a result set with the two columns asked for and the seeded row count.
+      // Task 11 replaced the pane's labelled slot with the grid, so the columns are now AG Grid's
+      // header cells and the count is the toolbar's readout. `results-grid.spec.ts` owns the grid's own
+      // behaviour; what this test still asserts is that executing from the editor lands rows.
       await expect(window.getByTestId('query-results')).toBeVisible();
-      await expect(window.getByTestId('query-result-column')).toHaveCount(2);
-      await expect(window.getByTestId('query-result-rows')).not.toHaveText('0');
+      expect(await gridColumnHeaders(window)).toEqual(['id', 'email']);
+      await expect(window.getByTestId('results-row-count')).not.toHaveText('0');
       await expect(window.getByTestId('query-results-error')).toHaveCount(0);
     });
   });

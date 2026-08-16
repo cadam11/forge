@@ -16,6 +16,7 @@ import {
   createPostgresProfile,
   ensureJoineryTestSeeded,
   executeQuery,
+  gridColumnHeaders,
   openQueryTab,
   selectDatabase,
   typeSql,
@@ -71,7 +72,9 @@ test.describe('Joinery (React) — the query toolbar', () => {
       await expect(window.getByTestId('status-executing')).toBeHidden({ timeout: 20_000 });
 
       await expect(window.getByTestId('query-results')).toBeVisible();
-      await expect(window.getByTestId('query-result-column')).toHaveCount(2);
+      // The columns are AG Grid's header cells since Task 11; the grid's own behaviour lives in
+      // `results-grid.spec.ts`.
+      expect(await gridColumnHeaders(window)).toEqual(['id', 'email']);
       // The Messages tab is always there, and it carries the execution time the query really took.
       await window.getByTestId('query-results-tab-messages').click();
       await expect(window.getByTestId('query-messages')).toContainText('Execution time');

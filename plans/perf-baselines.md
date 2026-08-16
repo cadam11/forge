@@ -66,3 +66,49 @@ measurable by this script by design:
 ## After Wave 3 (zoneless)
 
 _Not started — see PR description for the recommendation._
+
+## React results grid, 100k rows (2026-08-16, renderer-rewrite Task 11)
+
+The first grid numbers in this file. Everything above measures launch and memory;
+PLAN.md's R2 ("a React port can accidentally re-render 10k rows per keystroke
+through a badly-scoped store selector") asks about interaction cost at size, so
+Task 11's gate established these and they are the budget from here on.
+
+Method: `node .superpowers/sdd/PLAN/task-11-perf.mjs` — packaged main process,
+**production React bundle** loaded over `file://`, live seeded PostgreSQL
+(`generate_series(1, 100000)` × 5 columns: int, md5 text, int, numeric, timestamp),
+1600×1000 window, `maxRowsToDisplay` raised to 150,000 through the same
+localStorage migration an upgrading user's settings arrive by. Every duration is
+`performance.now()` **inside the page**, not Playwright's clock; each scroll step
+waits two animation frames, so a step is "AG Grid re-rendered the viewport and the
+browser painted it". Darwin 25.5, M-series.
+
+| Metric                                    | Measured           | Budget    |
+| ----------------------------------------- | ------------------ | --------- |
+| Execute → 100k rows on screen             | 528 ms             | —         |
+| Row elements in the DOM (100k-row result) | 33 (53 mid-scroll) | ≤ 200     |
+| Scroll step, median of 20 (whole result)  | 33.3 ms            | ≤ 50 ms   |
+| Scroll step, worst of 20                  | 47.7 ms            | ≤ 120 ms  |
+| Sort a 100k-value text column             | 132.1 ms           | ≤ 2500 ms |
+| Quick filter, 100k → 1 row                | 86.3 ms            | ≤ 4000 ms |
+| **Grid DOM mutations over 20 keystrokes** | **0**              | **0**     |
+| Working set, before → with 100k rows      | 484 → 761 MB       | —         |
+
+The last row of the table is the R2 assertion itself, measured with a
+`MutationObserver` on the grid host rather than with any instrumentation in the
+product: with 100,000 rows loaded, twenty keystrokes in the editor produce **zero**
+mutations inside the grid. `render-isolation.spec.tsx` is the same claim at the
+memo boundary in jsdom.
+
+Two numbers worth keeping an eye on:
+
+- **+277 MB for 100,000 × 5 columns.** The rows are held twice — once in the
+  execution store, once in AG Grid's row model — and `maxRowsToDisplay` defaults
+  to 10,000, so a default-settings user never reaches this. It is the reason the
+  cap exists rather than an argument against the grid.
+- **Startup CSS**: the vendor grid stylesheets are imported from
+  `styles/theme.css`, which puts ~320 KB of CSS on the eager path (the entry
+  stylesheet went 162 KB → 482 KB). Moving them into the lazily-loaded query-panel
+  chunk is possible but would put our `--ag-*` override map after the vendor CSS
+  only by luck of chunk order; the ordering argument lives in one file today. If
+  launch regresses, this is the first thing to try.
