@@ -54,6 +54,15 @@ export interface EditorPrefsState {
 
   /** Records the "don't ask me again" tick. Idempotent. */
   readonly confirmCtrlEExecute: () => void;
+  /**
+   * Re-arms the ⌃E confirmation, so the next ⌃E shows the gate again. Idempotent.
+   *
+   * The settings panel's consumer (Task 15). The tick is one-way from the dialog — the dialog has no
+   * "ask me again" — so without this the only way back is editing `AppState` by hand, which is what a
+   * setting is for. Guarded on the current value so a user who has never confirmed cannot write a
+   * `false` that already is false into `AppState`.
+   */
+  readonly resetCtrlEExecuteConfirmation: () => void;
   /** Merges the values a placeholder prompt collected over whatever was remembered before. */
   readonly rememberPlaceholderValues: (values: Readonly<Record<string, string>>) => void;
 }
@@ -92,6 +101,16 @@ export function createEditorPrefsStore(
           current.confirmedCtrlEExecute === true
             ? undefined
             : { ...current, confirmedCtrlEExecute: true }
+        );
+      },
+
+      resetCtrlEExecuteConfirmation: () => {
+        if (!get().confirmedCtrlEExecute) return;
+        set({ confirmedCtrlEExecute: false });
+        persist(current =>
+          current.confirmedCtrlEExecute === false
+            ? undefined
+            : { ...current, confirmedCtrlEExecute: false }
         );
       },
 
