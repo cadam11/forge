@@ -101,14 +101,26 @@ export function createWorkbenchStore() {
       if (saveTimeout) clearTimeout(saveTimeout);
       saveTimeout = setTimeout(() => {
         saveTimeout = null;
-        void ipc()
-          .app.setState({
-            sidebarWidth: get().sidebarWidth,
-            sidebarCollapsed: get().sidebarCollapsed,
-            chatPanelWidth: get().chatPanelWidth,
-            editorHeightPercent: get().editorHeightPercent,
-          })
-          .catch((error: unknown) => diagnostics.error('failed to persist shell geometry', error));
+        // The `try` is not decoration and the `catch` above is not enough: the availability check at the
+        // top of `persist` happened 300ms ago, and `ipc()` throws when the bridge has gone since — which
+        // it has during a window teardown, and which a partial bridge does synchronously rather than as a
+        // rejection. An exception thrown from a timer callback has no caller to catch it, so it surfaces
+        // as an uncaught error rather than a log line. Found by Task 16's object-search suite, which
+        // toggles the sidebar and then unmounts inside the debounce window.
+        try {
+          void ipc()
+            .app.setState({
+              sidebarWidth: get().sidebarWidth,
+              sidebarCollapsed: get().sidebarCollapsed,
+              chatPanelWidth: get().chatPanelWidth,
+              editorHeightPercent: get().editorHeightPercent,
+            })
+            .catch((error: unknown) =>
+              diagnostics.error('failed to persist shell geometry', error)
+            );
+        } catch (error) {
+          diagnostics.error('failed to persist shell geometry', error);
+        }
       }, SAVE_DEBOUNCE_MS);
     };
 

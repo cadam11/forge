@@ -6,10 +6,10 @@
  *
  * - `hydrateRendererState()` — the first thing the shell does. Runs the one-shot localStorage
  *   migration, reads the sub-object once, and pushes the pieces a store owns (settings,
- *   welcome-dismissed, and — since Task 10 — the query editor's ⌃E gate and remembered placeholder
- *   values) into their stores. What is left it returns, because the surfaces that own the rest — the
- *   snippet library (Task 16) and the onboarding tours (Task 19) — do not exist yet, and inventing
- *   empty stores for them now would be two files nothing reads.
+ *   welcome-dismissed, the query editor's ⌃E gate and remembered placeholder values since Task 10,
+ *   and the snippet library since Task 16) into their stores. What is left it returns, because the
+ *   surface that owns the rest — the onboarding tours (Task 19) — does not exist yet, and inventing
+ *   an empty store for it now would be a file nothing reads.
  * - `hydrateWorkspace(connectionId)` — after the connection restore, because a persisted tab is
  *   bound to a connection and the Angular original waited for the same reason. Restores the tabs
  *   through the tab store's own `getTabs` path and returns the React layout payload (or `undefined`,
@@ -24,6 +24,7 @@
 import type { AppSettings } from '@joinery/shared';
 import { editorPrefsStore, type EditorPrefsStore } from '../state/editor-prefs';
 import { settingsStore, type SettingsStore } from '../state/settings';
+import { snippetsStore, type SnippetsStore } from '../state/snippets';
 import { tabStore, type TabStore } from '../state/tab';
 import { layoutPersistence, type LayoutPersistence, type ReactLayoutPayload } from './layout';
 import { migrateLegacyLocalStorage, type MigrationResult } from './migration';
@@ -33,7 +34,7 @@ import {
   type SqlSnippet,
 } from './renderer-state';
 
-/** What hydration found. The three unowned domains are handed back for their future owners. */
+/** What hydration found. The one still-unowned domain is handed back for its future owner. */
 export interface HydratedRendererState {
   readonly migration: MigrationResult;
   /** The settings now in the store: persisted values merged over `DEFAULT_SETTINGS`. */
@@ -41,7 +42,10 @@ export interface HydratedRendererState {
   readonly welcomeDismissed: boolean;
   /** Task 19 (onboarding tours). */
   readonly completedTours: readonly string[];
-  /** Task 16 (snippet library). The whole library — this is the data 0.5 was about. */
+  /**
+   * The whole snippet library — the data 0.5 was about. Now hydrated into `state/snippets.ts` by
+   * this function; still returned so the boot result stays a complete picture of what was on disk.
+   */
   readonly snippets: readonly SqlSnippet[];
   /** Now in `features/query/editor-prefs.ts`; still returned so the boot result stays complete. */
   readonly confirmedCtrlEExecute: boolean;
@@ -54,6 +58,7 @@ export interface HydrationDeps {
   readonly settings?: SettingsStore;
   readonly tabs?: TabStore;
   readonly editorPrefs?: EditorPrefsStore;
+  readonly snippets?: SnippetsStore;
 }
 
 /**
@@ -68,6 +73,7 @@ export async function hydrateRendererState(
   const settings = deps.settings ?? settingsStore;
   const tabs = deps.tabs ?? tabStore;
   const editorPrefs = deps.editorPrefs ?? editorPrefsStore;
+  const snippets = deps.snippets ?? snippetsStore;
 
   // Migration first, and awaited: everything below reads the state it writes.
   const migration = await migrateLegacyLocalStorage(persistence);
@@ -88,6 +94,9 @@ export async function hydrateRendererState(
     confirmedCtrlEExecute: persisted.confirmedCtrlEExecute ?? false,
     flywayPlaceholderValues: persisted.flywayPlaceholderValues ?? {},
   });
+  // The snippet library, same arrangement: hydrating the store is also what opens its write gate, so
+  // a library edit before this line could not overwrite the migrated snippets with an empty list.
+  snippets.getState().hydrate(persisted.snippets ?? []);
 
   return {
     migration,
