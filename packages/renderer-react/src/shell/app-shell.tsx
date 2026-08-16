@@ -52,7 +52,7 @@ import { ChatSidePanel } from './chat-side-panel';
 import { MenuBridge } from './menu-bridge';
 import { ResizeHandle } from './resize-handle';
 import { ShellCommands } from './shell-commands';
-import { SidebarPanel } from './sidebar-panel';
+import { Sidebar } from './sidebar';
 import { StatusBar } from './status-bar';
 import { Titlebar } from './titlebar';
 import { Workspace } from './workspace/workspace';
@@ -174,7 +174,7 @@ function ShellFrame() {
                 style={widthVar('--sidebar-width', sidebarWidth)}
                 className="w-(--sidebar-width) shrink-0"
               >
-                <SidebarPanel />
+                <Sidebar />
               </div>
               <ResizeHandle
                 label="Sidebar width"
