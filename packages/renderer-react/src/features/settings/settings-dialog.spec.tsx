@@ -196,6 +196,31 @@ const DISABLED_BECAUSE_INAPPLICABLE: readonly string[] = [
   'settings-editor-ctrl-e-reset',
 ];
 
+/**
+ * The third legal reason, and the one the first review of this file missed: disabled because ANOTHER
+ * setting's value makes this one meaningless. These controls are **enabled at the shipped defaults**, so
+ * the walk below would never see them — which is exactly how a value-dependent disable could turn into a
+ * decorative one unnoticed. Each entry carries the arrangement that legitimately disables it, and the
+ * second test drives it and re-walks, so every legal disable in the panel is enumerated somewhere here.
+ */
+const DISABLED_BY_ANOTHER_SETTING: readonly {
+  readonly testId: string;
+  readonly because: string;
+  /** Puts the panel into the state that disables `testId`. Leaves the panel open. */
+  readonly arrange: (user: ReturnType<typeof userEvent.setup>) => Promise<void>;
+}[] = [
+  {
+    testId: 'settings-grid-copy-headers',
+    // `results-clipboard.ts` writes object keys for JSON, so a leading header row cannot exist.
+    because: 'JSON carries the column names as object keys',
+    arrange: async user => {
+      await user.click(screen.getByTestId('settings-tab-grid'));
+      await screen.findByTestId('settings-group-grid');
+      await selectOption(user, 'settings-grid-copy-format', 'JSON');
+    },
+  },
+];
+
 /** Every control in the panel, with its disabled state and the hint a user can read beside it. */
 async function collectControls(
   user: ReturnType<typeof userEvent.setup>
@@ -248,6 +273,40 @@ describe('no decorative controls (J-44)', () => {
       const control = controls.find(candidate => candidate.testId === testId);
       expect(control, `${testId} is not in the panel`).toBeTruthy();
       expect(control?.described, `${testId} does not name its owner`).toMatch(/J-\d+/);
+    }
+  });
+
+  it('disables a value-dependent control only while the value that disables it is set', async () => {
+    for (const entry of DISABLED_BY_ANOTHER_SETTING) {
+      const user = await openPanel();
+
+      // Enabled at the defaults, which is why the walk above cannot see this one.
+      const before = await collectControls(user);
+      expect(
+        before.find(control => control.testId === entry.testId)?.disabled,
+        `${entry.testId} is disabled before anything set it`
+      ).toBe(false);
+
+      await entry.arrange(user);
+      const after = await collectControls(user);
+
+      // Exactly this control joined the disabled set — nothing else went with it.
+      const disabled = [...new Set(after.filter(c => c.disabled).map(c => c.testId))].sort();
+      expect(disabled).toEqual(
+        [...DISABLED_PENDING_A_CONSUMER, ...DISABLED_BECAUSE_INAPPLICABLE, entry.testId].sort()
+      );
+      // And it says why, in the text beside it: no ticket, because nothing is pending — the consumer
+      // exists and this value is the reason.
+      expect(
+        after.find(control => control.testId === entry.testId)?.described,
+        `${entry.testId} does not say why it is disabled`
+      ).toContain(entry.because);
+
+      // A fresh panel and fresh defaults for the next entry, which this one left a setting changed for.
+      // `openPanel` pushes exactly one teardown — its unmount — so popping one is that panel and only it.
+      teardowns.pop()?.();
+      settingsStore.getState().hydrate({ settings: DEFAULT_SETTINGS, persistWrites: true });
+      settingsStore.setState({ isOpen: false });
     }
   });
 
@@ -481,6 +540,85 @@ describe('persistence', () => {
     await user.type(field, '20{Enter}');
 
     expect(settingsStore.getState().settings.editor.fontSize).toBe(20);
+  });
+
+  /**
+   * The one thing dismissal must not do: throw away what the user typed, silently.
+   *
+   * **Measured in the real Electron app** (fix round 1, and the reason this block exists): typing 18 into
+   * Font size and pressing Escape reopened the panel showing 14, while the scrim and the ✕ both kept 18.
+   * The native `blur` fires in all three cases — a detached input still gets one in Chromium — but on
+   * Escape the input is removed from the tree first, and React listens at the root container, so the
+   * `focusout` of a detached node reaches nothing and `onBlur` never runs. The scrim and the ✕ move focus
+   * while the field is still mounted, so their blur arrives normally.
+   *
+   * `SettingsDialog` therefore sweeps the pending drafts in `onOpenChange(false)`, before the store closes
+   * and the fields unmount, which makes the three paths agree by construction rather than by luck about
+   * the order Chromium happens to do two things in. All three are tested because the fix is one mechanism
+   * for all three, and because "the ✕ works" is what made this survive the first review.
+   */
+  describe('a pending draft when the panel is dismissed', () => {
+    const dismissals: readonly {
+      readonly name: string;
+      readonly dismiss: (user: ReturnType<typeof userEvent.setup>) => Promise<void>;
+    }[] = [
+      { name: 'Escape', dismiss: async user => user.keyboard('{Escape}') },
+      {
+        name: 'a click on the scrim',
+        dismiss: user => user.click(screen.getByTestId('dialog-scrim')),
+      },
+      { name: 'the ✕', dismiss: user => user.click(screen.getByTestId('dialog-close')) },
+    ];
+
+    for (const { name, dismiss } of dismissals) {
+      it(`commits it on ${name}`, async () => {
+        const user = await openPanel('editor');
+        const field = screen.getByTestId('settings-editor-font-size');
+        await user.clear(field);
+        await user.type(field, '18');
+        // Still a draft: `NumberSetting` commits on blur or Enter, and neither has happened.
+        expect(settingsStore.getState().settings.editor.fontSize).toBe(
+          DEFAULT_SETTINGS.editor.fontSize
+        );
+
+        await dismiss(user);
+
+        await waitFor(() => expect(screen.queryByTestId('settings-dialog')).toBeNull());
+        expect(settingsStore.getState().settings.editor.fontSize).toBe(18);
+      });
+    }
+
+    it('commits a draft in each field, and clamps them as a blur would', async () => {
+      const user = await openPanel('editor');
+      const fontSize = screen.getByTestId('settings-editor-font-size');
+      const tabSize = screen.getByTestId('settings-editor-tab-size');
+
+      await user.clear(fontSize);
+      await user.type(fontSize, '400');
+      // Typing in the second field blurs the first, so only the second is still a draft on Escape —
+      // which is the point of sweeping every registered field rather than the focused one.
+      await user.clear(tabSize);
+      await user.type(tabSize, '8');
+      await user.keyboard('{Escape}');
+
+      await waitFor(() => expect(screen.queryByTestId('settings-dialog')).toBeNull());
+      expect(settingsStore.getState().settings.editor.fontSize).toBe(24);
+      expect(settingsStore.getState().settings.editor.tabSize).toBe(8);
+    });
+
+    it('writes nothing when the draft was never edited', async () => {
+      const bridge = createAppStateDouble();
+      teardowns.push(installJoineryMock({ app: bridge.app }));
+      const user = await openPanel('editor');
+
+      await user.keyboard('{Escape}');
+
+      await waitFor(() => expect(screen.queryByTestId('settings-dialog')).toBeNull());
+      // The sweep is idempotent: each field commits only a value that differs from the stored one, so
+      // opening and closing the panel does not stamp `settingsAuthoredByReactAt` on an untouched app.
+      expect(settingsStore.getState().settings).toEqual(DEFAULT_SETTINGS);
+      expect(bridge.snapshot().reactRendererState?.settingsAuthoredByReactAt).toBeUndefined();
+    });
   });
 
   it('resets every group, and only on the second press', async () => {
