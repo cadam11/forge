@@ -1,0 +1,115 @@
+/*
+ * The Joinery dock theme: Dockview's `--dv-*` variables re-pointed at the Layer 2 semantic
+ * tokens.
+ *
+ * ── Why this file exists at all ───────────────────────────────────────────────────────────
+ *
+ * The Angular renderer loaded Golden Layout's BASE stylesheet only and then re-implemented
+ * the entire theme by hand — ~360 lines written almost entirely with `!important`, four
+ * inline SVG data-URIs with baked stroke colours, and a stale Solarized blue for the drop
+ * indicator (audit §1.9). Dockview ships a real theming contract instead: every painted
+ * value is a CSS custom property, so the theme is a variable map and nothing needs
+ * `!important`.
+ *
+ * ── The two-class arrangement, which is load-bearing ──────────────────────────────────────
+ *
+ * `theme.className` is `"dockview-theme-dark dockview-theme-joinery"` — Dockview splits the
+ * string on spaces and toggles each class (`setClassNames`, dockview-core), so both apply.
+ * `dockview-theme-dark` is the base: it gives EVERY `--dv-*` a value, including the couple of
+ * dozen structural ones (transition durations, z-indexes, tab margins, the close-icon size)
+ * that this file has no opinion about. This class then overrides only the ones that paint.
+ * Without the base class, any variable missed here would resolve to nothing.
+ *
+ * Both classes have one-class specificity, so SOURCE ORDER decides — which is why
+ * `theme.css` imports the vendor stylesheet immediately before this file, and why neither
+ * import may move.
+ *
+ * ── One block, both themes ────────────────────────────────────────────────────────────────
+ *
+ * Every value below is a semantic token, and those already flip with `[data-theme]`. So there
+ * is no light variant of this file and no `dockview-theme-light`: ivory follows for free. That
+ * is the ink-first payoff described in HOUSE-RULES §3.
+ *
+ * Known dead vendor values: `dockview-theme-dark` also defines nine `--dv-tab-group-color-*`
+ * entries (including two blues). They belong to the tab-group-colour feature, which this app
+ * does not enable, so nothing reads them — they are unused declarations rather than painted
+ * pixels, and overriding them would imply the feature is coming.
+ */
+
+.dockview-theme-joinery {
+  /* Geometry. `--panel-header-height` is the token that retired the audit's 36/38 mismatch. */
+  --dv-tabs-and-actions-container-height: var(--panel-header-height);
+  --dv-tabs-and-actions-container-font-size: var(--text-base);
+  --dv-tab-font-size: var(--text-base);
+  --dv-border-radius: 0px;
+  --dv-tab-border-radius: 0px;
+  --dv-sash-border-radius: 0px;
+  --dv-dropdown-border-radius: var(--radius-sm);
+  --dv-spacing-padding: 0px;
+  --dv-tab-margin: 0;
+
+  /* Surfaces. The tab strip is chrome; the panel body is the canvas — the same stack the
+   * rest of the shell uses, so a dock group does not read as a foreign widget. */
+  --dv-group-view-background-color: var(--color-canvas);
+  --dv-tabs-and-actions-container-background-color: var(--color-chrome);
+  --dv-activegroup-visiblepanel-tab-background-color: var(--color-canvas);
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--color-chrome);
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--color-canvas);
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--color-chrome);
+  --dv-context-menu-background-color: var(--color-elevated);
+
+  /* Foregrounds. Four steps, because Dockview distinguishes active/inactive GROUP from
+   * visible/hidden PANEL, and a workbench with two groups should make the focused one
+   * obvious without colour. */
+  --dv-activegroup-visiblepanel-tab-color: var(--color-fg);
+  --dv-activegroup-hiddenpanel-tab-color: var(--color-fg-muted);
+  --dv-inactivegroup-visiblepanel-tab-color: var(--color-fg-muted);
+  --dv-inactivegroup-hiddenpanel-tab-color: var(--color-fg-subtle);
+
+  /* Rules. Separation is a hairline and a surface step, never a shadow (PROPOSAL §2.1). */
+  --dv-tab-divider-color: var(--color-rule);
+  --dv-separator-border: var(--color-rule);
+  --dv-paneview-header-border-color: var(--color-rule);
+
+  /* The sash only shows itself on hover/drag, and then in oxide — its "active" job is one of
+   * the four the accent is allowed (HOUSE-RULES §5). */
+  --dv-sash-color: transparent;
+  --dv-active-sash-color: var(--color-accent);
+
+  /* Drag and drop. Replaces the audit's stale Solarized blue outright. */
+  --dv-drag-over-background-color: var(--color-accent-subtle);
+  --dv-drag-over-border-color: var(--color-accent);
+  --dv-edge-dock-indicator-color: var(--color-accent);
+  --dv-smart-guides-color: var(--color-accent);
+
+  /* Focus + hover. `dockview-theme-dark` ships `dodgerblue` here, which HOUSE-RULES §5 bans. */
+  --dv-paneview-active-outline-color: var(--color-focus);
+  --dv-icon-hover-background-color: var(--color-hover);
+  --dv-tabs-container-scrollbar-color: var(--color-fg-subtle);
+
+  /* Floating groups are the one surface with real elevation, and only under ivory — which is
+   * exactly what `--overlay-shadow` already encodes per theme. */
+  --dv-floating-border: 1px solid var(--color-rule-strong);
+  --dv-floating-group-border: 1px solid var(--color-rule-strong);
+  --dv-floating-box-shadow: var(--overlay-shadow);
+}
+
+/*
+ * Two structural corrections to the vendor stylesheet. Both are `.dockview-theme-joinery`
+ * descendant selectors rather than `!important`, which is the whole reason this theme is
+ * ~100 lines instead of the 360 the audit found.
+ */
+
+/* The tab strip's own bottom hairline. Dockview draws none, so without this the strip and the
+ * panel body meet on a colour step alone, and under ivory that step is 3% luminance. */
+.dockview-theme-joinery .dv-tabs-and-actions-container {
+  border-bottom: 1px solid var(--color-rule);
+}
+
+/* Keyboard focus inside the dock. Dockview's tabs are focusable; the vendor sheet gives them
+ * no `:focus-visible` treatment, and HOUSE-RULES makes one non-optional. Inset, because a tab
+ * sits flush against its neighbours and an outer ring would be clipped by the strip. */
+.dockview-theme-joinery .dv-tab:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
+}
