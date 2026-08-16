@@ -10,6 +10,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { ErdBuildResult } from './erd-adapter';
+// `?raw` so the guard below reads the module's own source text, the same mechanism
+// `markdown/sanitize-parity.spec.ts` uses. This package compiles without @types/node, so a
+// filesystem read is not available here.
+import CACHE_SOURCE from './erd-cache.ts?raw';
 import {
   cachedErd,
   clearErdCache,
@@ -55,11 +59,22 @@ describe('erdCacheKey', () => {
     );
   });
 
-  it('does not let a name containing the separator collide with the next field', () => {
-    // The reason the separator is a character no identifier can contain.
-    expect(erdCacheKey({ connectionId: 'c1', databaseName: 'a', tableName: 'b' })).not.toBe(
-      erdCacheKey({ connectionId: 'c1', databaseName: 'a b' })
-    );
+  it('does not let a name containing a plausible separator collide with the next field', () => {
+    // The reason the separator is a character no identifier can contain: a space, a colon and a dot
+    // are all legal in a quoted identifier, so any of them would make these two the same key.
+    for (const punctuation of [' ', ':', '.']) {
+      expect(erdCacheKey({ connectionId: 'c1', databaseName: 'a', tableName: 'b' })).not.toBe(
+        erdCacheKey({ connectionId: 'c1', databaseName: `a${punctuation}b` })
+      );
+    }
+  });
+
+  it('is built with a NUL written as an escape, never a literal NUL in the source', () => {
+    // A raw NUL byte in a .ts file makes git classify it as binary: `git diff` prints "Binary files
+    // differ" and `git grep` skips it, so every line of the module becomes invisible to review. The
+    // first version of this file had two. The separator itself is unchanged.
+    expect(CACHE_SOURCE).not.toContain('\u0000');
+    expect(erdCacheKey({ connectionId: 'c1', databaseName: 'db' })).toContain('\u0000');
   });
 });
 
