@@ -9,6 +9,7 @@
 - **UI work must use the licensed local design skills** (`.claude/skills/design`, `brand-kit`, `add-dark-mode`, `componentize`, `canonicalize-tailwind`, `ideas` — gitignored, Tailwind-idiomatic): point every UI subagent at them.
 - **Docker note**: integration/e2e/visual test tiers need Docker DBs; Craig starts Docker Desktop manually — **ping him before running those tiers**.
 - Solo project: no reviewer besides Craig, and he only reviews high-level architecture/design/security/tradeoffs. PRs still required (never commit to `main`), but the coordinator merges routine PRs after its own subagent review passes.
+- **Ticketing: Linear team "Joinery", issue prefix `J-`**, via the `linearis` CLI (JSON output; token in the direnv env — run through `direnv exec .` if the env isn't loaded). Per Craig's global rules, a branch for a Linear ticket is named after the ticket (e.g. `j-12`). `plans/rebrand/FOLLOW-UPS.md` remains valid until its items are migrated or closed.
 
 ## Project Overview
 
