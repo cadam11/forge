@@ -52,6 +52,7 @@ import {
   selectDatabase,
   TEST_MYSQL,
   TEST_PG,
+  dropDatabasesMatching,
   treeRow,
   withJoineryReact,
 } from '../helpers/joinery-actions-react';
@@ -69,6 +70,13 @@ function tempArchive(extension: string): string {
 }
 
 test.beforeAll(ensureJoineryTestSeeded);
+// Every test drops its own target in a `finally`, which handles a FAILING test. It does not handle a
+// KILLED one — a run interrupted mid-restore leaves a `joinery_e2e_pg_*` database behind, and those
+// accumulate under the server node until the virtualized tree stops rendering the rows below it (the
+// failure `dropDatabasesMatching` documents). So sweep the prefix on the way in, the way
+// `create-database.spec.ts` does. PostgreSQL only: `dropDatabasesMatching` is a PG helper, and a
+// leftover MySQL target is dropped by `runRestoreOver`'s own overwrite on the next run.
+test.beforeAll(() => dropDatabasesMatching('joinery_e2e_pg_'));
 
 test.describe('Joinery (React) — restoring a database', () => {
   test('backs up the seeded PostgreSQL database and restores it into a database it creates', async () => {

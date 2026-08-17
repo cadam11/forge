@@ -25,11 +25,18 @@ import { expect, test } from './fixtures';
 import {
   TEST_PG,
   connectionEditor,
+  ensureJoineryTestSeeded,
   fillPostgresForm,
   openConnectionEditor,
   testConnectionInEditor,
   withJoineryReact,
 } from '../helpers/joinery-actions-react';
+
+// Task 20 audit: this file used to seed nothing, and `a successful Test leaves the panel absent` needs
+// `joinery_test` to EXIST — `fillPostgresForm` puts it in Default database, and a Test against a
+// container without it fails. It passed only because a spec earlier in the alphabet had seeded, so the
+// file was green in a full run and red on its own. That is an ordering dependency, not a fixture.
+test.beforeAll(ensureJoineryTestSeeded);
 
 /** The harness SQL Server, from tests/docker-compose.test.yml. */
 const TEST_MSSQL = { host: '127.0.0.1', port: 11433, user: 'sa' } as const;
