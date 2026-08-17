@@ -64,6 +64,8 @@ const databases = (...names: string[]): DatabaseInfo[] =>
 interface BridgeCalls {
   readonly creates: CreateDatabaseOptions[];
   readonly renames: RenameDatabaseOptions[];
+  /** Every `explorer.refreshNode` — the channel that drops the MAIN process's metadata caches. */
+  readonly refreshes: { connectionId: string; databaseName: string; path: string }[];
   /** How many times the database list was re-read from the server. */
   listCalls: number;
   /** What that re-read answers. Reassigned by a test to simulate the server's new state. */
@@ -74,13 +76,17 @@ let calls: BridgeCalls;
 const teardowns: (() => void)[] = [];
 let toasts: string[] = [];
 
-function installBridge(result: Partial<DatabaseOperationResult> = {}): void {
+function installBridge(
+  result: Partial<DatabaseOperationResult> = {},
+  /** Makes the main-cache drop reject, which the fan-out must survive. */
+  refreshFails = false
+): void {
   const answer: DatabaseOperationResult = {
     success: true,
     tsql: 'CREATE DATABASE [reports]',
     ...result,
   };
-  calls = { creates: [], renames: [], listCalls: 0, listAnswer: databases('sales') };
+  calls = { creates: [], renames: [], refreshes: [], listCalls: 0, listAnswer: databases('sales') };
 
   teardowns.push(
     installJoineryMock({
@@ -100,7 +106,12 @@ function installBridge(result: Partial<DatabaseOperationResult> = {}): void {
       },
       explorer: {
         getChildren: () => Promise.resolve([]),
-        refreshNode: () => Promise.resolve([]),
+        refreshNode: (connectionId: string, databaseName: string, path: string) => {
+          calls.refreshes.push({ connectionId, databaseName, path });
+          return refreshFails
+            ? Promise.reject(new Error(`database "${databaseName}" does not exist`))
+            : Promise.resolve([]);
+        },
       },
       logs: { append: () => Promise.resolve() },
     })
@@ -244,6 +255,34 @@ describe('the create dialog', () => {
     expect(screen.getByText('This server already has a database called sales.')).toBeTruthy();
   });
 
+  it('catches a collision against a list that arrives AFTER the dialog opens', async () => {
+    // `taken` is a subscription, not a `getState()` read during render. The native menu and the palette
+    // can open this dialog on a server whose database list is still in flight (nothing has touched its
+    // picker yet), and a snapshot taken at that moment is empty for the dialog's whole life — so the
+    // collision check silently stops existing exactly when the round trip is slowest.
+    installBridge();
+    seed();
+    connectionStore.setState({ databasesByConnection: new Map() });
+    mountHost();
+    dispatchCommand('create-database-on-server', { connectionId: CONNECTION });
+    await screen.findByTestId('create-database-dialog');
+
+    await typeName('sales');
+    // Nothing known yet, so nothing to collide with: the name is usable as far as the renderer knows.
+    expect(screen.getByTestId('database-dialog-submit').hasAttribute('disabled')).toBe(false);
+
+    // The list lands, the way `loadDatabases` delivers it.
+    connectionStore.setState({
+      databasesByConnection: new Map([[CONNECTION, databases('sales')]]),
+    });
+
+    await waitFor(() =>
+      expect(screen.getByText('This server already has a database called sales.')).toBeTruthy()
+    );
+    expect(screen.getByTestId('database-dialog-submit').hasAttribute('disabled')).toBe(true);
+    expect(calls.creates).toHaveLength(0);
+  });
+
   it('shows the server’s own refusal in the dialog and stays open', async () => {
     installBridge({ success: false, error: 'permission denied for CREATE DATABASE' });
     seed();
@@ -304,7 +343,33 @@ describe('the create fan-out', () => {
     expect(cachedErd(staleWholeDatabase)).toBeUndefined();
     expect(cachedErd(staleTable)).toBeUndefined();
     expect(cachedErd(otherDatabase)).toBeDefined();
-    // 4. the user was told.
+    // 4. MAIN's metadata caches were dropped, for this connection and naming the new database. Without
+    //    this the two reloads above re-read main's 60s-TTL answer and the fan-out ends with the
+    //    renderer correct and the process it asks stale.
+    expect(calls.refreshes).toContainEqual({
+      connectionId: CONNECTION,
+      databaseName: 'reports',
+      path: 'tables',
+    });
+    // 5. the user was told.
+    expect(toasts.join('\n')).toContain('Created reports');
+  });
+
+  it('goes on refreshing when the main-cache drop rejects', async () => {
+    // The re-warm can fail on its own — a database dropped out from under the name is the ordinary
+    // case — and main has already invalidated by the time it can. The reloads must still happen.
+    installBridge({}, true);
+    seed();
+    calls = { ...calls, listAnswer: databases('sales', 'reports') };
+
+    mountHost();
+    dispatchCommand('create-database-on-server', { connectionId: CONNECTION });
+    await screen.findByTestId('create-database-dialog');
+    await typeName('reports');
+    await userEvent.click(screen.getByTestId('database-dialog-submit'));
+
+    await waitFor(() => expect(screen.queryByTestId('create-database-dialog')).toBeNull());
+    expect(calls.listCalls).toBeGreaterThan(0);
     expect(toasts.join('\n')).toContain('Created reports');
   });
 });
@@ -351,7 +416,14 @@ describe('the rename fan-out', () => {
     //    previous tenant of that name.
     expect(cachedErd(oldDiagram)).toBeUndefined();
     expect(cachedErd(newNameDiagram)).toBeUndefined();
-    // 4. the statement is in the Output panel.
+    // 4. main's metadata caches were dropped, naming the NEW database — the old one is gone, so asking
+    //    main to re-warm its table list would be a guaranteed failure.
+    expect(calls.refreshes).toContainEqual({
+      connectionId: CONNECTION,
+      databaseName: 'revenue',
+      path: 'tables',
+    });
+    // 5. the statement is in the Output panel.
     expect(logStore.getState().entries.find(item => item.tag === 'Database')?.detail).toBe(
       'ALTER DATABASE [sales] MODIFY NAME = [revenue]'
     );

@@ -4,6 +4,7 @@
  */
 
 export { findJoineryApi, ipc, IpcUnavailableError, isIpcAvailable } from './api';
+export { dropMainMetadataCaches } from './main-metadata-cache';
 /**
  * `ipcKeys` itself is deliberately NOT re-exported, and `eslint.config.js` bans naming it outside
  * this directory. Invalidate through `useInvalidateIpc` instead; read through `useIpcQuery`, which

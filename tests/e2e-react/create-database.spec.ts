@@ -8,28 +8,30 @@
  * reloaded its own database list and left the ERD component's built diagram alone, so a diagram of a
  * name that had changed underneath it kept being served.
  *
- * Three of the four caches are asserted here, at the level a user sees them: the explorer tree, the
- * database picker, and the ERD (a newly created database is reachable as a diagram and draws nothing).
- * A rename additionally re-points the query tab that was open on the old name.
+ * Five caches, in fact, and all five are asserted here at the level a user sees them: the explorer
+ * tree, the database picker, the ERD's built-diagram cache — including the same-name collision, the
+ * assertion this file used to say it could not make — and, through both of the last two, the MAIN
+ * process's per-connection metadata caches. A rename additionally re-points the query tab that was open
+ * on the old name.
  *
- * ── Why the fourth — the ERD cache's same-name collision — is a UNIT test ────────────────────
+ * ── The correction: main's caches ARE renderer-reachable ─────────────────────────────────────
  *
- * The discriminating version of that proof needs a database with a table in it, renamed out of the way,
- * and then a NEW empty database created under the same name; a stale cache entry then draws a table that
- * does not exist. It was built that way first and **it cannot pass at this level**, for a reason that is
- * a finding rather than a flake:
+ * An earlier version of this header claimed the same-name proof "cannot pass at this level", because
+ * `MetadataService.listTables` caches on `tables:${connectionId}:${database}` with "no
+ * renderer-reachable invalidation" — so a `CREATE TABLE` typed into a query tab stayed invisible to
+ * every metadata reader and there was no way to build a non-empty diagram to go stale.
  *
- *   `MetadataService.listTables` caches on `tables:${connectionId}:${database}` with no
- *   renderer-reachable invalidation (`packages/main/src/services/sql/metadata.ts:160`). The query tab
- *   that creates the table has already populated that cache with the empty answer — its Monaco
- *   completion prefetch reads it on mount — so `CREATE TABLE` through a query tab is invisible to every
- *   metadata reader in the app until the process restarts. Verified against the container: the table is
- *   there in `pg_tables` and the ERD still draws nothing.
+ * The premise was false. `EXPLORER.REFRESH_NODE` calls `metadataService.invalidateConnection`
+ * (`packages/main/src/ipc/explorer.ipc.ts:113-123`) and has been on the preload bridge all along —
+ * it was simply DEAD CODE that neither renderer ever called. It is called now, by the create/rename
+ * fan-out and by both of the sidebar's Refresh affordances
+ * (`packages/renderer-react/src/ipc/main-metadata-cache.ts`), so a Refresh finally means what it says
+ * and `serves no stale diagram…` below is the discriminating proof, at this tier, of both halves.
  *
- * So the exact-cache-key version of the assertion lives in
- * `packages/renderer-react/src/features/databases/database-dialogs.spec.tsx`, where the ERD cache can be
- * seeded and read directly, and the main-side cache is filed with J-64 — which is the ticket for the
- * `database:changed` signal that would fix both halves.
+ * The exact-cache-key version of the ERD assertion stays in
+ * `packages/renderer-react/src/features/databases/database-dialogs.spec.tsx`, where the keys can be read
+ * directly. What remains on J-64 is the part no renderer can do: the automatic signal that turns a DDL
+ * statement main has just executed into an invalidation nobody had to ask for.
  *
  * ── Cleanup ────────────────────────────────────────────────────────────────────────────────
  *
@@ -45,15 +47,19 @@ import type { Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
 import {
+  closeTabTitled,
   connectFromSidebar,
   createDatabaseFromSidebar,
+  disconnectServer,
   dropDatabasesMatching,
   createPostgresProfile,
   dismissToasts,
   ensureJoineryTestSeeded,
   erdNode,
+  executeQuery,
   expandTreeRow,
   openPalette,
+  refreshSidebar,
   renameDatabaseFromSidebar,
   runPaletteCommand,
   selectDatabase,
@@ -184,8 +190,7 @@ test.describe('Joinery (React) — create and rename database', () => {
     // that was created a moment ago (so the picker, the default-database resolution and the ERD's own
     // target all agree) and it is EMPTY, which is the truth about a database with no tables.
     //
-    // The stronger same-name-collision assertion is a unit test — see this file's header for the
-    // main-process cache that makes it unobservable from here.
+    // The stronger same-name-collision assertion is the test that follows this one.
     const probe = probeName('erd');
 
     await withJoineryReact(async ({ window }) => {
@@ -210,6 +215,74 @@ test.describe('Joinery (React) — create and rename database', () => {
       for (const table of ['products', 'customers', 'orders', 'order_items']) {
         await expect(erdNode(window, `public.${table}`)).toHaveCount(1, { timeout: 30_000 });
       }
+    });
+  });
+
+  test('serves no stale diagram for a name that has been recreated', async () => {
+    /**
+     * The discriminating proof, and it needs BOTH halves of the fan-out to hold:
+     *
+     *  1. `Refresh` drops main's metadata caches, or the `CREATE TABLE` below stays invisible and the
+     *     diagram at step 4 is empty — nothing goes stale and the test proves nothing;
+     *  2. the create fan-out drops the ERD cache for the new name AND main's list caches, or the
+     *     diagram at step 8 is the one built at step 4: a picture of a table that no longer exists.
+     *
+     * The name is freed **outside Joinery**, with the server disconnected first so no pool is holding
+     * the database open. That is deliberate on both counts: it is the one change the fan-out cannot
+     * see (J-64's remaining half), and the app's own rename/delete paths would themselves invalidate,
+     * leaving nothing stale to catch. `DROP DATABASE` is also not reachable through the UI until 19b.
+     */
+    const probe = probeName('reuse');
+
+    await withJoineryReact(async ({ window }) => {
+      await connect(window);
+      await expandTreeRow(window, PROFILE);
+      await createDatabaseFromSidebar(window, PROFILE, probe);
+      await expect(treeRow(window, probe)).toBeVisible({ timeout: 20_000 });
+
+      // 1–2. a table, created the ordinary way: typed into a query tab.
+      await selectDatabase(window, probe);
+      await typeSql(window, 'create table probe_t (id int primary key)');
+      await executeQuery(window);
+
+      // 3. Refresh. This is the call that was missing: main cached the empty table list when the query
+      //    tab's completion prefetch read it, and only `EXPLORER.REFRESH_NODE` drops it.
+      await refreshSidebar(window);
+
+      // 4. so the diagram can see the table — and caching a NON-EMPTY diagram under this name is the
+      //    whole point of the steps above.
+      await openDatabaseDiagram(window);
+      await expect(erdNode(window, 'public.probe_t')).toHaveCount(1, { timeout: 30_000 });
+
+      // 5. CLOSE that ERD tab, and the reason is a finding rather than tidiness: `useErdSchema` keeps
+      //    its resolved diagram in component state keyed by connection + database name, and both are
+      //    unchanged by a recreate — so a tab left OPEN on this database goes on rendering the old
+      //    diagram even with every cache correctly dropped underneath it. Nothing in the fan-out can
+      //    reach a mounted panel's state; see the fix report. Closing it makes step 8 a real cache read.
+      await selectDatabase(window, 'joinery_test');
+      await openDatabaseDiagram(window);
+      await closeTabTitled(window, `ERD: ${probe}`);
+
+      // 6–7. the name goes away with Joinery not even connected to that server.
+      await disconnectServer(window, PROFILE);
+      await dropDatabasesMatching(probe);
+      await connectFromSidebar(window, PROFILE);
+
+      // Reconnecting does NOT re-read: `closePool` leaves `MetadataService` alone, so the database
+      // list is still the one main cached before the drop. Refresh again — the same wiring as step 3
+      // on a different cache, and without it the dialog below refuses the name as already taken.
+      await refreshSidebar(window);
+      await expect(treeRow(window, probe)).toHaveCount(0, { timeout: 20_000 });
+
+      // 8. a NEW, empty database under the old name. The stale diagram must not survive it.
+      await createDatabaseFromSidebar(window, PROFILE, probe);
+      await expect(treeRow(window, probe)).toBeVisible({ timeout: 20_000 });
+      await selectDatabase(window, probe);
+
+      await openDatabaseDiagram(window);
+      await expect(window.getByTestId('erd-toolbar')).toContainText(probe);
+      await expect(erdNode(window, 'public.probe_t')).toHaveCount(0);
+      await expect(window.getByTestId('erd-empty')).toBeVisible({ timeout: 30_000 });
     });
   });
 });

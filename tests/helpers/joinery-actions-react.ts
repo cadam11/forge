@@ -1406,6 +1406,33 @@ export async function searchQueryHistory(window: Page, term: string): Promise<vo
 }
 
 /**
+ * Closes a workspace tab by the title on it.
+ *
+ * By `aria-label`, not by testid: the close button's testid carries the tab's generated id, which no
+ * spec can know. The label is `Close ${tab.title}` (`shell/workspace/panel-tab.tsx`).
+ */
+export async function closeTabTitled(window: Page, title: string): Promise<void> {
+  const close = window.getByLabel(`Close ${title}`);
+  await expect(close).toBeVisible({ timeout: UI_TIMEOUT_MS });
+  await close.click();
+  await expect(close).toBeHidden({ timeout: UI_TIMEOUT_MS });
+}
+
+/**
+ * The sidebar's Refresh button, awaited to the point where its effects have landed.
+ *
+ * There is no spinner to wait on — `refreshFocused` is two awaited round trips with no busy state of
+ * its own — so the wait is on the button being clickable again plus a short settle. Callers assert the
+ * thing that should have changed, which is the honest signal.
+ */
+export async function refreshSidebar(window: Page): Promise<void> {
+  const button = window.getByTestId('sidebar-refresh');
+  await expect(button).toBeEnabled({ timeout: UI_TIMEOUT_MS });
+  await button.click();
+  await window.waitForTimeout(1_000);
+}
+
+/**
  * The shared create/rename name dialog: type a name and submit.
  *
  * One helper for both, because `DatabaseNameDialog` is one component — the two

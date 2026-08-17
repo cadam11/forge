@@ -20,7 +20,7 @@
 
 import type { DatabaseEngine } from '@joinery/shared';
 import { dispatchCommand } from '../../commands';
-import { ipc } from '../../ipc';
+import { dropMainMetadataCaches, ipc } from '../../ipc';
 import {
   connectionStore,
   selectDefaultDatabaseFor,
@@ -287,9 +287,43 @@ export async function revealObjectInExplorer(target: ExplorerObjectTarget): Prom
   return objectId;
 }
 
-/** "Refresh" — every menu has one, and it is always this. */
+/**
+ * "Refresh" — every menu has one, and it is always this.
+ *
+ * Two halves, and the first one is new. `explorerStore.refreshNode` re-runs the READ; until now nothing
+ * dropped what the read is served from, so `MetadataService`'s 60s list caches answered a Refresh with
+ * the same rows the user was already looking at. `dropMainMetadataCaches` is the door that was on the
+ * bridge all along (see `src/ipc/main-metadata-cache.ts`), and a Refresh is exactly what it is for.
+ */
 export function refreshNode(nodeId: string): void {
-  void explorerStore.getState().refreshNode(nodeId);
+  void dropMainCachesForNode(nodeId).then(() => explorerStore.getState().refreshNode(nodeId));
+}
+
+/**
+ * Drop main's caches for whatever connection `nodeId` belongs to, and report rather than raise.
+ *
+ * The database is the node's own where it has one and the connection's default otherwise — a server
+ * node has no database and the invalidation is per-connection regardless, so this only decides which
+ * list main re-warms on the way back. Never rejects: a Refresh whose second half still runs is worth
+ * more than one that gives up because the re-warm found the database gone.
+ */
+async function dropMainCachesForNode(nodeId: string): Promise<void> {
+  const node = selectNodeById(nodeId)(explorerStore.getState());
+  const connectionId = node?.connectionId;
+  if (connectionId === undefined) return;
+  await dropMainCaches(connectionId, node?.databaseName);
+}
+
+/** The shared tail of both Refresh paths. `undefined` falls back to the connection's default database. */
+async function dropMainCaches(connectionId: string, databaseName?: string): Promise<void> {
+  const database =
+    databaseName ?? selectDefaultDatabaseFor(connectionId)(connectionStore.getState());
+  if (database === null) return;
+  try {
+    await dropMainMetadataCaches(connectionId, database);
+  } catch (error) {
+    diagnostics.warn('could not drop the main-process metadata caches', error);
+  }
 }
 
 /** "Disconnect". Per-connection, never "the active one" — that was bug 1.5. */
@@ -332,6 +366,8 @@ export async function refreshFocused(): Promise<void> {
   const connection = connectionStore.getState();
   const connectionId = connection.mostRecentConnectionId();
   if (connectionId !== null) {
+    // Before the reload, not after: `loadDatabases` reads through the caches being dropped.
+    await dropMainCaches(connectionId);
     await connection.loadDatabases(connectionId);
   }
   const selectedNodeId = explorerStore.getState().selectedNodeId;

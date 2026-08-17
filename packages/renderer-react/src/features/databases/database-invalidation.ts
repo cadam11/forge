@@ -20,24 +20,33 @@
  * dropped-and-recreated database showed the old tables. Splitting this across the two dialogs would
  * have produced two versions of the list that disagree, which is the same failure one step later.
  *
- * ── What only the main process could do better (the J-64 note) ───────────────────────────────
+ * ── The main process's own caches, which ARE reachable (corrected) ───────────────────────────
  *
- * Everything below is **this window's** state. Three limits follow, and they are the ticket rather than
- * bugs in this file:
+ * `MetadataService`'s five per-connection list caches are dropped from here too, through
+ * `dropMainMetadataCaches` — the `EXPLORER.REFRESH_NODE` channel, which has been on the bridge all
+ * along and which neither renderer ever called. Without it the reload below re-reads main's 60s-TTL
+ * answer and the fan-out ends with the renderer's caches correct and main's stale, which is the shape
+ * of bug that makes a user press Refresh twice and conclude the app is lying to them.
+ *
+ * ── What only the main process could still do better (the J-64 note) ─────────────────────────
+ *
+ * Everything here is driven by **this window** acting. Three limits follow, and they are the ticket
+ * rather than bugs in this file:
  *
  *  1. **A second window would not hear about it.** There is no `database.onChanged` event on the
  *     bridge, so a create in one window leaves another window's picker and diagram cache stale until
  *     something else refreshes them.
  *  2. **A change made outside Joinery is invisible.** `CREATE DATABASE` typed into a query tab — which
  *     is a perfectly ordinary thing to do — goes through `query.execute` and produces no signal at all.
- *     Only main sees both paths.
- *  3. **The main-process caches are untouched.** `MetadataService` and the connection pools hold their
- *     own per-database state; the renderer cannot reach either.
+ *     Only main sees both paths, so only main can turn one into an invalidation nobody had to ask for.
+ *  3. **The connection pools are still untouched.** `MetadataService`'s caches are reachable now; the
+ *     per-database pools are not.
  *
  * A main-side `database:changed` broadcast would close all three at once, which is exactly what J-64
- * describes. Until it exists, this is the honest reach.
+ * describes: the remaining gap is the automatic DDL-detection SIGNAL, not the manual path.
  */
 
+import { dropMainMetadataCaches } from '../../ipc';
 import { forgetErdForDatabase } from '../erd';
 import { connectionStore } from '../../state/connection';
 import { diagnostics } from '../../state/diagnostics';
@@ -67,7 +76,7 @@ export async function invalidateAfterDatabaseCreate(
   forgetErdForDatabase(connectionId, databaseName);
 
   await Promise.all([cache.namespace('database'), cache.namespace('explorer')]);
-  await refreshFromServer(connectionId);
+  await refreshFromServer(connectionId, databaseName);
 }
 
 /**
@@ -95,7 +104,9 @@ export async function invalidateAfterDatabaseRename(
   repointTabs(connectionId, oldName, newName);
 
   await Promise.all([cache.namespace('database'), cache.namespace('explorer')]);
-  await refreshFromServer(connectionId);
+  // The NEW name: the old one no longer exists, so asking main to re-warm its table list would be a
+  // guaranteed failure. The invalidation itself is per-connection either way.
+  await refreshFromServer(connectionId, newName);
 }
 
 /** Every database-bound tab on the old name follows it to the new one. */
@@ -110,11 +121,23 @@ function repointTabs(connectionId: string, oldName: string, newName: string): vo
 /**
  * Re-read the database list and the server's children from the server itself.
  *
+ * The main-process caches go FIRST, and the order is the point: `loadDatabases` and the explorer reload
+ * both read through `MetadataService`, so dropping its caches afterwards would leave the app showing
+ * the very answers this function exists to replace.
+ *
  * Errors are logged rather than raised: the operation the user asked for has already succeeded, and a
  * refresh that fails must not be reported as a failed create. The optimistic local edits above are
  * still in place, so the tree and the picker are correct even when this half does not land.
  */
-async function refreshFromServer(connectionId: string): Promise<void> {
+async function refreshFromServer(connectionId: string, databaseName: string): Promise<void> {
+  // Its own try: a failed re-warm (the database was dropped again, the new one refuses a connection)
+  // must not stop the two reloads below, and main has already invalidated by the time it can fail.
+  try {
+    await dropMainMetadataCaches(connectionId, databaseName);
+  } catch (error) {
+    diagnostics.warn('could not drop the main-process metadata caches', error);
+  }
+
   try {
     await connectionStore.getState().loadDatabases(connectionId);
     const serverNode = explorerStore
