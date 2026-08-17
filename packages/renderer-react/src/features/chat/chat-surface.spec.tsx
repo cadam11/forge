@@ -75,15 +75,19 @@ async function mount(
   const store = makeChatStore({ initialConversationId, loadTools: true });
   teardowns.push(() => store.getState().destroy());
 
+  // The surface no longer hydrates `aiStore` — `features/ai-setup/AiSetupHost` owns that fetch now
+  // (J-55), and in the app it is always mounted. Here the spec stands in for it, awaited before the
+  // render so the model picker and the provider gate see real settings on the first commit.
+  await aiStore.getState().initialize();
+
   render(
     <TooltipProvider>
       <ChatSurface store={store} mode={mode} />
     </TooltipProvider>
   );
-  // `initialize()` on both stores is a promise; this is what lets the conversation list, the tool
-  // catalogue and the AI settings land before anything is asserted.
+  // `initialize()` on the chat store is a promise; this is what lets the conversation list and the
+  // tool catalogue land before anything is asserted.
   await waitFor(() => expect(double.getToolsCalls()).toBeGreaterThan(0));
-  await waitFor(() => expect(aiStore.getState().vendors.length + 1).toBeGreaterThan(0));
   return { store };
 }
 
@@ -118,8 +122,9 @@ describe('with no AI provider configured', () => {
 
     const emptyState = screen.getByTestId('chat-no-provider');
     expect(emptyState.textContent).toContain('No AI provider configured');
-    // The honest part: it names WHY this build cannot fix it, and what still works.
-    expect(emptyState.textContent).toContain('J-55');
+    // It no longer names a ticket, because the surface exists: the empty state offers the way out of
+    // it. The button is a dispatch, so this asserts the wire rather than the dialog (Task 19a).
+    expect(screen.getByTestId('chat-open-ai-setup')).toBeTruthy();
 
     // Not a spinner, and not a crash.
     expect(screen.queryByRole('status')).toBeNull();

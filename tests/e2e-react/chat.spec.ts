@@ -39,12 +39,13 @@ test.describe('Joinery — the AI assistant', () => {
     await withJoineryReact(async ({ window }) => {
       const panel = await openChatPanel(window);
 
-      // The honest empty state: what is missing, and why THIS build cannot fix it (there is no AI
-      // settings surface in the React renderer yet — J-55).
+      // The honest empty state: what is missing, and the way out of it. Until Task 19a it named a
+      // ticket (J-55) because this build had no AI settings surface at all; now it has a button that
+      // opens one, which is the difference between honest-and-stuck and honest-and-actionable.
       await expect(panel.getByTestId('chat-no-provider')).toContainText(
         'No AI provider configured'
       );
-      await expect(panel.getByTestId('chat-no-provider')).toContainText('J-55');
+      await expect(panel.getByTestId('chat-open-ai-setup')).toBeVisible();
 
       // Not a spinner and not a crash: the composer is present, states why, and cannot send.
       await expect(panel.getByTestId('chat-input')).toHaveAttribute(

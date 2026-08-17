@@ -38,12 +38,7 @@ import { ChevronDown, PanelRightClose, Plus, SquareArrowOutUpRight, Sparkles } f
 import type { ToolDefinition } from '@joinery/shared';
 
 import { dispatchCommand } from '../../commands';
-import {
-  aiStore,
-  selectEnabledVendors,
-  selectHasConfiguredVendors,
-  useAIStore,
-} from '../../state/ai';
+import { selectEnabledVendors, selectHasConfiguredVendors, useAIStore } from '../../state/ai';
 import {
   selectFocusedConnectionId,
   selectFocusedDatabaseName,
@@ -126,12 +121,10 @@ export function ChatSurface({ store, mode }: ChatSurfaceProps) {
   const [model, setModel] = useState<SelectedModel | null>(null);
 
   /**
-   * Both stores, on every mount — **except the transcript while a stream is open.**
+   * The chat store, on every mount — **except while a stream is open.**
    *
-   * No once-only latch, deliberately: re-mounting is how a user re-opens this surface, and both reads
-   * are refreshes they should get — the conversation list may have changed in another instance, and the
-   * AI settings may have been configured since (there is no AI settings surface in this renderer yet,
-   * but the main process holds keys set by earlier builds).
+   * No once-only latch, deliberately: re-mounting is how a user re-opens this surface, and the
+   * conversation list may have changed in another instance, so the refresh is one they should get.
    *
    * The `streaming` guard is not defensive dressing; it closes a real hole this port opens. Angular's
    * panel was never unmounted — closing it set `width: 0` — so its `ngOnInit` ran once per window. Here
@@ -140,13 +133,14 @@ export function ChatSurface({ store, mode }: ChatSurfaceProps) {
    * message. Without the guard, closing and re-opening the panel mid-answer would replace the transcript
    * with the persisted one, unmount the tail, and silently drop the answer being written.
    *
-   * This is also the FIRST caller of `aiStore.initialize()` in the React renderer: until now nothing
-   * hydrated it, so `selectHasConfiguredVendors` and `selectAutoRenameEnabled` both answered from
-   * defaults. Task 19 / J-55 owns the settings surface that should own this hydration.
+   * **`aiStore` is deliberately NOT hydrated here.** Task 17 did it from this effect because nothing
+   * else did, and the side effect was that opening the assistant was what switched auto-rename and
+   * query-assist on for a user with existing keys. Task 19a's `features/ai-setup/AiSetupHost` is
+   * always mounted and owns that fetch now (J-55), so there is exactly one caller of
+   * `aiStore.initialize()` and it runs before this surface exists.
    */
   useEffect(() => {
     if (!store.getState().streaming) void store.getState().initialize();
-    void aiStore.getState().initialize();
   }, [store]);
 
   // There is deliberately NO `destroy()` on unmount here. The panel's store is a module singleton

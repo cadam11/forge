@@ -76,6 +76,24 @@ export interface CommandPayloads {
   /** Edit ▸ Toggle Comment (⌘/). */
   'toggle-comment': void;
 
+  // ── The SQL dialect converter (Task 19a) ───────────────────────────────────────────────────
+  //
+  // Three payload-free ids rather than one `convert-sql: { toEngine }`, and the reason is the palette:
+  // `CatalogueEntry` narrows a payload-carrying command to "hidden from the palette", so a single
+  // parameterised id would have been reachable only from the toolbar menu — which is exactly the Angular
+  // state (a `translate` menu and nothing else). The Angular menu had three items too.
+  //
+  // No menu channel: `main/src/menu.ts` has no Convert entry, so these arrive from the palette or from the
+  // query toolbar's own menu. The toolbar menu calls the handler directly, as every other button in that
+  // strip does — see `query-toolbar.tsx`.
+
+  /** Convert the active editor's SQL to T-SQL. */
+  'convert-sql-to-mssql': void;
+  /** Convert the active editor's SQL to PostgreSQL. */
+  'convert-sql-to-postgresql': void;
+  /** Convert the active editor's SQL to MySQL. */
+  'convert-sql-to-mysql': void;
+
   /** Query ▸ Execute (⌘E — `registerAccelerator: false`, so Task 10's editor owns the keystroke). */
   'execute-query': void;
   /** Query ▸ Execute Selection (⇧⌘↩). */
@@ -126,6 +144,24 @@ export interface CommandPayloads {
 
   /** Joinery ▸ Settings (⌘,). */
   'open-settings': void;
+
+  /**
+   * The AI setup dialog — provider, API key, model, feature switches (Task 19a; J-55).
+   *
+   * No menu channel: `menu.ts` has no AI item, so this is a palette / welcome-tab / chat-empty-state
+   * entry point only, in the same class as `open-snippets` and `open-object-search`.
+   */
+  'open-ai-setup': void;
+
+  /**
+   * Start the guided tour (Task 19b's onboarding surface).
+   *
+   * Registered here with its owner named and NOT yet subscribed, which is the state `bus.spec.tsx`'s
+   * ownership rule allows and the welcome tab is built for: its "See how it joins" button dispatches
+   * this, checks `handlerCount` first, and says so when nobody answered. The moment 19b mounts a handler
+   * the button becomes live with no edit to the welcome tab.
+   */
+  'start-tour': void;
 
   // ── The sidebar's dialog entry points (Task 8) ─────────────────────────────────────────────
   //
@@ -283,10 +319,25 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
   'format-sql': 'Task 10 query editor (sql-formatter).',
   'toggle-comment': 'Task 10 query editor.',
 
+  // The converter's three. One consumer, one handler, three ids — `features/query/sql-convert.ts` is the
+  // adapter over `query.convertSql` and the only place PLAN.md §7.3's two bare-string engines are passed.
+  'convert-sql-to-mssql':
+    'Task 19a features/query/QueryCommands (the active query tab converts its own editor). Producers: ' +
+    'the Task 16 palette and the query toolbar’s convert menu.',
+  'convert-sql-to-postgresql':
+    'Task 19a features/query/QueryCommands, as convert-sql-to-mssql. Producers: the Task 16 palette and ' +
+    'the query toolbar’s convert menu.',
+  'convert-sql-to-mysql':
+    'Task 19a features/query/QueryCommands, as convert-sql-to-mssql. Producers: the Task 16 palette and ' +
+    'the query toolbar’s convert menu.',
+
   'execute-query': 'Task 10 query editor.',
   'execute-selection': 'Task 10 query editor.',
   'cancel-query': 'Task 10 query editor.',
-  'open-query-history': 'Task 19 query-history dialog.',
+  'open-query-history':
+    'Task 19a features/query-history/QueryHistoryHost, mounted by the shell — NOT by the query tab, ' +
+    'because the dialog opens a new query tab and ⇧⌘H has to work with none in front of it. ' +
+    'Producers: the native menu bridge (Query ▸ History) and the Task 16 palette.',
 
   'disconnect-connection': 'Task 7 shell (connectionStore.disconnect on the focused connection).',
   'refresh-explorer':
@@ -294,7 +345,11 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
     'node, selected node).',
   'show-server-properties': 'Task 19 server-properties surface.',
 
-  'create-database': 'Task 19 create-database dialog.',
+  'create-database':
+    'Task 19a features/databases/DatabaseDialogs, mounted by the shell. Like the backup twin it ' +
+    'resolves its target through mostRecentConnectionId() — the native menu and the palette carry no ' +
+    'payload — and it refuses, with a reason, on an engine whose capabilities say database management ' +
+    'is not available.',
   'open-backup-dialog':
     'Task 12 features/backup/BackupDialogs, mounted by the shell. It resolves the target through ' +
     'mostRecentConnectionId() — not focus, which derives from the active query tab alone — and that ' +
@@ -329,6 +384,16 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
     'itself — the Task 7 placeholder that held this wire while no panel existed is deleted, so ⌘, is ' +
     'handled exactly once.',
 
+  'start-tour':
+    'Task 19b onboarding tour (PLAN.md §4 lists tours in Task 19; Ruling 3 split them into the SHOULD ' +
+    'half). Producer: Task 19a welcome tab, which names this ticket in the toast it shows while the ' +
+    'handler does not exist.',
+
+  'open-ai-setup':
+    'Task 19a features/ai-setup/AiSetupHost, mounted by the shell — which is also the one caller of ' +
+    'aiStore.initialize() now (J-55). Producers: the Task 16 palette, the welcome tab’s AI entry, and ' +
+    'the chat panel’s no-provider empty state, which used to be able only to name the missing surface.',
+
   // The sidebar's eight targeted entry points. Producer for all of them: Task 8 sidebar
   // (`shell/sidebar/node-menu.tsx` and `connection-picker.tsx`).
   'open-connection-manager':
@@ -338,8 +403,8 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
     'Task 9 features/connections/ConnectionDialogs, which resolves the payload id to a profile and ' +
     'opens the editor on it. Producer: Task 8 sidebar server context menu.',
   'create-database-on-server':
-    'Task 19 create-database dialog, targeting the payload connection rather than the focused ' +
-    'one. Producer: Task 8 sidebar (server context menu and database picker).',
+    'Task 19a features/databases/DatabaseDialogs, targeting the payload connection rather than the ' +
+    'focused one. Producer: Task 8 sidebar (server context menu and database picker).',
   'backup-database':
     'Task 12 features/backup/BackupDialogs, targeting the payload database rather than the focused ' +
     'one. Producer: Task 8 sidebar (database context menu and the footer action).',
@@ -347,7 +412,11 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
     'Task 13 features/restore/RestoreDialogs, targeting the payload connection — and its optional ' +
     'database, which pre-selects the restore target rather than naming what is read. Producer: ' +
     'Task 8 sidebar (server and database context menus, and the footer action).',
-  'rename-database': 'Task 19 rename-database dialog. Producer: Task 8 sidebar database menu.',
+  'rename-database':
+    'Task 19a features/databases/DatabaseDialogs. On success it re-points every tab bound to the old ' +
+    'name, drops the ERD cache for BOTH names and reloads the explorer — see ' +
+    'features/databases/database-invalidation.ts, and J-64 for the main-side signal that would do it ' +
+    'better. Producer: Task 8 sidebar database menu.',
   'delete-database':
     'Task 19 delete-database confirmation, which owns the in-use warning and the tab/node ' +
     'teardown. Producer: Task 8 sidebar database menu.',

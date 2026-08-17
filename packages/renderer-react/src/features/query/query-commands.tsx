@@ -1,5 +1,5 @@
 /**
- * The twelve commands the query tab takes over, in one table.
+ * The fifteen commands the query tab takes over, in one table.
  *
  * `commands/registry.ts` names "Task 10 query editor" as the consumer of eleven ids and "Task 10 query
  * tab" of a twelfth (`toggle-results-panel`); this component is that consumer, and the correspondence is
@@ -27,6 +27,8 @@
  * this.tabId) fn(); }`, `query.component.ts:1088-1091`).
  */
 
+import type { DatabaseEngine } from '@joinery/shared';
+
 import { useCommand } from '../../commands';
 
 export interface QueryCommandHandlers {
@@ -45,6 +47,13 @@ export interface QueryCommandHandlers {
   readonly onOpenFile: () => void;
   readonly onToggleResults: () => void;
   readonly onInsertSnippet: (sql: string) => void;
+  /**
+   * Rewrite the editor's SQL in another dialect (Task 19a).
+   *
+   * Three ids, one handler: the engine is the payload the ids encode, because a palette entry may not
+   * carry one (`commands/catalogue.ts`'s `CatalogueEntry`). See `sql-convert.ts` for the adapter.
+   */
+  readonly onConvertSql: (toEngine: DatabaseEngine) => void;
 }
 
 export function QueryCommands({
@@ -61,6 +70,7 @@ export function QueryCommands({
   onOpenFile,
   onToggleResults,
   onInsertSnippet,
+  onConvertSql,
 }: QueryCommandHandlers) {
   /**
    * One wrapper, so the guard cannot be forgotten on a new entry. Not a loop over a table: `useCommand`
@@ -88,6 +98,19 @@ export function QueryCommands({
   useCommand('open-query-file', guard(onOpenFile));
 
   useCommand('toggle-results-panel', guard(onToggleResults));
+
+  useCommand(
+    'convert-sql-to-mssql',
+    guard(() => onConvertSql('mssql'))
+  );
+  useCommand(
+    'convert-sql-to-postgresql',
+    guard(() => onConvertSql('postgresql'))
+  );
+  useCommand(
+    'convert-sql-to-mysql',
+    guard(() => onConvertSql('mysql'))
+  );
 
   useCommand('insert-snippet', payload => {
     if (isActive()) onInsertSnippet(payload.sql);

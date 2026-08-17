@@ -23,6 +23,7 @@
  */
 
 import { expect, type ElectronApplication, type Locator, type Page } from '@playwright/test';
+import { Client as PgClient } from 'pg';
 import {
   withJoinery,
   type LaunchOptions,
@@ -694,6 +695,36 @@ export async function suggestions(window: Page): Promise<Locator> {
 }
 
 /**
+ * The suggest widget, **re-triggered until one of its rows matches `text`**.
+ *
+ * Monaco computes a completion list once per trigger and does not recompute it when a provider's
+ * metadata arrives afterwards, so a widget opened before `sqlIntellisense.loadMetadata` has answered
+ * shows keywords and snippets and stays that way. `suggestions()` alone therefore races the prefetch —
+ * it passed reliably in isolation and failed roughly one run in three inside the full tier, where the
+ * container is under load from the specs before it.
+ *
+ * Bounded on purpose (`ATTEMPTS`): the widget is closed and re-opened up to that many times, and the
+ * final `expect` is what reports the failure if the metadata never arrives, rather than the loop
+ * exhausting silently.
+ */
+export async function suggestionsContaining(window: Page, text: string): Promise<Locator> {
+  const ATTEMPTS = 5;
+  let rows = await suggestions(window);
+
+  for (let attempt = 1; attempt < ATTEMPTS; attempt += 1) {
+    if ((await rows.filter({ hasText: text }).count()) > 0) return rows;
+    await window.keyboard.press('Escape');
+    await expect(queryEditor(window).locator('.suggest-widget.visible')).toBeHidden({
+      timeout: UI_TIMEOUT_MS,
+    });
+    rows = await suggestions(window);
+  }
+
+  await expect(rows.filter({ hasText: text })).not.toHaveCount(0, { timeout: UI_TIMEOUT_MS });
+  return rows;
+}
+
+/**
  * Runs the query from the toolbar and waits for the run to finish.
  *
  * "Finished" is the executing indicator being gone from the status bar, which is
@@ -1307,4 +1338,237 @@ export async function openRelationships(window: Page, tableLabel: string): Promi
 /** The details rail, which opens when a table is selected. */
 export function erdDetails(window: Page): Locator {
   return window.getByTestId('erd-details');
+}
+
+// ── Task 19a: welcome, query history, database management, object detail ─────
+//
+// Five testid prefixes, one per surface: `welcome-*`, `query-history-*`,
+// `create-database-*` / `rename-database-*` / `database-*` (the shared name
+// dialog), `object-*`, and `ai-setup-*`.
+
+/** The welcome tab. Present from launch unless the user dismissed it. */
+export function welcomePanel(window: Page): Locator {
+  return window.getByTestId('panel-welcome');
+}
+
+/**
+ * Shows the welcome tab and waits for it, whether or not it is already open.
+ *
+ * Through the palette rather than by clicking a tab: the tab may have been closed
+ * in this session, and `show-welcome` is the command that re-opens it either way.
+ */
+export async function openWelcome(window: Page): Promise<Locator> {
+  if ((await welcomePanel(window).count()) === 0) {
+    await openPalette(window);
+    await runPaletteCommand(window, 'command:show-welcome');
+  }
+  await expect(welcomePanel(window)).toBeVisible({ timeout: UI_TIMEOUT_MS });
+  return welcomePanel(window);
+}
+
+/** The query-history dialog. */
+export function queryHistoryDialog(window: Page): Locator {
+  return window.getByTestId('query-history-dialog');
+}
+
+/**
+ * Opens the history through the NATIVE MENU channel, which is how ⇧⌘H reaches it.
+ *
+ * `sendMenuCommand`, not a keystroke: Electron's menu accelerators are not
+ * reachable from CDP-injected keys, so the channel is the only honest route —
+ * the same choice `query-editor.spec.ts` makes for Execute Selection.
+ */
+export async function openQueryHistory(app: ElectronApplication, window: Page): Promise<Locator> {
+  await sendMenuCommand(app, 'menu:query-history');
+  await expect(queryHistoryDialog(window)).toBeVisible({ timeout: UI_TIMEOUT_MS });
+  return queryHistoryDialog(window);
+}
+
+/** Every row currently listed in the history. */
+export function historyEntryRows(window: Page): Locator {
+  return queryHistoryDialog(window).getByTestId('query-history-row');
+}
+
+/** The history row whose statement contains `sql`. */
+export function historyEntryRow(window: Page, sql: string): Locator {
+  return historyEntryRows(window).filter({ hasText: sql });
+}
+
+/** Narrows the history, and waits for the debounced round trip to land. */
+export async function searchQueryHistory(window: Page, term: string): Promise<void> {
+  await queryHistoryDialog(window).getByTestId('query-history-search').fill(term);
+  // The dialog debounces by 200ms before it asks the main process; the observable
+  // proof is the count line, which is derived from the answer.
+  await expect(queryHistoryDialog(window).getByTestId('query-history-count')).toBeVisible({
+    timeout: UI_TIMEOUT_MS,
+  });
+  await window.waitForTimeout(400);
+}
+
+/**
+ * Closes a workspace tab by the title on it.
+ *
+ * By `aria-label`, not by testid: the close button's testid carries the tab's generated id, which no
+ * spec can know. The label is `Close ${tab.title}` (`shell/workspace/panel-tab.tsx`).
+ */
+export async function closeTabTitled(window: Page, title: string): Promise<void> {
+  const close = window.getByLabel(`Close ${title}`);
+  await expect(close).toBeVisible({ timeout: UI_TIMEOUT_MS });
+  await close.click();
+  await expect(close).toBeHidden({ timeout: UI_TIMEOUT_MS });
+}
+
+/**
+ * The sidebar's Refresh button, awaited to the point where its effects have landed.
+ *
+ * There is no spinner to wait on — `refreshFocused` is two awaited round trips with no busy state of
+ * its own — so the wait is on the button being clickable again plus a short settle. Callers assert the
+ * thing that should have changed, which is the honest signal.
+ */
+export async function refreshSidebar(window: Page): Promise<void> {
+  const button = window.getByTestId('sidebar-refresh');
+  await expect(button).toBeEnabled({ timeout: UI_TIMEOUT_MS });
+  await button.click();
+  await window.waitForTimeout(1_000);
+}
+
+/**
+ * The shared create/rename name dialog: type a name and submit.
+ *
+ * One helper for both, because `DatabaseNameDialog` is one component — the two
+ * dialogs differ by their outer testid, which the caller has already located.
+ */
+export async function submitDatabaseName(window: Page, name: string): Promise<void> {
+  const field = window.getByTestId('database-name-input');
+  await field.fill(name);
+  const submit = window.getByTestId('database-dialog-submit');
+  await expect(submit).toBeEnabled({ timeout: UI_TIMEOUT_MS });
+  await submit.click();
+}
+
+/**
+ * Creates a database from the sidebar's server context menu.
+ *
+ * Waits for the dialog to CLOSE, which is the operation's own completion signal:
+ * `DatabaseNameDialog` closes only when the submit resolved with no error, and the
+ * host awaits the whole invalidation fan-out before that resolves.
+ */
+export async function createDatabaseFromSidebar(
+  window: Page,
+  serverLabel: string,
+  name: string
+): Promise<void> {
+  const menu = await openNodeMenu(window, serverLabel);
+  await menu.getByTestId('sidebar-menu-new-database').click();
+  await expect(window.getByTestId('create-database-dialog')).toBeVisible({
+    timeout: UI_TIMEOUT_MS,
+  });
+  await submitDatabaseName(window, name);
+  await expect(window.getByTestId('create-database-dialog')).toBeHidden({
+    timeout: CONNECT_TIMEOUT_MS,
+  });
+}
+
+/** Renames a database from its own context menu, and waits for the dialog to close. */
+export async function renameDatabaseFromSidebar(
+  window: Page,
+  databaseLabel: string,
+  newName: string
+): Promise<void> {
+  const menu = await openNodeMenu(window, databaseLabel);
+  await menu.getByTestId('sidebar-menu-rename-database').click();
+  await expect(window.getByTestId('rename-database-dialog')).toBeVisible({
+    timeout: UI_TIMEOUT_MS,
+  });
+  await submitDatabaseName(window, newName);
+  await expect(window.getByTestId('rename-database-dialog')).toBeHidden({
+    timeout: CONNECT_TIMEOUT_MS,
+  });
+}
+
+/** The object detail tab. */
+export function objectPanel(window: Page): Locator {
+  return window.getByTestId('panel-object');
+}
+
+/**
+ * Double-clicks an object in the tree and waits for its detail tab to have real
+ * rows in it.
+ *
+ * The wait is on a ROW, not on the panel: the panel mounts as soon as the tab
+ * exists, so a spec that stopped there could pass against four empty tables.
+ */
+export async function openObjectDetail(window: Page, label: string): Promise<Locator> {
+  await treeRow(window, label).dblclick();
+  await expect(objectPanel(window)).toBeVisible({ timeout: UI_TIMEOUT_MS });
+  await expect(objectDetailRows(window).first()).toBeVisible({ timeout: CONNECT_TIMEOUT_MS });
+  return objectPanel(window);
+}
+
+/** Every row of whichever object section is on screen. */
+export function objectDetailRows(window: Page): Locator {
+  return objectPanel(window).getByTestId('object-detail-row');
+}
+
+/** Switches the object tab to one of its four sections and waits for it. */
+export async function openObjectSection(
+  window: Page,
+  section: 'columns' | 'indexes' | 'keys' | 'definition'
+): Promise<void> {
+  await objectPanel(window).getByTestId(`object-tab-${section}`).click();
+  await expect(objectPanel(window).getByTestId(`object-tab-${section}`)).toHaveAttribute(
+    'data-state',
+    'active',
+    { timeout: UI_TIMEOUT_MS }
+  );
+}
+
+/** The cells of one object row, as text. */
+export async function objectRowCells(row: Locator): Promise<string[]> {
+  return row.locator('td').allTextContents();
+}
+
+/** The AI setup dialog. */
+export function aiSetupDialog(window: Page): Locator {
+  return window.getByTestId('ai-setup-dialog');
+}
+
+/** Opens the AI setup dialog through the palette, which is one of its three producers. */
+export async function openAiSetup(window: Page): Promise<Locator> {
+  await openPalette(window);
+  await runPaletteCommand(window, 'command:open-ai-setup');
+  await expect(aiSetupDialog(window)).toBeVisible({ timeout: UI_TIMEOUT_MS });
+  return aiSetupDialog(window);
+}
+
+/**
+ * Drops every database on the seeded PostgreSQL container whose name starts with `prefix`.
+ *
+ * The database-management specs create real databases and cannot delete them through the UI (the delete
+ * dialog is Task 19b's), and leaving them behind is not neutral: the explorer tree is virtualized, so ten
+ * extra databases under the server node push the rows below it out of the rendered window and an
+ * unrelated spec that looks for a third server stops finding it. That is a real failure this suite hit
+ * once, which is why the cleanup is a helper rather than a note in a comment.
+ *
+ * `WITH (FORCE)` because the app under test may have left a pooled session on the database it was last
+ * pointed at; without it `DROP DATABASE` refuses and the cleanup silently does nothing.
+ */
+export async function dropDatabasesMatching(prefix: string): Promise<void> {
+  const client = new PgClient({ ...TEST_PG });
+  await client.connect();
+  try {
+    const found = await client.query<{ datname: string }>(
+      'SELECT datname FROM pg_database WHERE datname LIKE $1',
+      [`${prefix}%`]
+    );
+    for (const row of found.rows) {
+      // The name comes from `pg_database`, so it is an existing identifier rather than user input; it is
+      // still quoted, because a database created by a spec may legally contain characters that need it.
+      await client.query(
+        `DROP DATABASE IF EXISTS "${row.datname.replace(/"/g, '""')}" WITH (FORCE)`
+      );
+    }
+  } finally {
+    await client.end();
+  }
 }

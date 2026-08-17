@@ -58,6 +58,7 @@ import { QueryResults } from './query-results';
 import { QueryToolbar } from './query-toolbar';
 import { editorPrefsStore, useEditorPrefsStore } from '../../state/editor-prefs';
 import { adoptOpenedFile, openQueryFile, rememberedFilePath, saveQueryToFile } from './query-files';
+import { ENGINE_LABELS, convertSql } from './sql-convert';
 import { useRunQuery } from './use-run-query';
 
 /** Arrow-key step for the split divider, in percent. 2% is ~12px in a 600px pane. */
@@ -235,6 +236,43 @@ export function QueryPanel(props: IDockviewPanelProps) {
     }
   }, [engine]);
 
+  /**
+   * Rewrite the editor in another dialect (Task 19a).
+   *
+   * The **selection or the whole buffer**, which is `getSelectedOrAllText` in the Angular original
+   * (`query.component.ts:2393-2417`) — converting a highlighted statement inside a long script is the
+   * common case, and converting the whole file when nothing is selected is the other one.
+   *
+   * How that is expressed: `hasSelection()` picks the branch, and the selected text comes back from
+   * `textToExecute('all')` because a non-empty selection wins inside `textToExecute` whatever the scope
+   * says (`editor/statements.ts:91-96`). `ExecuteScope` has two members, `'all'` and
+   * `'currentStatement'` — there is no `'selection'` — and `'all'` is passed as a CONSTANT rather than
+   * reading `editorPrefs.executeScope`: that setting is about what EXECUTES, and a user who set it to
+   * "current statement" has not asked for a partial conversion.
+   *
+   * The write goes through `setValue`, which replaces the whole document — the same thing Format does —
+   * so a conversion is one undo away. Replacing only the selection was considered and rejected: the
+   * converter answers a whole statement, and splicing it back at the selection's offsets would produce a
+   * document in two dialects with no way to tell which lines are which.
+   */
+  const convert = useCallback(
+    (toEngine: DatabaseEngine): void => {
+      const instance = editor.current;
+      if (instance === null || engine === undefined) return;
+      const sql = instance.hasSelection() ? instance.textToExecute('all') : instance.getValue();
+
+      void convertSql({ sql, from: engine, to: toEngine }).then(outcome => {
+        if (!outcome.ok) {
+          notify.warning(outcome.reason);
+          return;
+        }
+        editor.current?.setValue(outcome.sql);
+        notify.success(`Converted to ${ENGINE_LABELS[toEngine]}`);
+      });
+    },
+    [engine]
+  );
+
   const save = useCallback(
     (promptForPath: boolean): void => {
       void saveQueryToFile({
@@ -364,6 +402,7 @@ export function QueryPanel(props: IDockviewPanelProps) {
         onOpenFile={openFile}
         onToggleResults={toggleResults}
         onInsertSnippet={sql => editor.current?.insertSnippet(sql)}
+        onConvertSql={convert}
       />
 
       <QueryToolbar
@@ -378,6 +417,8 @@ export function QueryPanel(props: IDockviewPanelProps) {
         onReplace={runEditorAction('editor.action.startFindReplaceAction')}
         onGoToLine={runEditorAction('editor.action.gotoLine')}
         onToggleResults={toggleResults}
+        engine={engine}
+        onConvertSql={convert}
       />
 
       <div ref={splitPane} className="flex min-h-0 grow flex-col">

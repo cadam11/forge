@@ -103,9 +103,13 @@ test.describe('Joinery (React) — explorer tree', () => {
 
       await treeRow(window, 'products').dblclick();
 
-      // The Task 19 placeholder panel; what is being asserted is the wire from the tree's
-      // `onActivate` through `tabStore.openObjectTab` to a mounted dock panel.
+      // The wire from the tree's `onActivate` through `tabStore.openObjectTab` to a mounted dock
+      // panel. What that panel then SHOWS is `object-detail.spec.ts` — Task 19a replaced the
+      // placeholder with the real surface.
       await expect(window.getByTestId('panel-object')).toBeVisible({ timeout: 10_000 });
+      await expect(window.getByTestId('object-title')).toHaveText('public.products', {
+        timeout: 20_000,
+      });
     });
   });
 

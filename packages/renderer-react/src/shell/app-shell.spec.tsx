@@ -12,6 +12,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { DEFAULT_AI_SETTINGS } from '@joinery/shared';
 import { installJoineryMock, removeJoineryMock } from '../test/joinery-mock';
 import { createAppStateDouble, type AppStateDouble } from '../test/app-state-double';
 import { setDiagnosticsSink, setNotifier } from '../state/diagnostics';
@@ -38,6 +39,11 @@ const inertSubscription = () => () => undefined;
  * `BackupDialogs` and `RestoreDialogs` hold those last two for the app's lifetime rather than only
  * while their dialogs are open, because both operations outlive the dialog that started them and the
  * shared in-flight record has to be retired when they finish (see `state/db-operations.ts`).
+ *
+ * `ai.getVendors` / `ai.getSettings` are here because `AiSetupHost` is the one caller of
+ * `aiStore.initialize()` (J-55) and it fires on mount. Omitting them is not neutral: the store would
+ * report the failure through `diagnostics.error`, which the Output panel counts, and the error-badge
+ * test below would see two errors instead of one.
  */
 function installShellBridge(double: AppStateDouble): void {
   const menu = Object.fromEntries(MENU_CHANNELS.map(channel => [channel, inertSubscription]));
@@ -46,6 +52,10 @@ function installShellBridge(double: AppStateDouble): void {
     installJoineryMock({
       app: { ...double.app, getVersion: () => Promise.resolve('1.2.3') },
       connection: { list: () => Promise.resolve([]) },
+      ai: {
+        getVendors: () => Promise.resolve([]),
+        getSettings: () => Promise.resolve({ ...DEFAULT_AI_SETTINGS }),
+      },
       backup: { onProgress: inertSubscription },
       restore: { onProgress: inertSubscription },
       logs: {

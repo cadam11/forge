@@ -35,12 +35,15 @@ import { useEffect, useLayoutEffect, type CSSProperties } from 'react';
 
 import { Spinner, Toaster, TooltipProvider, cn, installToastNotifier } from '../ui';
 import { dispatchCommand } from '../commands';
+import { AiSetupHost } from '../features/ai-setup';
 import { BackupDialogs } from '../features/backup';
 import { ChatCommands } from '../features/chat';
+import { DatabaseDialogs } from '../features/databases';
 import { ErdCommands } from '../features/erd';
 import { CommandPalette } from '../features/command-palette';
 import { ConnectionDialogs } from '../features/connections';
 import { ObjectSearch } from '../features/object-search';
+import { QueryHistoryHost } from '../features/query-history';
 import { RestoreDialogs } from '../features/restore';
 import { SettingsDialog } from '../features/settings';
 import { ShortcutsDialog } from '../features/shortcuts-dialog';
@@ -241,6 +244,17 @@ function ShellFrame() {
           `ErdCommands` is Task 18's one, and it is here for a stronger version of the same reason: a
           handler whose job is to OPEN an ERD tab cannot live inside the ERD tab.
 
+          `AiSetupHost` is Task 19a's `open-ai-setup`, and it carries one extra job no other mount
+          does: it is the single caller of `aiStore.initialize()` (J-55), so auto-rename and Monaco's
+          query-assist read real settings from startup instead of from `DEFAULT_AI_SETTINGS` until
+          somebody happened to open the assistant.
+
+          `QueryHistoryHost` is Task 19a's `open-query-history` (⇧⌘H), here for the ERD reason again: the
+          dialog's whole job is to open a new query tab, so a handler inside the query tab would have made
+          the menu item conditional on already having one. `DatabaseDialogs` is Task 19a's three
+          database-management commands, and it is the same arrangement as `BackupDialogs`: the targetless
+          menu/palette entry resolves its server here, the sidebar's twins state theirs.
+
           The four Task 16 surfaces are the same arrangement, and three of them own a keystroke of
           their own as well as a command — ⌘K/⇧⌘P for the palette, ⌘P for the object search, ⌥⌘S for the
           snippet library — because no menu item has those accelerators (`commands/catalogue.ts`). The
@@ -250,6 +264,9 @@ function ShellFrame() {
       <ShellCommands />
       <ChatCommands />
       <ErdCommands />
+      <AiSetupHost />
+      <QueryHistoryHost />
+      <DatabaseDialogs />
       <ConnectionDialogs />
       <BackupDialogs />
       <RestoreDialogs />

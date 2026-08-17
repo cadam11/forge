@@ -108,22 +108,34 @@ const SCHEMAS: ObjectMetadata[] = [
 interface BridgeSpies {
   readonly listDatabases: ReturnType<typeof vi.fn>;
   readonly getChildren: ReturnType<typeof vi.fn>;
+  /** `explorer.refreshNode` — the channel that drops the MAIN process's metadata caches. */
+  readonly refreshNode: ReturnType<typeof vi.fn>;
+  /** Bridge calls in the order they were made, so "before the reload" is provable. */
+  readonly order: string[];
 }
 
 const teardowns: (() => void)[] = [];
 let bridge: BridgeSpies;
 
 function installBridge(): BridgeSpies {
-  const listDatabases = vi.fn(() => Promise.resolve(DATABASES));
+  const order: string[] = [];
+  const listDatabases = vi.fn(() => {
+    order.push('database.list');
+    return Promise.resolve(DATABASES);
+  });
   const getChildren = vi.fn(() => Promise.resolve(SCHEMAS));
+  const refreshNode = vi.fn(() => {
+    order.push('explorer.refreshNode');
+    return Promise.resolve([]);
+  });
   teardowns.push(
     installJoineryMock({
       connection: { list: () => Promise.resolve([]) },
       database: { list: listDatabases },
-      explorer: { getChildren },
+      explorer: { getChildren, refreshNode },
     })
   );
-  return { listDatabases, getChildren };
+  return { listDatabases, getChildren, refreshNode, order };
 }
 
 /** Two profiles, both open, with `PG_TWO` the most recently connected — i.e. the focused one. */
@@ -401,6 +413,47 @@ async function expandFirstServer(): Promise<void> {
   await userEvent.click(within(rowByLabel('PG One')).getByTestId('tree-row-twisty'));
   await waitFor(() => expect(screen.getAllByTestId('tree-row')).toHaveLength(4));
 }
+
+describe('Refresh, and the caches it is expected to clear', () => {
+  /**
+   * The fix: both Refresh affordances now drop the MAIN process's metadata caches first.
+   *
+   * `explorer.refreshNode` has been on the preload bridge since before this rewrite and NEITHER
+   * renderer ever called it, so a Refresh only ever re-ran the renderer's half of the read and got
+   * `MetadataService`'s 60s-TTL answer back. See `src/ipc/main-metadata-cache.ts`.
+   */
+  it('drops main’s caches before re-reading the database list', async () => {
+    seedTwoOpenConnections();
+    mountSidebar();
+
+    await userEvent.click(screen.getByTestId('sidebar-refresh'));
+
+    await waitFor(() => expect(bridge.refreshNode).toHaveBeenCalled());
+    // The focused connection, and its default database — which is only what main re-warms on the way
+    // back; the invalidation itself is per-connection.
+    expect(bridge.refreshNode).toHaveBeenCalledWith(PG_TWO, 'joinery_test', 'tables');
+    // Order is the point: `database.list` reads THROUGH the cache being dropped, so dropping it
+    // afterwards would leave the app showing the answer the refresh existed to replace.
+    await waitFor(() => expect(bridge.order).toContain('database.list'));
+    expect(bridge.order.indexOf('explorer.refreshNode')).toBeLessThan(
+      bridge.order.indexOf('database.list')
+    );
+  });
+
+  it('drops them from the context menu’s Refresh too, for the node’s own connection', async () => {
+    seedTwoOpenConnections();
+    mountSidebar();
+
+    fireEvent.contextMenu(rowByLabel('PG One'));
+    const menu = await screen.findByTestId('sidebar-node-menu');
+    await userEvent.click(within(menu).getByTestId('sidebar-menu-refresh'));
+
+    // PG_ONE, not the focused connection: "Refresh" on a node means that node's server.
+    await waitFor(() =>
+      expect(bridge.refreshNode).toHaveBeenCalledWith(PG_ONE, 'joinery_test', 'tables')
+    );
+  });
+});
 
 describe('context menus', () => {
   it('gives a server node its own menu and selects the row it opened on', async () => {

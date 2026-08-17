@@ -15,8 +15,9 @@
  *
  * ── The two empty states are different claims, and neither hides a transcript ──────────────
  *
- * "No provider configured" is a statement about this build (there is no AI settings surface in the
- * React renderer yet — J-55, Task 19), and it is the honest one: the same gate the main process uses
+ * "No provider configured" is a statement about the app's state rather than about this build — Task
+ * 19a's AI setup dialog is what its button opens (J-55 closed) — and it is the honest gate: the same
+ * one the main process uses
  * before it looks for an API key (`chat-service.ts:selectVendorAndModel` — enabled vendors with a
  * configured key, which is why it does NOT consult the global `settings.enabled` flag that gates the
  * three one-shot AI features). "Ask about your database" is the ordinary empty conversation.
@@ -29,6 +30,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { ArrowDown, Sparkles } from 'lucide-react';
 import type { ChatMessage, ToolDefinition } from '@joinery/shared';
 
+import { dispatchCommand } from '../../commands';
 import type { MermaidTheme } from '../../markdown';
 import type { ChatStore } from '../../state/chat';
 import { Button, EmptyState, Icon, Tooltip, cn } from '../../ui';
@@ -66,7 +68,17 @@ function NoProviderState() {
         size="sm"
         icon={Sparkles}
         title="No AI provider configured"
-        description="Chat needs a vendor with an API key. This build has no AI settings surface yet (J-55), so it cannot add one — a key configured in an earlier Joinery build still works, because the main process is what holds it."
+        description="Chat needs a provider with an API key. Set one up and the assistant is available immediately — the key is held by the main process, in the system keychain."
+        action={
+          <Button
+            size="sm"
+            variant="primary"
+            data-testid="chat-open-ai-setup"
+            onClick={() => dispatchCommand('open-ai-setup')}
+          >
+            Set up AI
+          </Button>
+        }
       />
     </div>
   );

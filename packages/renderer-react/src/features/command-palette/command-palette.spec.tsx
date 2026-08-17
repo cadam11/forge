@@ -117,6 +117,7 @@ function renderPalette(options: { readonly withQueryTab?: boolean } = {}) {
             onOpenFile={noop}
             onToggleResults={noop}
             onInsertSnippet={noop}
+            onConvertSql={noop}
           />
         )}
         <CommandPalette />

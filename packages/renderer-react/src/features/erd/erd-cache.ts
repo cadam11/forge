@@ -69,6 +69,26 @@ export function forgetErd(key: string): void {
   cache.delete(key);
 }
 
+/**
+ * Drop **every** diagram of one database — the whole-database one and each table-focused one.
+ *
+ * Task 19a's create/rename fan-out needs this, and a single `forgetErd(key)` cannot serve it: the
+ * caller there has a connection and a database name and no idea which of the eight cache slots are
+ * diagrams of it. Prefix-matching the key is safe because the separator is a NUL, which none of the
+ * fields may contain — so `db` cannot match `db2`, and a connection id is never a prefix of another
+ * field's value.
+ *
+ * Why a rename needs it in *both* directions: the old name's diagrams describe a database that no
+ * longer answers to that name, and the new name's are whatever a *previous* database of that name left
+ * behind. The second is the one that shows a user tables that are not there.
+ */
+export function forgetErdForDatabase(connectionId: string, databaseName: string): void {
+  const prefix = `${connectionId}${KEY_SEPARATOR}${databaseName}${KEY_SEPARATOR}`;
+  for (const key of [...cache.keys()]) {
+    if (key.startsWith(prefix)) cache.delete(key);
+  }
+}
+
 /** For specs, which must not inherit another spec's diagrams. */
 export function clearErdCache(): void {
   cache.clear();

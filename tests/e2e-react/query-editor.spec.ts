@@ -27,7 +27,7 @@ import {
   queryEditor,
   selectDatabase,
   sendMenuCommand,
-  suggestions,
+  suggestionsContaining,
   typeSql,
   visibleSql,
   withJoineryReact,
@@ -94,7 +94,10 @@ test.describe('Joinery (React) — the query editor', () => {
       await readyEditor(window);
       await typeSql(window, 'SELECT * FROM ');
 
-      const rows = await suggestions(window);
+      // `suggestionsContaining` rather than `suggestions`: Monaco computes a completion list once per
+      // trigger and never recomputes it when the provider's metadata lands afterwards, so a single
+      // trigger races `sqlIntellisense.loadMetadata` — reliably in isolation, not under a full-tier run.
+      const rows = await suggestionsContaining(window, 'public.customers');
 
       // The ported provider's FROM branch, which could never fire in the Angular original (its
       // `text.trim()` removed the whitespace its own regex required). These names come from the live
