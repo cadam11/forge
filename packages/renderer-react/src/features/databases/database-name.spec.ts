@@ -16,11 +16,18 @@ describe('validateDatabaseName', () => {
     expect(validateDatabaseName('   ')?.message).toBe('Give the database a name.');
   });
 
-  it('refuses what the main process would interpolate into SQL', () => {
-    // The reason the rule stays narrow: main builds CREATE DATABASE by concatenation, so a name is
-    // never a bound parameter anywhere in the path.
-    for (const hostile of ['foo]; DROP DATABASE bar; --', 'a b', 'a-b', 'a"b', '1st', 'ünïcode']) {
-      expect(validateDatabaseName(hostile)).not.toBeNull();
+  it('refuses everything that is not a portable identifier', () => {
+    // Portability, not safety: all three dialects escape the identifier before interpolating it, so the
+    // first of these would reach the server as one harmless absurd name. See the module header.
+    for (const unportable of [
+      'foo]; DROP DATABASE bar; --',
+      'a b',
+      'a-b',
+      'a"b',
+      '1st',
+      'ünïcode',
+    ]) {
+      expect(validateDatabaseName(unportable)).not.toBeNull();
     }
   });
 
