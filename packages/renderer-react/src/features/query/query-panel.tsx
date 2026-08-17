@@ -241,9 +241,14 @@ export function QueryPanel(props: IDockviewPanelProps) {
    *
    * The **selection or the whole buffer**, which is `getSelectedOrAllText` in the Angular original
    * (`query.component.ts:2393-2417`) — converting a highlighted statement inside a long script is the
-   * common case, and converting the whole file when nothing is selected is the other one. `'selection'`
-   * is passed explicitly rather than reading `executeScope`: that setting is about what EXECUTES, and a
-   * user who set it to "current statement" has not asked for a partial conversion.
+   * common case, and converting the whole file when nothing is selected is the other one.
+   *
+   * How that is expressed: `hasSelection()` picks the branch, and the selected text comes back from
+   * `textToExecute('all')` because a non-empty selection wins inside `textToExecute` whatever the scope
+   * says (`editor/statements.ts:91-96`). `ExecuteScope` has two members, `'all'` and
+   * `'currentStatement'` — there is no `'selection'` — and `'all'` is passed as a CONSTANT rather than
+   * reading `editorPrefs.executeScope`: that setting is about what EXECUTES, and a user who set it to
+   * "current statement" has not asked for a partial conversion.
    *
    * The write goes through `setValue`, which replaces the whole document — the same thing Format does —
    * so a conversion is one undo away. Replacing only the selection was considered and rejected: the
