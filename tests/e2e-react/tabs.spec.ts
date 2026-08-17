@@ -16,9 +16,12 @@
  *    (`shell-commands.tsx:111`) — "the user pressed ⌘N to get a new one" — so nothing has to be
  *    dirtied to get a second tab, and this file asserts that directly.
  *  - the Angular spec located tabs as `.lm_tab` filtered by `hasText` and read `.lm_active` for the
- *    active one. Only the ACTIVE marker is still a vendor class here (`.dv-active-tab`, the Dockview
- *    exemption, confined to `helpers/react/workbench.ts`); the tabs themselves are Joinery's own
- *    `workspace-tab-*` testids, matched on the exact title.
+ *    active one. Here the tabs themselves are Joinery's own `workspace-tab-*` testids, matched on the
+ *    exact title; only the ACTIVE marker is still a vendor class (`.dv-active-tab`, the Dockview
+ *    exemption). THIS file reaches it only through `helpers/react/workbench.ts`'s `activeTabTitle`,
+ *    which is where the exemption's rationale lives — but the exemption is not confined to that
+ *    module tier-wide: `query-editor.spec.ts:144-152` counts and clicks `.dv-tab` directly, which
+ *    predates Task 20 and is left alone rather than being churned into a helper it has one caller for.
  *
  * Also covered, having had no e2e coverage in either tier: `menu:close-tab`, `menu:next-tab` and
  * `menu:previous-tab` — three of the 31 channels `shell/menu-bridge.tsx` routes.

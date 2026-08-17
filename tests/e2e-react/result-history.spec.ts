@@ -85,6 +85,50 @@ async function captureAndCompare(window: Page, base: string, compare: string) {
 }
 
 test.describe('Joinery (React) — result history', () => {
+  test('a plain execute is snapshotted by the main process, unpinned and unasked', async () => {
+    await withJoineryReact(async ({ window }) => {
+      await readyEditor(window);
+      await run(window, THREE_CUSTOMERS);
+      await openResultHistory(window);
+
+      // NOTHING is captured by hand here, and that is the whole point. Every other test in this file
+      // pins its own rows to escape the race described in the header; this one asserts the race's
+      // subject — main's own write on execute (`query.ipc.ts:59-78`). It is the behaviour the Angular
+      // tier's `query-editor.spec.ts` › `execution persists a result snapshot visible in the history
+      // tab` covered, and the Task 20 review caught that no React test did: without it, that wiring
+      // loses its only e2e assertion when the Angular tier dies.
+      const unpinned = historyRows(window).and(window.locator('[data-pinned="false"]'));
+
+      // Polled with a Refresh inside, which is the honest shape rather than a convenience. The write
+      // is a `setImmediate` AFTER the reply reached the renderer, so the panel's mount-time reload can
+      // legitimately lose it, and `Refresh` is the affordance the UI offers for exactly that (see
+      // `result-history-panel.tsx`'s header — a second window can also write for the same tab).
+      // Bounded by the poll's own timeout; there is no loop to exhaust.
+      await expect
+        .poll(
+          async () => {
+            if ((await unpinned.count()) > 0) return true;
+            await window.getByTestId('history-refresh').click();
+            return (await unpinned.count()) > 0;
+          },
+          {
+            timeout: 30_000,
+            message: "main's auto-saved snapshot never reached the history list",
+          }
+        )
+        .toBe(true);
+
+      // And it is THIS run: the statement and the row count main recorded, not an empty placeholder.
+      // An unlabelled snapshot shows its SQL (`snapshotLabel`), which is what makes this identifiable.
+      const row = unpinned.first();
+      await expect(row.getByTestId('history-view')).toContainText('SELECT id, full_name');
+      await expect(row.getByTestId('history-stats')).toContainText('3 rows');
+
+      // Nothing was pinned, so nothing here is the renderer's doing.
+      await expect(pinnedHistoryRows(window)).toHaveCount(0);
+    });
+  });
+
   test('lists what the tab has run, with its rows and duration', async () => {
     await withJoineryReact(async ({ window }) => {
       await readyEditor(window);

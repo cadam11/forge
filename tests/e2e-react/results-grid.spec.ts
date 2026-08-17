@@ -240,19 +240,24 @@ test.describe('Joinery (React) — the results grid', () => {
         dialog.showSaveDialog = async () => ({ canceled: false, filePath });
       }, destination);
 
-      await window.getByTestId('results-export-json').click();
-      await expect(
-        window.locator('[data-sonner-toast]').filter({ hasText: 'Exported 5 rows' })
-      ).toBeVisible({ timeout: 10_000 });
+      // `finally`, like the backup and restore specs: a failing assertion below must not leave the
+      // file in the host's tmpdir, and only the failure path needs the guarantee.
+      try {
+        await window.getByTestId('results-export-json').click();
+        await expect(
+          window.locator('[data-sonner-toast]').filter({ hasText: 'Exported 5 rows' })
+        ).toBeVisible({ timeout: 10_000 });
 
-      const written: unknown = JSON.parse(readFileSync(destination, 'utf-8'));
-      expect(Array.isArray(written)).toBe(true);
-      // The five seeded customers, with the columns the executor described — not the grid's view of
-      // them. That distinction is J-47, and it is what makes this an assertion about export rather
-      // than a second copy test.
-      expect(written).toHaveLength(5);
-      expect((written as Array<Record<string, unknown>>)[0]).toMatchObject({ id: 1 });
-      rmSync(destination, { force: true });
+        const written: unknown = JSON.parse(readFileSync(destination, 'utf-8'));
+        expect(Array.isArray(written)).toBe(true);
+        // The five seeded customers, with the columns the executor described — not the grid's view of
+        // them. That distinction is J-47, and it is what makes this an assertion about export rather
+        // than a second copy test.
+        expect(written).toHaveLength(5);
+        expect((written as Array<Record<string, unknown>>)[0]).toMatchObject({ id: 1 });
+      } finally {
+        rmSync(destination, { force: true });
+      }
     });
   });
 

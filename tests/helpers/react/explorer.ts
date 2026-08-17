@@ -22,11 +22,24 @@ function labelExactly(window: Page, label: string): Locator {
   return window.getByTestId('tree-row-label').filter({ hasText: exactly(label) });
 }
 
-/** One tree row by its visible label, matched exactly. */
+/**
+ * One tree row by its visible label, matched exactly.
+ *
+ * **No `.first()`, deliberately.** Exact matching removes the substring class of ambiguity
+ * (`orders` no longer also means `orders_archive`) but not all of it: the tree is a FLAT list of rows
+ * and this locator is not scoped to a schema, so two genuinely identical labels under different
+ * parents — `public.Tables` and `app_meta.Tables` with both schemas expanded — would still both
+ * match. A trailing `.first()` would then pick whichever the virtualizer rendered higher and the
+ * test would drive the wrong row in silence. Without it, Playwright's strict mode raises
+ * "resolved to 2 elements" and names the ambiguity instead.
+ *
+ * Scoping by schema is not offered because it cannot be done honestly here: parentage is expressed
+ * as `aria-level` on a flat, virtualized list, so "the `orders` under `app_meta`" is a scan between
+ * two sibling boundaries whose rows may not all be mounted. A spec that needs it should expand one
+ * parent at a time, which is what every spec in the tier does today.
+ */
 export function treeRow(window: Page, label: string): Locator {
-  return treeRows(window)
-    .filter({ has: labelExactly(window, label) })
-    .first();
+  return treeRows(window).filter({ has: labelExactly(window, label) });
 }
 
 /**
@@ -37,11 +50,14 @@ export function treeRow(window: Page, label: string): Locator {
  * (`server-<connectionId>`) is its private business. The Angular spec keyed on
  * `aria-label*="(server)"`, which was the same idea via a string it built for
  * screen readers.
+ *
+ * Strict, for the reason `treeRow` documents — and here the ambiguity would be worse than a wrong
+ * row: two servers sharing a profile name means the connection editor let a duplicate through, which
+ * `connection.spec.ts` › `refuses a save that would duplicate a profile name` exists to prevent. An
+ * error naming two matches is the right way to hear about that.
  */
 export function serverRow(window: Page, profileName: string): Locator {
-  return serverRows(window)
-    .filter({ has: labelExactly(window, profileName) })
-    .first();
+  return serverRows(window).filter({ has: labelExactly(window, profileName) });
 }
 
 /** All server rows. Used by the multi-connection spec's "the others survived" assertions. */

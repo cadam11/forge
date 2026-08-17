@@ -51,9 +51,12 @@ test.describe('Joinery (React) — the query editor', () => {
       const editor = await readyEditor(window);
       await typeSql(window, "SELECT id FROM customers WHERE email = 'x' -- note");
 
-      // PLAN.md R5 finding 4, asserted rather than worked around: exactly ONE `.monaco-editor` is in
-      // the document, so Task 20's `:visible` filter is unnecessary under the default renderer.
-      await expect(window.locator('.monaco-editor')).toHaveCount(1);
+      // The "exactly one `.monaco-editor`" assertion that used to live here has MOVED to `a
+      // re-activated tab keeps its SQL and its measurements`, and the Task 20 review is why: with a
+      // single query tab open, `toHaveCount(1)` cannot fail for the regression it claimed to guard —
+      // a Dockview that started keeping detached panels mounted would still leave one editor in a
+      // document that only ever had one. The count is only evidence with TWO tabs open and one of them
+      // inactive, which is the state that test already sets up.
 
       // Tokenized, which means the `sql` tokenizer's lazy chunk resolved from inside the bundle. More
       // than one `.mtk*` class is the proof: an untokenized document renders every character in one.
@@ -145,6 +148,14 @@ test.describe('Joinery (React) — the query editor', () => {
       const menu = await openNodeMenu(window, 'joinery_test');
       await menu.getByTestId('sidebar-menu-new-query').click();
       await expect(window.locator('.dv-tab')).toHaveCount(tabsBefore + 1);
+
+      // **PLAN.md trap (b), asserted where the assertion can actually fail.** Two query tabs now exist
+      // and exactly one is active, so this is the state that discriminates: Golden Layout kept every
+      // inactive tab's Monaco mounted, which is the only reason the Angular suite needed
+      // `.monaco-editor:visible`. Dockview's default renderer detaches instead (R5 finding 4), so ONE
+      // editor is in the document. A Dockview that changed its mind would make this 2 — and the whole
+      // React tier, which carries no `:visible` filter anywhere, would need one again.
+      await expect(window.locator('.monaco-editor')).toHaveCount(1);
 
       // Switch away and back. Under Dockview's default renderer the panel's DOM was DETACHED while it
       // was inactive (PLAN R5 finding 4), so this is the round trip that left Monaco at its 5×5
