@@ -159,6 +159,36 @@ export interface LaunchOptions {
   envOverrides?: Record<string, string>;
   /** Renderer package to show. Defaults to `$JOINERY_E2E_RENDERER`, then `angular`. */
   renderer?: RendererTarget;
+  /**
+   * Pin the window's device pixel ratio, in device pixels per CSS pixel.
+   *
+   * **Omitted by default, and that is deliberate: the functional tiers launch exactly as they always
+   * did.** Only the visual tier passes it (`tests/e2e-react-visual/fixtures.ts`), because only a
+   * screenshot cares.
+   *
+   * ── The defect this exists to prevent (J-21, ledger Ruling 5) ──────────────────────────────
+   *
+   * The Angular visual tier is RED for two reasons, and the second one is not about pixels at all:
+   * its baselines were captured on a display that reported `devicePixelRatio: 2`, so every PNG is
+   * 2800×1800 for a 1400×900 window. A run whose window reports `1` produces a 1400×900 image, and
+   * `toHaveScreenshot` compares SIZES before it compares content — so the tier fails with a
+   * geometry mismatch on a machine where the UI is byte-identical, and the failure says nothing
+   * about the UI. Nothing in that tier states a DPR anywhere, so which of the two a developer gets
+   * is a property of the display they happen to be on.
+   *
+   * **Playwright's own `use.deviceScaleFactor` cannot fix it here.** That option is applied by
+   * `browser.newContext`, and this suite has no browser context: `_electron.launch` starts a real
+   * Electron whose windows are created by `packages/main/src/window.ts`. Setting it in the config
+   * would type-check, do nothing, and read as though the tier were pinned. The honest lever is
+   * Chromium's own `--force-device-scale-factor`, which Electron passes through to the compositor —
+   * the same mechanism `--user-data-dir` above is honoured by. It scales rasterization only:
+   * `BrowserWindow`'s width/height are CSS pixels either way, so the layout under test is unchanged
+   * and only the image's pixel dimensions move.
+   *
+   * The visual tier asserts `window.devicePixelRatio` equals what it asked for, so a switch that
+   * ever stopped being honoured fails there rather than silently re-introducing the trap.
+   */
+  deviceScaleFactor?: number;
 }
 
 export async function launchJoinery(options: LaunchOptions = {}): Promise<LaunchedApp> {
@@ -185,8 +215,20 @@ export async function launchJoinery(options: LaunchOptions = {}): Promise<Launch
   // electron-store and the keychain credential namespace into the temp dir.
   const userDataDir = mkdtempSync(join(tmpdir(), 'joinery-test-userdata-'));
 
+  // Only when asked for, so an unpinned launch's argv is byte-identical to what it was. See the
+  // option's own documentation for the defect it prevents.
+  if (options.deviceScaleFactor !== undefined && !(options.deviceScaleFactor > 0)) {
+    throw new Error(
+      `[electron-app] deviceScaleFactor must be a positive number, got ${String(options.deviceScaleFactor)}`
+    );
+  }
+  const scaleFactorArgs =
+    options.deviceScaleFactor === undefined
+      ? []
+      : [`--force-device-scale-factor=${options.deviceScaleFactor}`];
+
   const app = await electron.launch({
-    args: [MAIN_ENTRY, `--user-data-dir=${userDataDir}`],
+    args: [MAIN_ENTRY, `--user-data-dir=${userDataDir}`, ...scaleFactorArgs],
     cwd: REPO_ROOT,
     env: {
       ...process.env,
