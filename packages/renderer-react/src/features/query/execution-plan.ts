@@ -144,15 +144,23 @@ export function planFromResult(result: QueryResult | null, engine: DatabaseEngin
   return engine === 'postgresql' ? parsePostgresPlan(json) : parseMysqlPlan(json);
 }
 
+/**
+ * How many nodes any one pass over a plan will visit.
+ *
+ * Bounded, per the repo's loop rule, and shared by every traversal in this file — the flatten, the
+ * PostgreSQL build and the MSSQL cost-share pass. 5,000 nodes is far past any plan a human reads; a plan
+ * bigger than that is truncated rather than allowed to hang the pane. One constant rather than three, so
+ * a plan cannot be flattenable but not costable.
+ */
+const MAX_PLAN_NODES = 5_000;
+
 /** The whole tree as a flat list, root first. Exported because the view needs it for rendering rows. */
 export function flattenPlan(root: PlanNode): readonly { node: PlanNode; depth: number }[] {
   const rows: { node: PlanNode; depth: number }[] = [];
   // An explicit stack rather than recursion: a plan is server-shaped data and a pathological one must
   // not be able to overflow the renderer's call stack.
   const stack: { node: PlanNode; depth: number }[] = [{ node: root, depth: 0 }];
-  // Bounded, per the repo's loop rule. 5,000 nodes is far past any plan a human reads; a plan bigger
-  // than that is truncated rather than allowed to hang the pane.
-  const MAX_ROWS = 5_000;
+  const MAX_ROWS = MAX_PLAN_NODES;
   while (stack.length > 0 && rows.length < MAX_ROWS) {
     const entry = stack.pop();
     if (entry === undefined) break;
@@ -200,12 +208,40 @@ function parsePostgresPlan(data: unknown): PlanParse {
   };
 }
 
-function pgNode(node: Record<string, unknown>, totalCost: number): PlanNode {
+/**
+ * The PostgreSQL tree, built with an explicit stack.
+ *
+ * The same hazard `flattenPlan` guards, approached from the other end: `Plans` is server-shaped, so a
+ * pathologically deep plan DOCUMENT could overflow the call stack during the parse — before the stack-safe
+ * flatten ever got to see it. Same bound (`MAX_PLAN_NODES`), and past it the tree is truncated rather than
+ * the pane being hung. Children keep their source order, because the stack appends them to their parent in
+ * that order regardless of which order they are then descended in.
+ */
+function pgNode(plan: Record<string, unknown>, totalCost: number): PlanNode {
+  const root = pgSelfNode(plan, totalCost);
+  const pending: { source: Record<string, unknown>; node: MutablePlanNode }[] = [
+    { source: plan, node: root },
+  ];
+  let built = 1;
+
+  while (pending.length > 0 && built < MAX_PLAN_NODES) {
+    const entry = pending.pop();
+    if (entry === undefined) break;
+    const plans = entry.source['Plans'];
+    for (const child of (Array.isArray(plans) ? plans : []).filter(isRecord)) {
+      if (built >= MAX_PLAN_NODES) break;
+      const childNode = pgSelfNode(child, totalCost);
+      entry.node.children.push(childNode);
+      pending.push({ source: child, node: childNode });
+      built += 1;
+    }
+  }
+  return root;
+}
+
+/** One PostgreSQL node, childless. `pgNode` owns the linking. */
+function pgSelfNode(node: Record<string, unknown>, totalCost: number): MutablePlanNode {
   const cost = numberOf(node['Total Cost']) ?? 0;
-  const plans = node['Plans'];
-  const children = (Array.isArray(plans) ? plans : [])
-    .filter(isRecord)
-    .map(child => pgNode(child, totalCost));
 
   const details: string[] = [];
   addIf(details, 'Filter', node['Filter']);
@@ -242,7 +278,7 @@ function pgNode(node: Record<string, unknown>, totalCost: number): PlanNode {
     actualTime: numberOf(node['Actual Total Time']),
     costPercent: share(cost, totalCost),
     extra,
-    children,
+    children: [],
   };
 }
 
@@ -527,12 +563,24 @@ function mssqlWarnings(root: PlanNode): readonly string[] {
  *
  * Runs after the tree is linked, for the obvious reason: a node's own cost is not knowable until its
  * children are attached.
+ *
+ * An explicit stack, bounded by `MAX_PLAN_NODES`, for the reason `flattenPlan` gives: the tree it walks was
+ * built from `NodeId`/`Parent` pointers a server supplied, and no such tree may be able to overflow the
+ * renderer's call stack. Every node's share is written before its children are visited, so a plan truncated
+ * at the bound leaves the nodes it did reach correct rather than half-written.
  */
-function applyCostShare(node: MutablePlanNode, totalCost: number): void {
-  const childCost = node.children.reduce((sum, child) => sum + (child.cost ?? 0), 0);
-  const ownCost = Math.max(0, (node.cost ?? 0) - childCost);
-  node.costPercent = share(ownCost, totalCost);
-  for (const child of node.children) applyCostShare(child, totalCost);
+function applyCostShare(root: MutablePlanNode, totalCost: number): void {
+  const pending: MutablePlanNode[] = [root];
+  let visited = 0;
+  while (pending.length > 0 && visited < MAX_PLAN_NODES) {
+    const node = pending.pop();
+    if (node === undefined) break;
+    visited += 1;
+    const childCost = node.children.reduce((sum, child) => sum + (child.cost ?? 0), 0);
+    const ownCost = Math.max(0, (node.cost ?? 0) - childCost);
+    node.costPercent = share(ownCost, totalCost);
+    for (const child of node.children) pending.push(child);
+  }
 }
 
 // ── Shared helpers ────────────────────────────────────────────────────────────────────────────

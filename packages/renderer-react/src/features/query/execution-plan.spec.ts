@@ -461,6 +461,75 @@ describe('planFromResult — refusals', () => {
 
 // ── The view's two helpers ────────────────────────────────────────────────────────────────────
 
+// ── Deep plans: every traversal in this file is a stack, not a recursion ───────────────────────
+//
+// `flattenPlan` was written as an explicit stack because a plan is server-shaped data. Two other passes
+// were not, and had the same exposure from the other side: the PostgreSQL BUILD (`pgNode`) walked the plan
+// document, and the MSSQL cost-share walked the linked tree — so a pathological plan overflowed the call
+// stack before, or just after, the stack-safe flatten ever saw it. These are the tests that fail if either
+// goes back to recursion.
+
+describe('deep plans', () => {
+  /** A PostgreSQL plan document nested `depth` levels down a single chain. */
+  function deepPgDocument(depth: number): unknown {
+    let plan: Record<string, unknown> = { 'Node Type': 'Seq Scan', 'Total Cost': 1 };
+    for (let index = 0; index < depth; index += 1) {
+      plan = { 'Node Type': `Nest ${index}`, 'Total Cost': index + 2, Plans: [plan] };
+    }
+    return [{ Plan: plan }];
+  }
+
+  it('parses a PostgreSQL plan far deeper than the call stack allows', () => {
+    // Handed over ALREADY PARSED, which is a shape `firstColumnJson` accepts (pg's driver does exactly
+    // this for a json column). `JSON.stringify` is itself recursive, so serialising the fixture would
+    // make the test fail on the fixture rather than on the parser.
+    const result = resultOf([
+      {
+        columns: [{ name: 'QUERY PLAN', type: 'json' }],
+        rows: [{ 'QUERY PLAN': deepPgDocument(20_000) }],
+      },
+    ]);
+
+    const parsed = planFromResult(result, 'postgresql');
+    if (!parsed.ok) throw new Error(parsed.reason);
+
+    expect(parsed.root.type).toBe('Nest 19999');
+    // Truncated at the shared bound rather than overflowing: the deepest 15,000 operators are dropped,
+    // which is the same trade `flattenPlan` already made.
+    expect(flattenPlan(parsed.root)).toHaveLength(5_000);
+  });
+
+  it('links and cost-shares an MSSQL profile far deeper than the call stack allows', () => {
+    // One chain of 20,000 operators: NodeId n, Parent n−1, parents before children as SQL Server emits
+    // them. `applyCostShare` used to recurse down this.
+    const rows = Array.from({ length: 20_000 }, (_, index) => ({
+      Rows: 1,
+      Executes: 1,
+      StmtText: `op ${index}`,
+      StmtId: 1,
+      NodeId: index + 1,
+      Parent: index,
+      PhysicalOp: index === 0 ? 'NULL' : `Op ${index}`,
+      LogicalOp: 'NULL',
+      Argument: 'NULL',
+      EstimateRows: 1,
+      TotalSubtreeCost: 20_000 - index,
+      Warnings: 'NULL',
+      Type: index === 0 ? 'SELECT' : 'PLAN_ROW',
+    }));
+
+    const parsed = planFromResult(resultOf([{ columns: MSSQL_PROFILE_COLUMNS, rows }]), 'mssql');
+    if (!parsed.ok) throw new Error(parsed.reason);
+
+    expect(parsed.root.type).toBe('SELECT');
+    expect(parsed.summary.totalCost).toBe(20_000);
+    // The share was written for every node the bounded pass reached, and 100% of the plan's cost is not
+    // claimed by the spine: each operator's own cost here is 1 of 20,000.
+    expect(parsed.root.costPercent).toBeCloseTo(0.005);
+    expect(flattenPlan(parsed.root)).toHaveLength(5_000);
+  });
+});
+
 describe('flattenPlan / planSeverity', () => {
   it('walks the tree root-first, in child order, with a depth per row', () => {
     const parsed = planFromResult(jsonResult(PG_PLAN), 'postgresql');
