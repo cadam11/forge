@@ -31,6 +31,7 @@ import {
   Input,
   Spinner,
 } from '../../ui';
+import { diagnostics } from '../../state/diagnostics';
 import { FormAnswerBand } from '../forms';
 import { validateDatabaseName } from './database-name';
 
@@ -51,8 +52,8 @@ export interface DatabaseNameDialogProps {
   readonly extra?: ReactNode;
   /**
    * Perform the operation. Resolves `null` on success — which is what closes the dialog — or the
-   * message to show in the answer band. A rejected promise is reported as an unnamed failure rather
-   * than swallowed.
+   * message to show in the answer band. A rejected promise is shown as an unnamed failure and its cause
+   * is sent to the diagnostics sink — neither swallowed nor pretended to be a message.
    */
   readonly onSubmit: (name: string) => Promise<string | null>;
   readonly onDismiss: () => void;
@@ -101,7 +102,13 @@ export function DatabaseNameDialog({
         }
         setFailure(message);
       })
-      .catch(() => setFailure('The server refused the change and gave no reason.'))
+      .catch((cause: unknown) => {
+        // The one place a database operation can fail without a message of its own, so the cause goes
+        // to the diagnostics sink rather than nowhere: "gave no reason" is what the USER can be told,
+        // not what the log should say.
+        diagnostics.error('a database operation rejected', cause);
+        setFailure('The server refused the change and gave no reason.');
+      })
       .finally(() => setBusy(false));
   };
 

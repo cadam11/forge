@@ -27,13 +27,18 @@
  * `backup-dialogs.tsx`: nothing is open yet, so it is not a toast over a modal (J-42).
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { RecoveryModel } from '@joinery/shared';
 
 import { useCommand } from '../../commands';
 import { ipc, useInvalidateIpc } from '../../ipc';
 import { capabilitiesStore, selectCapabilitiesFor } from '../../state/capabilities';
-import { connectionStore, selectDatabasesFor, selectProfileFor } from '../../state/connection';
+import {
+  connectionStore,
+  selectDatabasesFor,
+  selectProfileFor,
+  useConnectionStore,
+} from '../../state/connection';
 import { diagnostics, notify } from '../../state/diagnostics';
 import { logStore } from '../../state/logs';
 import { CreateDatabaseDialog } from './create-database-dialog';
@@ -53,6 +58,18 @@ type OpenDialog =
 export function DatabaseDialogs() {
   const [open, setOpen] = useState<OpenDialog | null>(null);
   const invalidate = useInvalidateIpc();
+
+  /**
+   * The names already on this server — SUBSCRIBED, not read once.
+   *
+   * `selectDatabasesFor(…)(connectionStore.getState())` during render was the bug: the list is loaded
+   * asynchronously, so a dialog opened before `loadDatabases` answers (⌘-anything on a server whose
+   * picker has not been touched, or a slow server) held an empty `taken` for its whole life and let a
+   * colliding name through to the round trip it exists to avoid. The selector returns the stored array
+   * itself — `EMPTY_DATABASES` when there is none — so subscribing does not re-render on every write.
+   */
+  const databases = useConnectionStore(selectDatabasesFor(open?.connectionId ?? null));
+  const taken = useMemo(() => databases.map(database => database.name), [databases]);
 
   /**
    * Resolve a connection to something a dialog can open on, or say why not.
@@ -135,10 +152,6 @@ export function DatabaseDialogs() {
   );
 
   if (open === null) return null;
-
-  const taken = selectDatabasesFor(open.connectionId)(connectionStore.getState()).map(
-    database => database.name
-  );
 
   if (open.kind === 'create') {
     return (
