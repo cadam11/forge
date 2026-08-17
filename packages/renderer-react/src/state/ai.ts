@@ -305,6 +305,45 @@ export function selectAnalysisEnabled(state: SettingsSlice): boolean {
   return state.settings.enabled && state.settings.features.analysisEnabled;
 }
 
+/**
+ * The vendor an analysis request will actually reach, so a surface can NAME it before sending anything.
+ *
+ * Mirrors `ai-service.ts`'s `selectModelForFeature('analysis')`: an explicitly chosen `analysisModelId`
+ * decides it when that model's vendor is enabled and keyed, and otherwise it is the highest-priority
+ * (lowest `priority`) enabled, keyed vendor. `null` when the vendor list has not loaded or nothing is
+ * usable — a caller must then say "your configured provider" rather than invent a name.
+ *
+ * Duplicating main's rule is the cost of telling the user where their rows are going without a round trip
+ * to ask. It is one selector, it is tested against the same cases, and the alternative is a disclosure
+ * that names a provider main would not have used.
+ */
+export function selectAnalysisVendor(
+  state: Pick<AIStoreState, 'settings' | 'vendors'>
+): AIVendor | null {
+  const usable = (vendorId: string): boolean =>
+    state.settings.vendorSettings.some(
+      vs => vs.vendorId === vendorId && vs.enabled && vs.apiKeyConfigured
+    );
+
+  const modelId = state.settings.features.analysisModelId;
+  if (modelId !== null && modelId !== '') {
+    const owner = state.vendors.find(
+      vendor => vendor.models.some(model => model.id === modelId) && usable(vendor.id)
+    );
+    if (owner !== undefined) return owner;
+  }
+
+  // A copy before the sort: `vendorSettings` is store state, and `sort` mutates in place.
+  const byPriority = [...state.settings.vendorSettings]
+    .filter(vs => vs.enabled && vs.apiKeyConfigured)
+    .sort((a, b) => a.priority - b.priority);
+  for (const vendorSettings of byPriority) {
+    const vendor = state.vendors.find(candidate => candidate.id === vendorSettings.vendorId);
+    if (vendor !== undefined) return vendor;
+  }
+  return null;
+}
+
 export function selectQueryAssistEnabled(state: SettingsSlice): boolean {
   return state.settings.enabled && state.settings.features.queryAssistEnabled;
 }

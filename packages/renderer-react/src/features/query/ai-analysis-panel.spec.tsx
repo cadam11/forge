@@ -10,7 +10,13 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_AI_SETTINGS } from '@joinery/shared';
-import type { AnalysisRequest, AnalysisResponse, ResultSet } from '@joinery/shared';
+import type {
+  AIVendor,
+  AIVendorSettings,
+  AnalysisRequest,
+  AnalysisResponse,
+  ResultSet,
+} from '@joinery/shared';
 
 import { subscribeCommand } from '../../commands';
 import { aiStore } from '../../state/ai';
@@ -35,15 +41,45 @@ const RESULT_SET: ResultSet = {
 
 let analyzeResults: ReturnType<typeof vi.fn>;
 
-function configureAi(overrides: { enabled?: boolean; configured?: boolean } = {}) {
-  const { enabled = true, configured = true } = overrides;
+/**
+ * Two vendors, so "which one is named in the disclosure" is a real question rather than the only answer.
+ * `anthropic` has the better (lower) priority, which is the order `ai-service.ts` picks in.
+ */
+const VENDORS = [
+  {
+    id: 'anthropic',
+    name: 'Anthropic',
+    requiresApiKey: true,
+    models: [{ id: 'claude-x', name: 'Claude X', powerRank: 10 }],
+  },
+  {
+    id: 'google',
+    name: 'Google AI',
+    requiresApiKey: true,
+    models: [{ id: 'gemini-x', name: 'Gemini X', powerRank: 10 }],
+  },
+] as unknown as AIVendor[];
+
+function configureAi(
+  overrides: {
+    enabled?: boolean;
+    configured?: boolean;
+    vendorSettings?: AIVendorSettings[];
+    analysisModelId?: string | null;
+  } = {}
+) {
+  const { enabled = true, configured = true, analysisModelId = null } = overrides;
   aiStore.setState({
+    vendors: VENDORS,
     settings: {
       ...DEFAULT_AI_SETTINGS,
       enabled,
-      vendorSettings: configured
-        ? [{ vendorId: 'google', enabled: true, apiKeyConfigured: true, priority: 1 }]
-        : [],
+      features: { ...DEFAULT_AI_SETTINGS.features, analysisModelId },
+      vendorSettings:
+        overrides.vendorSettings ??
+        (configured
+          ? [{ vendorId: 'google', enabled: true, apiKeyConfigured: true, priority: 1 }]
+          : []),
     },
   });
 }
@@ -71,7 +107,70 @@ beforeEach(() => {
 afterEach(() => {
   for (const teardown of teardowns.splice(0)) teardown();
   removeJoineryMock();
-  aiStore.setState({ settings: { ...DEFAULT_AI_SETTINGS }, analyzingResults: false });
+  aiStore.setState({ settings: { ...DEFAULT_AI_SETTINGS }, vendors: [], analyzingResults: false });
+});
+
+/*
+ * What leaves the machine, said on the surface that sends it.
+ *
+ * `analysis-request.ts` decides the payload and caps it; until this sentence existed, the only place a user
+ * could find out that their rows go to a third party was the source code. It names the REAL vendor, resolved
+ * the same way `ai-service.ts` resolves it — "an AI provider" would be a disclosure that discloses nothing.
+ */
+describe('AiAnalysisPanel — the disclosure', () => {
+  it('names the payload, the cap and the configured vendor', () => {
+    draw();
+
+    const disclosure = screen.getByTestId('analysis-disclosure').textContent ?? '';
+    expect(disclosure).toContain('this query');
+    expect(disclosure).toContain('column names and types');
+    expect(disclosure).toContain(`up to ${SAMPLE_ROW_LIMIT} result rows`);
+    expect(disclosure).toContain('Google AI');
+  });
+
+  it('names the highest-priority vendor when two are configured', () => {
+    configureAi({
+      vendorSettings: [
+        { vendorId: 'google', enabled: true, apiKeyConfigured: true, priority: 2 },
+        { vendorId: 'anthropic', enabled: true, apiKeyConfigured: true, priority: 1 },
+      ],
+    });
+    draw();
+
+    // Lower `priority` wins, which is `selectBestAvailableModel`'s own sort.
+    expect(screen.getByTestId('analysis-disclosure').textContent).toContain('Anthropic');
+  });
+
+  it('follows an explicitly chosen analysis model to its vendor', () => {
+    configureAi({
+      analysisModelId: 'claude-x',
+      vendorSettings: [
+        { vendorId: 'google', enabled: true, apiKeyConfigured: true, priority: 1 },
+        { vendorId: 'anthropic', enabled: true, apiKeyConfigured: true, priority: 2 },
+      ],
+    });
+    draw();
+
+    // `features.analysisModelId` overrides the priority order in main, so it overrides it here too.
+    expect(screen.getByTestId('analysis-disclosure').textContent).toContain('Anthropic');
+  });
+
+  it('falls back to a truthful generality when the vendor list has not loaded', () => {
+    // The keychain says a provider is configured but `ai.getVendors` has not answered yet. Naming nothing
+    // is honest; naming the wrong provider would not be.
+    aiStore.setState({ vendors: [] });
+    draw();
+
+    expect(screen.getByTestId('analysis-disclosure').textContent).toContain(
+      'your configured AI provider'
+    );
+  });
+
+  it('is absent from the degrades, which send nothing', () => {
+    configureAi({ configured: false });
+    draw();
+    expect(screen.queryByTestId('analysis-disclosure')).toBeNull();
+  });
 });
 
 describe('AiAnalysisPanel — the degrades', () => {

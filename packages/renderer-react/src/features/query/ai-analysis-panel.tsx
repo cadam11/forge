@@ -27,7 +27,15 @@
  * `<Markdown>` from `src/markdown/`, which parses with `marked` and sanitizes with DOMPurify.
  * `eslint.config.js` bans `dangerouslySetInnerHTML` outside that directory, so there is no second route
  * for model-authored text to reach the DOM. Mermaid is off: an analysis of a result set has no diagrams
- * in it, and enabling the renderer would mean a second sanitizer profile on this surface for nothing.
+ * in it, and enabling the renderer would mean a second sanitizer profile on this surface for nothing —
+ * so no `mermaidTheme` is passed either, because a prop the renderer never reads is a claim that it does.
+ *
+ * ── The panel SAYS what leaves the machine, before anything does ──────────────────────────────
+ *
+ * `analysis-request.ts` decides what is sent and caps it; this surface is where the user finds out. One
+ * sentence beside the ask affordances names the three things that go (the statement, the column names and
+ * types, and up to `SAMPLE_ROW_LIMIT` rows) and the vendor they go to — the real one, resolved the same
+ * way `ai-service.ts` resolves it (`selectAnalysisVendor`), because "an AI provider" is not a disclosure.
  */
 
 import { useCallback, useState, type FormEvent } from 'react';
@@ -36,11 +44,16 @@ import type { ResultSet } from '@joinery/shared';
 
 import { dispatchCommand } from '../../commands';
 import { Markdown } from '../../markdown';
-import { aiStore, selectAIEnabled, selectHasConfiguredVendors, useAIStore } from '../../state/ai';
+import {
+  aiStore,
+  selectAIEnabled,
+  selectAnalysisVendor,
+  selectHasConfiguredVendors,
+  useAIStore,
+} from '../../state/ai';
 import { notify } from '../../state/diagnostics';
-import { selectEffectiveTheme, useSettingsStore } from '../../state/settings';
 import { Button, EmptyState, Icon, Input, Spinner, Tooltip, cn } from '../../ui';
-import { QUICK_ANALYSES, buildAnalysisRequest } from './analysis-request';
+import { QUICK_ANALYSES, SAMPLE_ROW_LIMIT, buildAnalysisRequest } from './analysis-request';
 
 export interface AiAnalysisPanelProps {
   /** The statement that produced the result on screen — not the editor's live text. */
@@ -53,7 +66,9 @@ export function AiAnalysisPanel({ sql, resultSet }: AiAnalysisPanelProps) {
   const configured = useAIStore(selectHasConfiguredVendors);
   const aiEnabled = useAIStore(selectAIEnabled);
   const analyzing = useAIStore(state => state.analyzingResults);
-  const theme = useSettingsStore(selectEffectiveTheme);
+  // The vendor is subscribed to, not read once: switching provider in the AI dialog must change this
+  // sentence, and a stale provider name in a disclosure is worse than no name at all.
+  const vendor = useAIStore(selectAnalysisVendor);
 
   const [answer, setAnswer] = useState('');
   const [failure, setFailure] = useState('');
@@ -147,6 +162,13 @@ export function AiAnalysisPanel({ sql, resultSet }: AiAnalysisPanelProps) {
 
   return (
     <div className="flex min-h-0 grow flex-col gap-3 overflow-auto p-3" data-testid="ai-analysis">
+      {/* Above the buttons, because it is what pressing one of them does. `SAMPLE_ROW_LIMIT` rather than
+          a literal 10, so the cap and the sentence describing it cannot drift apart. */}
+      <p data-testid="analysis-disclosure" className="text-sm text-fg-subtle text-pretty">
+        Sends this query, your column names and types, and up to {SAMPLE_ROW_LIMIT} result rows to{' '}
+        {vendor?.name ?? 'your configured AI provider'}.
+      </p>
+
       <div className="flex flex-wrap items-center gap-2">
         {QUICK_ANALYSES.map(action => (
           <Button
@@ -225,11 +247,11 @@ export function AiAnalysisPanel({ sql, resultSet }: AiAnalysisPanelProps) {
               Copy
             </Button>
           </div>
-          {/* The one seam. `enableCodeCopy` because an analysis routinely answers with SQL. */}
+          {/* The one seam. `enableCodeCopy` because an analysis routinely answers with SQL. No
+              `mermaidTheme`: `enableMermaid` is off here, so the theme would never be read. */}
           <Markdown
             data={answer}
             enableCodeCopy
-            mermaidTheme={theme === 'light' ? 'neutral' : 'dark'}
             data-testid="analysis-markdown"
             className={cn('min-h-0')}
           />
