@@ -131,4 +131,23 @@ describe('keyRows', () => {
     expect(keyRows([key({ onDelete: 'no_action', onUpdate: 'no_action' })])[0]?.rules).toBeNull();
     expect(keyRows([key()])[0]?.rules).toBeNull();
   });
+
+  it('suppresses PostgreSQL’s spelling of the default too', () => {
+    // The declared type says `'no_action'`; PostgreSQL's catalogue reaches the renderer as `'no action'`,
+    // with a space. The browser gate caught this — every seeded key rendered `ON UPDATE NO ACTION`.
+    const pgSpelling = {
+      onDelete: 'cascade',
+      onUpdate: 'no action',
+    } as unknown as Partial<ForeignKeyInfo>;
+    expect(keyRows([key(pgSpelling)])[0]?.rules).toBe('ON DELETE CASCADE');
+    const bothDefault = {
+      onDelete: 'no action',
+      onUpdate: 'no action',
+    } as unknown as Partial<ForeignKeyInfo>;
+    expect(keyRows([key(bothDefault)])[0]?.rules).toBeNull();
+    // And an empty string — a provider that reported the field without a value.
+    expect(
+      keyRows([key({ onDelete: '' } as unknown as Partial<ForeignKeyInfo>)])[0]?.rules
+    ).toBeNull();
+  });
 });

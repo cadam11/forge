@@ -123,16 +123,32 @@ export function keyRows(keys: readonly ForeignKeyInfo[]): readonly KeyRow[] {
   }));
 }
 
-/** `no_action` is the default and says nothing, so it is not rendered as a rule. */
+/**
+ * The referential actions, as SQL words. `NO ACTION` is the default and says nothing, so it is dropped.
+ *
+ * **The suppression normalises before it compares**, and that is not defensive dressing:
+ * `ForeignKeyInfo.onDelete` is DECLARED as `'no_action' | 'cascade' | 'set_null' | 'set_default'`, and
+ * PostgreSQL's catalogue reaches this renderer as `'no action'` — with a space. Comparing against the
+ * declared spelling alone let the default through, and the browser gate caught it: every seeded key
+ * rendered `ON UPDATE NO ACTION`, which is a column full of the word "default".
+ *
+ * The declared type being narrower than the values that arrive is a `packages/shared` wart, filed rather
+ * than fixed here (that package is out of scope for the rewrite).
+ */
 function referentialRules(key: ForeignKeyInfo): string | null {
   const parts: string[] = [];
-  if (key.onDelete !== undefined && key.onDelete !== 'no_action') {
-    parts.push(`ON DELETE ${key.onDelete.replace('_', ' ').toUpperCase()}`);
-  }
-  if (key.onUpdate !== undefined && key.onUpdate !== 'no_action') {
-    parts.push(`ON UPDATE ${key.onUpdate.replace('_', ' ').toUpperCase()}`);
-  }
+  const deleteRule = sqlAction(key.onDelete);
+  const updateRule = sqlAction(key.onUpdate);
+  if (deleteRule !== null) parts.push(`ON DELETE ${deleteRule}`);
+  if (updateRule !== null) parts.push(`ON UPDATE ${updateRule}`);
   return parts.length === 0 ? null : parts.join(' · ');
+}
+
+/** One action as SQL, or `null` for absent and for either spelling of the default. */
+function sqlAction(action: string | undefined): string | null {
+  if (action === undefined || action === '') return null;
+  const words = action.replace(/_/g, ' ').trim().toUpperCase();
+  return words === 'NO ACTION' ? null : words;
 }
 
 /**
