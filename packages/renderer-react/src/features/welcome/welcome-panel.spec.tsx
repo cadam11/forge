@@ -238,20 +238,25 @@ describe('the welcome tab', () => {
       );
     });
 
-    it('counts running database containers', async () => {
+    it('counts running database containers, through the shared Docker query', async () => {
+      // Task 19b deleted this card's own `docker.detect` effect: the line is now `DockerPip.tooltip`, so
+      // the welcome tab, the status-bar pip and the Docker panel cannot disagree about the count.
+      //
+      // No `isSqlServer` in the fixture, because that flag is a main-process no-op — `docker.ipc.ts:30`
+      // sets it to `true` for every container it returns, and the detector has already dropped everything
+      // that is not a database image. The engine comes from the IMAGE now, as the detector's own does.
       installBridge({
-        docker: { isAvailable: true } as DockerStatus,
+        docker: { isAvailable: true, isRunning: true } as DockerStatus,
         containers: [
-          { id: 'a', name: 'pg', state: 'running', isSqlServer: true } as DockerContainer,
-          { id: 'b', name: 'my', state: 'exited', isSqlServer: true } as DockerContainer,
-          { id: 'c', name: 'redis', state: 'running', isSqlServer: false } as DockerContainer,
+          { id: 'a', name: 'pg', image: 'postgres:16', state: 'running' } as DockerContainer,
+          { id: 'b', name: 'my', image: 'mysql:8', state: 'exited' } as DockerContainer,
         ],
       });
       mountWelcome();
 
       await waitFor(() =>
         expect(screen.getByTestId('welcome-action-docker').textContent).toContain(
-          '1/2 database containers running'
+          'Docker: 1 of 2 database containers running'
         )
       );
     });

@@ -32,12 +32,12 @@
  * restyle of this file.
  */
 
-import { useEffect, useState } from 'react';
 import { ArrowRight, ArrowUpRight, BookOpen, GitBranch, Server, Sparkles } from 'lucide-react';
-import type { ConnectionProfile, DockerContainer, DockerStatus } from '@joinery/shared';
+import type { ConnectionProfile } from '@joinery/shared';
 
 import { dispatchCommand, handlerCount } from '../../commands';
 import { ipc, isIpcAvailable } from '../../ipc';
+import { useDocker } from '../docker';
 import { BrandMark } from '../../shell/sidebar/brand-mark';
 import { chatPanelStore } from '../../state/chat';
 import { connectionStore, useConnectionStore } from '../../state/connection';
@@ -277,51 +277,20 @@ function ActionCard({
 }
 
 /**
- * One line about Docker, or the empty string while the answer is unknown.
+ * One line about Docker, from the SAME query the status-bar pip and the Docker panel read.
  *
- * Fire-and-forget on mount and never retried: this is a decoration on a welcome screen, and the Docker
- * panel (Task 19b) is the surface that manages containers. A failure is silent to the user and logged —
- * Docker not being installed is the ordinary case, not an error worth a toast.
+ * Task 19a shipped this as a one-shot effect of its own, because the Docker surface did not exist yet and
+ * a third source of truth was better than an invented one. It exists now, so the effect is deleted:
+ * `useDocker()` is one cached pair of queries and `DockerPip.tooltip` is the sentence it produces. Three
+ * consumers, one fetch, one answer — and starting a container in the panel updates this line too, which
+ * an effect that ran once on mount could not do.
+ *
+ * Its old `filter(c => c.isSqlServer)` went with it: main sets that flag to `true` on every container it
+ * returns, so it was a no-op (`features/docker/docker-model.ts`, finding 1).
  */
 function useDockerSummary(): string {
-  // The browser-mode answer is the INITIAL state rather than the effect's first write: a synchronous
-  // `setState` in an effect body is a cascading render, and `react-hooks/set-state-in-effect` is right
-  // to refuse it — the value is knowable before the first paint.
-  const [summary, setSummary] = useState(() =>
-    isIpcAvailable() ? 'Checking Docker…' : 'Local containers unavailable'
-  );
-
-  useEffect(() => {
-    if (!isIpcAvailable()) return;
-    let live = true;
-    void (async () => {
-      try {
-        const status: DockerStatus = await ipc().docker.detect();
-        if (!live) return;
-        if (!status.isAvailable) {
-          setSummary('Docker is not running');
-          return;
-        }
-        const containers: DockerContainer[] = await ipc().docker.getContainers();
-        if (!live) return;
-        const databases = containers.filter(container => container.isSqlServer);
-        const running = databases.filter(container => container.state === 'running').length;
-        setSummary(
-          databases.length === 0
-            ? 'No database containers'
-            : `${running}/${databases.length} database containers running`
-        );
-      } catch (error) {
-        if (live) setSummary('Docker is not available');
-        diagnostics.warn('the welcome tab could not read Docker status', error);
-      }
-    })();
-    return () => {
-      live = false;
-    };
-  }, []);
-
-  return summary;
+  const { pip } = useDocker();
+  return isIpcAvailable() ? pip.tooltip : 'Local containers unavailable';
 }
 
 // ── Recent connections ─────────────────────────────────────────────────────────────────────
