@@ -22,7 +22,6 @@ import { expect, test } from './fixtures';
 import {
   createPostgresProfile,
   dragResizeHandle,
-  ensureJoineryTestSeeded,
   openConnectionMenu,
   resizeHandle,
   resizeHandleValue,
@@ -31,7 +30,10 @@ import {
 
 const PROFILE = 'Test PG';
 
-test.beforeAll(ensureJoineryTestSeeded);
+// No `ensureJoineryTestSeeded`, deliberately: nothing in this file talks to a database. The profile
+// the connection-menu test needs is SAVED, never connected — `createPostgresProfile` is editor plus
+// keychain plus `AppState` — and the substrate and resize tests need no profile at all. That makes
+// this the one spec in the tier that runs with the containers down, which is worth keeping true.
 
 /**
  * Every localStorage key the ANGULAR renderer owns (`renderer/src/app/**`, as of the Task 20 audit).
@@ -77,10 +79,11 @@ test.describe('Joinery (React) — the launch substrate', () => {
   });
 });
 
-/** The two `app` members the substrate test reads. Narrowed rather than pulling in the whole bridge type. */
+/** The `app` members these tests read. Narrowed rather than pulling in the whole bridge type. */
 interface JoineryProbeApi {
   readonly app: {
     readonly getTabs: () => Promise<{ tabs: unknown[]; activeTabId: string | null }>;
+    readonly getState: () => Promise<{ sidebarWidth?: number }>;
   };
 }
 
@@ -163,6 +166,23 @@ test.describe('Joinery (React) — shell chrome', () => {
 
       // The width is a top-level `AppState` field (`state/workbench.ts:15`), not a localStorage key, so
       // wiping localStorage and reloading is what proves which store it came back from.
+      //
+      // The wait before the reload is required and is an assertion in its own right: the geometry write
+      // is DEBOUNCED by 250ms (`SAVE_DEBOUNCE_MS`), so a reload issued straight after the keystroke
+      // destroys the page before the timer fires and the value never leaves the renderer. Measured —
+      // this test failed at exactly that, reporting the default 280 back. Polling `AppState` for the new
+      // value is therefore both the bounded wait and the proof that the write happened at all.
+      await expect
+        .poll(
+          () =>
+            window.evaluate(async () => {
+              const api = (window as unknown as { joinery: JoineryProbeApi }).joinery;
+              return (await api.app.getState()).sidebarWidth;
+            }),
+          { timeout: 10_000, message: 'the debounced geometry write never reached AppState' }
+        )
+        .toBe(max);
+
       await window.evaluate(() => window.localStorage.clear());
       await window.reload();
       await expect(window.getByTestId('app-shell')).toBeVisible({ timeout: 20_000 });

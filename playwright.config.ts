@@ -34,6 +34,26 @@ export default defineConfig({
       threshold: 0.2,
     },
   },
+  // ── Serial, on purpose (Task 20 audit) ─────────────────────────────────────
+  //
+  // Not a default nobody revisited. Every test in every tier launches its own Electron app against
+  // the SAME five Docker containers and the same `joinery_test` database, so parallel workers would
+  // share mutable server state, not just CPU:
+  //
+  //  - `restore.spec.ts` and `create-database.spec.ts` create, rename and DROP real databases, and
+  //    `dropDatabasesMatching` drops by PREFIX — a concurrent spec's database can be inside another's
+  //    cleanup pattern.
+  //  - `dropDatabasesMatching` uses `WITH (FORCE)`, which terminates other sessions on the target.
+  //  - the explorer tree is virtualized, so databases a parallel worker left lying around push rows
+  //    out of the rendered window and specs that look for a third server node stop finding it (a real
+  //    failure this suite hit).
+  //  - `docker-panel.spec.ts` starts and stops a container of its own and asserts on the pip's
+  //    reading of what is running.
+  //  - the visual tier needs one screenshot at a time regardless.
+  //
+  // `retries: 0` is the other half of the same position: a retried Electron launch would hide exactly
+  // the flake this suite exists to find, and every wait in `tests/helpers/react/` is bounded and
+  // observable so that retries are not needed to paper over one.
   fullyParallel: false,
   retries: 0,
   workers: 1,
