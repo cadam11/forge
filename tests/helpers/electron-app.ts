@@ -25,6 +25,44 @@
  * document: the bridge re-installs itself on the new page exactly as it does
  * on the first one. The alternative — an env var read by `window.ts` — would
  * put test wiring in the shipped main process.
+ *
+ * ── The double boot: settled, with numbers (Task 20) ────────────────────────
+ *
+ * PLAN.md Task 20 trap (a) asked whether the double boot can be eliminated
+ * without a `window.ts` change. **It cannot, and it is kept deliberately.**
+ * What was measured and decided:
+ *
+ *  - **Cost: ~790ms per launch.** Timed launch-to-window with everything else
+ *    equal: `react=1301ms`, `angular=510ms`. The tier launches an app per test,
+ *    so at ~160 launches the redirect is roughly two minutes of a full run.
+ *  - **Leakage: none, and it is now asserted rather than assumed.** The
+ *    redirect fires immediately after `domcontentloaded`, before Angular's
+ *    bootstrap reaches any of its own persistence writers. Probed on a fresh
+ *    userData dir: `AppState.openTabs` is `[]`, `activeTabId` is `null`, and
+ *    localStorage holds exactly one key — `joinery:theme-preference`, which is
+ *    React's own theme mirror (`persistence/theme-mirror.ts:37`). Not one of
+ *    Angular's six keys (`joinery:welcomeDismissed`, `joinery-settings`,
+ *    `joinery:completed-tours`, `joinery-snippets`,
+ *    `joinery-ctrl-e-execute-confirmed`, `joinery-flyway-placeholder-values`)
+ *    was present. **`tests/e2e-react/shell.spec.ts` asserts this every run**,
+ *    because the failure mode if the race were ever lost is quiet: React's
+ *    one-shot legacy migration (`persistence/migration.ts`) would import
+ *    Angular-authored keys as though a real user had left them.
+ *  - **The one alternative that exists was rejected on evidence.**
+ *    `window.ts:110` already honours an env var: `NODE_ENV=development` makes
+ *    it `loadURL('http://localhost:4200')`, so serving the React build there
+ *    would skip the Angular document entirely and cost nothing. It is worse.
+ *    The renderer would then be loaded over `http://` instead of the `file://`
+ *    it actually ships on, and several behaviours differ across exactly that
+ *    line — the CSP (`default-src 'none'` over `file://` is why the results
+ *    grid exports through IPC rather than a synthetic `<a download>`), relative
+ *    asset resolution, and origin-scoped storage. A suite that tested the app
+ *    under a loading mode it never ships in would be buying 790ms with the
+ *    fidelity that is the entire point of an e2e tier.
+ *
+ * The guard that makes the redirect safe in the first place is the per-launch
+ * `mkdtemp` userData dir below: whatever any boot writes goes to a directory
+ * that is deleted in `withJoinery`'s `finally`.
  */
 
 import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
@@ -55,6 +93,19 @@ const RENDERER_INDEXES: Record<RendererTarget, string> = {
  * and no Material Icons font at all — it uses lucide SVGs. Forcing `Inter` and
  * `"Material Icons"` there would resolve against nothing, silently succeed, and
  * let a shot flip between a fallback render and a real one.
+ *
+ * **Re-verified against the shipped CSS at Task 20**, which is the check PLAN.md
+ * asks for — a face list is only useful if every entry resolves:
+ *
+ *  - the three families are exactly the ones `theme.css:267-274` binds to
+ *    `--font-display` / `--font-interface` / `--font-technical`, and the
+ *    `@import`s at `theme.css:40-45` are what provide them;
+ *  - `"Archivo Variable"` at 800 is real: `@fontsource-variable/archivo/wdth.css`
+ *    declares `font-weight: 100 900` on that family, so the display weight the
+ *    brand uses (Archivo Narrow ExtraBold, reproduced from the variable family)
+ *    is inside the range rather than being synthesised;
+ *  - IBM Plex Mono is a static family here, and only 400 and 500 are imported —
+ *    which is why the list asks for those two and no others.
  */
 const RENDERER_FONTS: Record<RendererTarget, readonly string[]> = {
   angular: [

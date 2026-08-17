@@ -164,7 +164,6 @@ function mapServerChildren(
 export interface ExplorerStoreState {
   readonly rootNodes: readonly TreeNode[];
   readonly selectedNodeId: string | null;
-  readonly expandedNodeIds: ReadonlySet<string>;
   /**
    * A node the tree should scroll into view and focus, or `null`.
    *
@@ -524,7 +523,6 @@ export function createExplorerStore(deps: ExplorerStoreDeps) {
     return {
       rootNodes: [],
       selectedNodeId: null,
-      expandedNodeIds: new Set<string>(),
       revealRequest: null,
 
       addServerNode: (connectionId, serverName) => {
@@ -612,7 +610,6 @@ export function createExplorerStore(deps: ExplorerStoreDeps) {
         try {
           const children = await loadChildren(node);
           updateNode(nodeId, { children, isExpanded: true, isLoading: false });
-          set(state => ({ expandedNodeIds: new Set(state.expandedNodeIds).add(nodeId) }));
         } catch (error) {
           notify.error('Failed to load items');
           diagnostics.error('failed to expand node', error);
@@ -624,12 +621,6 @@ export function createExplorerStore(deps: ExplorerStoreDeps) {
 
       collapseNode: nodeId => {
         updateNode(nodeId, { isExpanded: false });
-        set(state => {
-          if (!state.expandedNodeIds.has(nodeId)) return state;
-          const expandedNodeIds = new Set(state.expandedNodeIds);
-          expandedNodeIds.delete(nodeId);
-          return { expandedNodeIds };
-        });
       },
 
       toggleNode: nodeId => {
@@ -671,7 +662,6 @@ export function createExplorerStore(deps: ExplorerStoreDeps) {
         set({
           rootNodes: [],
           selectedNodeId: null,
-          expandedNodeIds: new Set(),
           revealRequest: null,
         });
       },

@@ -23,6 +23,7 @@ import {
   gridColumnValues,
   gridRows,
   gridSortState,
+  openExportMenu,
   openQueryTab,
   resultsGrid,
   selectDatabase,
@@ -33,6 +34,9 @@ import {
   withJoineryReact,
 } from '../helpers/joinery-actions-react';
 import type { Page } from '@playwright/test';
+import { readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const PROFILE = 'Test PG';
 
@@ -205,6 +209,50 @@ test.describe('Joinery (React) — the results grid', () => {
       // Nothing was written by us. (What `document.execCommand('copy')` does with an empty selection
       // is the platform's business — the assertion is that the GRID did not answer.)
       expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe('untouched');
+    });
+  });
+
+  test('offers CSV, JSON and SQL export, and writes the file the menu picked', async () => {
+    await withJoineryReact(async ({ app, window }) => {
+      await readyEditor(window);
+      await typeSql(window, CUSTOMERS_SQL);
+      await executeQuery(window);
+      await expect(gridRows(window).first()).toBeVisible();
+
+      // The three formats the menu offers. This is the whole of what the Angular tier's
+      // `query-toolbar.spec.ts` › `export menu opens with CSV / JSON / SQL options` asserted — and it
+      // had to find the trigger by icon ligature (`button:has(mat-icon:text-is("download"))`), which is
+      // one of the two locator kinds PLAN.md's test-hook rule exists to delete.
+      await openExportMenu(window);
+      await expect(window.getByTestId('results-export-csv')).toHaveText('Export as CSV');
+      await expect(window.getByTestId('results-export-json')).toHaveText('Export as JSON');
+      await expect(window.getByTestId('results-export-sql')).toHaveText('Export as SQL INSERT');
+
+      // And then further than Angular went: the export really runs, and the bytes really land.
+      //
+      // The ONE thing stubbed is `dialog.showSaveDialog`, because a native modal is the one surface
+      // Playwright genuinely cannot reach — there is no CDP for the OS file panel. Everything after it
+      // is real: the renderer ships the result set over `query:export-results`, the main process formats
+      // it and `writeFileSync`s it (`main/src/ipc/query.ipc.ts:111-166`), and the assertions below read
+      // that file off the disk. Stubbing the formatter or the write would have made this a mock test.
+      const destination = join(tmpdir(), `joinery-export-${Date.now().toString(36)}.json`);
+      await app.evaluate(({ dialog }, filePath: string) => {
+        dialog.showSaveDialog = async () => ({ canceled: false, filePath });
+      }, destination);
+
+      await window.getByTestId('results-export-json').click();
+      await expect(
+        window.locator('[data-sonner-toast]').filter({ hasText: 'Exported 5 rows' })
+      ).toBeVisible({ timeout: 10_000 });
+
+      const written: unknown = JSON.parse(readFileSync(destination, 'utf-8'));
+      expect(Array.isArray(written)).toBe(true);
+      // The five seeded customers, with the columns the executor described — not the grid's view of
+      // them. That distinction is J-47, and it is what makes this an assertion about export rather
+      // than a second copy test.
+      expect(written).toHaveLength(5);
+      expect((written as Array<Record<string, unknown>>)[0]).toMatchObject({ id: 1 });
+      rmSync(destination, { force: true });
     });
   });
 

@@ -20,6 +20,7 @@ import {
   executeQuery,
   filterOverlay,
   openPalette,
+  openPaletteFromEditor,
   openQueryTab,
   openShortcuts,
   overlayRows,
@@ -45,7 +46,7 @@ async function connected(window: Page): Promise<void> {
 }
 
 test.describe('Joinery — the command palette', () => {
-  test('opens on ⌘K, filters, and closes on Escape', async () => {
+  test('opens on ⌘K or ⇧⌘P, filters, and closes on Escape', async () => {
     await withJoineryReact(async ({ window }) => {
       await openPalette(window);
       const total = await overlayRows(window, 'palette').count();
@@ -55,6 +56,14 @@ test.describe('Joinery — the command palette', () => {
       await expect(overlayRows(window, 'palette')).toHaveCount(1);
       await expect(window.getByTestId('palette-count')).toHaveText(`1 of ${total}`);
 
+      await closeOverlay(window, 'palette');
+
+      // The second binding, asserted here rather than only implied by `openPaletteFromEditor`:
+      // ⇧⌘P is the chord the Angular tier's `ui-actions.spec.ts` drove, and it exists because ⌘K
+      // does not survive Monaco having focus (J-73). Both must reach the same overlay, and it must
+      // open with the filter cleared rather than remembering the last search.
+      await openPaletteFromEditor(window);
+      await expect(overlayRows(window, 'palette')).toHaveCount(total);
       await closeOverlay(window, 'palette');
     });
   });
