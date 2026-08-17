@@ -12,7 +12,8 @@
  *  1. **loading** — the store is fetched when the command arrives, not when the dialog mounts, so the
  *     first frame of the dialog already has rows in it rather than a spinner that flashes;
  *  2. **the target** — `history-target.ts`, and the toast when an entry is re-pointed;
- *  3. **opening the tab** — `tabStore.openQueryTab`, with `autoExecute` for the execute action.
+ *  3. **opening the tab** — `tabStore.openQueryTab`, with `autoExecute` for the execute action, and
+ *     WITHOUT it when the target was re-pointed: see `reopen`.
  */
 
 import { useState } from 'react';
@@ -74,9 +75,13 @@ function reopen(entry: QueryHistoryEntry, autoExecute: boolean): void {
     );
   }
 
+  // A redirected target LOADS, never runs — whatever the user pressed. ⇧Enter means "run this again",
+  // and on a different server it is not the same statement: `DELETE FROM orders WHERE id < 500`
+  // recorded against staging is a different act against production. The toast has already said where
+  // the tab landed, so the SQL is in front of the user, on the right server, one keystroke from running.
+  const run = autoExecute && !target.redirected;
+
   // `reuseEmpty: false`. Loading from history is the ⌘N case, not the explorer case: the user named a
   // specific statement and expects a tab of its own rather than their current empty tab re-pointed.
-  tabStore
-    .getState()
-    .openQueryTab(target.connectionId, target.databaseName, entry.sql, autoExecute, false);
+  tabStore.getState().openQueryTab(target.connectionId, target.databaseName, entry.sql, run, false);
 }

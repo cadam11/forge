@@ -292,6 +292,42 @@ describe('the query-history dialog', () => {
       expect(toasts.join('\n')).toContain('Server A is not connected');
     });
 
+    it('LOADS rather than runs on a re-pointed target, whichever affordance was used', async () => {
+      // The defect this file's own header cites, one step further on: re-pointing the tab and then
+      // honouring ⇧Enter runs `DELETE FROM orders WHERE id < 500` — recorded against a server that is
+      // now disconnected — against whatever server happens to be open. Both execute affordances load.
+      installBridge();
+      seedConnections([SERVER_B]);
+
+      await openHistory();
+      await userEvent.click(screen.getAllByTestId('query-history-execute')[0] as HTMLElement);
+      await waitFor(() => expect(tabStore.getState().tabs).toHaveLength(1));
+
+      expect(newestTab()?.connectionId).toBe(SERVER_B);
+      expect(newestTab()?.autoExecute).toBe(false);
+      // The SQL is there, on the right server, one keystroke from running — and the toast said so.
+      expect(tabStore.getState().getTabContent(newestTab()?.id ?? '')).toBe('select * from orders');
+      expect(toasts.join('\n')).toContain('Server A is not connected');
+
+      await openHistory();
+      await userEvent.keyboard('{Shift>}{Enter}{/Shift}');
+      await waitFor(() => expect(tabStore.getState().tabs).toHaveLength(2));
+      expect(newestTab()?.autoExecute).toBe(false);
+    });
+
+    it('still runs on the entry’s OWN server, so the refusal is about the redirect', async () => {
+      // The control for the case above: same click, connected entry, and it executes. Without this a
+      // blanket `autoExecute = false` would pass the test above and break the feature.
+      installBridge();
+      seedConnections([SERVER_A]);
+      await openHistory();
+
+      await userEvent.click(screen.getAllByTestId('query-history-execute')[0] as HTMLElement);
+      await waitFor(() => expect(tabStore.getState().tabs).toHaveLength(1));
+      expect(newestTab()?.connectionId).toBe(SERVER_A);
+      expect(newestTab()?.autoExecute).toBe(true);
+    });
+
     it('refuses, with a reason, when nothing is connected', async () => {
       installBridge();
       seedConnections([]);
