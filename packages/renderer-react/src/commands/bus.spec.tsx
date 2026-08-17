@@ -15,6 +15,7 @@ import { DatabaseDialogs } from '../features/databases';
 import { ObjectSearch } from '../features/object-search';
 import { QueryCommands } from '../features/query/query-commands';
 import { QueryHistoryHost } from '../features/query-history';
+import { TourHost } from '../features/onboarding';
 import { SchemaDiffHost } from '../features/schema-diff';
 import { RestoreDialogs } from '../features/restore';
 import { SettingsDialog } from '../features/settings';
@@ -82,6 +83,7 @@ function renderProductionWiring(): void {
         <QueryHistoryHost />
         <DatabaseDialogs />
         <SchemaDiffHost />
+        <TourHost />
         <StatusBar />
         <ConnectionDialogs />
         <BackupDialogs />
@@ -120,7 +122,18 @@ function renderProductionWiring(): void {
  * handler must be subscribed". Adding a task's component above without adding its number here makes
  * the second test vacuous for it, which is why they share one list.
  */
-const SHIPPED_TASKS: readonly string[] = ['7', '9', '10', '12', '13', '15', '16', '17', '19a'];
+const SHIPPED_TASKS: readonly string[] = [
+  '7',
+  '9',
+  '10',
+  '12',
+  '13',
+  '15',
+  '16',
+  '17',
+  '19a',
+  '19b',
+];
 
 /**
  * The task a consumer string names, or null when it names nobody.
@@ -208,10 +221,11 @@ describe('command ownership', () => {
     // (`create-database`, `create-database-on-server`, `rename-database`), plus the converter's three in
     // `QueryCommands` (`convert-sql-to-{mssql,postgresql,mysql}`) → 44 → **48** across Task 19b:
     // `show-execution-plan` in `QueryCommands`, `open-schema-diff` (previously registered-but-unowned)
-    // and `compare-database-schemas` in `SchemaDiffHost`, and `connect-to-container` — which is filed
-    // under Task 9 rather than 19b, because `ConnectionDialogs` is the surface that opens the editor and
-    // 19b's Docker panel is only its producer.
-    expect(COMMAND_IDS.filter(id => handlerCount(id) > 0)).toHaveLength(48);
+    // and `compare-database-schemas` in `SchemaDiffHost`, `start-tour` in `TourHost` (registered since
+    // Task 7 and unowned until now), `open-docker-panel` in the status bar's `DockerPip`, and
+    // `connect-to-container` — which is filed under Task 9 rather than 19b, because `ConnectionDialogs` is
+    // the surface that opens the editor and 19b's Docker panel is only its producer. 44 → **50**.
+    expect(COMMAND_IDS.filter(id => handlerCount(id) > 0)).toHaveLength(50);
   });
 });
 
