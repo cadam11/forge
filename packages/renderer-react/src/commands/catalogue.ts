@@ -53,6 +53,7 @@ import {
   Clock,
   Code,
   Compass,
+  Container,
   Copy,
   Database,
   DatabaseBackup,
@@ -90,6 +91,7 @@ import {
   Trash2,
   Unplug,
   WandSparkles,
+  Workflow,
   X,
   type LucideIcon,
 } from 'lucide-react';
@@ -639,6 +641,24 @@ export const COMMAND_CATALOGUE: { [Id in CommandId]: CatalogueEntry<Id> } = {
     keywords: ['snippets', 'templates', 'saved'],
   },
 
+  'show-execution-plan': {
+    label: 'Show execution plan',
+    hint: 'Ask the engine how it would run the statement in front of you',
+    group: 'query',
+    icon: Workflow,
+    accelerator: null,
+    palette: NEEDS_QUERY_TAB,
+    keywords: ['explain', 'plan', 'analyze', 'cost', 'index'],
+  },
+  'open-docker-panel': {
+    label: 'Docker containers',
+    hint: 'Start, stop and create local database containers',
+    group: 'view',
+    icon: Container,
+    accelerator: null,
+    palette: IN_PALETTE,
+    keywords: ['docker', 'container', 'local', 'sql server', 'postgres', 'mysql'],
+  },
   'open-erd': {
     label: 'Open ERD diagram',
     hint: 'Entity-relationship diagram for the current database',
@@ -650,12 +670,16 @@ export const COMMAND_CATALOGUE: { [Id in CommandId]: CatalogueEntry<Id> } = {
   },
   'open-schema-diff': {
     label: 'Compare database schemas',
-    hint: 'Diff tables, columns and objects between two databases',
+    // What it DOES, which is not what its name suggests: it writes a comparison query into a new query
+    // tab and the user runs it. The audit's note about keeping this naming honest is the reason the hint
+    // says "query" — an entry promising a diff and delivering SQL is the same class of lie as a dead
+    // palette row, just harder to notice.
+    hint: 'Generate a query that compares two databases’ tables, views, routines and indexes',
     group: 'database',
     icon: GitCompare,
     accelerator: null,
     palette: NEEDS_CONNECTION,
-    keywords: ['diff', 'compare', 'schema'],
+    keywords: ['diff', 'compare', 'schema', 'query'],
   },
 
   // ── Not palette entries ───────────────────────────────────────────────────────────────────
@@ -736,6 +760,22 @@ export const COMMAND_CATALOGUE: { [Id in CommandId]: CatalogueEntry<Id> } = {
     hint: 'Drop a named database',
     group: 'database',
     icon: Trash2,
+    accelerator: null,
+    palette: NEEDS_A_TARGET,
+  },
+  'compare-database-schemas': {
+    label: 'Compare schemas from here',
+    hint: 'Generate a comparison query with this database as the source',
+    group: 'database',
+    icon: GitCompare,
+    accelerator: null,
+    palette: NEEDS_A_TARGET,
+  },
+  'connect-to-container': {
+    label: 'Connect to this container',
+    hint: 'Open the connection editor with the container’s host and port filled in',
+    group: 'connection',
+    icon: Container,
     accelerator: null,
     palette: NEEDS_A_TARGET,
   },

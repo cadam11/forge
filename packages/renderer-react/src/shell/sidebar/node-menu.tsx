@@ -36,6 +36,7 @@ import {
   Code,
   DatabaseBackup,
   Eye,
+  GitCompare,
   HardDriveDownload,
   Info,
   Network,
@@ -257,6 +258,16 @@ function DatabaseMenu({ node, capabilities }: MenuProps) {
         onSelect={() => dispatchCommand('restore-database', target)}
       >
         Restore Database…
+      </ContextMenuItem>
+      {/* Task 19b. Present on every engine, including PostgreSQL — the dialog explains why PostgreSQL
+          cannot be asked, and hiding the item would leave a user who has read about the feature
+          searching for it. */}
+      <ContextMenuItem
+        icon={GitCompare}
+        data-testid="sidebar-menu-compare-schemas"
+        onSelect={() => dispatchCommand('compare-database-schemas', target)}
+      >
+        Compare Schemas…
       </ContextMenuItem>
       <ContextMenuSeparator />
       <RefreshItem node={node} />

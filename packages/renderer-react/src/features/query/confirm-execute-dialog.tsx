@@ -28,11 +28,19 @@
  * both gates ask the identical question about the identical SQL, and two dialogs would be two chances to
  * word it differently.
  *
+ * ── The third gate: an MSSQL plan runs the statement (Task 19b) ────────────────────────────
+ *
+ * Same dialog again, and for the same reason: the question is "may I run this against your database?",
+ * and asking it in a third dialog with third wording is how a user learns that two of the three are
+ * lying about something. What differs is that this one is not a preference — there is no "don't ask me
+ * again", because the consequence is per-statement and the answer to "show me the plan for this DELETE"
+ * must be a decision every time.
+ *
  * `gate` is what differs. The ⌃E gate is a **one-time** confirmation, so it offers "Don't ask me again";
  * the setting's gate is one the user switched on deliberately and can only switch off in Settings, so it
  * offers no checkbox and says where the switch is instead. A "don't ask again" tick on the permanent
  * gate would be a second, hidden way to turn a setting off — the state would then disagree with the
- * switch that is still showing "on".
+ * switch that is still showing "on". The plan gate offers no tick either, for the reason above.
  */
 
 import { keyHint } from '../../utils/platform';
@@ -51,10 +59,18 @@ import {
 import { useRef, useState } from 'react';
 
 /**
- * Which gate raised this dialog. `ctrl-e` is the one-time shortcut confirmation; `always` is
- * `QuerySettings.confirmBeforeExecute`. See the file header for why one dialog serves both.
+ * Which gate raised this dialog.
+ *
+ * - `ctrl-e` — the one-time shortcut confirmation;
+ * - `always` — `QuerySettings.confirmBeforeExecute`;
+ * - `actual-plan` — Task 19b. SQL Server cannot report a plan for a statement it has not run (`SET
+ *   SHOWPLAN_*` may not share a batch with the statement it explains, so the only plan reachable through
+ *   `query.execute` is `SET STATISTICS PROFILE`'s — see `execution-plan.ts`). "Show execution plan" on a
+ *   `DELETE` therefore deletes rows, and the user has to be told BEFORE that happens rather than after.
+ *
+ * See the file header for why one dialog serves all three.
  */
-export type ExecuteGate = 'ctrl-e' | 'always';
+export type ExecuteGate = 'ctrl-e' | 'always' | 'actual-plan';
 
 export interface ConfirmExecuteDialogProps {
   readonly open: boolean;
@@ -101,6 +117,7 @@ export function ConfirmExecuteDialog({
   const executeButton = useRef<HTMLButtonElement | null>(null);
   const shortcut = keyHint('E');
   const oneTime = gate === 'ctrl-e';
+  const forPlan = gate === 'actual-plan';
 
   return (
     <Dialog open={open} onOpenChange={next => (next ? undefined : onCancel())}>
@@ -122,11 +139,15 @@ export function ConfirmExecuteDialog({
         }}
       >
         <DialogHeader>
-          <DialogTitle>Execute query?</DialogTitle>
+          <DialogTitle>{forPlan ? 'Run the query to get its plan?' : 'Execute query?'}</DialogTitle>
           <DialogDescription>
-            {oneTime
-              ? `${shortcut} runs the current query against the connected database. This matches the familiar SSMS shortcut.`
-              : 'This runs against the connected database. Settings ▸ Query is where to stop being asked.'}
+            {forPlan
+              ? 'SQL Server only reports a plan for a statement it has run, so this executes the ' +
+                'statement against the connected database. On PostgreSQL and MySQL a plan costs nothing; ' +
+                'here it does not.'
+              : oneTime
+                ? `${shortcut} runs the current query against the connected database. This matches the familiar SSMS shortcut.`
+                : 'This runs against the connected database. Settings ▸ Query is where to stop being asked.'}
           </DialogDescription>
         </DialogHeader>
         {oneTime ? (
@@ -156,7 +177,7 @@ export function ConfirmExecuteDialog({
             // confirmation raised by the setting.
             onClick={() => onConfirm(oneTime && remember)}
           >
-            Execute
+            {forPlan ? 'Run and show plan' : 'Execute'}
           </Button>
         </DialogActions>
       </DialogContent>

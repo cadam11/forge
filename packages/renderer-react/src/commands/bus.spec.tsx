@@ -15,6 +15,7 @@ import { DatabaseDialogs } from '../features/databases';
 import { ObjectSearch } from '../features/object-search';
 import { QueryCommands } from '../features/query/query-commands';
 import { QueryHistoryHost } from '../features/query-history';
+import { SchemaDiffHost } from '../features/schema-diff';
 import { RestoreDialogs } from '../features/restore';
 import { SettingsDialog } from '../features/settings';
 import { ShortcutsDialog } from '../features/shortcuts-dialog';
@@ -80,6 +81,7 @@ function renderProductionWiring(): void {
         <AiSetupHost />
         <QueryHistoryHost />
         <DatabaseDialogs />
+        <SchemaDiffHost />
         <StatusBar />
         <ConnectionDialogs />
         <BackupDialogs />
@@ -104,6 +106,7 @@ function renderProductionWiring(): void {
           onToggleResults={noop}
           onInsertSnippet={noop}
           onConvertSql={noop}
+          onShowExecutionPlan={noop}
         />
       </TooltipProvider>
     </IpcQueryProvider>
@@ -203,8 +206,12 @@ describe('command ownership', () => {
     // `AiSetupHost` (`open-ai-setup`, new) and `QueryHistoryHost`
     // (`open-query-history`, previously registered-but-unowned), plus `DatabaseDialogs`' three
     // (`create-database`, `create-database-on-server`, `rename-database`), plus the converter's three in
-    // `QueryCommands` (`convert-sql-to-{mssql,postgresql,mysql}`) → 44.
-    expect(COMMAND_IDS.filter(id => handlerCount(id) > 0)).toHaveLength(44);
+    // `QueryCommands` (`convert-sql-to-{mssql,postgresql,mysql}`) → 44 → **48** across Task 19b:
+    // `show-execution-plan` in `QueryCommands`, `open-schema-diff` (previously registered-but-unowned)
+    // and `compare-database-schemas` in `SchemaDiffHost`, and `connect-to-container` — which is filed
+    // under Task 9 rather than 19b, because `ConnectionDialogs` is the surface that opens the editor and
+    // 19b's Docker panel is only its producer.
+    expect(COMMAND_IDS.filter(id => handlerCount(id) > 0)).toHaveLength(48);
   });
 });
 

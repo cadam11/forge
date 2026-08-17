@@ -103,6 +103,16 @@ export interface CommandPayloads {
   /** Query ▸ History (⇧⌘H). */
   'open-query-history': void;
 
+  /**
+   * Ask the engine for the active statement's execution plan (Task 19b).
+   *
+   * No menu channel: `menu.ts` has no plan entry, so this arrives from the palette or from the query
+   * toolbar's own button — the same arrangement as the converter's three above. It is payload-free
+   * BECAUSE the palette has to be able to offer it: the engine is read from the tab, not from the
+   * command, and the tab is what the active-tab guard already resolves.
+   */
+  'show-execution-plan': void;
+
   /** Server ▸ Disconnect. */
   'disconnect-connection': void;
   /** Server ▸ Refresh (⌘R). */
@@ -136,6 +146,16 @@ export interface CommandPayloads {
   'toggle-results-panel': void;
   /** The Output / Console panel (⌘J). Not a menu channel — the shell's own shortcut. */
   'toggle-output-panel': void;
+
+  /**
+   * Open the Docker container panel over the status bar's Docker pip (Task 19b).
+   *
+   * The Angular renderer could only reach that panel by clicking the pip, so a user who did not know the
+   * glyph was a button never found it. This is the discoverable twin, and it is the same arrangement
+   * `toggle-chat-panel` has: the pip calls the store directly (it carries no intent beyond "toggle"),
+   * this opens it.
+   */
+  'open-docker-panel': void;
 
   /** Window ▸ Next Tab (⇧⌘] on macOS, Ctrl+Tab elsewhere). */
   'next-tab': void;
@@ -182,6 +202,15 @@ export interface CommandPayloads {
   'open-connection-manager': void;
   /** Sidebar ▸ server node ▸ Edit Connection… — the editor opened on an existing profile. */
   'edit-connection': { connectionId: string };
+  /**
+   * The connection editor opened on a NEW profile, pre-filled with a Docker container's host and port
+   * (Task 19b's Docker panel).
+   *
+   * `ConnectionEditor` has carried a `prefill` prop since Task 9 with a comment naming this entry point,
+   * and nothing passed it — the Angular route was `router.navigate(['/connections'], { queryParams: {
+   * server, port } })`, which has no equivalent in a renderer with no router. This is that equivalent.
+   */
+  'connect-to-container': { server: string; port: number };
 
   /** Sidebar ▸ server node ▸ New Database… */
   'create-database-on-server': { connectionId: string };
@@ -196,6 +225,14 @@ export interface CommandPayloads {
   'rename-database': { connectionId: string; databaseName: string };
   /** Sidebar ▸ database node ▸ Delete… (the confirm step belongs to the handler). */
   'delete-database': { connectionId: string; databaseName: string };
+  /**
+   * Sidebar ▸ database node ▸ Compare schemas… — the targeted twin of `open-schema-diff` (Task 19b).
+   *
+   * The payload is the SOURCE side. The comparison needs two databases and the node names one, so this
+   * pre-selects it and leaves the target to the dialog; `open-schema-diff` resolves the source from the
+   * focused connection instead, exactly as the backup pair does.
+   */
+  'compare-database-schemas': { connectionId: string; databaseName: string };
   /** Sidebar ▸ table/view/procedure/function ▸ Properties… (⌥↩). */
   'show-object-properties': {
     connectionId: string;
@@ -334,6 +371,10 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
   'execute-query': 'Task 10 query editor.',
   'execute-selection': 'Task 10 query editor.',
   'cancel-query': 'Task 10 query editor.',
+  'show-execution-plan':
+    'Task 19b features/query/QueryCommands (the active query tab asks its own engine, wraps the ' +
+    'statement per `execution-plan.ts` and renders the answer as a tab in its results pane). Producers: ' +
+    'the Task 16 palette and the query toolbar’s plan button.',
   'open-query-history':
     'Task 19a features/query-history/QueryHistoryHost, mounted by the shell — NOT by the query tab, ' +
     'because the dialog opens a new query tab and ⇧⌘H has to work with none in front of it. ' +
@@ -375,6 +416,10 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
     'panel’s own ⧉ button calls the store directly, because it carries the active conversation with it.',
   'toggle-results-panel': 'Task 10 query tab (its results pane).',
   'toggle-output-panel': 'Task 7 shell (logStore.toggle). Producer: the shell ⌘J shortcut.',
+  'open-docker-panel':
+    'Task 19b features/docker/DockerPip, rendered by the status bar — which is never unmounted, so the ' +
+    'handler may live with the popover’s anchor rather than in a separate shell mount. Producer: the ' +
+    'Task 16 palette; the pip itself calls the panel’s open state directly.',
 
   'next-tab': 'Task 7 shell (tabStore.nextTab).',
   'previous-tab': 'Task 7 shell (tabStore.previousTab).',
@@ -385,9 +430,10 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
     'handled exactly once.',
 
   'start-tour':
-    'Task 19b onboarding tour (PLAN.md §4 lists tours in Task 19; Ruling 3 split them into the SHOULD ' +
-    'half). Producer: Task 19a welcome tab, which names this ticket in the toast it shows while the ' +
-    'handler does not exist.',
+    'Task 19b features/onboarding/TourHost, mounted by the shell — it starts the workbench tour and ' +
+    'owns the spotlight overlay. Producers: the Task 16 palette and the Task 19a welcome tab, whose ' +
+    '"See how it joins" button asked `handlerCount` first and said "not in this build yet" until this ' +
+    'handler existed.',
 
   'open-ai-setup':
     'Task 19a features/ai-setup/AiSetupHost, mounted by the shell — which is also the one caller of ' +
@@ -402,6 +448,9 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
   'edit-connection':
     'Task 9 features/connections/ConnectionDialogs, which resolves the payload id to a profile and ' +
     'opens the editor on it. Producer: Task 8 sidebar server context menu.',
+  'connect-to-container':
+    'Task 9 features/connections/ConnectionDialogs, which opens the editor on a NEW profile with the ' +
+    'payload host and port pre-filled through its `prefill` prop. Producer: Task 19b’s Docker panel.',
   'create-database-on-server':
     'Task 19a features/databases/DatabaseDialogs, targeting the payload connection rather than the ' +
     'focused one. Producer: Task 8 sidebar (server context menu and database picker).',
@@ -420,6 +469,9 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
   'delete-database':
     'Task 19 delete-database confirmation, which owns the in-use warning and the tab/node ' +
     'teardown. Producer: Task 8 sidebar database menu.',
+  'compare-database-schemas':
+    'Task 19b features/schema-diff/SchemaDiffHost, with the payload database pre-selected as the ' +
+    'comparison SOURCE rather than resolved from focus. Producer: Task 8 sidebar database menu.',
   'show-object-properties':
     'Task 19 object-properties surface (the wired table-properties container, not the dead ' +
     'panel clone of PLAN.md 0.2). Producer: Task 8 sidebar object context menus.',
@@ -445,8 +497,11 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
     'to take a schema and a table from. The sidebar\'s "Show Relationships" is the table-focused entry ' +
     'point and calls `openErdTab` directly. Producer: Task 16 palette.',
   'open-schema-diff':
-    "Task 19 schema-diff dialog (PLAN.md §4 lists it in that task's SHOULD tier). Producer: Task 16 " +
-    'palette — it was a palette-only entry point in Angular too.',
+    'Task 19b features/schema-diff/SchemaDiffHost, mounted by the shell — it resolves the source from ' +
+    'the focused connection because a palette entry carries no node, and generates a comparison QUERY ' +
+    'rather than diffing anything (the honest naming the audit asked for). Producer: Task 16 palette — ' +
+    'it was a palette-only entry point in Angular too, which is why the sidebar now has the targeted ' +
+    'twin above.',
 
   'reveal-explorer-node':
     'Task 7 shell (`shell-commands.tsx`): it uncollapses the pane, expands the four levels down to ' +

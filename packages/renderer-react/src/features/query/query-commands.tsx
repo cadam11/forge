@@ -1,5 +1,5 @@
 /**
- * The fifteen commands the query tab takes over, in one table.
+ * The sixteen commands the query tab takes over, in one table.
  *
  * `commands/registry.ts` names "Task 10 query editor" as the consumer of eleven ids and "Task 10 query
  * tab" of a twelfth (`toggle-results-panel`); this component is that consumer, and the correspondence is
@@ -54,6 +54,13 @@ export interface QueryCommandHandlers {
    * carry one (`commands/catalogue.ts`'s `CatalogueEntry`). See `sql-convert.ts` for the adapter.
    */
   readonly onConvertSql: (toEngine: DatabaseEngine) => void;
+  /**
+   * Ask the engine for this statement's execution plan (Task 19b).
+   *
+   * One id, and it is payload-free so the palette can offer it — the toolbar button calls this same
+   * handler directly, as every other button in that strip does.
+   */
+  readonly onShowExecutionPlan: () => void;
 }
 
 export function QueryCommands({
@@ -71,6 +78,7 @@ export function QueryCommands({
   onToggleResults,
   onInsertSnippet,
   onConvertSql,
+  onShowExecutionPlan,
 }: QueryCommandHandlers) {
   /**
    * One wrapper, so the guard cannot be forgotten on a new entry. Not a loop over a table: `useCommand`
@@ -111,6 +119,8 @@ export function QueryCommands({
     'convert-sql-to-mysql',
     guard(() => onConvertSql('mysql'))
   );
+
+  useCommand('show-execution-plan', guard(onShowExecutionPlan));
 
   useCommand('insert-snippet', payload => {
     if (isActive()) onInsertSnippet(payload.sql);

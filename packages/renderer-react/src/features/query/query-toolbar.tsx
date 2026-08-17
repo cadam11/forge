@@ -18,7 +18,11 @@
  *    the Angular version was a 320px in-tab sidebar, which PLAN.md §1.4 replaces). Note that RESULT
  *    history — snapshots of what a query returned — is a different surface and does exist, as a tab in
  *    the results pane (Task 14);
- *  - **execution plan** and **export/copy results** (Tasks 19b and 11).
+ *  - **export/copy results** (Task 11's results toolbar, which sits over the grid rather than here).
+ *
+ * The **execution plan** button IS here as of Task 19b, and its label changes with the engine: on SQL
+ * Server the only plan reachable through `query.execute` is an executed one, so the tooltip says so
+ * before the confirmation does (`execution-plan.ts`).
  */
 
 import {
@@ -31,6 +35,7 @@ import {
   Replace,
   Search,
   Square,
+  Workflow,
 } from 'lucide-react';
 import type { DatabaseEngine } from '@joinery/shared';
 
@@ -49,6 +54,7 @@ import {
 } from '../../ui';
 import { keyHint } from '../../utils/platform';
 import { ConnectionContextChip } from './connection-context-chip';
+import { PLAN_KIND } from './execution-plan';
 import { CONVERTIBLE_ENGINES, ENGINE_LABELS } from './sql-convert';
 
 export interface QueryToolbarProps {
@@ -76,6 +82,8 @@ export interface QueryToolbarProps {
    */
   readonly engine?: DatabaseEngine;
   readonly onConvertSql: (toEngine: DatabaseEngine) => void;
+  /** Ask this tab's engine for the current statement's plan. Also `show-execution-plan`'s handler. */
+  readonly onShowExecutionPlan: () => void;
 }
 
 export function QueryToolbar({
@@ -92,6 +100,7 @@ export function QueryToolbar({
   onToggleResults,
   engine,
   onConvertSql,
+  onShowExecutionPlan,
 }: QueryToolbarProps) {
   return (
     <Toolbar
@@ -157,6 +166,27 @@ export function QueryToolbar({
           data-testid="query-goto-line"
           onClick={onGoToLine}
           leadingIcon={Hash}
+          iconOnly
+        />
+      </Tooltip>
+
+      {/* The execution plan. Present with no connection as well — the handler refuses with a sentence,
+          which is the J-44-compliant answer to "why is this greyed out?" — but the TOOLTIP is what
+          carries the engine's terms, because they differ in a way that matters: pressing this on SQL
+          Server runs the statement. */}
+      <Tooltip
+        content={
+          engine !== undefined && PLAN_KIND[engine] === 'actual'
+            ? 'Show execution plan — SQL Server has to run the statement to report one'
+            : 'Show execution plan'
+        }
+      >
+        <ToolbarButton
+          aria-label="Show execution plan"
+          data-testid="query-execution-plan"
+          disabled={executing}
+          onClick={onShowExecutionPlan}
+          leadingIcon={Workflow}
           iconOnly
         />
       </Tooltip>

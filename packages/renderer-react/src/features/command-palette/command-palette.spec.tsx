@@ -118,6 +118,7 @@ function renderPalette(options: { readonly withQueryTab?: boolean } = {}) {
             onToggleResults={noop}
             onInsertSnippet={noop}
             onConvertSql={noop}
+            onShowExecutionPlan={noop}
           />
         )}
         <CommandPalette />

@@ -10,7 +10,8 @@
  *   3. if the SQL carries `${placeholders}`, prompt, then substitute — and abandon the run if the
  *      prompt is cancelled;
  *   4. execute, which is where the store takes over;
- *   5. on success, rename the tab — through the AI namer when it is enabled, otherwise from the SQL.
+ *   5. on success, rename the tab — through the AI namer when it is enabled, otherwise from the SQL,
+ *      and only when the caller has not opted out (`RunContext.autoRename`).
  *
  * ── The prompt is a promise, and why ───────────────────────────────────────────────────────
  *
@@ -24,7 +25,7 @@
  */
 
 import { useCallback, useRef, useState } from 'react';
-import type { AppSettings } from '@joinery/shared';
+import type { AppSettings, QueryResult } from '@joinery/shared';
 
 import { aiStore, selectAutoRenameEnabled } from '../../state/ai';
 import { diagnostics, notify } from '../../state/diagnostics';
@@ -43,11 +44,27 @@ export interface RunContext {
   readonly querySettings: AppSettings['query'];
   /** The SQL to run, already resolved from the selection / caret / setting. */
   readonly sql: string;
+  /**
+   * Whether a successful run may rename the tab. Defaults to true, which is every ordinary Execute.
+   *
+   * `false` for Task 19b's plan request, and the reason is what the SQL is: the statement sent is
+   * `EXPLAIN (FORMAT JSON) …` or `SET STATISTICS PROFILE ON; …`, so both namers would read the WRAPPER —
+   * `generateQueryTitle` would title the tab from the word EXPLAIN, and the AI namer would spend a model
+   * call summarising a diagnostic directive. Asking for a plan is not a statement about what the tab is.
+   */
+  readonly autoRename?: boolean;
 }
 
 export interface RunQuery {
-  /** Runs the sequence. Resolves when the result (or the refusal) has landed. */
-  readonly run: (context: RunContext) => Promise<void>;
+  /**
+   * Runs the sequence. Resolves with the result that landed, or `null` when there is none — an empty or
+   * connectionless refusal, a cancelled placeholder prompt, or a superseded execute.
+   *
+   * The result is returned rather than only stored because Task 19b's plan request has to PARSE it, and
+   * reading it back out of the store afterwards would be a second chance to pick up somebody else's:
+   * `execute`'s own supersede rule means the store's current entry may already belong to a newer run.
+   */
+  readonly run: (context: RunContext) => Promise<QueryResult | null>;
   /** The placeholders currently being prompted for, or an empty array. Drives the dialog. */
   readonly prompting: readonly string[];
   /**
@@ -110,21 +127,21 @@ export function useRunQuery(): RunQuery {
   }, []);
 
   const run = useCallback(
-    async (context: RunContext): Promise<void> => {
+    async (context: RunContext): Promise<QueryResult | null> => {
       if (context.sql.trim() === '') {
         notify.warning('No query to execute');
-        return;
+        return null;
       }
       if (context.connectionId === undefined) {
         notify.error('No active connection');
-        return;
+        return null;
       }
 
       let sql = context.sql;
       const placeholders = detectPlaceholders(sql);
       if (placeholders.length > 0) {
         const values = await promptForPlaceholders(placeholders);
-        if (values === null) return; // Cancelled.
+        if (values === null) return null; // Cancelled.
         editorPrefsStore.getState().rememberPlaceholderValues(values);
         sql = substitutePlaceholders(sql, values);
       }
@@ -139,7 +156,7 @@ export function useRunQuery(): RunQuery {
       });
 
       // `null` means superseded or no bridge; a failed query is a result with `success: false`.
-      if (result === null) return;
+      if (result === null) return null;
 
       // The history list is main-process state that the execute has just appended to. Refreshed only
       // when something is showing it, exactly as `:1841-1843` did — the dialog is Task 19's, so today
@@ -148,7 +165,10 @@ export function useRunQuery(): RunQuery {
         void queryHistoryStore.getState().loadHistory();
       }
 
-      if (result.success) renameTabFromResult(context.tabId, sql, context.database);
+      if (result.success && context.autoRename !== false) {
+        renameTabFromResult(context.tabId, sql, context.database);
+      }
+      return result;
     },
     [promptForPlaceholders]
   );
