@@ -29,7 +29,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  EmptyState,
   Icon,
   Select,
   SelectItem,
@@ -89,12 +88,17 @@ export function SchemaDiffDialog({
 
         {!supported ? (
           <DialogBody>
-            <EmptyState
+            {/* Prose in a left rule, not a centred `EmptyState`: this is a paragraph explaining a
+                database engine's limits, and an empty state's 256px measure turns it into eight ragged
+                lines. Amber because nothing is broken and nothing was lost — HOUSE-RULES §5's caution
+                case — and a rule rather than a filled banner, per PROPOSAL §2.1. */}
+            <div
               data-testid="schema-diff-unsupported"
-              size="sm"
-              title="Not available on PostgreSQL"
-              description={POSTGRES_REFUSAL}
-            />
+              className="flex flex-col gap-1 border-l-2 border-warning bg-surface px-3 py-2"
+            >
+              <p className="text-md text-fg">Not available on PostgreSQL</p>
+              <p className="text-md text-fg-muted text-pretty">{POSTGRES_REFUSAL}</p>
+            </div>
           </DialogBody>
         ) : (
           <DialogBody className="flex flex-col gap-4">

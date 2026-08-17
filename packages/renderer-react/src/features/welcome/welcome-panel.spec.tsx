@@ -156,9 +156,11 @@ describe('the welcome tab', () => {
   });
 
   it('says the tour is not in this build rather than dispatching into silence', async () => {
-    // `start-tour` is registered with Task 19b named as its owner and nothing subscribed. The button is
-    // present — hiding it would be the "silently omits half its entries" failure the palette refuses —
-    // and it reports the truth.
+    // This surface is rendered here WITHOUT the shell's non-visual mounts, so nothing handles
+    // `start-tour` — which is also the dev pages' arrangement. The button is present either way, because
+    // hiding it would be the "silently omits half its entries" failure the palette refuses, and it
+    // reports the truth. The live half is the test below, and `tests/e2e-react/welcome-screen.spec.ts`
+    // asserts it against the real shell, where `TourHost` is mounted.
     installBridge();
     mountWelcome();
 
@@ -167,7 +169,7 @@ describe('the welcome tab', () => {
     expect(toasts).toContain('The guided tour is not in this build yet — Task 19b.');
   });
 
-  it('becomes live the moment something handles start-tour, with no edit here', async () => {
+  it('is live wherever something handles start-tour, with no edit here', async () => {
     installBridge();
     watchCommands('start-tour');
     mountWelcome();

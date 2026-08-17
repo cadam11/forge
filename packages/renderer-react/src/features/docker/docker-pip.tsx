@@ -76,7 +76,27 @@ export function DockerPip({ controlClassName, open, onOpenChange }: DockerPipPro
       {/* `side="top"` because the bar is at the bottom of a fixed window; Radix's collision handling
           takes it from there. `w-96` overrides the primitive's default 288px: this panel holds a row per
           container with a path pair under it, and 288px truncates every one of them. */}
-      <PopoverContent align="end" side="top" className="w-96 p-0" data-testid="docker-popover">
+      <PopoverContent
+        align="end"
+        side="top"
+        className="w-96 p-0"
+        data-testid="docker-popover"
+        // Escape, explicitly.
+        //
+        // Radix's own `DismissableLayer` should do this and measurably does not for this popover: the
+        // e2e run shows an outside click dismissing it (the same layer, the same `onDismiss`) while
+        // Escape with focus on a button INSIDE the panel leaves it open. Rather than ship a panel a
+        // keyboard user cannot leave, the key is handled here — `stopPropagation`, so a panel-local
+        // Escape does not also reach the query editor's find widget three panes over.
+        //
+        // Local rather than added to `ui/popover.tsx`, because that primitive has four other consumers
+        // whose Escape behaviour is asserted elsewhere and this is a workaround, not a design. J-72.
+        onKeyDown={event => {
+          if (event.key !== 'Escape') return;
+          event.stopPropagation();
+          onOpenChange(false);
+        }}
+      >
         <DockerPanel />
       </PopoverContent>
     </Popover>

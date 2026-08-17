@@ -30,7 +30,7 @@
  * `ConfirmExecuteDialog`'s `actual-plan` gate.
  *
  * An estimate-only MSSQL plan needs a main-process `query.explain` that owns the session for two
- * batches. That is J-70, and it is deliberately not faked here.
+ * batches. That is J-68, and it is deliberately not faked here.
  */
 
 import type { DatabaseEngine, QueryResult, ResultSet } from '@joinery/shared';

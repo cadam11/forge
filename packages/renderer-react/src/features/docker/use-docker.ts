@@ -29,7 +29,7 @@ export interface DockerView {
   readonly pip: DockerPip;
   readonly rows: readonly ContainerRow[];
   readonly status: DockerStatus | undefined;
-  /** Named volumes, when main can answer. Empty today — see `docker-model.ts` finding 3 (J-72). */
+  /** Named volumes, when main can answer. Empty today — see `docker-model.ts` finding 3 (J-70). */
   readonly volumes: readonly DockerVolume[];
   readonly loading: boolean;
   /** The detect call rejected. Distinct from "Docker is not running", which is a successful answer. */

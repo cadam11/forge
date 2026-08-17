@@ -1572,3 +1572,166 @@ export async function dropDatabasesMatching(prefix: string): Promise<void> {
     await client.end();
   }
 }
+
+// ── Task 19b: execution plan, AI analysis, schema comparison, Docker, tours ─────────────────
+
+/** The plan tab in the results pane. Only present once a plan has been asked for. */
+export function planTab(window: Page): Locator {
+  return window.getByTestId('query-results-tab-plan');
+}
+
+/** The plan tree. */
+export function executionPlan(window: Page): Locator {
+  return window.getByTestId('execution-plan');
+}
+
+/** One row per operator, root first. */
+export function planNodes(window: Page): Locator {
+  return window.getByTestId('plan-node');
+}
+
+/**
+ * Press the toolbar's plan button and wait for the tree.
+ *
+ * PostgreSQL and MySQL answer with an EXPLAIN and never run the statement, so there is no gate to
+ * clear here. SQL Server does run it and raises the `actual-plan` confirmation — a spec that wants
+ * that path presses the button itself and confirms.
+ */
+export async function showExecutionPlan(window: Page): Promise<Locator> {
+  await window.getByTestId('query-execution-plan').click();
+  await expect(planTab(window)).toBeVisible({ timeout: CONNECT_TIMEOUT_MS });
+  await expect(executionPlan(window)).toBeVisible({ timeout: UI_TIMEOUT_MS });
+  return executionPlan(window);
+}
+
+/** The operator names in the plan, in the order they are drawn. */
+export async function planNodeTypes(window: Page): Promise<string[]> {
+  return planNodes(window).locator('[data-testid="plan-node-type"]').allTextContents();
+}
+
+/**
+ * Select the Analysis tab and return the results pane.
+ *
+ * The PANE rather than `ai-analysis`, because that testid belongs to the asking surface and the three
+ * degrades (no provider, AI switched off, nothing run) replace it entirely — a helper that waited for it
+ * would only work on a machine with an API key.
+ */
+export async function openAnalysisTab(window: Page): Promise<Locator> {
+  await window.getByTestId('query-results-tab-analysis').click();
+  const pane = window.getByTestId('query-results');
+  await expect(pane).toBeVisible({ timeout: UI_TIMEOUT_MS });
+  return pane;
+}
+
+/**
+ * Open the command palette with **⇧⌘P** rather than ⌘K.
+ *
+ * ⌘K does not reach the renderer while Monaco has focus: Monaco binds it as a chord prefix and swallows
+ * it, so `openPalette` (which presses ⌘K) cannot be used from inside a query editor. Recorded as J-73 —
+ * a user typing SQL cannot open the palette with the shortcut the palette advertises. This helper uses
+ * the alternate binding the palette also accepts (`command-palette.tsx:85`).
+ */
+export async function openPaletteFromEditor(window: Page): Promise<Locator> {
+  await window.keyboard.press('ControlOrMeta+Shift+p');
+  const surface = overlay(window, 'palette');
+  await expect(surface).toBeVisible({ timeout: UI_TIMEOUT_MS });
+  await expect(overlayRows(window, 'palette').first()).toBeVisible({ timeout: UI_TIMEOUT_MS });
+  return surface;
+}
+
+/** The schema-comparison dialog. */
+export function schemaDiffDialog(window: Page): Locator {
+  return window.getByTestId('schema-diff-dialog');
+}
+
+/** Open it through the palette — its only entry point in the Angular renderer, and still one here. */
+export async function openSchemaDiff(window: Page): Promise<Locator> {
+  await openPalette(window);
+  await runPaletteCommand(window, 'command:open-schema-diff');
+  await expect(schemaDiffDialog(window)).toBeVisible({ timeout: UI_TIMEOUT_MS });
+  return schemaDiffDialog(window);
+}
+
+/** Open it from a database node, which is Task 19b's new contextual entry point. */
+export async function openSchemaDiffFromNode(window: Page, databaseName: string): Promise<Locator> {
+  const menu = await openNodeMenu(window, databaseName);
+  await menu.getByTestId('sidebar-menu-compare-schemas').click();
+  await expect(schemaDiffDialog(window)).toBeVisible({ timeout: UI_TIMEOUT_MS });
+  return schemaDiffDialog(window);
+}
+
+/** Pick one side of the comparison. The two selects are Radix, so the option is a listbox row. */
+export async function selectDiffDatabase(
+  window: Page,
+  side: 'source' | 'target',
+  databaseName: string
+): Promise<void> {
+  await window.getByTestId(`schema-diff-${side}`).click();
+  await window.getByRole('option', { name: databaseName, exact: true }).click();
+}
+
+/** The status bar's Docker pip. */
+export function dockerPip(window: Page): Locator {
+  return window.getByTestId('status-docker-toggle');
+}
+
+/** The Docker panel, in its popover. */
+export function dockerPanel(window: Page): Locator {
+  return window.getByTestId('docker-panel');
+}
+
+/** Open the panel from the pip, and wait for it to have settled out of `checking`. */
+export async function openDockerPanel(window: Page): Promise<Locator> {
+  await expect(dockerPip(window)).not.toHaveAttribute('data-docker-state', 'checking', {
+    timeout: CONNECT_TIMEOUT_MS,
+  });
+  await dockerPip(window).click();
+  await expect(dockerPanel(window)).toBeVisible({ timeout: UI_TIMEOUT_MS });
+  return dockerPanel(window);
+}
+
+/**
+ * Close it by pressing the pip again.
+ *
+ * NOT Escape, and the reason is a real Radix property rather than a test convenience: `Popover` is
+ * non-modal (`ui/popover.tsx` — the workbench underneath has to stay usable), so it does not move focus
+ * into its content on open and its Escape handling needs focus to be inside. A test that has just clicked
+ * the trigger, or run a palette command, has focus outside — so Escape there would be asserting nothing
+ * about the panel. `docker-panel.spec.ts` covers the Escape path separately, from inside.
+ */
+export async function closeDockerPanel(window: Page): Promise<void> {
+  await dockerPip(window).click();
+  await expect(dockerPanel(window)).toBeHidden({ timeout: UI_TIMEOUT_MS });
+}
+
+/** One container row, addressed by the name Docker gave it. */
+export function dockerContainerRow(window: Page, name: string): Locator {
+  return window.locator(`[data-testid="docker-container"][data-container-name="${name}"]`);
+}
+
+/** The names the panel is listing. */
+export async function dockerContainerNames(window: Page): Promise<string[]> {
+  return window
+    .getByTestId('docker-container')
+    .evaluateAll(rows => rows.map(row => row.getAttribute('data-container-name') ?? ''));
+}
+
+/** The tour spotlight overlay. */
+export function tourOverlay(window: Page): Locator {
+  return window.getByTestId('tour-overlay');
+}
+
+/** Start the guided tour through the palette and wait for its first step. */
+export async function startTour(window: Page): Promise<Locator> {
+  await openPalette(window);
+  await runPaletteCommand(window, 'command:start-tour');
+  await expect(tourOverlay(window)).toBeVisible({ timeout: UI_TIMEOUT_MS });
+  return tourOverlay(window);
+}
+
+/** The tour's step counter, as `[current, total]`. */
+export async function tourStep(window: Page): Promise<[number, number]> {
+  const text = (await window.getByTestId('tour-tooltip').textContent()) ?? '';
+  const match = /(\d+) of (\d+)/.exec(text);
+  return [Number(match?.[1] ?? 0), Number(match?.[2] ?? 0)];
+}

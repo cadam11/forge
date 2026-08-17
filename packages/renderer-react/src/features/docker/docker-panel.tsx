@@ -25,7 +25,7 @@
  */
 
 import { useState, type FormEvent } from 'react';
-import { Container, HardDrive, Play, Plus, RefreshCw, Square } from 'lucide-react';
+import { CircleStop, Container, HardDrive, Play, Plus, RefreshCw } from 'lucide-react';
 
 import { dispatchCommand } from '../../commands';
 import { Button, EmptyState, Icon, Input, Spinner, Tooltip, cn } from '../../ui';
@@ -176,7 +176,7 @@ function DockerBody({
       ))}
       {docker.volumes.length === 0 ? null : (
         // Rendered only when main can answer, which today it cannot — `docker.getVolumes()` returns []
-        // (J-72). A permanently empty section would be the decorative control J-44 forbids.
+        // (J-70). A permanently empty section would be the decorative control J-44 forbids.
         <li className="border-t border-rule px-3 py-2" data-testid="docker-volumes">
           <h3 className="font-mono text-2xs tracking-eyebrow uppercase text-fg-subtle">Volumes</h3>
           <ul className="flex flex-col gap-0.5 pt-1">
@@ -258,7 +258,10 @@ function ContainerItem({
                 disabled={busy}
                 onClick={() => onStop(container)}
               >
-                {busy ? <Spinner size="sm" /> : <Icon icon={Square} size="sm" />}
+                {/* `CircleStop`, not `Square`: lucide's square is an outline, and beside a Connect
+                    button it reads as an unchecked checkbox — which is what the first pass of the both-
+                    theme gate showed. */}
+                {busy ? <Spinner size="sm" /> : <Icon icon={CircleStop} size="sm" />}
               </Button>
             </Tooltip>
             <Tooltip
@@ -357,7 +360,13 @@ function CreateContainerForm({
     });
   };
 
-  const show = attempted;
+  /**
+   * Whether a field's problem is on screen yet: once the user has typed something into it, or once they
+   * have tried to submit. Per field, not one flag for the form — an untouched field must not be scolded,
+   * and a field the user has filled in wrongly must not wait for a submit that the disabled button will
+   * never allow. The same rule `features/databases/database-name-dialog.tsx` uses.
+   */
+  const showFor = (value: string): boolean => attempted || value.trim() !== '';
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-2 p-3" data-testid="docker-create-form">
@@ -370,7 +379,7 @@ function CreateContainerForm({
           autoComplete="off"
           spellCheck={false}
           className="font-mono"
-          error={show && nameProblem !== null ? nameProblem : undefined}
+          error={showFor(name) && nameProblem !== null ? nameProblem : undefined}
           onChange={event => setName(event.target.value)}
         />
         <Input
@@ -380,9 +389,9 @@ function CreateContainerForm({
           data-testid="docker-create-password"
           value={password}
           autoComplete="new-password"
-          error={show && passwordProblem !== null ? passwordProblem : undefined}
+          error={showFor(password) && passwordProblem !== null ? passwordProblem : undefined}
           hint={
-            show && passwordProblem !== null
+            showFor(password) && passwordProblem !== null
               ? undefined
               : 'Eight characters and three of: upper, lower, digit, symbol.'
           }
@@ -395,7 +404,7 @@ function CreateContainerForm({
           data-testid="docker-create-port"
           value={port}
           className="font-mono tabular-nums"
-          error={show && portProblem !== null ? portProblem : undefined}
+          error={showFor(port) && portProblem !== null ? portProblem : undefined}
           onChange={event => setPort(event.target.value)}
         />
       </fieldset>

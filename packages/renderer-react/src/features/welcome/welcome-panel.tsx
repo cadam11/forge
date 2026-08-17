@@ -123,13 +123,15 @@ function Hero() {
 /**
  * "See how it joins" — the guided tour's entry point.
  *
- * The tour itself is Task 19b, so `start-tour` is registered with that owner named and nothing is
- * subscribed yet. The button dispatches anyway — the moment 19b mounts its handler this becomes live
- * with no edit here — and says so when nobody answered.
+ * **Live since Task 19b**, with no edit to this file: `features/onboarding/TourHost` mounts the handler
+ * and the shell mounts that, so the dispatch below now raises the spotlight overlay. This is what the
+ * `handlerCount` check was designed for — 19a shipped the button dispatching into a registered-but-unowned
+ * channel and saying so, and 19b made it work by subscribing.
  *
- * The toast NAMES the owner, for the same reason a disabled palette row does (`Not wired yet — <owner>`,
- * `features/command-palette/command-palette.tsx:262`): "not in this build" invites the reader to wonder
- * whether it is coming, and `COMMAND_CONSUMERS['start-tour']` already answers that.
+ * The refusal branch is KEPT rather than deleted. It is not dead: the dev pages (`src/dev/`) render this
+ * surface without the shell's non-visual mounts, and any future build that drops `TourHost` gets a sentence
+ * instead of a button that does nothing. The toast NAMES the owner, for the same reason a disabled palette
+ * row does (`Not wired yet — <owner>`, `features/command-palette/command-palette.tsx:262`).
  *
  * `handlerCount`, not `dispatchCommand`'s return value: that boolean means "a handler CLAIMED it",
  * which only `menu-copy` ever does. The same reasoning the palette records at

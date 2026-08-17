@@ -154,7 +154,7 @@ describe('DockerPanel — the states', () => {
   });
 
   it('renders no Volumes section while main answers with an empty list', async () => {
-    // `docker.getVolumes()` is a stub that returns [] (J-72). A permanently empty section would be the
+    // `docker.getVolumes()` is a stub that returns [] (J-70). A permanently empty section would be the
     // decorative control J-44 forbids.
     mount();
     await waitFor(() => expect(screen.queryAllByTestId('docker-container')).toHaveLength(1));
@@ -255,12 +255,23 @@ describe('DockerPanel — the create form', () => {
     await waitFor(() => expect(screen.queryByTestId('docker-create-form')).not.toBeNull());
   }
 
-  it('refuses a password SQL Server would reject, before the round trip', async () => {
+  it('refuses a password SQL Server would reject, and says why before a submit', async () => {
     await openForm();
     await userEvent.type(screen.getByTestId('docker-create-password'), 'weak');
 
     expect((screen.getByTestId('docker-create-submit') as HTMLButtonElement).disabled).toBe(true);
+    // The reason is on screen as soon as the field has something wrong in it, not after a submit the
+    // disabled button will never allow — otherwise the message would be unreachable.
+    expect(screen.getByTestId('docker-create-form').textContent).toContain('at least 8 characters');
     expect(createContainer).not.toHaveBeenCalled();
+  });
+
+  it('does not scold an untouched password field', async () => {
+    await openForm();
+    const form = screen.getByTestId('docker-create-form');
+    expect(form.textContent).not.toContain('at least 8 characters');
+    // The RULE is visible from the start, which is what explains the disabled button (J-44).
+    expect(form.textContent).toContain('Eight characters and three of');
   });
 
   it('refuses the port an existing container already publishes', async () => {

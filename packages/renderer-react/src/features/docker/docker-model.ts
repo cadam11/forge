@@ -22,11 +22,11 @@
  *    A Volumes list would therefore be a permanently empty section — a decorative control, which J-44
  *    forbids. The panel renders the volumes each container actually **binds**
  *    (`DockerContainer.volumeMappings`, which the detector fills in from `container.Mounts`), and asks
- *    the bridge for named volumes as well so the section appears the moment main can answer. J-72.
+ *    the bridge for named volumes as well so the section appears the moment main can answer. J-70.
  * 4. **A failed stop reports success.** `docker.ipc.ts:53-58` awaits `stopContainer` and throws away its
  *    `{ success: false, error }` result, unlike the start handler beside it. So the renderer cannot tell
  *    a stop that failed from one that worked, and must confirm by re-reading the container's state —
- *    which is what `settledState` is for. J-73.
+ *    which is what `settledState` is for. J-71.
  */
 
 import type { DockerContainer, DockerStatus, DockerVolumeMapping } from '@joinery/shared';

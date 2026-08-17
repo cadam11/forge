@@ -11,8 +11,9 @@
  *     The assertion is that the panel's own background follows `[data-theme]` in both directions — a
  *     hardcoded surface would report the same colour twice.
  *  2. **the AI entry**, which is what makes the chat panel configurable at all (J-55).
- *  3. **the tour entry is honest**: `start-tour` has an owner named (Task 19b) and no handler, and the
- *     button says so rather than dispatching into silence.
+ *  3. **the tour entry is live**: `start-tour` had an owner named and no handler when 19a shipped, so the
+ *     button said so rather than dispatching into silence. Task 19b subscribed it, and the assertion is
+ *     that pressing it now raises the tour — with no line of the welcome tab having changed.
  */
 
 import type { Page } from '@playwright/test';
@@ -109,16 +110,20 @@ test.describe('Joinery (React) — welcome tab', () => {
     });
   });
 
-  test('says the tour is not in this build rather than doing nothing', async () => {
+  test('starts the guided tour, which it could only report on before Task 19b', async () => {
     await withJoineryReact(async ({ window }) => {
       await openWelcome(window);
 
       await window.getByTestId('welcome-start-tour').click();
-      // `start-tour` is registered with Task 19b named as its owner. The button is present — hiding it
-      // is the "silently omits half its entries" failure the palette refuses — and it reports the truth.
-      await expect(
-        window.getByText('The guided tour is not in this build yet — Task 19b.')
-      ).toBeVisible({ timeout: 10_000 });
+      // 19a shipped this button dispatching `start-tour` into a registered-but-unowned channel, with a
+      // `handlerCount` check so it said "not in this build yet — Task 19b" instead of doing nothing.
+      // `features/onboarding/TourHost` is that handler, and no line of the welcome tab changed for it.
+      await expect(window.getByTestId('tour-overlay')).toBeVisible({ timeout: 10_000 });
+      await expect(window.getByTestId('tour-tooltip')).toContainText('The explorer');
+      await expect(window.getByText(/not in this build yet/)).toBeHidden();
+
+      await window.keyboard.press('Escape');
+      await expect(window.getByTestId('tour-overlay')).toBeHidden();
     });
   });
 });

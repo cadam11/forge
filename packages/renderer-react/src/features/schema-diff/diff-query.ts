@@ -24,7 +24,7 @@
  * - **PostgreSQL** cannot query across databases at all without `dblink` or `postgres_fdw`. There is no
  *   statement to generate, so `buildDiffQuery` REFUSES with that sentence instead of emitting T-SQL and
  *   letting the server say something less useful. Comparing two SCHEMAS inside one database is the
- *   PostgreSQL-shaped version of this feature and is not what the dialog asks for; it is J-71.
+ *   PostgreSQL-shaped version of this feature and is not what the dialog asks for; it is J-69.
  */
 
 import type { DatabaseEngine } from '@joinery/shared';
