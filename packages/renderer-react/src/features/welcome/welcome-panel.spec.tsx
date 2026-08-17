@@ -163,7 +163,8 @@ describe('the welcome tab', () => {
     mountWelcome();
 
     await userEvent.click(screen.getByTestId('welcome-start-tour'));
-    expect(toasts).toContain('The guided tour is not in this build yet.');
+    // Naming the owner is the load-bearing half, exactly as it is on a disabled palette row.
+    expect(toasts).toContain('The guided tour is not in this build yet — Task 19b.');
   });
 
   it('becomes live the moment something handles start-tour, with no edit here', async () => {

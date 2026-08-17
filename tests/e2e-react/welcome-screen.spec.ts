@@ -116,9 +116,9 @@ test.describe('Joinery (React) — welcome tab', () => {
       await window.getByTestId('welcome-start-tour').click();
       // `start-tour` is registered with Task 19b named as its owner. The button is present — hiding it
       // is the "silently omits half its entries" failure the palette refuses — and it reports the truth.
-      await expect(window.getByText('The guided tour is not in this build yet.')).toBeVisible({
-        timeout: 10_000,
-      });
+      await expect(
+        window.getByText('The guided tour is not in this build yet — Task 19b.')
+      ).toBeVisible({ timeout: 10_000 });
     });
   });
 });

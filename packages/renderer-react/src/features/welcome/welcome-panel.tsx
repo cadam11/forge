@@ -127,6 +127,10 @@ function Hero() {
  * subscribed yet. The button dispatches anyway — the moment 19b mounts its handler this becomes live
  * with no edit here — and says so when nobody answered.
  *
+ * The toast NAMES the owner, for the same reason a disabled palette row does (`Not wired yet — <owner>`,
+ * `features/command-palette/command-palette.tsx:262`): "not in this build" invites the reader to wonder
+ * whether it is coming, and `COMMAND_CONSUMERS['start-tour']` already answers that.
+ *
  * `handlerCount`, not `dispatchCommand`'s return value: that boolean means "a handler CLAIMED it",
  * which only `menu-copy` ever does. The same reasoning the palette records at
  * `features/command-palette/command-palette.tsx:186`.
@@ -137,7 +141,7 @@ function TourButton() {
       data-testid="welcome-start-tour"
       onClick={() => {
         if (handlerCount('start-tour') === 0) {
-          notify.info('The guided tour is not in this build yet.');
+          notify.info('The guided tour is not in this build yet — Task 19b.');
           return;
         }
         dispatchCommand('start-tour');
