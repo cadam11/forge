@@ -220,6 +220,11 @@ describe('TourOverlay — getting out', () => {
     await userEvent.click(screen.getByTestId('tour-next-tour'));
     expect(toursStore.getState().activeTourId).toBe(AI_TOUR);
     expect(screen.getByTestId('tour-tooltip').textContent).toContain('The assistant');
+    // And the tour just LEFT is recorded. `start` alone only swaps the active id, so taking the chain used
+    // to lose the completion — `start-tour` would offer the workbench tour again on the next launch, and
+    // the chained tour would go on offering itself from the end of it forever.
+    expect(toursStore.getState().completed).toContain(WORKBENCH_TOUR);
+    expect(toursStore.getState().stepIndex).toBe(0);
   });
 
   it('does not offer the chained tour once it has been done', async () => {

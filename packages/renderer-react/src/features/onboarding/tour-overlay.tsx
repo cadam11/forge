@@ -209,7 +209,15 @@ export function TourOverlay() {
             variant="outline"
             size="sm"
             data-testid="tour-next-tour"
-            onClick={() => toursStore.getState().start(nextTour.id)}
+            onClick={() => {
+              const tours = toursStore.getState();
+              // FINISH first. `start` alone only replaces the active id, so the tour the user just walked
+              // to its last step was never recorded as done — and `start-tour` would offer it again on the
+              // next launch, with the chained tour then offering itself forever. Taking the chain is
+              // finishing this one, so it is the same write `Done` makes.
+              tours.dismiss();
+              tours.start(nextTour.id);
+            }}
           >
             Next: {nextTour.name}
           </Button>
