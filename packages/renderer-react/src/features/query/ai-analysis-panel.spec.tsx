@@ -155,6 +155,39 @@ describe('AiAnalysisPanel — the disclosure', () => {
     expect(screen.getByTestId('analysis-disclosure').textContent).toContain('Anthropic');
   });
 
+  it('names NOBODY when the explicitly chosen model’s vendor has been switched off', () => {
+    // Reachable state: nothing clears `features.analysisModelId` when a vendor is disabled or its key is
+    // removed. Main's `getModelAndProvider` returns `{ model: null }` for exactly this, and `analyzeResults`
+    // answers "No AI provider configured" — so the request goes to nobody. Falling through to the other
+    // enabled vendor here would name Google AI on a surface that is not going to send Google AI anything.
+    configureAi({
+      analysisModelId: 'claude-x',
+      vendorSettings: [
+        { vendorId: 'google', enabled: true, apiKeyConfigured: true, priority: 1 },
+        { vendorId: 'anthropic', enabled: false, apiKeyConfigured: true, priority: 2 },
+      ],
+    });
+    draw();
+
+    const disclosure = screen.getByTestId('analysis-disclosure').textContent ?? '';
+    expect(disclosure).toContain('your configured AI provider');
+    expect(disclosure).not.toContain('Google AI');
+    expect(disclosure).not.toContain('Anthropic');
+  });
+
+  it('names nobody when the chosen model’s vendor has lost its key, either', () => {
+    configureAi({
+      analysisModelId: 'claude-x',
+      vendorSettings: [
+        { vendorId: 'google', enabled: true, apiKeyConfigured: true, priority: 1 },
+        { vendorId: 'anthropic', enabled: true, apiKeyConfigured: false, priority: 2 },
+      ],
+    });
+    draw();
+
+    expect(screen.getByTestId('analysis-disclosure').textContent).not.toContain('Google AI');
+  });
+
   it('falls back to a truthful generality when the vendor list has not loaded', () => {
     // The keychain says a provider is configured but `ai.getVendors` has not answered yet. Naming nothing
     // is honest; naming the wrong provider would not be.
