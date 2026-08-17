@@ -7,9 +7,9 @@
  * - `hydrateRendererState()` — the first thing the shell does. Runs the one-shot localStorage
  *   migration, reads the sub-object once, and pushes the pieces a store owns (settings,
  *   welcome-dismissed, the query editor's ⌃E gate and remembered placeholder values since Task 10,
- *   and the snippet library since Task 16) into their stores. What is left it returns, because the
- *   surface that owns the rest — the onboarding tours (Task 19) — does not exist yet, and inventing
- *   an empty store for it now would be a file nothing reads.
+ *   the snippet library since Task 16, and the onboarding tours' completion list since Task 19b) into
+ *   their stores. It still RETURNS every piece it read, so the boot result stays a complete picture of
+ *   what was on disk — which is what `dev/persistence-probe.tsx` renders.
  * - `hydrateWorkspace(connectionId)` — after the connection restore, because a persisted tab is
  *   bound to a connection and the Angular original waited for the same reason. Restores the tabs
  *   through the tab store's own `getTabs` path and returns the React layout payload (or `undefined`,
@@ -26,6 +26,7 @@ import { editorPrefsStore, type EditorPrefsStore } from '../state/editor-prefs';
 import { settingsStore, type SettingsStore } from '../state/settings';
 import { snippetsStore, type SnippetsStore } from '../state/snippets';
 import { tabStore, type TabStore } from '../state/tab';
+import { toursStore, type ToursStore } from '../state/tours';
 import { layoutPersistence, type LayoutPersistence, type ReactLayoutPayload } from './layout';
 import { migrateLegacyLocalStorage, type MigrationResult } from './migration';
 import {
@@ -40,7 +41,10 @@ export interface HydratedRendererState {
   /** The settings now in the store: persisted values merged over `DEFAULT_SETTINGS`. */
   readonly settings: AppSettings;
   readonly welcomeDismissed: boolean;
-  /** Task 19 (onboarding tours). */
+  /**
+   * The tours the user has already been through. Now hydrated into `state/tours.ts` by this function
+   * (Task 19b); still returned so the boot result stays complete.
+   */
   readonly completedTours: readonly string[];
   /**
    * The whole snippet library — the data 0.5 was about. Now hydrated into `state/snippets.ts` by
@@ -59,6 +63,7 @@ export interface HydrationDeps {
   readonly tabs?: TabStore;
   readonly editorPrefs?: EditorPrefsStore;
   readonly snippets?: SnippetsStore;
+  readonly tours?: ToursStore;
 }
 
 /**
@@ -74,6 +79,7 @@ export async function hydrateRendererState(
   const tabs = deps.tabs ?? tabStore;
   const editorPrefs = deps.editorPrefs ?? editorPrefsStore;
   const snippets = deps.snippets ?? snippetsStore;
+  const tours = deps.tours ?? toursStore;
 
   // Migration first, and awaited: everything below reads the state it writes.
   const migration = await migrateLegacyLocalStorage(persistence);
@@ -97,6 +103,10 @@ export async function hydrateRendererState(
   // The snippet library, same arrangement: hydrating the store is also what opens its write gate, so
   // a library edit before this line could not overwrite the migrated snippets with an empty list.
   snippets.getState().hydrate(persisted.snippets ?? []);
+  // The tours' completion list, same arrangement again — hydrating opens the write gate, so a tour
+  // finished before this line could not persist an empty list over the migrated one. The tour CONTENT is
+  // installed separately by `features/onboarding/TourHost`, which is where the shell's testids belong.
+  tours.getState().hydrate(persisted.completedTours ?? []);
 
   return {
     migration,

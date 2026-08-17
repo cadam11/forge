@@ -133,10 +133,18 @@ function panelProps(tabId: string): IDockviewPanelProps {
   } as unknown as IDockviewPanelProps;
 }
 
-/** A connected profile, a query tab on it, and the panel mounted for that tab. */
-function mountPanel(sql: string): { tabId: string; unmount: () => void } {
+/**
+ * A connected profile, a query tab on it, and the panel mounted for that tab.
+ *
+ * The engine is a parameter because one of the panel's decisions turns on it: only SQL Server's execution
+ * plan runs the statement, so only SQL Server raises the `actual-plan` confirmation.
+ */
+function mountPanel(
+  sql: string,
+  engine: 'postgresql' | 'mssql' | 'mysql' = 'postgresql'
+): { tabId: string; unmount: () => void } {
   connectionStore.setState({
-    profiles: [{ id: 'conn-1', name: 'Test PG', engine: 'postgresql' }],
+    profiles: [{ id: 'conn-1', name: 'Test server', engine }],
   } as never);
   const tabId = tabStore.getState().openQueryTab('conn-1', 'shop', sql, false);
   editorState.value = sql;
@@ -178,7 +186,7 @@ afterEach(() => {
 
 /** Runs a command through the real bus and lets the resulting promises settle. */
 async function invoke(
-  id: 'execute-query' | 'execute-selection' | 'open-query-file'
+  id: 'execute-query' | 'execute-selection' | 'open-query-file' | 'show-execution-plan'
 ): Promise<void> {
   await act(async () => {
     dispatchCommand(id);
@@ -444,6 +452,80 @@ describe('confirmBeforeExecute', () => {
 
     expect(screen.queryByTestId('query-confirm-execute')).toBeNull();
     expect(execute).toHaveBeenCalledOnce();
+  });
+});
+
+// ── The execution plan's MSSQL gate FIRES (Task 19b) ───────────────────────────────────────
+//
+// The safety property of the whole execution-plan feature rests on one branch: SQL Server cannot report a
+// plan for a statement it has not run, so `show-execution-plan` on a `DELETE` deletes rows unless the
+// confirmation stops it first. That branch is `if (request.executes)` in `showExecutionPlan`, and this
+// block is what fails when it is inverted, removed, or made to fall through.
+
+describe('show-execution-plan on SQL Server', () => {
+  const PLAN_SQL = 'DELETE FROM orders WHERE id = 4;';
+
+  it('asks BEFORE running anything, and names what it is about to do', async () => {
+    const execute = vi.fn(async (_request: QueryRequest) => okResult);
+    teardowns.push(installJoineryMock({ query: { execute } }));
+    const { unmount } = mountPanel(PLAN_SQL, 'mssql');
+    teardowns.push(unmount);
+
+    await invoke('show-execution-plan');
+
+    // The whole point: nothing has reached the database yet.
+    expect(execute).not.toHaveBeenCalled();
+    const dialog = screen.getByTestId('query-confirm-execute');
+    expect(dialog.getAttribute('data-gate')).toBe('actual-plan');
+    expect(dialog.textContent).toContain('SQL Server');
+    // And the statement being consented to is on screen, not merely implied.
+    expect(screen.getByTestId('query-confirm-execute-sql').textContent).toBe(PLAN_SQL);
+  });
+
+  it('runs the plan request only once the confirmation is accepted', async () => {
+    const execute = vi.fn(async (_request: QueryRequest) => okResult);
+    teardowns.push(installJoineryMock({ query: { execute } }));
+    const { unmount } = mountPanel(PLAN_SQL, 'mssql');
+    teardowns.push(unmount);
+
+    await invoke('show-execution-plan');
+    expect(execute).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByTestId('query-confirm-execute-run'));
+
+    expect(execute).toHaveBeenCalledOnce();
+    // The wrapper, not the bare statement: `SET STATISTICS PROFILE` is the only plan MSSQL will give
+    // through `query.execute` (`execution-plan.ts`).
+    expect(execute.mock.calls[0]?.[0].sql).toContain('SET STATISTICS PROFILE ON');
+    expect(execute.mock.calls[0]?.[0].sql).toContain('DELETE FROM orders WHERE id = 4');
+  });
+
+  it('runs nothing at all when the confirmation is declined', async () => {
+    const execute = vi.fn(async (_request: QueryRequest) => okResult);
+    teardowns.push(installJoineryMock({ query: { execute } }));
+    const { unmount } = mountPanel(PLAN_SQL, 'mssql');
+    teardowns.push(unmount);
+
+    await invoke('show-execution-plan');
+    await userEvent.click(screen.getByTestId('query-confirm-execute-cancel'));
+
+    expect(screen.queryByTestId('query-confirm-execute')).toBeNull();
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('does not gate PostgreSQL, whose EXPLAIN mutates nothing', async () => {
+    const execute = vi.fn(async (_request: QueryRequest) => okResult);
+    teardowns.push(installJoineryMock({ query: { execute } }));
+    const { unmount } = mountPanel('SELECT * FROM orders;');
+    teardowns.push(unmount);
+
+    await invoke('show-execution-plan');
+
+    // A confirmation on a free EXPLAIN would be a dialog with no consequence behind it — and it is the
+    // contrast that makes the MSSQL gate readable as a statement about MSSQL rather than about plans.
+    expect(screen.queryByTestId('query-confirm-execute')).toBeNull();
+    expect(execute).toHaveBeenCalledOnce();
+    expect(execute.mock.calls[0]?.[0].sql).toBe('EXPLAIN (FORMAT JSON) SELECT * FROM orders');
   });
 });
 

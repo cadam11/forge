@@ -20,11 +20,13 @@
  *  4. **None of the four had `:focus-visible`.** That constant carries it, so the omission is not
  *     available.
  *
- * ── What is a placeholder, and why ────────────────────────────────────────────────────────
+ * ── Nothing here is a placeholder any more ────────────────────────────────────────────────
  *
  * The connection segment reads the real stores, so *disconnected*, *connecting* and — since Task 10 —
- * *executing* are all live. The **Docker pip** is still absent: it is the trigger for the Docker panel,
- * which is Task 19's, and it is recorded as a gap in the Task 7 report rather than faked here.
+ * *executing* are all live. The **Docker pip** was the last gap Task 7 recorded rather than faked, and
+ * Task 19b closes it: `features/docker/DockerPip` is the trigger, its popover is the panel, and both read
+ * one `useDocker()` so the count in the bar and the list in the panel cannot disagree. The bar owns only
+ * the OPEN flag, because that is the one piece of state a `<Popover>` needs from its surroundings.
  *
  * The executing indicator reads `queryExecutionStore`, which Task 10 made the single source of truth for
  * "is a query running" — the same store the query toolbar's spinner and disabled states read. Task 7
@@ -74,6 +76,7 @@ import { logStore, selectErrorCount, useLogStore } from '../state/logs';
 import { selectTabCount, useTabStore } from '../state/tab';
 import { settingsStore, selectTheme, useSettingsStore } from '../state/settings';
 import { isIpcAvailable, useIpcQuery } from '../ipc';
+import { DockerPip } from '../features/docker';
 
 /**
  * The one control shape in the bar. 20px square (`size-5`) inside a 28px bar, with the resets and
@@ -267,6 +270,13 @@ export function StatusBar() {
   const [cursor, setCursor] = useState<{ line: number; column: number } | null>(null);
   useCommand('cursor-position', payload => setCursor(payload));
 
+  /**
+   * Whether the Docker popover is up. Here rather than inside `DockerPip` for one reason: Radix's
+   * `Popover` is controlled from outside when anything other than its own trigger can open it, and the
+   * palette can (`open-docker-panel`). The pip subscribes to that command itself — see its header.
+   */
+  const [dockerOpen, setDockerOpen] = useState(false);
+
   return (
     <footer
       aria-label="Status"
@@ -343,6 +353,12 @@ export function StatusBar() {
             <Icon icon={Sparkles} size="sm" />
           </button>
         </Tooltip>
+
+        <DockerPip
+          controlClassName={CONTROL_CLASSES}
+          open={dockerOpen}
+          onOpenChange={setDockerOpen}
+        />
 
         <ThemeMenu />
 

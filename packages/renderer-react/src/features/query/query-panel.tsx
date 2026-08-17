@@ -42,6 +42,7 @@ import {
   selectResultFor,
   useQueryExecutionStore,
 } from '../../state/query-execution';
+import { queryPlanStore } from '../../state/query-plan';
 import { selectEditorSettings, selectEffectiveTheme, useSettingsStore } from '../../state/settings';
 import { tabStore, useTabStore } from '../../state/tab';
 import {
@@ -58,6 +59,7 @@ import { QueryResults } from './query-results';
 import { QueryToolbar } from './query-toolbar';
 import { editorPrefsStore, useEditorPrefsStore } from '../../state/editor-prefs';
 import { adoptOpenedFile, openQueryFile, rememberedFilePath, saveQueryToFile } from './query-files';
+import { PLAN_KIND, planFromResult, planRequestFor } from './execution-plan';
 import { ENGINE_LABELS, convertSql } from './sql-convert';
 import { useRunQuery } from './use-run-query';
 
@@ -100,6 +102,12 @@ export function QueryPanel(props: IDockviewPanelProps) {
   const [pendingRun, setPendingRun] = useState<{
     readonly sql: string;
     readonly gate: ExecuteGate;
+    /**
+     * Set when the confirmation is for a PLAN request rather than for an ordinary run: `sql` is then the
+     * `SET STATISTICS PROFILE …` wrapper that will be sent, and this is the statement the resulting plan
+     * is for. Both are needed — one is what goes over IPC, the other is what the plan is labelled with.
+     */
+    readonly planFor?: string;
   } | null>(null);
 
   const runQuery = useRunQuery();
@@ -273,6 +281,83 @@ export function QueryPanel(props: IDockviewPanelProps) {
     [engine]
   );
 
+  /**
+   * Send the plan request and store what came back (Task 19b).
+   *
+   * It goes through `queryExecutionStore.execute`, not around it, and that is the whole design: the tab
+   * gets its Executing indicator, its Cancel button, its Messages pane and its stale-result rule for
+   * free, and there is still exactly one place in the app that runs SQL. The Angular version called
+   * `ipc.executeQuery` directly from the component and had to set `executing` by hand
+   * (`query.component.ts:2436`), which is why its Cancel button did nothing during a plan request.
+   *
+   * A failure leaves NO plan: `forgetTab` first, so a refusal cannot leave the previous statement's Plan
+   * tab on screen looking like an answer to this one.
+   *
+   * **A plan request therefore appears in the query history like any other run, and that is accepted.**
+   * The alternative is a run the execution store does not know about, which is the Angular arrangement and
+   * is precisely why its Cancel button did nothing during a plan request. History is the visible cost of
+   * an in-flight run being cancellable; a `SET STATISTICS PROFILE` row in the history is also a true record
+   * of something that really did execute against the database, so hiding it would be the less honest half
+   * of the trade.
+   */
+  const runPlan = useCallback(
+    (planSql: string, statement: string): void => {
+      if (engine === undefined) return;
+      queryPlanStore.getState().forgetTab(tabId);
+      void runQuery.run({ ...runContext(planSql), autoRename: false }).then(result => {
+        // `null` means the run was superseded, refused or prompted for placeholders — each of which has
+        // already reported itself. There is nothing to add and nothing to store.
+        if (result === null) return;
+        const parsed = planFromResult(result, engine);
+        if (!parsed.ok) {
+          notify.warning(parsed.reason);
+          return;
+        }
+        queryPlanStore.getState().setPlan(tabId, {
+          forResult: result,
+          engine,
+          kind: PLAN_KIND[engine],
+          root: parsed.root,
+          summary: parsed.summary,
+          sql: statement,
+        });
+      });
+    },
+    [engine, runContext, runQuery, tabId]
+  );
+
+  /**
+   * Query ▸ Show execution plan, from the toolbar button and from the palette.
+   *
+   * The selection wins over the whole buffer, as it does for Execute — a plan for a highlighted statement
+   * inside a script is the common case. `planRequestFor` decides both the wrapper and whether sending it
+   * has consequences; when it does (MSSQL only), the confirmation comes first.
+   *
+   * **`confirmBeforeExecute` is NOT consulted here, and that is deliberate.** On PostgreSQL and MySQL an
+   * `EXPLAIN` mutates nothing and returns no rows of the user's own, so the setting's question — "you are
+   * about to change data on a live database, are you sure?" — has no subject. On MSSQL the statement DOES
+   * run, and that path is gated regardless of the setting by `actual-plan`, which is the stronger
+   * confirmation of the two (it cannot be switched off). So there is no engine on which asking here would
+   * add a decision the user is not already being given.
+   */
+  const showExecutionPlan = useCallback((): void => {
+    if (engine === undefined) {
+      notify.warning('Connect this tab to a server before asking for a plan');
+      return;
+    }
+    const statement = statementSql();
+    if (statement.trim() === '') {
+      notify.warning('No SQL to explain');
+      return;
+    }
+    const request = planRequestFor(engine, statement);
+    if (request.executes) {
+      setPendingRun({ sql: request.sql, gate: 'actual-plan', planFor: statement });
+      return;
+    }
+    runPlan(request.sql, statement);
+  }, [engine, runPlan, statementSql]);
+
   const save = useCallback(
     (promptForPath: boolean): void => {
       void saveQueryToFile({
@@ -362,6 +447,9 @@ export function QueryPanel(props: IDockviewPanelProps) {
     () => () => {
       if (tabStore.getState().tabs.some(candidate => candidate.id === tabId)) return;
       queryExecutionStore.getState().forgetTab(tabId);
+      // The plan is per-tab state in a second store, so it needs the same teardown or a closed tab's
+      // plan tree stays in memory for the session.
+      queryPlanStore.getState().forgetTab(tabId);
     },
     [tabId]
   );
@@ -403,6 +491,7 @@ export function QueryPanel(props: IDockviewPanelProps) {
         onToggleResults={toggleResults}
         onInsertSnippet={sql => editor.current?.insertSnippet(sql)}
         onConvertSql={convert}
+        onShowExecutionPlan={showExecutionPlan}
       />
 
       <QueryToolbar
@@ -419,6 +508,7 @@ export function QueryPanel(props: IDockviewPanelProps) {
         onToggleResults={toggleResults}
         engine={engine}
         onConvertSql={convert}
+        onShowExecutionPlan={showExecutionPlan}
       />
 
       <div ref={splitPane} className="flex min-h-0 grow flex-col">
@@ -485,6 +575,12 @@ export function QueryPanel(props: IDockviewPanelProps) {
         // `pendingRun !== null` — and it is a default rather than a non-null assertion so that a closed
         // dialog still type-checks without one.
         gate={pendingRun?.gate ?? 'ctrl-e'}
+        // The plan gate shows what it is about to run, and what it shows is the user's STATEMENT rather
+        // than the `SET STATISTICS PROFILE` wrapper around it: the wrapper is this app's diagnostic
+        // scaffolding, and the thing being consented to is the statement inside it. The other two gates
+        // do not render this at all (see `ConfirmExecuteDialog`'s header), so `sql` is what they would
+        // have sent.
+        sql={pendingRun?.planFor ?? pendingRun?.sql ?? ''}
         // Focus goes back to the editor either way — see `onReturnFocus`. It has to be Radix's
         // close-autofocus hook rather than a `focus()` inside these handlers: Radix moves focus AFTER
         // they run, so an earlier call is simply overridden.
@@ -495,6 +591,12 @@ export function QueryPanel(props: IDockviewPanelProps) {
           setPendingRun(null);
           if (confirmed === null) return;
           if (remember) editorPrefsStore.getState().confirmCtrlEExecute();
+          // A plan request carries the statement it is FOR, which is how one dialog serves both without
+          // the plan path losing the label its Plan tab needs.
+          if (confirmed.planFor !== undefined) {
+            runPlan(confirmed.sql, confirmed.planFor);
+            return;
+          }
           runNow(confirmed.sql);
         }}
       />

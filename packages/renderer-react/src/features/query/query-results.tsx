@@ -33,7 +33,7 @@
  */
 
 import { memo, useCallback, useState } from 'react';
-import { History, Terminal } from 'lucide-react';
+import { History, Network, Sparkles, Terminal } from 'lucide-react';
 import type { QueryResult, QueryResultSnapshot, ResultSet } from '@joinery/shared';
 
 import {
@@ -41,11 +41,15 @@ import {
   selectSqlFor,
   useQueryExecutionStore,
 } from '../../state/query-execution';
+import { selectPlanFor, useQueryPlanStore } from '../../state/query-plan';
 import { queryResultsStore } from '../../state/query-results';
+import { useAIStore } from '../../state/ai';
 import { useSettingsStore } from '../../state/settings';
 import { diagnostics, notify } from '../../state/diagnostics';
 import { useTabStore } from '../../state/tab';
 import { EmptyState, Spinner, Tabs, TabsContent, TabsList, TabsTrigger, cn } from '../../ui';
+import { AiAnalysisPanel } from './ai-analysis-panel';
+import { ExecutionPlanView } from './execution-plan-view';
 import { ResultHistoryPanel } from './result-history-panel';
 import { ResultsGrid } from './results-grid';
 import { RowDetailPanel, type RowDetailTarget } from './row-detail-panel';
@@ -53,6 +57,8 @@ import { formatSnapshotTime, snapshotAsResult, snapshotNeedsHydration } from './
 
 const MESSAGES_TAB = 'messages';
 const HISTORY_TAB = 'history';
+const PLAN_TAB = 'plan';
+const ANALYSIS_TAB = 'analysis';
 
 export interface QueryResultsProps {
   readonly result: QueryResult | null;
@@ -113,6 +119,21 @@ export const QueryResults = memo(function QueryResults({
     state => state.tabs.find(tab => tab.id === tabId)?.databaseName ?? null
   );
   const sql = useQueryExecutionStore(selectSqlFor(tabId));
+  /**
+   * Task 19b's two tabs, both subscribed HERE for the reason the header gives about the connection and
+   * the database: primitives and store objects, so the memo below still holds and the grid is untouched.
+   *
+   * The plan is looked up against `result`, so a plan belonging to a previous run is not this tab's plan
+   * and its tab is simply not offered — see `state/query-plan.ts`.
+   */
+  const plan = useQueryPlanStore(selectPlanFor(tabId, result));
+  /**
+   * `features.analysisEnabled` alone, NOT `selectAnalysisEnabled` (which also requires the master AI
+   * switch). This is the first consumer that setting has ever had, and reading the master switch here
+   * would make the tab absent for every user who has not set AI up yet — which is precisely the user the
+   * panel's "Set up AI" degrade exists for. The master switch is a state INSIDE the panel.
+   */
+  const analysisOffered = useAIStore(state => state.settings.features.analysisEnabled);
 
   /**
    * The user's explicit tab pick, tied to the result it was made against.
@@ -145,6 +166,20 @@ export const QueryResults = memo(function QueryResults({
   const [viewing, setViewing] = useState<{
     readonly forResult: QueryResult;
     readonly snapshot: QueryResultSnapshot;
+  } | null>(null);
+
+  /**
+   * Which result set the Analysis tab answers about, tied to its result like everything else here.
+   *
+   * It cannot be derived from `active`: clicking Analysis MAKES Analysis the active tab, so by the time
+   * the panel renders, "the tab the user was reading" is gone. Tracking the last numeric pick is what
+   * makes "explain these results" mean the rows on screen rather than always the first set of a batch.
+   * Tied to `result` so a new run starts from its own first set instead of inheriting an index from the
+   * previous one.
+   */
+  const [analysisPick, setAnalysisPick] = useState<{
+    readonly forResult: QueryResult;
+    readonly index: number;
   } | null>(null);
 
   const closeRowDetail = useCallback(() => setRowDetail(null), []);
@@ -250,13 +285,23 @@ export const QueryResults = memo(function QueryResults({
   }
 
   const resultSets = result.resultSets ?? [];
-  // A statement with no result sets (an INSERT, a DDL) lands on Messages, exactly as `:1838` chose.
-  const defaultTab = resultSets.length > 0 ? '0' : MESSAGES_TAB;
-  const tabValues = [...resultSets.map((_, index) => String(index)), MESSAGES_TAB, HISTORY_TAB];
+  // A statement with no result sets (an INSERT, a DDL) lands on Messages, exactly as `:1838` chose. A
+  // plan wins over both: the user asked for the plan, and the rows the EXPLAIN batch happened to return
+  // are not what they clicked (`activeTab.set('plan')` in the Angular original, for the same reason).
+  const defaultTab = plan !== null ? PLAN_TAB : resultSets.length > 0 ? '0' : MESSAGES_TAB;
+  const tabValues = [
+    ...resultSets.map((_, index) => String(index)),
+    MESSAGES_TAB,
+    HISTORY_TAB,
+    ...(plan === null ? [] : [PLAN_TAB]),
+    ...(analysisOffered ? [ANALYSIS_TAB] : []),
+  ];
   const active =
     selected !== null && selected.forResult === result && tabValues.includes(selected.value)
       ? selected.value
       : defaultTab;
+  const analysisIndex =
+    analysisPick !== null && analysisPick.forResult === result ? analysisPick.index : 0;
   const showingSnapshot = viewing !== null && viewing.forResult === result;
   const inspecting =
     rowDetail !== null &&
@@ -283,7 +328,11 @@ export const QueryResults = memo(function QueryResults({
       <div className="flex min-h-0 grow">
         <Tabs
           value={active}
-          onValueChange={value => setSelected({ forResult: result, value })}
+          onValueChange={value => {
+            setSelected({ forResult: result, value });
+            const index = Number(value);
+            if (Number.isInteger(index)) setAnalysisPick({ forResult: result, index });
+          }}
           className="flex min-w-0 min-h-0 grow flex-col"
           data-testid="query-results"
         >
@@ -314,6 +363,26 @@ export const QueryResults = memo(function QueryResults({
               <History className="size-3.5 shrink-0 stroke-fg-muted" aria-hidden />
               History
             </TabsTrigger>
+            {plan === null ? null : (
+              <TabsTrigger
+                value={PLAN_TAB}
+                data-testid="query-results-tab-plan"
+                className="font-mono text-2xs tracking-eyebrow uppercase"
+              >
+                <Network className="size-3.5 shrink-0 stroke-fg-muted" aria-hidden />
+                Plan
+              </TabsTrigger>
+            )}
+            {analysisOffered ? (
+              <TabsTrigger
+                value={ANALYSIS_TAB}
+                data-testid="query-results-tab-analysis"
+                className="font-mono text-2xs tracking-eyebrow uppercase"
+              >
+                <Sparkles className="size-3.5 shrink-0 stroke-fg-muted" aria-hidden />
+                Analysis
+              </TabsTrigger>
+            ) : null}
           </TabsList>
 
           {resultSets.map((resultSet, index) => (
@@ -341,6 +410,20 @@ export const QueryResults = memo(function QueryResults({
               onView={viewSnapshot}
             />
           </TabsContent>
+          {plan === null ? null : (
+            <TabsContent value={PLAN_TAB} className="flex min-h-0 grow flex-col">
+              <ExecutionPlanView root={plan.root} summary={plan.summary} kind={plan.kind} />
+            </TabsContent>
+          )}
+          {analysisOffered ? (
+            <TabsContent value={ANALYSIS_TAB} className="flex min-h-0 grow flex-col">
+              {/* The result set the pane is SHOWING, not `resultSets[0]`: on a multi-statement batch the
+                  user is looking at one of them, and analysing a different one would answer about rows
+                  that are not on screen. Falls back to the first set when a non-grid tab is active,
+                  which is the only sensible reading of "these results" from Messages. */}
+              <AiAnalysisPanel sql={sql} resultSet={resultSets[analysisIndex] ?? null} />
+            </TabsContent>
+          ) : null}
         </Tabs>
 
         {inspecting === null ? null : (

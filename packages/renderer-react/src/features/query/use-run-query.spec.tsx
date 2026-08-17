@@ -195,7 +195,7 @@ describe('the placeholder prompt', () => {
 
     // The run is STARTED inside an async act, which flushes far enough for the prompt's state update to
     // commit — and no further, because the sequence is now parked on the prompt's promise.
-    let run: Promise<void> | undefined;
+    let run: Promise<unknown> | undefined;
     let settled = false;
     await act(async () => {
       run = api()
@@ -225,7 +225,7 @@ describe('the placeholder prompt', () => {
     const { api, unmount } = mountHook();
     teardowns.push(unmount);
 
-    let run: Promise<void> | undefined;
+    let run: ReturnType<RunQuery['run']> | undefined;
     await act(async () => {
       run = api().run(context({ sql: 'SELECT ${schema}' }));
     });
@@ -245,7 +245,7 @@ describe('the placeholder prompt', () => {
     const { api, unmount } = mountHook();
     teardowns.push(unmount);
 
-    let run: Promise<void> | undefined;
+    let run: ReturnType<RunQuery['run']> | undefined;
     await act(async () => {
       run = api().run(context({ sql: 'SELECT ${schema}' }));
     });
@@ -275,7 +275,7 @@ describe('the placeholder prompt', () => {
     const { api, unmount } = mountHook();
     teardowns.push(unmount);
 
-    let first: Promise<void> | undefined;
+    let first: ReturnType<RunQuery['run']> | undefined;
     await act(async () => {
       first = api().run(context({ sql: 'SELECT ${schema}' }));
     });
@@ -316,7 +316,7 @@ describe('the placeholder prompt', () => {
     const { api, unmount } = mountHook();
     teardowns.push(unmount);
 
-    let run: Promise<void> | undefined;
+    let run: ReturnType<RunQuery['run']> | undefined;
     await act(async () => {
       run = api().run(context({ sql: 'SELECT ${schema}' }));
     });

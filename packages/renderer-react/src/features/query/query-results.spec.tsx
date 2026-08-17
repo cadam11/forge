@@ -6,9 +6,11 @@
 
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
-import { DEFAULT_SETTINGS, type QueryResult } from '@joinery/shared';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_AI_SETTINGS, DEFAULT_SETTINGS, type QueryResult } from '@joinery/shared';
 import { TooltipProvider } from '../../ui';
+import { aiStore } from '../../state/ai';
+import { queryPlanStore, type PlanState } from '../../state/query-plan';
 import { settingsStore } from '../../state/settings';
 
 // jsdom has no layout, so a real AG Grid renders a header and no rows — see `results-grid.spec.tsx`.
@@ -180,5 +182,84 @@ describe('counts and truncation', () => {
     } finally {
       settingsStore.setState({ settings: DEFAULT_SETTINGS });
     }
+  });
+});
+
+/**
+ * Task 19b's two tabs. Both are conditional, and each condition is a claim worth pinning: a Plan tab
+ * belongs to ONE result, and an Analysis tab exists only while the user has left that feature on.
+ */
+describe('the plan and analysis tabs', () => {
+  const plan: PlanState = {
+    forResult: success(),
+    engine: 'postgresql',
+    kind: 'estimated',
+    root: { type: 'Seq Scan', object: 'customers', costPercent: 100, extra: [], children: [] },
+    summary: { totalCost: 12, warnings: [] },
+    sql: 'SELECT * FROM customers',
+  };
+
+  afterEach(() => {
+    queryPlanStore.setState({ plans: new Map() });
+    aiStore.setState({ settings: { ...DEFAULT_AI_SETTINGS } });
+  });
+
+  it('offers no Plan tab until a plan has been asked for', () => {
+    renderPane(<QueryResults result={success()} executing={false} tabId={TAB_ID} />);
+    expect(screen.queryByTestId('query-results-tab-plan')).toBeNull();
+  });
+
+  it('lands on the Plan tab when a plan arrives, because that is what was asked for', () => {
+    queryPlanStore.setState({ plans: new Map([[TAB_ID, plan]]) });
+    renderPane(<QueryResults result={plan.forResult} executing={false} tabId={TAB_ID} />);
+
+    expect(screen.queryByTestId('query-results-tab-plan')).not.toBeNull();
+    expect(screen.getByTestId('execution-plan')).toBeTruthy();
+    expect(screen.getByTestId('plan-node-type').textContent).toBe('Seq Scan');
+  });
+
+  it('retires the Plan tab when the tab’s result changes, with no invalidation call', () => {
+    // The Angular `planData` signal was cleared only by the NEXT plan request, so an ordinary Execute
+    // left a Plan tab up showing the previous statement's plan.
+    queryPlanStore.setState({ plans: new Map([[TAB_ID, plan]]) });
+    renderPane(
+      <QueryResults result={success({ queryId: 'query-2' })} executing={false} tabId={TAB_ID} />
+    );
+    expect(screen.queryByTestId('query-results-tab-plan')).toBeNull();
+  });
+
+  it('offers the Analysis tab while the feature is on, and not when it is off', () => {
+    const shown = renderPane(<QueryResults result={success()} executing={false} tabId={TAB_ID} />);
+    // On by default, and NOT gated on the master AI switch — the panel's own "Set up AI" degrade is for
+    // exactly the user who has not configured a provider.
+    expect(screen.queryByTestId('query-results-tab-analysis')).not.toBeNull();
+    shown.unmount();
+
+    aiStore.setState({
+      settings: {
+        ...DEFAULT_AI_SETTINGS,
+        features: { ...DEFAULT_AI_SETTINGS.features, analysisEnabled: false },
+      },
+    });
+    renderPane(<QueryResults result={success()} executing={false} tabId={TAB_ID} />);
+    expect(screen.queryByTestId('query-results-tab-analysis')).toBeNull();
+  });
+
+  it('analyses the result set the user was reading, not always the first of a batch', async () => {
+    renderPane(
+      <QueryResults
+        result={success({ resultSets: [resultSet(2, ['a']), resultSet(2, ['b'])] })}
+        executing={false}
+        tabId={TAB_ID}
+      />
+    );
+
+    // Read the second result set, then switch to Analysis. Deriving the target from the ACTIVE tab
+    // cannot work — clicking Analysis makes Analysis active — so the last numeric pick is remembered.
+    await userEvent.click(screen.getAllByTestId('query-results-tab')[1] as HTMLElement);
+    await userEvent.click(screen.getByTestId('query-results-tab-analysis'));
+    // No provider is configured in this spec, so the panel shows its degrade — which is enough to prove
+    // it mounted with a result set rather than with `null`.
+    expect(screen.queryByTestId('analysis-no-provider')).not.toBeNull();
   });
 });

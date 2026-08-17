@@ -48,6 +48,7 @@ function handlers(isActive = true): {
       onToggleResults: record('toggle-results'),
       onInsertSnippet: sql => calls.push(`insert:${sql}`),
       onConvertSql: engine => calls.push(`convert:${engine}`),
+      onShowExecutionPlan: () => calls.push('plan'),
     },
   };
 }
@@ -69,8 +70,8 @@ describe('the ids this component claims', () => {
     const unhandled = OWNED_COMMANDS.filter(id => handlerCount(id) === 0);
     expect(unhandled).toEqual([]);
     // And the count, so deleting a `useCommand` line AND its registry claim in one edit still fails.
-    // Twelve from Task 10, plus Task 19a's three converter ids.
-    expect(OWNED_COMMANDS).toHaveLength(15);
+    // Twelve from Task 10, plus Task 19a's three converter ids, plus Task 19b's `show-execution-plan`.
+    expect(OWNED_COMMANDS).toHaveLength(16);
   });
 
   it('subscribes nothing else', () => {

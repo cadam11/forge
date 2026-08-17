@@ -305,6 +305,54 @@ export function selectAnalysisEnabled(state: SettingsSlice): boolean {
   return state.settings.enabled && state.settings.features.analysisEnabled;
 }
 
+/**
+ * The vendor an analysis request will actually reach, so a surface can NAME it before sending anything.
+ *
+ * Mirrors `ai-service.ts`'s `selectModelForFeature('analysis')`: an explicitly chosen `analysisModelId`
+ * decides it, and only when there is no such choice is it the highest-priority (lowest `priority`)
+ * enabled, keyed vendor. `null` when the vendor list has not loaded or nothing is usable — a caller must
+ * then say "your configured provider" rather than invent a name.
+ *
+ * **An explicit choice is never fallen back from, because main does not fall back from it either.**
+ * `getModelAndProvider` returns `{ model: null }` when the chosen model's vendor is disabled or de-keyed,
+ * and `analyzeResults` then answers "No AI provider configured" — nothing is sent to anybody. Nothing
+ * clears `features.analysisModelId` when a vendor is switched off, so that state is reachable; a fall-back
+ * to the priority list here would name a vendor that is not going to receive the request, which is worse
+ * than naming none.
+ *
+ * Duplicating main's rule is the cost of telling the user where their rows are going without a round trip
+ * to ask. It is one selector, it is tested against the same cases, and the alternative is a disclosure
+ * that names a provider main would not have used.
+ */
+export function selectAnalysisVendor(
+  state: Pick<AIStoreState, 'settings' | 'vendors'>
+): AIVendor | null {
+  const usable = (vendorId: string): boolean =>
+    state.settings.vendorSettings.some(
+      vs => vs.vendorId === vendorId && vs.enabled && vs.apiKeyConfigured
+    );
+
+  const modelId = state.settings.features.analysisModelId;
+  if (modelId !== null && modelId !== '') {
+    const owner = state.vendors.find(
+      vendor => vendor.models.some(model => model.id === modelId) && usable(vendor.id)
+    );
+    // No `??` fall-through past this point: an explicit choice that has gone stale means main sends
+    // nothing at all, so the honest answer here is "no vendor", not "some other vendor".
+    return owner ?? null;
+  }
+
+  // A copy before the sort: `vendorSettings` is store state, and `sort` mutates in place.
+  const byPriority = [...state.settings.vendorSettings]
+    .filter(vs => vs.enabled && vs.apiKeyConfigured)
+    .sort((a, b) => a.priority - b.priority);
+  for (const vendorSettings of byPriority) {
+    const vendor = state.vendors.find(candidate => candidate.id === vendorSettings.vendorId);
+    if (vendor !== undefined) return vendor;
+  }
+  return null;
+}
+
 export function selectQueryAssistEnabled(state: SettingsSlice): boolean {
   return state.settings.enabled && state.settings.features.queryAssistEnabled;
 }

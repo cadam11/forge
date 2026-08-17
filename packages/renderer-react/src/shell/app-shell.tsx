@@ -43,8 +43,10 @@ import { ErdCommands } from '../features/erd';
 import { CommandPalette } from '../features/command-palette';
 import { ConnectionDialogs } from '../features/connections';
 import { ObjectSearch } from '../features/object-search';
+import { TourHost } from '../features/onboarding';
 import { QueryHistoryHost } from '../features/query-history';
 import { RestoreDialogs } from '../features/restore';
+import { SchemaDiffHost } from '../features/schema-diff';
 import { SettingsDialog } from '../features/settings';
 import { ShortcutsDialog } from '../features/shortcuts-dialog';
 import { SnippetLibrary } from '../features/snippet-library';
@@ -255,6 +257,13 @@ function ShellFrame() {
           database-management commands, and it is the same arrangement as `BackupDialogs`: the targetless
           menu/palette entry resolves its server here, the sidebar's twins state theirs.
 
+          `SchemaDiffHost` is Task 19b's two, and it is the ERD arrangement again: the dialog's whole
+          output is a new query tab, so it cannot live inside one. `TourHost` is Task 19b's `start-tour`
+          plus the spotlight overlay it raises — one component, because the overlay is what the command
+          produces and nothing else may raise it. The Docker panel's command is the one exception to this
+          list: `open-docker-panel` is handled inside the status bar, because Radix needs the popover's
+          trigger and content in one tree and the status bar is never unmounted (`features/docker`).
+
           The four Task 16 surfaces are the same arrangement, and three of them own a keystroke of
           their own as well as a command — ⌘K/⇧⌘P for the palette, ⌘P for the object search, ⌥⌘S for the
           snippet library — because no menu item has those accelerators (`commands/catalogue.ts`). The
@@ -267,6 +276,8 @@ function ShellFrame() {
       <AiSetupHost />
       <QueryHistoryHost />
       <DatabaseDialogs />
+      <SchemaDiffHost />
+      <TourHost />
       <ConnectionDialogs />
       <BackupDialogs />
       <RestoreDialogs />

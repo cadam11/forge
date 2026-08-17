@@ -32,12 +32,12 @@
  * restyle of this file.
  */
 
-import { useEffect, useState } from 'react';
 import { ArrowRight, ArrowUpRight, BookOpen, GitBranch, Server, Sparkles } from 'lucide-react';
-import type { ConnectionProfile, DockerContainer, DockerStatus } from '@joinery/shared';
+import type { ConnectionProfile } from '@joinery/shared';
 
 import { dispatchCommand, handlerCount } from '../../commands';
 import { ipc, isIpcAvailable } from '../../ipc';
+import { useDocker } from '../docker';
 import { BrandMark } from '../../shell/sidebar/brand-mark';
 import { chatPanelStore } from '../../state/chat';
 import { connectionStore, useConnectionStore } from '../../state/connection';
@@ -123,13 +123,15 @@ function Hero() {
 /**
  * "See how it joins" — the guided tour's entry point.
  *
- * The tour itself is Task 19b, so `start-tour` is registered with that owner named and nothing is
- * subscribed yet. The button dispatches anyway — the moment 19b mounts its handler this becomes live
- * with no edit here — and says so when nobody answered.
+ * **Live since Task 19b**, with no edit to this file: `features/onboarding/TourHost` mounts the handler
+ * and the shell mounts that, so the dispatch below now raises the spotlight overlay. This is what the
+ * `handlerCount` check was designed for — 19a shipped the button dispatching into a registered-but-unowned
+ * channel and saying so, and 19b made it work by subscribing.
  *
- * The toast NAMES the owner, for the same reason a disabled palette row does (`Not wired yet — <owner>`,
- * `features/command-palette/command-palette.tsx:262`): "not in this build" invites the reader to wonder
- * whether it is coming, and `COMMAND_CONSUMERS['start-tour']` already answers that.
+ * The refusal branch is KEPT rather than deleted. It is not dead: the dev pages (`src/dev/`) render this
+ * surface without the shell's non-visual mounts, and any future build that drops `TourHost` gets a sentence
+ * instead of a button that does nothing. The toast NAMES the owner, for the same reason a disabled palette
+ * row does (`Not wired yet — <owner>`, `features/command-palette/command-palette.tsx:262`).
  *
  * `handlerCount`, not `dispatchCommand`'s return value: that boolean means "a handler CLAIMED it",
  * which only `menu-copy` ever does. The same reasoning the palette records at
@@ -277,51 +279,20 @@ function ActionCard({
 }
 
 /**
- * One line about Docker, or the empty string while the answer is unknown.
+ * One line about Docker, from the SAME query the status-bar pip and the Docker panel read.
  *
- * Fire-and-forget on mount and never retried: this is a decoration on a welcome screen, and the Docker
- * panel (Task 19b) is the surface that manages containers. A failure is silent to the user and logged —
- * Docker not being installed is the ordinary case, not an error worth a toast.
+ * Task 19a shipped this as a one-shot effect of its own, because the Docker surface did not exist yet and
+ * a third source of truth was better than an invented one. It exists now, so the effect is deleted:
+ * `useDocker()` is one cached pair of queries and `DockerPip.tooltip` is the sentence it produces. Three
+ * consumers, one fetch, one answer — and starting a container in the panel updates this line too, which
+ * an effect that ran once on mount could not do.
+ *
+ * Its old `filter(c => c.isSqlServer)` went with it: main sets that flag to `true` on every container it
+ * returns, so it was a no-op (`features/docker/docker-model.ts`, finding 1).
  */
 function useDockerSummary(): string {
-  // The browser-mode answer is the INITIAL state rather than the effect's first write: a synchronous
-  // `setState` in an effect body is a cascading render, and `react-hooks/set-state-in-effect` is right
-  // to refuse it — the value is knowable before the first paint.
-  const [summary, setSummary] = useState(() =>
-    isIpcAvailable() ? 'Checking Docker…' : 'Local containers unavailable'
-  );
-
-  useEffect(() => {
-    if (!isIpcAvailable()) return;
-    let live = true;
-    void (async () => {
-      try {
-        const status: DockerStatus = await ipc().docker.detect();
-        if (!live) return;
-        if (!status.isAvailable) {
-          setSummary('Docker is not running');
-          return;
-        }
-        const containers: DockerContainer[] = await ipc().docker.getContainers();
-        if (!live) return;
-        const databases = containers.filter(container => container.isSqlServer);
-        const running = databases.filter(container => container.state === 'running').length;
-        setSummary(
-          databases.length === 0
-            ? 'No database containers'
-            : `${running}/${databases.length} database containers running`
-        );
-      } catch (error) {
-        if (live) setSummary('Docker is not available');
-        diagnostics.warn('the welcome tab could not read Docker status', error);
-      }
-    })();
-    return () => {
-      live = false;
-    };
-  }, []);
-
-  return summary;
+  const { pip } = useDocker();
+  return isIpcAvailable() ? pip.tooltip : 'Local containers unavailable';
 }
 
 // ── Recent connections ─────────────────────────────────────────────────────────────────────

@@ -119,17 +119,21 @@ test.describe('Joinery — the command palette', () => {
 
   test('shows an unowned command disabled, naming the task that owes it', async () => {
     await withJoineryReact(async ({ window }) => {
+      // The server-properties surface has no consumer yet. The palette lists it — hiding it would teach
+      // the user nothing — and marks it inert with the owner the registry names. This is J-44's rule
+      // applied to commands, and it is what the ten dead Angular entries needed.
+      //
+      // The row this test needs is a command that is unowned AND whose precondition is MET, because
+      // `unavailable` (a requirement not met) is reported ahead of `unowned`. It was
+      // `open-query-history` until Task 19a shipped that dialog, then `start-tour` until Task 19b shipped
+      // the tour — and both of those needed nothing. Every id still unowned carries `NEEDS_CONNECTION`,
+      // so this test now connects first, which is a stronger check anyway: it proves the two states are
+      // reported in the documented order rather than avoiding the question.
+      await connected(window);
       await openPalette(window);
 
-      // The guided tour has no consumer until Task 19b. The palette lists it — hiding it would teach the
-      // user nothing — and marks it inert with the owner the registry names. This is J-44's rule applied
-      // to commands, and it is what the ten dead Angular entries needed.
-      //
-      // It was `open-query-history` until Task 19a shipped that dialog. The row this test needs is a
-      // command that is unowned AND has no precondition, because `unavailable` (a requirement not met)
-      // is reported ahead of `unowned` — `start-tour` is the one such id.
-      expect(await paletteRowState(window, 'command:start-tour')).toBe('unowned');
-      const row = paletteRow(window, 'command:start-tour');
+      expect(await paletteRowState(window, 'command:show-server-properties')).toBe('unowned');
+      const row = paletteRow(window, 'command:show-server-properties');
       await expect(row).toHaveAttribute('data-disabled', 'true');
       await expect(row).toContainText('Not wired yet');
       await expect(row).toContainText(/Task \d+/);

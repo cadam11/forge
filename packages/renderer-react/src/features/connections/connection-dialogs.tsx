@@ -57,10 +57,23 @@ type View =
       readonly kind: 'editor';
       /** The profile being edited, or `undefined` for a create. */
       readonly profile?: ConnectionProfile;
+      /**
+       * Server and port to start a CREATE from — Task 19b's Docker panel, through
+       * `connect-to-container`. Never set alongside `profile`: an existing profile already has both, and
+       * the editor's `defaultValues` ignores the prefill when it is editing one.
+       */
+      readonly prefill?: { readonly server: string; readonly port: number };
       readonly returnToManager: boolean;
     };
 
 const CLOSED: View = { kind: 'none' };
+
+/** A remount key for a prefilled create. `'new'` when there is nothing prefilled. */
+function prefillKey(
+  prefill: { readonly server: string; readonly port: number } | undefined
+): string {
+  return prefill === undefined ? 'new' : `new:${prefill.server}:${prefill.port}`;
+}
 
 export function ConnectionDialogs() {
   const [view, setView] = useState<View>(CLOSED);
@@ -78,6 +91,9 @@ export function ConnectionDialogs() {
   useCommand('open-connection-dialog', () => setView({ kind: 'editor', returnToManager: false }));
   useCommand('open-connection-manager', () => setView({ kind: 'manager' }));
   useCommand('edit-connection', ({ connectionId }) => openEditorOn(connectionId, false));
+  useCommand('connect-to-container', ({ server, port }) =>
+    setView({ kind: 'editor', prefill: { server, port }, returnToManager: false })
+  );
 
   if (view.kind === 'none') return null;
 
@@ -101,9 +117,11 @@ export function ConnectionDialogs() {
   return (
     <ConnectionEditor
       // Remounts when the target changes, so `useForm` re-reads `defaultValues` instead of keeping
-      // the previous profile's.
-      key={view.profile?.id ?? 'new'}
+      // the previous profile's — and the PREFILL is part of the target, or opening the editor for one
+      // Docker container and then for another would show the first container's port.
+      key={view.profile?.id ?? prefillKey(view.prefill)}
       profile={view.profile}
+      prefill={view.prefill}
       onDismiss={back}
       onSaved={(_saved, connected) => {
         // A successful Connect has just opened a server node behind the dialog; dropping the user
