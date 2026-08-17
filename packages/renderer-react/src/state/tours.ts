@@ -189,7 +189,3 @@ export function selectNextTour(state: ToursSlice): Tour | null {
   if (nextId === undefined || state.completed.includes(nextId)) return null;
   return state.tours[nextId] ?? null;
 }
-
-export function selectIsCompleted(tourId: string) {
-  return (state: Pick<ToursState, 'completed'>): boolean => state.completed.includes(tourId);
-}

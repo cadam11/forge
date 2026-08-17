@@ -64,10 +64,6 @@ export function engineOf(image: string): ContainerEngine {
   return 'unknown';
 }
 
-export function engineLabel(engine: ContainerEngine): string {
-  return ENGINE_LABELS[engine];
-}
-
 /** One container, as the panel needs it. */
 export interface ContainerRow {
   readonly id: string;
