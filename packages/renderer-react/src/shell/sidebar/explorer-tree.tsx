@@ -20,12 +20,12 @@
  *    (`:869-875`) while `onNodeDoubleClick` toggled again (`:877-881`), so a double-click on a
  *    folder toggled twice and appeared to do nothing. Here a click selects, the twisty or a
  *    double-click expands, and Enter activates — the model the `Tree` primitive documents.
- * 2. **Expansion is read from `node.isExpanded`, not from `expandedNodeIds`.** The store keeps
- *    both, and they can disagree: `refreshNode` sets `isExpanded: true` without touching the id
- *    set (`state/explorer.ts:625`), and `renameDatabaseNodeLocal` clears the flag while leaving
- *    the id in place. The per-node flag is the one every store action maintains, so it is the one
- *    this reads. (`expandedNodeIds` is still the right thing for Task 5 persistence, which needs
- *    a flat set.)
+ * 2. **Expansion is read from `node.isExpanded`, which is now the ONLY place it lives.** The store
+ *    used to keep a parallel `expandedNodeIds` set as well, and the two could disagree —
+ *    `refreshNode` set the flag without adding to the set, and `renameDatabaseNodeLocal` cleared
+ *    the flag while leaving the id in it. Nothing but one unit-test assertion ever read the set
+ *    (Task 5's persistence, which it was speculatively added for, does not), so Task 20 deleted it
+ *    rather than leave two copies of one fact that had already drifted apart.
  */
 
 import { useCallback, useMemo, type RefObject } from 'react';

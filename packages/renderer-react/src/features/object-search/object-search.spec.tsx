@@ -22,7 +22,7 @@ import { COMMAND_IDS } from '../../commands/registry';
 import { IpcQueryProvider } from '../../ipc';
 import { connectionStore } from '../../state/connection';
 import { setDiagnosticsSink, setNotifier } from '../../state/diagnostics';
-import { explorerStore } from '../../state/explorer';
+import { explorerStore, selectNodeById } from '../../state/explorer';
 import { tabStore } from '../../state/tab';
 import { useWorkbenchStore, workbenchStore } from '../../state/workbench';
 import { installJoineryMock } from '../../test/joinery-mock';
@@ -277,9 +277,14 @@ describe('the object search', () => {
     expect(explorerStore.getState().selectedNodeId).toBe(
       `obj-${CONNECTION}-${DATABASE}-public.orders`
     );
-    expect(explorerStore.getState().expandedNodeIds).toContain(
-      `folder-${CONNECTION}-${DATABASE}-public-tables`
-    );
+    // Asserted on the node's own `isExpanded`, which is what the tree reads. It used to read the
+    // store's `expandedNodeIds` set — a second copy of the same fact that Task 20 deleted, because
+    // nothing but this line consumed it and it could disagree with the flag (`renameDatabaseNodeLocal`
+    // clears `isExpanded` and never touched the set).
+    expect(
+      selectNodeById(`folder-${CONNECTION}-${DATABASE}-public-tables`)(explorerStore.getState())
+        ?.isExpanded
+    ).toBe(true);
     await waitFor(() => expect(screen.queryByTestId('objsearch-overlay')).toBeNull());
   });
 

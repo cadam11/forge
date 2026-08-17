@@ -249,6 +249,17 @@ test.describe('Joinery (React) — create and rename database', () => {
       //    tab's completion prefetch read it, and only `EXPLORER.REFRESH_NODE` drops it.
       await refreshSidebar(window);
 
+      //    And the refresh's own observable proof, which is also step 4's precondition: the table is
+      //    now in the tree, so main's list for this database has been re-read. `refreshSidebar` has no
+      //    busy state to await (see its comment) — it used to end in a `waitForTimeout(1_000)`, which
+      //    this replaces with the bounded assertion the sleep was standing in for. Without a gate here
+      //    the diagram request below can go out before the cache drop lands, and the empty diagram it
+      //    would then cache makes step 4 fail for a reason that has nothing to do with staleness.
+      await expandTreeRow(window, probe);
+      await expandTreeRow(window, 'public');
+      await expandTreeRow(window, 'Tables');
+      await expect(treeRow(window, 'probe_t')).toBeVisible({ timeout: 20_000 });
+
       // 4. so the diagram can see the table — and caching a NON-EMPTY diagram under this name is the
       //    whole point of the steps above.
       await openDatabaseDiagram(window);

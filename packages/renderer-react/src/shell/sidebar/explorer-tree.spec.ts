@@ -7,8 +7,9 @@
  *  - `children: undefined` versus `children: []`. The primitive reads the first as "not fetched"
  *    and the second as "fetched and empty"; collapsing the two would either make a loaded-empty
  *    folder look expandable forever or make an unfetched one look like a leaf.
- *  - expansion comes from `node.isExpanded`, not from the store's `expandedNodeIds` set. The two
- *    can disagree, and the test below is the disagreement.
+ *  - expansion comes from `node.isExpanded`, which since Task 20 is the only place the store keeps
+ *    it. The test below outlives the `expandedNodeIds` set it was written against, because what it
+ *    actually pins is that the mapper reads the per-node flag.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -50,9 +51,10 @@ describe('mapExplorerTree', () => {
   });
 
   it('reads expansion from the per-node flag the store always maintains', () => {
-    // The divergence: `refreshNode` sets `isExpanded: true` without adding the id to
-    // `expandedNodeIds` (state/explorer.ts), and `renameDatabaseNodeLocal` clears the flag while
-    // leaving the id in the set. Reading the flag is what makes both cases render correctly.
+    // The flag is what every store action maintains — `refreshNode` sets it, `collapseNode` and
+    // `renameDatabaseNodeLocal` clear it — so reading it is what makes every case render correctly.
+    // Before Task 20 there was also a parallel `expandedNodeIds` set that these two actions did not
+    // keep in step; deleting it is why this test now has only one source of truth to check.
     const { expandedIds } = mapExplorerTree([
       node({
         id: 'db-1',
