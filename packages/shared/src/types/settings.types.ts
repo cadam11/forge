@@ -54,7 +54,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
     fontSize: 13,
     tabSize: 4,
     wordWrap: false,
-    minimap: true,
+    // Default off: Angular renderer hardcoded minimap off despite a decorative toggle;
+    // defaulting true here would silently flip behavior for every existing user now that
+    // React honors the setting. false preserves shipped visual parity (J-44).
+    minimap: false,
     lineNumbers: true,
     autoComplete: true,
   },
