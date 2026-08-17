@@ -643,7 +643,11 @@ export const COMMAND_CATALOGUE: { [Id in CommandId]: CatalogueEntry<Id> } = {
 
   'show-execution-plan': {
     label: 'Show execution plan',
-    hint: 'Ask the engine how it would run the statement in front of you',
+    // "would run" was a lie on one of the three engines: SQL Server reports a plan only for a statement
+    // it has RUN (`features/query/execution-plan.ts`), so the palette promised a free look at something
+    // that executes. The hint covers both cases the way the toolbar's tooltip does, and names the
+    // confirmation so the honest version does not read as a warning with no way out.
+    hint: 'Ask the engine how it runs this statement — on SQL Server that runs it, and you are asked first',
     group: 'query',
     icon: Workflow,
     accelerator: null,
