@@ -41,6 +41,15 @@
  * offers no checkbox and says where the switch is instead. A "don't ask again" tick on the permanent
  * gate would be a second, hidden way to turn a setting off — the state would then disagree with the
  * switch that is still showing "on". The plan gate offers no tick either, for the reason above.
+ *
+ * ── The plan gate SHOWS the statement, and the other two do not ─────────────────────────────
+ *
+ * The plan gate can be raised by the command palette, and the statement it will run is whatever the
+ * caret or the selection resolved to — which on a whole-buffer fallback is not necessarily the line the
+ * user is looking at. Consenting to "run this" without being shown what "this" is is not consent, so the
+ * plan gate prints the statement (first `PLAN_SQL_PREVIEW_LINES` lines, with the rest counted rather than
+ * hidden). The ⌃E and `always` gates do not, and deliberately: both are raised by the user's own Execute,
+ * a keystroke or a click away from the editor they just typed it into.
  */
 
 import { keyHint } from '../../utils/platform';
@@ -72,10 +81,24 @@ import { useRef, useState } from 'react';
  */
 export type ExecuteGate = 'ctrl-e' | 'always' | 'actual-plan';
 
+/**
+ * How many lines of the statement the plan gate prints before it counts the remainder.
+ *
+ * Three is enough to recognise a statement by — the verb, its target, and the start of its predicate —
+ * without turning a modal into a scrolling editor. The count of what is left is what stops the preview
+ * from being a lie by omission.
+ */
+export const PLAN_SQL_PREVIEW_LINES = 3;
+
 export interface ConfirmExecuteDialogProps {
   readonly open: boolean;
   /** Which confirmation this is. Decides the copy and whether "Don't ask me again" is offered. */
   readonly gate: ExecuteGate;
+  /**
+   * The statement being consented to. Rendered by the `actual-plan` gate and by no other — see the file
+   * header. Required rather than optional so a caller cannot forget it on the one gate that shows it.
+   */
+  readonly sql: string;
   /** Closed without executing — backdrop, Escape, or Cancel. */
   readonly onCancel: () => void;
   /**
@@ -94,9 +117,25 @@ export interface ConfirmExecuteDialogProps {
   readonly onReturnFocus: () => void;
 }
 
+/**
+ * The first few lines of a statement, and how many were left out. Pure, so the truncation is testable
+ * without a render.
+ */
+export function planSqlPreview(sql: string): { readonly text: string; readonly moreLines: number } {
+  const lines = sql.trim().split('\n');
+  if (lines.length <= PLAN_SQL_PREVIEW_LINES) {
+    return { text: lines.join('\n'), moreLines: 0 };
+  }
+  return {
+    text: lines.slice(0, PLAN_SQL_PREVIEW_LINES).join('\n'),
+    moreLines: lines.length - PLAN_SQL_PREVIEW_LINES,
+  };
+}
+
 export function ConfirmExecuteDialog({
   open,
   gate,
+  sql,
   onCancel,
   onConfirm,
   onReturnFocus,
@@ -118,6 +157,7 @@ export function ConfirmExecuteDialog({
   const shortcut = keyHint('E');
   const oneTime = gate === 'ctrl-e';
   const forPlan = gate === 'actual-plan';
+  const preview = planSqlPreview(sql);
 
   return (
     <Dialog open={open} onOpenChange={next => (next ? undefined : onCancel())}>
@@ -150,6 +190,27 @@ export function ConfirmExecuteDialog({
                 : 'This runs against the connected database. Settings ▸ Query is where to stop being asked.'}
           </DialogDescription>
         </DialogHeader>
+        {forPlan ? (
+          <DialogBody>
+            <pre
+              data-testid="query-confirm-execute-sql"
+              className={
+                'max-h-32 overflow-auto rounded-sm border border-rule bg-canvas p-2 font-mono ' +
+                'text-sm whitespace-pre-wrap text-fg'
+              }
+            >
+              {preview.text}
+            </pre>
+            {preview.moreLines === 0 ? null : (
+              <p
+                data-testid="query-confirm-execute-sql-more"
+                className="mt-1 text-sm text-fg-subtle"
+              >
+                … {preview.moreLines} more {preview.moreLines === 1 ? 'line' : 'lines'}
+              </p>
+            )}
+          </DialogBody>
+        ) : null}
         {oneTime ? (
           <DialogBody>
             <Checkbox

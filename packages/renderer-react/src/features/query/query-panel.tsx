@@ -292,6 +292,13 @@ export function QueryPanel(props: IDockviewPanelProps) {
    *
    * A failure leaves NO plan: `forgetTab` first, so a refusal cannot leave the previous statement's Plan
    * tab on screen looking like an answer to this one.
+   *
+   * **A plan request therefore appears in the query history like any other run, and that is accepted.**
+   * The alternative is a run the execution store does not know about, which is the Angular arrangement and
+   * is precisely why its Cancel button did nothing during a plan request. History is the visible cost of
+   * an in-flight run being cancellable; a `SET STATISTICS PROFILE` row in the history is also a true record
+   * of something that really did execute against the database, so hiding it would be the less honest half
+   * of the trade.
    */
   const runPlan = useCallback(
     (planSql: string, statement: string): void => {
@@ -325,6 +332,13 @@ export function QueryPanel(props: IDockviewPanelProps) {
    * The selection wins over the whole buffer, as it does for Execute — a plan for a highlighted statement
    * inside a script is the common case. `planRequestFor` decides both the wrapper and whether sending it
    * has consequences; when it does (MSSQL only), the confirmation comes first.
+   *
+   * **`confirmBeforeExecute` is NOT consulted here, and that is deliberate.** On PostgreSQL and MySQL an
+   * `EXPLAIN` mutates nothing and returns no rows of the user's own, so the setting's question — "you are
+   * about to change data on a live database, are you sure?" — has no subject. On MSSQL the statement DOES
+   * run, and that path is gated regardless of the setting by `actual-plan`, which is the stronger
+   * confirmation of the two (it cannot be switched off). So there is no engine on which asking here would
+   * add a decision the user is not already being given.
    */
   const showExecutionPlan = useCallback((): void => {
     if (engine === undefined) {
@@ -561,6 +575,12 @@ export function QueryPanel(props: IDockviewPanelProps) {
         // `pendingRun !== null` — and it is a default rather than a non-null assertion so that a closed
         // dialog still type-checks without one.
         gate={pendingRun?.gate ?? 'ctrl-e'}
+        // The plan gate shows what it is about to run, and what it shows is the user's STATEMENT rather
+        // than the `SET STATISTICS PROFILE` wrapper around it: the wrapper is this app's diagnostic
+        // scaffolding, and the thing being consented to is the statement inside it. The other two gates
+        // do not render this at all (see `ConfirmExecuteDialog`'s header), so `sql` is what they would
+        // have sent.
+        sql={pendingRun?.planFor ?? pendingRun?.sql ?? ''}
         // Focus goes back to the editor either way — see `onReturnFocus`. It has to be Radix's
         // close-autofocus hook rather than a `focus()` inside these handlers: Radix moves focus AFTER
         // they run, so an earlier call is simply overridden.

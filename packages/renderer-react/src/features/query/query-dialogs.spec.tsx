@@ -22,6 +22,7 @@ import { PlaceholderDialog } from './placeholder-dialog';
  */
 const confirmProps = () => ({
   gate: 'ctrl-e' as const,
+  sql: 'SELECT 1;',
   onCancel: () => undefined,
   onConfirm: () => undefined,
   onReturnFocus: () => undefined,
@@ -152,6 +153,78 @@ describe('the confirm-before-every-execute gate', () => {
   it('names which gate it is, for the suites', () => {
     render(<ConfirmExecuteDialog open {...alwaysProps()} />);
     expect(screen.getByTestId('query-confirm-execute').getAttribute('data-gate')).toBe('always');
+  });
+});
+
+/*
+ * The third gate: an MSSQL execution plan RUNS the statement.
+ *
+ * What these assert beyond the copy is the statement being ON SCREEN. This gate can be raised from the
+ * command palette, and what it runs is whatever the caret or the selection resolved to — so without the
+ * preview a user could consent to a `DELETE` two screens up from the one they were reading. Consent to
+ * "run this" requires being shown what "this" is.
+ */
+describe('the actual-plan gate', () => {
+  const planProps = (sql: string) => ({
+    ...confirmProps(),
+    gate: 'actual-plan' as const,
+    sql,
+  });
+
+  it('says SQL Server has to run the statement, and offers no "don’t ask again"', () => {
+    render(<ConfirmExecuteDialog open {...planProps('DELETE FROM orders WHERE id = 4;')} />);
+
+    const dialog = screen.getByTestId('query-confirm-execute');
+    expect(dialog.getAttribute('data-gate')).toBe('actual-plan');
+    expect(dialog.textContent).toContain('SQL Server');
+    expect(screen.getByTestId('query-confirm-execute-run').textContent).toBe('Run and show plan');
+    // The consequence is per-statement: "show me the plan for this DELETE" has to be a decision each time.
+    expect(screen.queryByTestId('query-confirm-execute-remember')).toBeNull();
+  });
+
+  it('shows the statement it is about to run', () => {
+    render(<ConfirmExecuteDialog open {...planProps('DELETE FROM orders WHERE id = 4;')} />);
+
+    expect(screen.getByTestId('query-confirm-execute-sql').textContent).toBe(
+      'DELETE FROM orders WHERE id = 4;'
+    );
+    // Nothing is elided when there is nothing to elide.
+    expect(screen.queryByTestId('query-confirm-execute-sql-more')).toBeNull();
+  });
+
+  it('truncates a long statement and COUNTS what it left out', () => {
+    const sql = [
+      'DELETE FROM orders',
+      'WHERE id IN (',
+      '  SELECT order_id',
+      '  FROM refunds',
+      ')',
+    ].join('\n');
+    render(<ConfirmExecuteDialog open {...planProps(sql)} />);
+
+    const shown = screen.getByTestId('query-confirm-execute-sql').textContent ?? '';
+    expect(shown).toBe('DELETE FROM orders\nWHERE id IN (\n  SELECT order_id');
+    expect(shown).not.toContain('FROM refunds');
+    // Elided, not hidden: five lines, three shown, and the dialog says so.
+    expect(screen.getByTestId('query-confirm-execute-sql-more').textContent).toContain(
+      '2 more lines'
+    );
+  });
+
+  it('counts one leftover line in the singular', () => {
+    render(
+      <ConfirmExecuteDialog open {...planProps('SELECT 1\nUNION ALL\nSELECT 2\nORDER BY 1')} />
+    );
+    expect(screen.getByTestId('query-confirm-execute-sql-more').textContent).toContain(
+      '1 more line'
+    );
+  });
+
+  it('shows no statement on the other two gates', () => {
+    // Both are raised by the user's own Execute, a keystroke from the editor they typed it into — and the
+    // ⌃E dialog's job is explaining a SHORTCUT, which a wall of SQL would bury.
+    render(<ConfirmExecuteDialog open {...confirmProps()} />);
+    expect(screen.queryByTestId('query-confirm-execute-sql')).toBeNull();
   });
 });
 
