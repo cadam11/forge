@@ -1,7 +1,7 @@
 /**
  * Multi-provider LLM abstraction with streaming + tool calling
  *
- * Supports: Google Gemini, Anthropic, OpenAI, Groq, Cerebras
+ * Supports: Google Gemini, Anthropic, OpenAI, Groq, Cerebras, OpenRouter
  * All providers stream responses via callbacks and support function calling.
  */
 
@@ -162,7 +162,9 @@ export class GeminiStreamProvider implements LLMProvider {
     callbacks.onComplete();
   }
 
-  private buildContents(messages: ChatMessage[]): Array<{ role: string; parts: Array<Record<string, unknown>> }> {
+  private buildContents(
+    messages: ChatMessage[]
+  ): Array<{ role: string; parts: Array<Record<string, unknown>> }> {
     const contents: Array<{ role: string; parts: Array<Record<string, unknown>> }> = [];
 
     for (const msg of messages) {
@@ -171,19 +173,26 @@ export class GeminiStreamProvider implements LLMProvider {
       if (msg.role === 'tool') {
         // Gemini expects functionResponse.response to be a plain object (not array)
         let parsed: unknown;
-        try { parsed = JSON.parse(msg.content); } catch { parsed = msg.content; }
+        try {
+          parsed = JSON.parse(msg.content);
+        } catch {
+          parsed = msg.content;
+        }
         // Wrap arrays and primitives in an object
-        const responseObj = (parsed && typeof parsed === 'object' && !Array.isArray(parsed))
-          ? parsed as Record<string, unknown>
-          : { result: parsed };
+        const responseObj =
+          parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+            ? (parsed as Record<string, unknown>)
+            : { result: parsed };
         contents.push({
           role: 'function',
-          parts: [{
-            functionResponse: {
-              name: msg.toolName || 'unknown',
-              response: responseObj,
+          parts: [
+            {
+              functionResponse: {
+                name: msg.toolName || 'unknown',
+                response: responseObj,
+              },
             },
-          }],
+          ],
         });
         continue;
       }
@@ -228,11 +237,13 @@ export class AnthropicStreamProvider implements LLMProvider {
         if (m.role === 'tool') {
           return {
             role: 'user' as const,
-            content: [{
-              type: 'tool_result' as const,
-              tool_use_id: m.toolCallId || 'unknown',
-              content: m.content,
-            }],
+            content: [
+              {
+                type: 'tool_result' as const,
+                tool_use_id: m.toolCallId || 'unknown',
+                content: m.content,
+              },
+            ],
           };
         }
         if (m.role === 'assistant' && m.toolCalls?.length) {
@@ -306,7 +317,11 @@ export class AnthropicStreamProvider implements LLMProvider {
           } else if (event.type === 'content_block_stop') {
             if (currentToolCall) {
               let args: Record<string, unknown> = {};
-              try { args = JSON.parse(currentToolCall.argsJson); } catch { /* empty */ }
+              try {
+                args = JSON.parse(currentToolCall.argsJson);
+              } catch {
+                /* empty */
+              }
               callbacks.onToolCall({
                 id: currentToolCall.id,
                 name: currentToolCall.name,
@@ -327,15 +342,35 @@ export class AnthropicStreamProvider implements LLMProvider {
   }
 }
 
-// ---- OpenAI-compatible Provider (OpenAI, Groq, Cerebras) ----
+// ---- OpenRouter constants ----
+
+/**
+ * OpenRouter's OpenAI-compatible root. `/v1/...` is appended by the shared provider, so this
+ * stops one segment short of the `https://openrouter.ai/api/v1` base URL their docs quote.
+ */
+export const OPENROUTER_BASE_URL = 'https://openrouter.ai/api';
+
+/**
+ * Attribution headers OpenRouter asks every client to send — they identify the app on the
+ * account's activity page and on their public leaderboards. Neither carries user data.
+ */
+export const OPENROUTER_HEADERS: Readonly<Record<string, string>> = Object.freeze({
+  'HTTP-Referer': 'https://github.com/cadam11/joinery',
+  'X-Title': 'Joinery',
+});
+
+// ---- OpenAI-compatible Provider (OpenAI, Groq, Cerebras, OpenRouter) ----
 
 export class OpenAICompatibleStreamProvider implements LLMProvider {
   vendorId: string;
   private baseUrl: string;
+  /** Vendor-specific headers merged into every request (OpenRouter attribution). */
+  private extraHeaders: Record<string, string>;
 
-  constructor(vendorId: string, baseUrl: string) {
+  constructor(vendorId: string, baseUrl: string, extraHeaders: Record<string, string> = {}) {
     this.vendorId = vendorId;
     this.baseUrl = baseUrl;
+    this.extraHeaders = { ...extraHeaders };
   }
 
   async streamChat(params: ChatCompletionParams, callbacks: StreamCallbacks): Promise<void> {
@@ -391,7 +426,8 @@ export class OpenAICompatibleStreamProvider implements LLMProvider {
     const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${params.apiKey}`,
+        ...this.extraHeaders,
+        Authorization: `Bearer ${params.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
@@ -449,7 +485,11 @@ export class OpenAICompatibleStreamProvider implements LLMProvider {
             // Emit any accumulated tool calls
             for (const [, tc] of pendingToolCalls) {
               let args: Record<string, unknown> = {};
-              try { args = JSON.parse(tc.argsJson); } catch { /* empty */ }
+              try {
+                args = JSON.parse(tc.argsJson);
+              } catch {
+                /* empty */
+              }
               callbacks.onToolCall({
                 id: tc.id,
                 name: tc.name,
@@ -469,7 +509,11 @@ export class OpenAICompatibleStreamProvider implements LLMProvider {
     // Emit any remaining tool calls that weren't flushed
     for (const [, tc] of pendingToolCalls) {
       let args: Record<string, unknown> = {};
-      try { args = JSON.parse(tc.argsJson); } catch { /* empty */ }
+      try {
+        args = JSON.parse(tc.argsJson);
+      } catch {
+        /* empty */
+      }
       callbacks.onToolCall({ id: tc.id, name: tc.name, args });
     }
 
@@ -500,6 +544,13 @@ export function getLLMProvider(vendorId: string): LLMProvider {
       break;
     case 'cerebras':
       provider = new OpenAICompatibleStreamProvider('cerebras', 'https://api.cerebras.ai');
+      break;
+    case 'openrouter':
+      provider = new OpenAICompatibleStreamProvider(
+        'openrouter',
+        OPENROUTER_BASE_URL,
+        OPENROUTER_HEADERS
+      );
       break;
     default:
       throw new Error(`Unknown vendor: ${vendorId}`);

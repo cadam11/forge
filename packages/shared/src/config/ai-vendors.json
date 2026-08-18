@@ -1,6 +1,6 @@
 {
-  "version": "2.0.0",
-  "lastUpdated": "2026-03-22",
+  "version": "2.1.0",
+  "lastUpdated": "2026-08-18",
   "vendors": [
     {
       "id": "google",
@@ -295,6 +295,86 @@
           "supportsStreaming": true,
           "maxContextTokens": 131072,
           "maxOutputTokens": 131072
+        }
+      ]
+    },
+    {
+      "id": "openrouter",
+      "name": "OpenRouter",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "requiresApiKey": true,
+      "docsUrl": "https://openrouter.ai/keys",
+      "models": [
+        {
+          "id": "openrouter-claude-opus-5",
+          "name": "Claude Opus 5",
+          "apiName": "anthropic/claude-opus-5",
+          "powerRank": 19,
+          "costTier": "premium",
+          "supportsStreaming": true,
+          "maxContextTokens": 200000,
+          "maxOutputTokens": 64000
+        },
+        {
+          "id": "openrouter-claude-sonnet-4.5",
+          "name": "Claude Sonnet 4.5",
+          "apiName": "anthropic/claude-sonnet-4.5",
+          "powerRank": 16,
+          "costTier": "standard",
+          "default": true,
+          "supportsStreaming": true,
+          "maxContextTokens": 200000,
+          "maxOutputTokens": 64000
+        },
+        {
+          "id": "openrouter-claude-haiku-4.5",
+          "name": "Claude Haiku 4.5",
+          "apiName": "anthropic/claude-haiku-4.5",
+          "powerRank": 10,
+          "costTier": "economy",
+          "supportsStreaming": true,
+          "maxContextTokens": 200000,
+          "maxOutputTokens": 64000
+        },
+        {
+          "id": "openrouter-gpt-5",
+          "name": "GPT-5",
+          "apiName": "openai/gpt-5",
+          "powerRank": 18,
+          "costTier": "premium",
+          "supportsStreaming": true,
+          "maxContextTokens": 400000,
+          "maxOutputTokens": 128000
+        },
+        {
+          "id": "openrouter-gpt-5-mini",
+          "name": "GPT-5 Mini",
+          "apiName": "openai/gpt-5-mini",
+          "powerRank": 14,
+          "costTier": "standard",
+          "supportsStreaming": true,
+          "maxContextTokens": 400000,
+          "maxOutputTokens": 128000
+        },
+        {
+          "id": "openrouter-gemini-2.5-flash",
+          "name": "Gemini 2.5 Flash",
+          "apiName": "google/gemini-2.5-flash",
+          "powerRank": 12,
+          "costTier": "standard",
+          "supportsStreaming": true,
+          "maxContextTokens": 1048576,
+          "maxOutputTokens": 65536
+        },
+        {
+          "id": "openrouter-llama-3.3-70b",
+          "name": "Llama 3.3 70B",
+          "apiName": "meta-llama/llama-3.3-70b-instruct",
+          "powerRank": 10,
+          "costTier": "economy",
+          "supportsStreaming": true,
+          "maxContextTokens": 131072,
+          "maxOutputTokens": 32768
         }
       ]
     }
