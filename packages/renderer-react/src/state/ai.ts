@@ -19,6 +19,7 @@ import type {
   AIVendorSettings,
   AnalysisRequest,
   AnalysisResponse,
+  OpenRouterCostTier,
   SQLGenerationRequest,
   SQLGenerationResponse,
   TabRenameRequest,
@@ -45,6 +46,11 @@ export interface AIStoreState {
   readonly removeApiKey: (vendorId: string) => Promise<boolean>;
   readonly validateApiKey: (vendorId: string, apiKey: string) => Promise<boolean>;
   readonly setPreferredModel: (vendorId: string, modelId: string) => Promise<void>;
+  /** `undefined` clears the preference, which is not the same as choosing `'low'`. */
+  readonly setAutoRouterCostTier: (
+    vendorId: string,
+    costTier: OpenRouterCostTier | undefined
+  ) => Promise<void>;
   readonly setVendorPriority: (vendorId: string, priority: number) => Promise<void>;
 
   readonly generateTabName: (request: TabRenameRequest) => Promise<TabRenameResponse | null>;
@@ -200,6 +206,15 @@ export function createAIStore() {
           apiKeyConfigured: false,
           priority,
           preferredModelId: modelId,
+        })),
+
+      setAutoRouterCostTier: (vendorId, costTier) =>
+        upsertVendorSettings(vendorId, { autoRouterCostTier: costTier }, priority => ({
+          vendorId,
+          enabled: false,
+          apiKeyConfigured: false,
+          priority,
+          autoRouterCostTier: costTier,
         })),
 
       setVendorPriority: async (vendorId, priority) => {

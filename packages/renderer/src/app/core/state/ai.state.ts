@@ -14,6 +14,7 @@ import type {
   AnalysisResponse,
   SQLGenerationRequest,
   SQLGenerationResponse,
+  OpenRouterCostTier,
 } from '@joinery/shared';
 import { DEFAULT_AI_SETTINGS } from '@joinery/shared';
 import { IpcService } from '../services/ipc.service';
@@ -266,6 +267,35 @@ export class AIStateService {
         apiKeyConfigured: false,
         priority: vendorSettings.length + 1,
         preferredModelId: modelId,
+      });
+    }
+
+    await this.updateSettings({ vendorSettings });
+  }
+
+  /**
+   * Set the OpenRouter auto-router cost band for a vendor (J-80).
+   *
+   * `undefined` clears the preference, which is not the same as choosing `'low'`: with no
+   * preference OpenRouter picks the band itself.
+   */
+  async setAutoRouterCostTier(
+    vendorId: string,
+    autoRouterCostTier: OpenRouterCostTier | undefined
+  ): Promise<void> {
+    const settings = this._settings();
+    const vendorSettings = [...settings.vendorSettings];
+    const index = vendorSettings.findIndex(vs => vs.vendorId === vendorId);
+
+    if (index >= 0) {
+      vendorSettings[index] = { ...vendorSettings[index], autoRouterCostTier };
+    } else {
+      vendorSettings.push({
+        vendorId,
+        enabled: false,
+        apiKeyConfigured: false,
+        priority: vendorSettings.length + 1,
+        autoRouterCostTier,
       });
     }
 
