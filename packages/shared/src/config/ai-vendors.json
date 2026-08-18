@@ -375,6 +375,39 @@
           "supportsStreaming": true,
           "maxContextTokens": 131072,
           "maxOutputTokens": 32768
+        },
+        {
+          "id": "openrouter-auto-beta",
+          "name": "Auto Router (Beta)",
+          "apiName": "openrouter/auto-beta",
+          "powerRank": 17,
+          "costTier": "premium",
+          "excludeFromAutoSelect": true,
+          "supportsStreaming": true,
+          "maxContextTokens": 2000000,
+          "maxOutputTokens": 32768
+        },
+        {
+          "id": "openrouter-auto",
+          "name": "Auto Router",
+          "apiName": "openrouter/auto",
+          "powerRank": 17,
+          "costTier": "premium",
+          "excludeFromAutoSelect": true,
+          "supportsStreaming": true,
+          "maxContextTokens": 2000000,
+          "maxOutputTokens": 32768
+        },
+        {
+          "id": "openrouter-free",
+          "name": "Free Models Router",
+          "apiName": "openrouter/free",
+          "powerRank": 11,
+          "costTier": "economy",
+          "excludeFromAutoSelect": true,
+          "supportsStreaming": true,
+          "maxContextTokens": 200000,
+          "maxOutputTokens": 8192
         }
       ]
     }

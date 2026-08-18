@@ -54,6 +54,40 @@ describe('ai-vendors.json', () => {
       expect(defaults[0]?.apiName).toBe('anthropic/claude-sonnet-4.5');
     });
 
+    // J-79. The routers are deliberately selectable-only: a user may pick one in the model
+    // picker, but nothing may pick one on the user's behalf, because a router's capability and
+    // price are whatever it happens to route to.
+    describe('meta / router models', () => {
+      const routers = [
+        { id: 'openrouter-auto-beta', apiName: 'openrouter/auto-beta', context: 2000000 },
+        { id: 'openrouter-auto', apiName: 'openrouter/auto', context: 2000000 },
+        { id: 'openrouter-free', apiName: 'openrouter/free', context: 200000 },
+      ];
+
+      for (const router of routers) {
+        it(`offers ${router.apiName} under the vendor's id prefix`, () => {
+          const model = openrouter?.models.find(m => m.apiName === router.apiName);
+          expect(model).toBeDefined();
+          expect(model?.id).toBe(router.id);
+          expect(model?.id.startsWith('openrouter-')).toBe(true);
+          expect(model?.maxContextTokens).toBe(router.context);
+        });
+
+        it(`keeps ${router.apiName} out of automatic selection and off the default slot`, () => {
+          const model = openrouter?.models.find(m => m.apiName === router.apiName);
+          expect(model?.default).toBeUndefined();
+          expect(model?.excludeFromAutoSelect).toBe(true);
+        });
+      }
+
+      it('excludes no concrete model from automatic selection', () => {
+        const excluded = (openrouter?.models ?? [])
+          .filter(model => model.excludeFromAutoSelect)
+          .map(model => model.apiName);
+        expect(excluded).toEqual(routers.map(router => router.apiName));
+      });
+    });
+
     it('offers Claude Opus 5 as its top-ranked flagship', () => {
       const opus = openrouter?.models.find(model => model.apiName === 'anthropic/claude-opus-5');
       expect(opus).toBeDefined();

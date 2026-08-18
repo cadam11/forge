@@ -9,8 +9,23 @@
  * exact headers on each of the two calls.
  */
 import { afterEach, describe, it, expect, vi } from 'vitest';
-import type { AIModel } from '@joinery/shared';
-import { OPENAI_COMPATIBLE_VENDORS, OpenAICompatibleProvider } from './ai-service';
+import type { AIModel, AISettings } from '@joinery/shared';
+import { DEFAULT_AI_SETTINGS } from '@joinery/shared';
+import { AIService, OPENAI_COMPATIBLE_VENDORS, OpenAICompatibleProvider } from './ai-service';
+import { CredentialStore } from '../keychain/credential-store';
+
+// AIService reads its settings from electron-store on construction, which has no home in a node
+// test process. The keychain is left real: `keytar` is already aliased to an in-memory mock.
+const appState = vi.hoisted(() => ({ aiSettings: undefined as AISettings | undefined }));
+vi.mock('../config/app-state', () => ({
+  AppStateStore: {
+    getInstance: () => ({
+      getState: () => ({ aiSettings: appState.aiSettings }),
+      // Persisted writes are discarded: nothing here reads settings back off disk.
+      setState: vi.fn(),
+    }),
+  },
+}));
 
 const MODEL: AIModel = {
   id: 'test-model',
@@ -184,5 +199,86 @@ describe('OpenAI-compatible vendor table', () => {
 
     const provider = new OpenAICompatibleProvider(configFor('openrouter'));
     await expect(provider.validateApiKey('test-key')).resolves.toBe(false);
+  });
+});
+
+/**
+ * J-79. The simple AI features fall back to power-rank targeting when the user has pinned no
+ * model: rank 6 for a tab rename, rank 10 for analysis. OpenRouter's meta models (auto routers)
+ * are the first catalogue entries whose capability and price are not their own — they are
+ * whatever the router picks — so rank targeting cannot reason about them and must never land on
+ * one. These tests drive the real selection path and read the model off the wire.
+ */
+describe('power-rank auto-selection', () => {
+  // Hard-coded, not derived from the config: a test that read the exclusion flag back out of the
+  // catalogue would pass vacuously the moment someone dropped the flag.
+  const ROUTER_API_NAMES = ['openrouter/auto-beta', 'openrouter/auto', 'openrouter/free'];
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    appState.aiSettings = undefined;
+  });
+
+  /** An AIService whose only enabled vendor is OpenRouter, with a key in the mock keychain. */
+  async function serviceWithOnlyOpenRouter(
+    features: Partial<AISettings['features']> = {}
+  ): Promise<AIService> {
+    appState.aiSettings = {
+      ...DEFAULT_AI_SETTINGS,
+      enabled: true,
+      vendorSettings: [
+        { vendorId: 'openrouter', enabled: true, apiKeyConfigured: true, priority: 0 },
+      ],
+      features: { ...DEFAULT_AI_SETTINGS.features, ...features },
+    };
+    await CredentialStore.getInstance().set('ai-openrouter', 'test-key');
+    return new AIService();
+  }
+
+  /** The `model` field of the single chat-completions request the service made. */
+  function modelSentTo(fetchMock: ReturnType<typeof vi.fn>): string {
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    return (JSON.parse(init.body as string) as { model: string }).model;
+  }
+
+  function stubCompletion(content: string): ReturnType<typeof vi.fn> {
+    return stubFetch({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ choices: [{ message: { content } }] }),
+    });
+  }
+
+  it('renames a tab with a concrete model, never a router', async () => {
+    const fetchMock = stubCompletion('ActiveUsers');
+    const service = await serviceWithOnlyOpenRouter();
+
+    const result = await service.generateTabName({ sql: 'SELECT * FROM users' });
+
+    expect(result.suggestedName).toBe('ActiveUsers');
+    expect(ROUTER_API_NAMES).not.toContain(modelSentTo(fetchMock));
+  });
+
+  it('analyses results with a concrete model, never a router', async () => {
+    const fetchMock = stubCompletion('Looks fine.');
+    const service = await serviceWithOnlyOpenRouter();
+
+    const result = await service.analyzeResults({
+      sql: 'SELECT * FROM users',
+      resultSummary: { rowCount: 1, columnCount: 1, columns: [] },
+    });
+
+    expect(result.content).toBe('Looks fine.');
+    expect(ROUTER_API_NAMES).not.toContain(modelSentTo(fetchMock));
+  });
+
+  it('still uses a router when the user pins one to a feature', async () => {
+    const fetchMock = stubCompletion('Routed');
+    const service = await serviceWithOnlyOpenRouter({ tabRenameModelId: 'openrouter-auto-beta' });
+
+    await service.generateTabName({ sql: 'SELECT * FROM users' });
+
+    expect(modelSentTo(fetchMock)).toBe('openrouter/auto-beta');
   });
 });

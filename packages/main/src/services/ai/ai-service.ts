@@ -303,16 +303,23 @@ EXPLANATION:
       const vendor = this.vendors.find(v => v.id === vendorSettings.vendorId);
       if (!vendor) continue;
 
-      const models = [...vendor.models].sort(
+      // Meta/router models advertise no capability or price of their own — a router's rank is
+      // whatever it routes to — so rank targeting cannot reason about them. They stay available
+      // to explicit picks; only this automatic path skips them.
+      const candidates = vendor.models.filter(model => !model.excludeFromAutoSelect);
+      if (candidates.length === 0) {
+        log.warn(`Vendor ${vendor.id} offers no auto-selectable model; skipping it`);
+        continue;
+      }
+
+      const models = [...candidates].sort(
         (a, b) => Math.abs(a.powerRank - targetPowerRank) - Math.abs(b.powerRank - targetPowerRank)
       );
 
-      if (models.length > 0) {
-        const provider = this.providers.get(vendor.id) || null;
-        const apiKey = await this.getApiKey(vendor.id);
-        if (provider && apiKey) {
-          return { model: models[0], provider, apiKey };
-        }
+      const provider = this.providers.get(vendor.id) || null;
+      const apiKey = await this.getApiKey(vendor.id);
+      if (provider && apiKey) {
+        return { model: models[0], provider, apiKey };
       }
     }
 

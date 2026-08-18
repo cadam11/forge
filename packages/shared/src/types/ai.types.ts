@@ -24,6 +24,12 @@ export interface AIModel {
   maxOutputTokens?: number;
   /** Whether this is the vendor's default model */
   default?: boolean;
+  /**
+   * Selectable by hand, but never chosen on the user's behalf by power-rank auto-selection.
+   * Set on meta/router models (OpenRouter's auto routers), whose capability and price are
+   * whatever they route to — which is precisely what rank targeting exists to pin down.
+   */
+  excludeFromAutoSelect?: boolean;
 }
 
 /**
