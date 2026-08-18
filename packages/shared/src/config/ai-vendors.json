@@ -306,6 +306,16 @@
       "docsUrl": "https://openrouter.ai/keys",
       "models": [
         {
+          "id": "openrouter-claude-opus-5",
+          "name": "Claude Opus 5",
+          "apiName": "anthropic/claude-opus-5",
+          "powerRank": 19,
+          "costTier": "premium",
+          "supportsStreaming": true,
+          "maxContextTokens": 200000,
+          "maxOutputTokens": 64000
+        },
+        {
           "id": "openrouter-claude-sonnet-4.5",
           "name": "Claude Sonnet 4.5",
           "apiName": "anthropic/claude-sonnet-4.5",

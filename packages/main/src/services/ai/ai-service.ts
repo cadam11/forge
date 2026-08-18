@@ -458,7 +458,7 @@ class AnthropicProvider implements AIProvider {
 }
 
 /** What one OpenAI-compatible vendor needs beyond the shared request shape. */
-interface OpenAICompatibleConfig {
+export interface OpenAICompatibleConfig {
   vendorId: string;
   /** Root that `/v1/...` paths hang off, e.g. `https://api.groq.com/openai`. */
   baseUrl: string;
@@ -469,7 +469,7 @@ interface OpenAICompatibleConfig {
   /**
    * Path (relative to `baseUrl`) hit to check a key. Defaults to the model catalogue, which
    * every OpenAI-compatible vendor here gates behind auth — except OpenRouter, whose catalogue
-   * is public and would therefore accept any string as a valid key.
+   * is public and would therefore accept any string as a valid key. See the table below.
    */
   validatePath?: string;
 }
@@ -479,7 +479,7 @@ interface OpenAICompatibleConfig {
  * differ only in the root URL, the label in error messages, the key-check path, and (OpenRouter)
  * a pair of attribution headers. One parameterised class instead of four near-identical ones.
  */
-class OpenAICompatibleProvider implements AIProvider {
+export class OpenAICompatibleProvider implements AIProvider {
   readonly vendorId: string;
   private readonly baseUrl: string;
   private readonly label: string;
@@ -494,19 +494,24 @@ class OpenAICompatibleProvider implements AIProvider {
     this.validatePath = config.validatePath ?? '/v1/models';
   }
 
-  /** Headers common to both calls. The key is sent, never logged. */
-  private headers(apiKey: string): Record<string, string> {
-    return {
-      ...this.extraHeaders,
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    };
+  /**
+   * Headers for the bodyless GET that checks a key. Deliberately carries no `Content-Type`:
+   * that keeps the request byte-identical to the per-vendor implementations this class replaced.
+   * The key is sent, never logged.
+   */
+  private validateHeaders(apiKey: string): Record<string, string> {
+    return { ...this.extraHeaders, Authorization: `Bearer ${apiKey}` };
+  }
+
+  /** Headers for the JSON POST. The key is sent, never logged. */
+  private completionHeaders(apiKey: string): Record<string, string> {
+    return { ...this.validateHeaders(apiKey), 'Content-Type': 'application/json' };
   }
 
   async validateApiKey(apiKey: string): Promise<boolean> {
     try {
       const response = await fetch(`${this.baseUrl}${this.validatePath}`, {
-        headers: this.headers(apiKey),
+        headers: this.validateHeaders(apiKey),
       });
       return response.ok;
     } catch (error) {
@@ -529,7 +534,7 @@ class OpenAICompatibleProvider implements AIProvider {
 
     const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
       method: 'POST',
-      headers: this.headers(apiKey),
+      headers: this.completionHeaders(apiKey),
       body: JSON.stringify({
         model: model.apiName,
         messages,
@@ -601,10 +606,14 @@ class GoogleProvider implements AIProvider {
 /**
  * The OpenAI-compatible vendors, keyed by the vendor id used in `ai-vendors.json`.
  *
- * OpenRouter's `/v1/models` catalogue is public, so its key check goes to `/v1/auth/key`
- * instead — that endpoint 401s on a bad key, which is what validation has to detect.
+ * OpenRouter's `/v1/models` catalogue is public, so its key check goes to `/v1/key` instead —
+ * the documented "get current API key" endpoint, which 401s on a bad key. (`/v1/auth/key` is an
+ * undocumented legacy alias for the same thing; the documented path is the one to depend on.)
+ *
+ * Exported for `ai-service.spec.ts`: these four rows are the whole behavioural difference
+ * between the vendors, so pinning them is what stops a URL or label regressing silently.
  */
-const OPENAI_COMPATIBLE_VENDORS: readonly OpenAICompatibleConfig[] = [
+export const OPENAI_COMPATIBLE_VENDORS: readonly OpenAICompatibleConfig[] = [
   { vendorId: 'openai', baseUrl: 'https://api.openai.com', label: 'OpenAI' },
   { vendorId: 'groq', baseUrl: 'https://api.groq.com/openai', label: 'Groq' },
   { vendorId: 'cerebras', baseUrl: 'https://api.cerebras.ai', label: 'Cerebras' },
@@ -613,6 +622,6 @@ const OPENAI_COMPATIBLE_VENDORS: readonly OpenAICompatibleConfig[] = [
     baseUrl: OPENROUTER_BASE_URL,
     label: 'OpenRouter',
     extraHeaders: { ...OPENROUTER_HEADERS },
-    validatePath: '/v1/auth/key',
+    validatePath: '/v1/key',
   },
 ];
