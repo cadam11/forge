@@ -10,6 +10,8 @@ import { v4 as uuidv4 } from 'uuid';
 import * as fs from 'fs';
 import * as path from 'path';
 import type {
+  AIModel,
+  AIVendor,
   ChatMessage,
   ChatRequest,
   ChatStreamChunk,
@@ -28,6 +30,32 @@ import {
 import { createStreamCoalescer, type StreamCoalescer } from './stream-coalescer';
 
 const log = createLogger('Chat');
+
+/**
+ * The model chat starts a conversation with when the user has pinned none for this vendor:
+ * the vendor's nominated default, else its most capable stable model.
+ *
+ * Meta/router models are explicit-pick only (`AIModel.excludeFromAutoSelect`), so every branch
+ * here chooses among the auto-selectable models — four of the six shipping vendors nominate no
+ * default at all, which makes the highest-power-rank fallback a live path, not a corner. A
+ * vendor with nothing auto-selectable has no automatic choice, and the caller skips it.
+ *
+ * Pure, and exported for `chat-service.spec.ts`: the class itself needs Electron to construct.
+ */
+export function autoSelectModel(vendor: AIVendor): AIModel | null {
+  const candidates = vendor.models.filter(model => !model.excludeFromAutoSelect);
+  if (candidates.length === 0) return null;
+
+  const nominated = candidates.find(model => model.default === true);
+  if (nominated) return nominated;
+
+  // Preview models lose to any stable sibling here, but remain an explicit pick.
+  const stable = candidates
+    .filter(model => !model.apiName.includes('preview'))
+    .sort((a, b) => (b.powerRank ?? 0) - (a.powerRank ?? 0));
+
+  return stable[0] ?? candidates[0];
+}
 
 export class ChatService extends BaseSingleton {
   private conversations: Map<string, Conversation> = new Map();
@@ -731,22 +759,15 @@ export class ChatService extends BaseSingleton {
       const apiKey = await this.aiService.getApiKeyForVendor(vs.vendorId);
       if (!apiKey) continue;
 
-      // Use preferred model, or default to best stable model (highest powerRank, non-preview)
-      let model = vendor.models[0];
-      if (vs.preferredModelId) {
-        const preferred = vendor.models.find(m => m.id === vs.preferredModelId);
-        if (preferred) model = preferred;
-      } else {
-        // Pick the vendor's default model, or highest powerRank stable model
-        const defaultModel = vendor.models.find(m => m.default === true);
-        if (defaultModel) {
-          model = defaultModel;
-        } else {
-          const stable = vendor.models
-            .filter(m => !m.apiName.includes('preview'))
-            .sort((a, b) => (b.powerRank ?? 0) - (a.powerRank ?? 0));
-          if (stable.length > 0) model = stable[0];
-        }
+      // The user's explicit pick wins outright — including a meta/router model, which is the
+      // only way one is ever used. Everything else goes through the automatic choice.
+      const preferred = vs.preferredModelId
+        ? (vendor.models.find(m => m.id === vs.preferredModelId) ?? null)
+        : null;
+      const model = preferred ?? autoSelectModel(vendor);
+      if (!model) {
+        log.warn(`Vendor ${vendor.id} offers no auto-selectable model; skipping it`);
+        continue;
       }
 
       return {
