@@ -48,9 +48,11 @@ interface ProviderOption {
         <label class="field-label">Choose Provider</label>
         <div class="provider-cards">
           @for (provider of providers; track provider.id) {
-            <div class="provider-card"
-                 [class.selected]="selectedProvider() === provider.id"
-                 (click)="selectProvider(provider.id)">
+            <div
+              class="provider-card"
+              [class.selected]="selectedProvider() === provider.id"
+              (click)="selectProvider(provider.id)"
+            >
               <h4>
                 {{ provider.name }}
                 @if (provider.recommended) {
@@ -99,160 +101,192 @@ interface ProviderOption {
       </div>
     </div>
   `,
-  styles: [`
-    .ai-setup {
-      width: 480px;
-      background: var(--bg-secondary);
-      border-radius: 12px;
-      overflow: hidden;
-    }
+  styles: [
+    `
+      .ai-setup {
+        width: 480px;
+        background: var(--bg-secondary);
+        border-radius: 12px;
+        overflow: hidden;
+      }
 
-    .setup-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 20px 24px 0;
-    }
-    .sparkle { font-size: 24px; }
-    .setup-header h2 {
-      font-size: 18px;
-      font-weight: 600;
-      color: var(--text-primary);
-      margin: 0;
-    }
+      .setup-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 20px 24px 0;
+      }
+      .sparkle {
+        font-size: 24px;
+      }
+      .setup-header h2 {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin: 0;
+      }
 
-    .setup-body { padding: 16px 24px; }
+      .setup-body {
+        padding: 16px 24px;
+      }
 
-    .setup-description {
-      color: var(--text-secondary);
-      font-size: 13px;
-      margin: 0 0 16px;
-      line-height: 1.5;
-    }
+      .setup-description {
+        color: var(--text-secondary);
+        font-size: 13px;
+        margin: 0 0 16px;
+        line-height: 1.5;
+      }
 
-    .field-label {
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--text-secondary);
-      display: block;
-      margin-bottom: 8px;
-    }
+      .field-label {
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--text-secondary);
+        display: block;
+        margin-bottom: 8px;
+      }
 
-    .provider-cards {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin-bottom: 16px;
-    }
-    .provider-card {
-      padding: 12px;
-      border: 1px solid var(--border-primary);
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.15s;
-      background: var(--bg-primary);
-    }
-    .provider-card:hover { border-color: var(--accent); }
-    .provider-card.selected {
-      border-color: var(--accent);
-      background: color-mix(in srgb, var(--accent) 8%, var(--bg-primary));
-    }
-    .provider-card h4 {
-      font-size: 13px;
-      font-weight: 600;
-      margin: 0 0 4px;
-      color: var(--text-primary);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .provider-card p {
-      font-size: 11px;
-      color: var(--text-secondary);
-      margin: 0;
-      line-height: 1.4;
-    }
-    .recommended {
-      font-size: 9px;
-      background: var(--accent);
-      color: white;
-      padding: 1px 6px;
-      border-radius: 8px;
-      font-weight: 600;
-      text-transform: uppercase;
-    }
+      .provider-cards {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+      .provider-card {
+        padding: 12px;
+        border: 1px solid var(--border-primary);
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.15s;
+        background: var(--bg-primary);
+      }
+      .provider-card:hover {
+        border-color: var(--accent);
+      }
+      .provider-card.selected {
+        border-color: var(--accent);
+        background: color-mix(in srgb, var(--accent) 8%, var(--bg-primary));
+      }
+      .provider-card h4 {
+        font-size: 13px;
+        font-weight: 600;
+        margin: 0 0 4px;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .provider-card p {
+        font-size: 11px;
+        color: var(--text-secondary);
+        margin: 0;
+        line-height: 1.4;
+      }
+      .recommended {
+        font-size: 9px;
+        background: var(--accent);
+        color: white;
+        padding: 1px 6px;
+        border-radius: 8px;
+        font-weight: 600;
+        text-transform: uppercase;
+      }
 
-    .form-group { margin-bottom: 16px; }
-    .form-input {
-      width: 100%;
-      background: var(--bg-primary);
-      border: 1px solid var(--border-primary);
-      border-radius: 8px;
-      padding: 10px 12px;
-      color: var(--text-primary);
-      font-size: 13px;
-      outline: none;
-      box-sizing: border-box;
-    }
-    .form-input:focus { border-color: var(--accent); }
-    .form-input::placeholder { color: var(--text-muted); }
+      .form-group {
+        margin-bottom: 16px;
+      }
+      .form-input {
+        width: 100%;
+        background: var(--bg-primary);
+        border: 1px solid var(--border-primary);
+        border-radius: 8px;
+        padding: 10px 12px;
+        color: var(--text-primary);
+        font-size: 13px;
+        outline: none;
+        box-sizing: border-box;
+      }
+      .form-input:focus {
+        border-color: var(--accent);
+      }
+      .form-input::placeholder {
+        color: var(--text-muted);
+      }
 
-    .validation-badge {
-      font-size: 11px;
-      margin-top: 6px;
-      padding: 4px 8px;
-      border-radius: 4px;
-    }
-    .validation-badge.success { color: var(--status-success); background: color-mix(in srgb, var(--status-success) 10%, transparent); }
-    .validation-badge.error { color: var(--status-error); background: color-mix(in srgb, var(--status-error) 10%, transparent); }
+      .validation-badge {
+        font-size: 11px;
+        margin-top: 6px;
+        padding: 4px 8px;
+        border-radius: 4px;
+      }
+      .validation-badge.success {
+        color: var(--status-success);
+        background: color-mix(in srgb, var(--status-success) 10%, transparent);
+      }
+      .validation-badge.error {
+        color: var(--status-error);
+        background: color-mix(in srgb, var(--status-error) 10%, transparent);
+      }
 
-    .features-box {
-      background: var(--bg-tertiary);
-      border-radius: 8px;
-      padding: 12px;
-    }
-    .features-title { font-size: 12px; font-weight: 600; margin-bottom: 8px; color: var(--text-primary); }
-    .features-list {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      font-size: 12px;
-      color: var(--text-secondary);
-    }
+      .features-box {
+        background: var(--bg-tertiary);
+        border-radius: 8px;
+        padding: 12px;
+      }
+      .features-title {
+        font-size: 12px;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: var(--text-primary);
+      }
+      .features-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--text-secondary);
+      }
 
-    .setup-footer {
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-      padding: 16px 24px;
-      border-top: 1px solid var(--border-primary);
-    }
-    .btn-secondary {
-      background: none;
-      border: 1px solid var(--border-primary);
-      color: var(--text-secondary);
-      padding: 8px 16px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 13px;
-    }
-    .btn-secondary:hover { background: var(--bg-hover); }
-    .btn-primary {
-      background: var(--accent);
-      border: none;
-      color: white;
-      padding: 8px 20px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 500;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .btn-primary:hover { filter: brightness(1.1); }
-    .btn-primary:disabled { opacity: 0.5; cursor: default; }
-  `],
+      .setup-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        padding: 16px 24px;
+        border-top: 1px solid var(--border-primary);
+      }
+      .btn-secondary {
+        background: none;
+        border: 1px solid var(--border-primary);
+        color: var(--text-secondary);
+        padding: 8px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 13px;
+      }
+      .btn-secondary:hover {
+        background: var(--bg-hover);
+      }
+      .btn-primary {
+        background: var(--accent);
+        border: none;
+        color: white;
+        padding: 8px 20px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .btn-primary:hover {
+        filter: brightness(1.1);
+      }
+      .btn-primary:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+    `,
+  ],
 })
 export class AISetupDialogComponent {
   private readonly dialogRef = inject(MatDialogRef<AISetupDialogComponent>);
@@ -264,10 +298,24 @@ export class AISetupDialogComponent {
   apiKey = '';
 
   readonly providers: ProviderOption[] = [
-    { id: 'google', name: 'Google Gemini', description: 'Fast, affordable. Great for autocomplete and chat.', recommended: true },
+    {
+      id: 'google',
+      name: 'Google Gemini',
+      description: 'Fast, affordable. Great for autocomplete and chat.',
+      recommended: true,
+    },
     { id: 'openai', name: 'OpenAI', description: 'GPT-4o, GPT-4o-mini. Industry standard.' },
-    { id: 'anthropic', name: 'Anthropic', description: 'Claude Sonnet/Haiku. Excellent reasoning.' },
+    {
+      id: 'anthropic',
+      name: 'Anthropic',
+      description: 'Claude Sonnet/Haiku. Excellent reasoning.',
+    },
     { id: 'groq', name: 'Groq', description: 'Ultra-fast inference. Free tier available.' },
+    {
+      id: 'openrouter',
+      name: 'OpenRouter',
+      description: 'One key, many models. Routes to Claude, GPT, Gemini, Llama.',
+    },
   ];
 
   readonly selectedProviderName = () => {

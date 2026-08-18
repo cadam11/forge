@@ -18,6 +18,7 @@ import { BaseSingleton } from '../../utils/singleton';
 import { createLogger } from '../../utils/logger';
 import { CredentialStore } from '../keychain/credential-store';
 import { AppStateStore } from '../config/app-state';
+import { OPENROUTER_BASE_URL, OPENROUTER_HEADERS } from './llm-providers';
 
 const log = createLogger('AI');
 
@@ -79,10 +80,10 @@ export class AIService extends BaseSingleton {
 
   private initializeProviders(): void {
     this.providers.set('anthropic', new AnthropicProvider());
-    this.providers.set('openai', new OpenAIProvider());
     this.providers.set('google', new GoogleProvider());
-    this.providers.set('groq', new GroqProvider());
-    this.providers.set('cerebras', new CerebrasProvider());
+    for (const config of OPENAI_COMPATIBLE_VENDORS) {
+      this.providers.set(config.vendorId, new OpenAICompatibleProvider(config));
+    }
   }
 
   // Public API
@@ -456,16 +457,60 @@ class AnthropicProvider implements AIProvider {
   }
 }
 
-class OpenAIProvider implements AIProvider {
-  vendorId = 'openai';
+/** What one OpenAI-compatible vendor needs beyond the shared request shape. */
+interface OpenAICompatibleConfig {
+  vendorId: string;
+  /** Root that `/v1/...` paths hang off, e.g. `https://api.groq.com/openai`. */
+  baseUrl: string;
+  /** Human-readable vendor name used in thrown error messages. */
+  label: string;
+  /** Vendor-specific headers merged into every request. */
+  extraHeaders?: Record<string, string>;
+  /**
+   * Path (relative to `baseUrl`) hit to check a key. Defaults to the model catalogue, which
+   * every OpenAI-compatible vendor here gates behind auth — except OpenRouter, whose catalogue
+   * is public and would therefore accept any string as a valid key.
+   */
+  validatePath?: string;
+}
+
+/**
+ * OpenAI, Groq, Cerebras and OpenRouter all speak the same chat-completions dialect, so they
+ * differ only in the root URL, the label in error messages, the key-check path, and (OpenRouter)
+ * a pair of attribution headers. One parameterised class instead of four near-identical ones.
+ */
+class OpenAICompatibleProvider implements AIProvider {
+  readonly vendorId: string;
+  private readonly baseUrl: string;
+  private readonly label: string;
+  private readonly extraHeaders: Record<string, string>;
+  private readonly validatePath: string;
+
+  constructor(config: OpenAICompatibleConfig) {
+    this.vendorId = config.vendorId;
+    this.baseUrl = config.baseUrl;
+    this.label = config.label;
+    this.extraHeaders = { ...config.extraHeaders };
+    this.validatePath = config.validatePath ?? '/v1/models';
+  }
+
+  /** Headers common to both calls. The key is sent, never logged. */
+  private headers(apiKey: string): Record<string, string> {
+    return {
+      ...this.extraHeaders,
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    };
+  }
 
   async validateApiKey(apiKey: string): Promise<boolean> {
     try {
-      const response = await fetch('https://api.openai.com/v1/models', {
-        headers: { Authorization: `Bearer ${apiKey}` },
+      const response = await fetch(`${this.baseUrl}${this.validatePath}`, {
+        headers: this.headers(apiKey),
       });
       return response.ok;
-    } catch {
+    } catch (error) {
+      log.warn(`${this.label} API key validation request failed:`, error);
       return false;
     }
   }
@@ -482,12 +527,9 @@ class OpenAIProvider implements AIProvider {
     }
     messages.push({ role: 'user', content: prompt });
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
+      headers: this.headers(apiKey),
       body: JSON.stringify({
         model: model.apiName,
         messages,
@@ -497,7 +539,7 @@ class OpenAIProvider implements AIProvider {
     });
 
     if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
+      throw new Error(`${this.label} API error: ${response.status}`);
     }
 
     const data = (await response.json()) as OpenAIResponse;
@@ -556,100 +598,21 @@ class GoogleProvider implements AIProvider {
   }
 }
 
-class GroqProvider implements AIProvider {
-  vendorId = 'groq';
-
-  async validateApiKey(apiKey: string): Promise<boolean> {
-    try {
-      const response = await fetch('https://api.groq.com/openai/v1/models', {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      });
-      return response.ok;
-    } catch {
-      return false;
-    }
-  }
-
-  async generateCompletion(
-    prompt: string,
-    model: AIModel,
-    apiKey: string,
-    options?: CompletionOptions
-  ): Promise<string> {
-    const messages: Array<{ role: string; content: string }> = [];
-    if (options?.systemPrompt) {
-      messages.push({ role: 'system', content: options.systemPrompt });
-    }
-    messages.push({ role: 'user', content: prompt });
-
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: model.apiName,
-        messages,
-        max_tokens: options?.maxTokens || 1000,
-        temperature: options?.temperature || 0.7,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Groq API error: ${response.status}`);
-    }
-
-    const data = (await response.json()) as OpenAIResponse;
-    return data.choices?.[0]?.message?.content || '';
-  }
-}
-
-class CerebrasProvider implements AIProvider {
-  vendorId = 'cerebras';
-
-  async validateApiKey(apiKey: string): Promise<boolean> {
-    try {
-      const response = await fetch('https://api.cerebras.ai/v1/models', {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      });
-      return response.ok;
-    } catch {
-      return false;
-    }
-  }
-
-  async generateCompletion(
-    prompt: string,
-    model: AIModel,
-    apiKey: string,
-    options?: CompletionOptions
-  ): Promise<string> {
-    const messages: Array<{ role: string; content: string }> = [];
-    if (options?.systemPrompt) {
-      messages.push({ role: 'system', content: options.systemPrompt });
-    }
-    messages.push({ role: 'user', content: prompt });
-
-    const response = await fetch('https://api.cerebras.ai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: model.apiName,
-        messages,
-        max_tokens: options?.maxTokens || 1000,
-        temperature: options?.temperature || 0.7,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Cerebras API error: ${response.status}`);
-    }
-
-    const data = (await response.json()) as OpenAIResponse;
-    return data.choices?.[0]?.message?.content || '';
-  }
-}
+/**
+ * The OpenAI-compatible vendors, keyed by the vendor id used in `ai-vendors.json`.
+ *
+ * OpenRouter's `/v1/models` catalogue is public, so its key check goes to `/v1/auth/key`
+ * instead — that endpoint 401s on a bad key, which is what validation has to detect.
+ */
+const OPENAI_COMPATIBLE_VENDORS: readonly OpenAICompatibleConfig[] = [
+  { vendorId: 'openai', baseUrl: 'https://api.openai.com', label: 'OpenAI' },
+  { vendorId: 'groq', baseUrl: 'https://api.groq.com/openai', label: 'Groq' },
+  { vendorId: 'cerebras', baseUrl: 'https://api.cerebras.ai', label: 'Cerebras' },
+  {
+    vendorId: 'openrouter',
+    baseUrl: OPENROUTER_BASE_URL,
+    label: 'OpenRouter',
+    extraHeaders: { ...OPENROUTER_HEADERS },
+    validatePath: '/v1/auth/key',
+  },
+];
