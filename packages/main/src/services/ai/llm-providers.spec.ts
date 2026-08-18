@@ -109,20 +109,22 @@ function sseResponse(frames: string[]): Response {
   return { ok: true, status: 200, body } as unknown as Response;
 }
 
-/** Collects everything the provider emits so a test can assert on the whole stream. */
-function recordingCallbacks(): {
-  callbacks: StreamCallbacks;
+interface StreamRecord {
   content: string[];
   toolCalls: StreamToolCall[];
+  /** How many times `onComplete` fired. A counter, so it must not be spread-copied out. */
   completions: number;
   errors: Error[];
-} {
-  const record = {
-    content: [] as string[],
-    toolCalls: [] as StreamToolCall[],
-    completions: 0,
-    errors: [] as Error[],
-  };
+}
+
+/**
+ * Collects everything the provider emits so a test can assert on the whole stream.
+ *
+ * The record is returned by reference, not spread into the result: spreading copies the
+ * `completions` primitive at construction time and the caller then watches a frozen zero.
+ */
+function recordingCallbacks(): { callbacks: StreamCallbacks; record: StreamRecord } {
+  const record: StreamRecord = { content: [], toolCalls: [], completions: 0, errors: [] };
   const callbacks: StreamCallbacks = {
     onContent: text => record.content.push(text),
     onToolCall: call => record.toolCalls.push(call),
@@ -131,7 +133,7 @@ function recordingCallbacks(): {
     },
     onError: error => record.errors.push(error),
   };
-  return { callbacks, ...record };
+  return { callbacks, record };
 }
 
 function params(overrides: Partial<ChatCompletionParams> = {}): ChatCompletionParams {
@@ -264,8 +266,11 @@ describe('OpenRouter provider', () => {
     const recorder = recordingCallbacks();
     await getLLMProvider('openrouter').streamChat(params(), recorder.callbacks);
 
-    expect(recorder.content.join('')).toBe('Two tables');
-    expect(recorder.errors).toHaveLength(0);
+    expect(recorder.record.content.join('')).toBe('Two tables');
+    // `onComplete` is part of the mandatory StreamCallbacks contract: chat-service ends the
+    // turn on it, so a provider that never fires it would hang the UI.
+    expect(recorder.record.completions).toBe(1);
+    expect(recorder.record.errors).toHaveLength(0);
   });
 
   it('reassembles a tool call whose arguments arrive across chunks', async () => {
@@ -298,9 +303,10 @@ describe('OpenRouter provider', () => {
     const recorder = recordingCallbacks();
     await getLLMProvider('openrouter').streamChat(params(), recorder.callbacks);
 
-    expect(recorder.toolCalls).toEqual([
+    expect(recorder.record.toolCalls).toEqual([
       { id: 'call_1', name: 'list_tables', args: { database: 'app' } },
     ]);
+    expect(recorder.record.completions).toBe(1);
   });
 
   it('sends prior tool results back in the OpenAI tool-message shape', async () => {
@@ -347,8 +353,9 @@ describe('OpenRouter provider', () => {
     } as unknown as Response);
     vi.stubGlobal('fetch', fetchMock);
 
+    const recorder = recordingCallbacks();
     const caught = await getLLMProvider('openrouter')
-      .streamChat(params(), recordingCallbacks().callbacks)
+      .streamChat(params(), recorder.callbacks)
       .then(
         () => null,
         (error: unknown) => error as Error
@@ -357,5 +364,7 @@ describe('OpenRouter provider', () => {
     expect(caught).toBeInstanceOf(Error);
     expect(caught?.message).toContain('openrouter API error (401)');
     expect(caught?.message).not.toContain('sk-or-v1-test-key');
+    // A failed turn must not look like a finished one to chat-service.
+    expect(recorder.record.completions).toBe(0);
   });
 });

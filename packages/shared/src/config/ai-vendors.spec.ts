@@ -48,8 +48,20 @@ describe('ai-vendors.json', () => {
       }
     });
 
-    it('nominates a default model, since chat picks one unprompted', () => {
-      expect(openrouter?.models.filter(model => model.default)).toHaveLength(1);
+    it('nominates Claude Sonnet 4.5 as the default, since chat picks one unprompted', () => {
+      const defaults = openrouter?.models.filter(model => model.default) ?? [];
+      expect(defaults).toHaveLength(1);
+      expect(defaults[0]?.apiName).toBe('anthropic/claude-sonnet-4.5');
+    });
+
+    it('offers Claude Opus 5 as its top-ranked flagship', () => {
+      const opus = openrouter?.models.find(model => model.apiName === 'anthropic/claude-opus-5');
+      expect(opus).toBeDefined();
+      expect(opus?.costTier).toBe('premium');
+      const others = (openrouter?.models ?? []).filter(model => model !== opus);
+      expect(Math.max(...others.map(model => model.powerRank))).toBeLessThan(
+        opus?.powerRank ?? -Infinity
+      );
     });
   });
 });
