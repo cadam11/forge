@@ -12,13 +12,14 @@ import type {
   AnalysisResponse,
   SQLGenerationRequest,
   SQLGenerationResponse,
+  OpenRouterCostTier,
 } from '@joinery/shared';
 import { DEFAULT_AI_SETTINGS, AI_VENDORS_CONFIG } from '@joinery/shared';
 import { BaseSingleton } from '../../utils/singleton';
 import { createLogger } from '../../utils/logger';
 import { CredentialStore } from '../keychain/credential-store';
 import { AppStateStore } from '../config/app-state';
-import { OPENROUTER_BASE_URL, OPENROUTER_HEADERS } from './llm-providers';
+import { OPENROUTER_BASE_URL, OPENROUTER_HEADERS, openRouterRoutingPlugins } from './llm-providers';
 
 const log = createLogger('AI');
 
@@ -38,6 +39,36 @@ interface CompletionOptions {
   maxTokens?: number;
   temperature?: number;
   systemPrompt?: string;
+  /**
+   * OpenRouter's routing preference. Only `OpenAICompatibleProvider` acts on it, and only when the
+   * outgoing model is an auto-router — the other providers ignore it because no other vendor has
+   * one. See `openRouterRoutingPlugins`.
+   */
+  costTier?: OpenRouterCostTier;
+}
+
+/**
+ * One vendor's chosen model, the provider that will call it, its key, and — for OpenRouter — the
+ * routing preference saved against that vendor.
+ */
+interface FeatureSelection {
+  model: AIModel | null;
+  provider: AIProvider | null;
+  apiKey: string | null;
+  costTier?: OpenRouterCostTier;
+}
+
+/**
+ * The cost tier saved against `vendorId`, if any.
+ *
+ * Exported and pure so both automatic paths (this service's power-rank targeting and chat's own
+ * selection) read the setting the same way, and so the lookup is testable without a keychain.
+ */
+export function autoRouterCostTierFor(
+  settings: AISettings,
+  vendorId: string
+): OpenRouterCostTier | undefined {
+  return settings.vendorSettings.find(v => v.vendorId === vendorId)?.autoRouterCostTier;
 }
 
 // Response types for API calls
@@ -142,7 +173,7 @@ export class AIService extends BaseSingleton {
       return { suggestedName: 'Query', confidence: 0 };
     }
 
-    const { model, provider, apiKey } = await this.selectModelForFeature('tabRename');
+    const { model, provider, apiKey, costTier } = await this.selectModelForFeature('tabRename');
     if (!model || !provider || !apiKey) {
       return { suggestedName: 'Query', confidence: 0 };
     }
@@ -151,6 +182,7 @@ export class AIService extends BaseSingleton {
 
     try {
       const response = await provider.generateCompletion(prompt, model, apiKey, {
+        costTier,
         maxTokens: 50,
         temperature: 0.3,
         systemPrompt:
@@ -176,7 +208,7 @@ export class AIService extends BaseSingleton {
       return { content: 'AI analysis is disabled', isComplete: true };
     }
 
-    const { model, provider, apiKey } = await this.selectModelForFeature('analysis');
+    const { model, provider, apiKey, costTier } = await this.selectModelForFeature('analysis');
     if (!model || !provider || !apiKey) {
       return { content: 'No AI provider configured', isComplete: true };
     }
@@ -188,6 +220,7 @@ export class AIService extends BaseSingleton {
 
     try {
       const content = await provider.generateCompletion(prompt, model, apiKey, {
+        costTier,
         maxTokens: 2000,
         temperature: 0.7,
         systemPrompt:
@@ -207,7 +240,7 @@ export class AIService extends BaseSingleton {
       return { sql: '', explanation: 'AI query assist is disabled' };
     }
 
-    const { model, provider, apiKey } = await this.selectModelForFeature('queryAssist');
+    const { model, provider, apiKey, costTier } = await this.selectModelForFeature('queryAssist');
     if (!model || !provider || !apiKey) {
       return { sql: '', explanation: 'No AI provider configured' };
     }
@@ -216,6 +249,7 @@ export class AIService extends BaseSingleton {
 
     try {
       const response = await provider.generateCompletion(prompt, model, apiKey, {
+        costTier,
         maxTokens: 1000,
         temperature: 0.3,
         systemPrompt: `You are a ${request.dialect === 'postgresql' ? 'PostgreSQL' : request.dialect === 'mysql' ? 'MySQL' : 'T-SQL'} expert. Generate valid ${request.dialect === 'postgresql' ? 'PostgreSQL' : request.dialect === 'mysql' ? 'MySQL' : 'SQL Server'} queries based on user requests.
@@ -257,7 +291,7 @@ EXPLANATION:
 
   private async selectModelForFeature(
     feature: 'tabRename' | 'analysis' | 'queryAssist'
-  ): Promise<{ model: AIModel | null; provider: AIProvider | null; apiKey: string | null }> {
+  ): Promise<FeatureSelection> {
     const modelId =
       feature === 'tabRename'
         ? this.settings.features.tabRenameModelId
@@ -273,9 +307,7 @@ EXPLANATION:
     return this.selectBestAvailableModel(targetPowerRank);
   }
 
-  private async getModelAndProvider(
-    modelId: string
-  ): Promise<{ model: AIModel | null; provider: AIProvider | null; apiKey: string | null }> {
+  private async getModelAndProvider(modelId: string): Promise<FeatureSelection> {
     for (const vendor of this.vendors) {
       const model = vendor.models.find(m => m.id === modelId);
       if (model) {
@@ -285,16 +317,14 @@ EXPLANATION:
         if (vendorSettings) {
           const provider = this.providers.get(vendor.id) || null;
           const apiKey = await this.getApiKey(vendor.id);
-          return { model, provider, apiKey };
+          return { model, provider, apiKey, costTier: vendorSettings.autoRouterCostTier };
         }
       }
     }
     return { model: null, provider: null, apiKey: null };
   }
 
-  private async selectBestAvailableModel(
-    targetPowerRank: number
-  ): Promise<{ model: AIModel | null; provider: AIProvider | null; apiKey: string | null }> {
+  private async selectBestAvailableModel(targetPowerRank: number): Promise<FeatureSelection> {
     const enabledVendors = this.settings.vendorSettings
       .filter(v => v.enabled && v.apiKeyConfigured)
       .sort((a, b) => a.priority - b.priority);
@@ -319,7 +349,9 @@ EXPLANATION:
       const provider = this.providers.get(vendor.id) || null;
       const apiKey = await this.getApiKey(vendor.id);
       if (provider && apiKey) {
-        return { model: models[0], provider, apiKey };
+        // Carried even though this path never chooses a router: the "is this a router?" decision
+        // lives in exactly one place (`openRouterRoutingPlugins`), so no caller has to re-derive it.
+        return { model: models[0], provider, apiKey, costTier: vendorSettings.autoRouterCostTier };
       }
     }
 
@@ -539,15 +571,21 @@ export class OpenAICompatibleProvider implements AIProvider {
     }
     messages.push({ role: 'user', content: prompt });
 
+    const body: Record<string, unknown> = {
+      model: model.apiName,
+      messages,
+      max_tokens: options?.maxTokens || 1000,
+      temperature: options?.temperature || 0.7,
+    };
+
+    // Same single rule as the streaming path: a cost tier rides only an OpenRouter auto-router.
+    const plugins = openRouterRoutingPlugins(this.vendorId, model.apiName, options?.costTier);
+    if (plugins) body.plugins = plugins;
+
     const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
       method: 'POST',
       headers: this.completionHeaders(apiKey),
-      body: JSON.stringify({
-        model: model.apiName,
-        messages,
-        max_tokens: options?.maxTokens || 1000,
-        temperature: options?.temperature || 0.7,
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {

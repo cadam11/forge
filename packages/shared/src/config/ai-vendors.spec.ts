@@ -8,6 +8,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { AI_VENDORS_CONFIG } from './index';
+import { OPENROUTER_AUTO_ROUTERS, OPENROUTER_COST_TIERS } from '../types/ai.types';
 
 describe('ai-vendors.json', () => {
   const vendors = AI_VENDORS_CONFIG.vendors;
@@ -34,13 +35,18 @@ describe('ai-vendors.json', () => {
   // The `excludeFromAutoSelect` filter runs for every vendor, in chat's fallback as well as in
   // the power-rank targeting, so this sweep has to cover every vendor too: the flag landing on a
   // concrete model anywhere would silently drop it out of both automatic choices. The three
-  // OpenRouter routers (J-79) are the only models entitled to it.
+  // OpenRouter routers (J-79) plus Fusion (J-80) are the only models entitled to it.
   it('excludes only the OpenRouter meta models from automatic selection', () => {
     const excluded = vendors
       .flatMap(vendor => vendor.models)
       .filter(model => model.excludeFromAutoSelect)
       .map(model => model.apiName);
-    expect(excluded).toEqual(['openrouter/auto-beta', 'openrouter/auto', 'openrouter/free']);
+    expect(excluded).toEqual([
+      'openrouter/auto-beta',
+      'openrouter/auto',
+      'openrouter/fusion',
+      'openrouter/free',
+    ]);
   });
 
   describe('openrouter', () => {
@@ -91,6 +97,65 @@ describe('ai-vendors.json', () => {
           expect(model?.excludeFromAutoSelect).toBe(true);
         });
       }
+    });
+
+    /**
+     * J-80. Fusion is not a router: it puts a panel of models on the same prompt and has an
+     * analyst fuse their answers. That makes it the same *kind* of thing for selection purposes —
+     * capability and price are whatever the panel turns out to be — so it carries the same
+     * selectable-only flag, and it must NOT be entitled to a cost tier, which is a router-only
+     * routing preference.
+     */
+    describe('fusion (meta model)', () => {
+      const fusion = () => openrouter?.models.find(model => model.apiName === 'openrouter/fusion');
+
+      it('is offered under the vendor id prefix, and is selectable-only', () => {
+        expect(fusion()).toBeDefined();
+        expect(fusion()?.id).toBe('openrouter-fusion');
+        expect(fusion()?.excludeFromAutoSelect).toBe(true);
+        expect(fusion()?.default).toBeUndefined();
+      });
+
+      it('is priced premium, because a call costs the panel plus the analyst', () => {
+        expect(fusion()?.costTier).toBe('premium');
+      });
+
+      it('names the tradeoff in the label the pickers render', () => {
+        // Both model pickers show `name` and nothing else, so if the cost and latency story is
+        // not in there the user cannot see it anywhere in the app.
+        const name = fusion()?.name ?? '';
+        expect(name).toMatch(/fusion/i);
+        expect(name).toMatch(/slower/i);
+        expect(name).toMatch(/panel/i);
+      });
+
+      it('claims a context floor, not a ceiling', () => {
+        // OpenRouter publishes no fixed context for fusion — it depends on the panel — and the
+        // usable window is the SMALLEST member's, not the largest. 200k is the documented window
+        // of the mainstream models this catalogue already re-exports through OpenRouter.
+        expect(fusion()?.maxContextTokens).toBe(200000);
+      });
+
+      it('takes no cost tier: the routing preference is a router feature', () => {
+        expect(OPENROUTER_AUTO_ROUTERS.has('openrouter/fusion')).toBe(false);
+      });
+    });
+
+    // The request builder attaches a cost tier only to models in this table, so a key that names
+    // no real model would silently make the setting a no-op.
+    it('backs every entry of the auto-router table with a real model', () => {
+      const apiNames = openrouter?.models.map(model => model.apiName) ?? [];
+      for (const routerApiName of OPENROUTER_AUTO_ROUTERS.keys()) {
+        expect(apiNames).toContain(routerApiName);
+      }
+      expect([...OPENROUTER_AUTO_ROUTERS.entries()]).toEqual([
+        ['openrouter/auto', 'auto-router'],
+        ['openrouter/auto-beta', 'auto-beta-router'],
+      ]);
+    });
+
+    it('lists the five cost bands cheapest first', () => {
+      expect(OPENROUTER_COST_TIERS).toEqual(['low', 'medium', 'high', 'xhigh', 'max']);
     });
 
     it('offers Claude Opus 5 as its top-ranked flagship', () => {
