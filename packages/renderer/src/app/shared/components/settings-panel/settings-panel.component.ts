@@ -13,7 +13,11 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { SettingsService } from '../../../core/services/settings.service';
 import { AIStateService } from '../../../core/state/ai.state';
 import type { AIVendor, OpenRouterCostTier, ThemePreference } from '@joinery/shared';
-import { OPENROUTER_AUTO_ROUTERS, OPENROUTER_COST_TIERS } from '@joinery/shared';
+import {
+  OPENROUTER_AUTO_ROUTERS,
+  OPENROUTER_COST_TIER_LABELS,
+  OPENROUTER_COST_TIERS,
+} from '@joinery/shared';
 import { keyHint } from '../../../core/utils/platform';
 
 @Component({
@@ -454,7 +458,7 @@ import { keyHint } from '../../../core/utils/platform';
                             >
                               <mat-option [value]="COST_TIER_UNSET">Provider default</mat-option>
                               @for (tier of costTiers; track tier) {
-                                <mat-option [value]="tier">{{ tier }}</mat-option>
+                                <mat-option [value]="tier">{{ costTierLabel(tier) }}</mat-option>
                               }
                             </mat-select>
                           </mat-form-field>
@@ -970,6 +974,11 @@ export class SettingsPanelComponent implements OnInit, OnDestroy {
   /** Sentinel for "send no routing preference" — `mat-option` needs a value, and `''` is falsy. */
   readonly COST_TIER_UNSET = 'provider-default';
   readonly costTiers = OPENROUTER_COST_TIERS;
+
+  /** Same table the React dialog reads: `'xhigh'` is not something to show a user. */
+  costTierLabel(tier: OpenRouterCostTier): string {
+    return OPENROUTER_COST_TIER_LABELS[tier];
+  }
 
   /**
    * Whether this vendor has anything the cost tier could apply to. Read off the shared router

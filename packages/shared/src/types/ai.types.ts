@@ -27,6 +27,19 @@ export const OPENROUTER_COST_TIERS: readonly OpenRouterCostTier[] = [
 ] as const;
 
 /**
+ * What each band is called in the settings UIs. Here rather than in either renderer because both
+ * of them show it and `'xhigh'` is not a label a user should ever be shown; the same reason model
+ * display names live in `ai-vendors.json` instead of in a component.
+ */
+export const OPENROUTER_COST_TIER_LABELS: Readonly<Record<OpenRouterCostTier, string>> = {
+  low: 'Low — cheapest models',
+  medium: 'Medium',
+  high: 'High',
+  xhigh: 'Very high',
+  max: 'Max — most capable models',
+};
+
+/**
  * OpenRouter's auto-routers, keyed by `apiName`, mapped to the plugin id their routing-preference
  * block has to carry — `openrouter/auto` is served by the `auto-router` plugin, `openrouter/auto-beta`
  * by `auto-beta-router`.

@@ -35,7 +35,11 @@
 import { useState, type FormEvent } from 'react';
 import { Check, KeyRound, Sparkles, Trash2 } from 'lucide-react';
 import type { AIVendor, AIVendorSettings, OpenRouterCostTier } from '@joinery/shared';
-import { OPENROUTER_AUTO_ROUTERS, OPENROUTER_COST_TIERS } from '@joinery/shared';
+import {
+  OPENROUTER_AUTO_ROUTERS,
+  OPENROUTER_COST_TIER_LABELS,
+  OPENROUTER_COST_TIERS,
+} from '@joinery/shared';
 
 import {
   Button,
@@ -90,15 +94,6 @@ function defaultModelId(vendor: AIVendor): string | undefined {
  */
 const COST_TIER_UNSET = 'provider-default';
 
-/** Human labels for the five bands. A band is not a ceiling, so the copy says "around". */
-const COST_TIER_LABELS: Readonly<Record<OpenRouterCostTier, string>> = {
-  low: 'Low — cheapest models',
-  medium: 'Medium',
-  high: 'High',
-  xhigh: 'Very high',
-  max: 'Max — most capable models',
-};
-
 /**
  * Whether this vendor has anything a cost tier could apply to. Derived from the shared router
  * table rather than a `vendor.id === 'openrouter'` test, so the control appears exactly where the
@@ -133,7 +128,7 @@ function AutoRouterCostTier({ vendor }: { readonly vendor: AIVendor }) {
       <SelectItem value={COST_TIER_UNSET}>Provider default</SelectItem>
       {OPENROUTER_COST_TIERS.map(tier => (
         <SelectItem key={tier} value={tier}>
-          {COST_TIER_LABELS[tier]}
+          {OPENROUTER_COST_TIER_LABELS[tier]}
         </SelectItem>
       ))}
     </Select>

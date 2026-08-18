@@ -8,7 +8,11 @@
  */
 import { describe, it, expect } from 'vitest';
 import { AI_VENDORS_CONFIG } from './index';
-import { OPENROUTER_AUTO_ROUTERS, OPENROUTER_COST_TIERS } from '../types/ai.types';
+import {
+  OPENROUTER_AUTO_ROUTERS,
+  OPENROUTER_COST_TIER_LABELS,
+  OPENROUTER_COST_TIERS,
+} from '../types/ai.types';
 
 describe('ai-vendors.json', () => {
   const vendors = AI_VENDORS_CONFIG.vendors;
@@ -156,6 +160,13 @@ describe('ai-vendors.json', () => {
 
     it('lists the five cost bands cheapest first', () => {
       expect(OPENROUTER_COST_TIERS).toEqual(['low', 'medium', 'high', 'xhigh', 'max']);
+    });
+
+    it('gives every band a label, so no UI ever renders a raw enum value', () => {
+      for (const tier of OPENROUTER_COST_TIERS) {
+        expect(OPENROUTER_COST_TIER_LABELS[tier]).toBeTruthy();
+      }
+      expect(Object.keys(OPENROUTER_COST_TIER_LABELS)).toHaveLength(OPENROUTER_COST_TIERS.length);
     });
 
     it('offers Claude Opus 5 as its top-ranked flagship', () => {
