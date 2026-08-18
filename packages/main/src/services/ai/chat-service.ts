@@ -17,10 +17,11 @@ import type {
   ChatStreamChunk,
   Conversation,
   ToolCallResult,
+  OpenRouterCostTier,
 } from '@joinery/shared';
 import { BaseSingleton } from '../../utils/singleton';
 import { createLogger } from '../../utils/logger';
-import { AIService } from './ai-service';
+import { AIService, autoRouterCostTierFor } from './ai-service';
 import { ToolRegistry } from './tool-registry';
 import {
   getLLMProvider,
@@ -55,6 +56,17 @@ export function autoSelectModel(vendor: AIVendor): AIModel | null {
     .sort((a, b) => (b.powerRank ?? 0) - (a.powerRank ?? 0));
 
   return stable[0] ?? candidates[0];
+}
+
+/**
+ * A resolved chat target: which vendor, which model on the wire, its key, and — for OpenRouter —
+ * the cost band its auto-routers should route within.
+ */
+interface ChatTarget {
+  vendorId: string;
+  modelApiName: string;
+  apiKey: string;
+  costTier?: OpenRouterCostTier;
 }
 
 export class ChatService extends BaseSingleton {
@@ -341,7 +353,7 @@ export class ChatService extends BaseSingleton {
       return;
     }
 
-    const { vendorId, modelApiName, apiKey } = selection;
+    const { vendorId, modelApiName, apiKey, costTier } = selection;
     const provider = getLLMProvider(vendorId);
     const systemPrompt = this.buildSystemPrompt({
       conversationId: conversation.id,
@@ -378,6 +390,7 @@ export class ChatService extends BaseSingleton {
           tools: tools.length > 0 ? tools : undefined,
           model: modelApiName,
           apiKey,
+          costTier,
           temperature: 0.7,
           maxTokens: 4096,
           signal,
@@ -522,7 +535,7 @@ export class ChatService extends BaseSingleton {
       return;
     }
 
-    const { vendorId, modelApiName, apiKey } = selection;
+    const { vendorId, modelApiName, apiKey, costTier } = selection;
     const provider = getLLMProvider(vendorId);
 
     const systemPrompt = this.buildSystemPrompt(request);
@@ -555,6 +568,7 @@ export class ChatService extends BaseSingleton {
           tools: tools.length > 0 ? tools : undefined,
           model: modelApiName,
           apiKey,
+          costTier,
           temperature: 0.7,
           maxTokens: 4096,
           signal,
@@ -739,11 +753,7 @@ export class ChatService extends BaseSingleton {
 
   // ---- Vendor/Model Selection ----
 
-  private async selectVendorAndModel(): Promise<{
-    vendorId: string;
-    modelApiName: string;
-    apiKey: string;
-  } | null> {
+  private async selectVendorAndModel(): Promise<ChatTarget | null> {
     const settings = this.aiService.getSettings();
     const vendors = this.aiService.getVendors();
 
@@ -774,6 +784,7 @@ export class ChatService extends BaseSingleton {
         vendorId: vendor.id,
         modelApiName: model.apiName,
         apiKey,
+        costTier: vs.autoRouterCostTier,
       };
     }
 
@@ -783,14 +794,18 @@ export class ChatService extends BaseSingleton {
   /**
    * Resolve an explicitly requested vendor+model (from the chat model picker).
    * Returns null if the vendor's API key is missing.
+   *
+   * This is the path a pinned auto-router actually arrives on, so it is the one the cost tier
+   * matters most to — the picker is the only place a router can be chosen at all.
    */
   private async resolveExplicitModel(
     vendorId: string,
     modelApiName: string
-  ): Promise<{ vendorId: string; modelApiName: string; apiKey: string } | null> {
+  ): Promise<ChatTarget | null> {
     const apiKey = await this.aiService.getApiKeyForVendor(vendorId);
     if (!apiKey) return null;
-    return { vendorId, modelApiName, apiKey };
+    const costTier = autoRouterCostTierFor(this.aiService.getSettings(), vendorId);
+    return { vendorId, modelApiName, apiKey, costTier };
   }
 
   // ---- Message Building ----

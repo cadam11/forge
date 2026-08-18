@@ -34,7 +34,12 @@
 
 import { useState, type FormEvent } from 'react';
 import { Check, KeyRound, Sparkles, Trash2 } from 'lucide-react';
-import type { AIVendor, AIVendorSettings } from '@joinery/shared';
+import type { AIVendor, AIVendorSettings, OpenRouterCostTier } from '@joinery/shared';
+import {
+  OPENROUTER_AUTO_ROUTERS,
+  OPENROUTER_COST_TIER_LABELS,
+  OPENROUTER_COST_TIERS,
+} from '@joinery/shared';
 
 import {
   Button,
@@ -81,6 +86,53 @@ function settingsFor(state: AIStoreState, vendorId: string): AIVendorSettings {
 /** The model a vendor defaults to when the user has not chosen one. */
 function defaultModelId(vendor: AIVendor): string | undefined {
   return (vendor.models.find(model => model.default) ?? vendor.models[0])?.id;
+}
+
+/**
+ * Radix `Select` refuses `value=""` — it reserves the empty string for "no selection" — so the
+ * unset row needs a sentinel. It is never persisted: `chooseCostTier` maps it back to `undefined`.
+ */
+const COST_TIER_UNSET = 'provider-default';
+
+/**
+ * Whether this vendor has anything a cost tier could apply to. Derived from the shared router
+ * table rather than a `vendor.id === 'openrouter'` test, so the control appears exactly where the
+ * request builder would act on it.
+ */
+function offersAutoRouter(vendor: AIVendor): boolean {
+  return vendor.models.some(model => OPENROUTER_AUTO_ROUTERS.has(model.apiName));
+}
+
+/**
+ * The routing preference OpenRouter's Auto Router models take. Applies to nothing else the vendor
+ * offers, which is what the hint says, and sending none is a distinct choice — OpenRouter then
+ * routes roughly as if the low band had been asked for.
+ */
+function AutoRouterCostTier({ vendor }: { readonly vendor: AIVendor }) {
+  const costTier = useAIStore(state => settingsFor(state, vendor.id).autoRouterCostTier);
+
+  const chooseCostTier = (next: string): void => {
+    const tier = next === COST_TIER_UNSET ? undefined : (next as OpenRouterCostTier);
+    void useAIStore.getState().setAutoRouterCostTier(vendor.id, tier);
+  };
+
+  return (
+    <Select
+      name="ai-cost-tier"
+      label="Auto-router cost tier"
+      data-testid="ai-setup-cost-tier"
+      value={costTier ?? COST_TIER_UNSET}
+      onValueChange={chooseCostTier}
+      hint="Applies only to the Auto Router models. Left unset, OpenRouter picks the band itself."
+    >
+      <SelectItem value={COST_TIER_UNSET}>Provider default</SelectItem>
+      {OPENROUTER_COST_TIERS.map(tier => (
+        <SelectItem key={tier} value={tier}>
+          {OPENROUTER_COST_TIER_LABELS[tier]}
+        </SelectItem>
+      ))}
+    </Select>
+  );
 }
 
 export function AiSetupDialog({ onDismiss }: AiSetupDialogProps) {
@@ -270,6 +322,8 @@ export function AiSetupDialog({ onDismiss }: AiSetupDialogProps) {
                         </SelectItem>
                       ))}
                     </Select>
+
+                    {offersAutoRouter(vendor) ? <AutoRouterCostTier vendor={vendor} /> : null}
 
                     <Switch
                       name="ai-vendor-enabled"

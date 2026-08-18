@@ -7,6 +7,56 @@
 export type CostTier = 'economy' | 'standard' | 'premium';
 
 /**
+ * OpenRouter's routing preference for its auto-routers (J-80).
+ *
+ * A band, not a ceiling: asking for `high` excludes models cheaper than the band as well as
+ * dearer ones. Sending no preference at all routes roughly as if `low` had been asked for, which
+ * is why "unset" is a real choice here and not a synonym for any of these five.
+ *
+ * The predecessor field `cost_quality_tradeoff` is deprecated; this replaces it.
+ */
+export type OpenRouterCostTier = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+
+/** The five bands, cheapest first — the order both settings UIs list them in. */
+export const OPENROUTER_COST_TIERS: readonly OpenRouterCostTier[] = [
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+  'max',
+] as const;
+
+/**
+ * What each band is called in the settings UIs. Here rather than in either renderer because both
+ * of them show it and `'xhigh'` is not a label a user should ever be shown; the same reason model
+ * display names live in `ai-vendors.json` instead of in a component.
+ */
+export const OPENROUTER_COST_TIER_LABELS: Readonly<Record<OpenRouterCostTier, string>> = {
+  low: 'Low — cheapest models',
+  medium: 'Medium',
+  high: 'High',
+  xhigh: 'Very high',
+  max: 'Max — most capable models',
+};
+
+/**
+ * OpenRouter's auto-routers, keyed by `apiName`, mapped to the plugin id their routing-preference
+ * block has to carry — `openrouter/auto` is served by the `auto-router` plugin, `openrouter/auto-beta`
+ * by `auto-beta-router`.
+ *
+ * **This map is the rule.** The docs do not say whether a cost tier sent to a non-router model is
+ * ignored or rejected, so the request builder looks the outgoing model up here and attaches nothing
+ * when it misses, rather than pattern-matching the model name. Both renderers use the same map to
+ * decide whether a vendor is entitled to the selector at all, so the three places agree by
+ * construction. `openrouter/free` and `openrouter/fusion` are deliberately absent: neither takes a
+ * cost tier.
+ */
+export const OPENROUTER_AUTO_ROUTERS: ReadonlyMap<string, string> = new Map([
+  ['openrouter/auto', 'auto-router'],
+  ['openrouter/auto-beta', 'auto-beta-router'],
+]);
+
+/**
  * AI Model definition
  */
 export interface AIModel {
@@ -70,6 +120,14 @@ export interface AIVendorSettings {
   customBaseUrl?: string;
   /** Preferred model ID for this vendor */
   preferredModelId?: string;
+  /**
+   * OpenRouter only: the cost band its auto-routers should route within. Undefined means "send no
+   * routing preference", which is OpenRouter's own default and NOT the same as `'low'`.
+   *
+   * Per-vendor rather than per-model because it is a property of the account's routing preference,
+   * and it reaches the wire only when the outgoing model is one of `OPENROUTER_AUTO_ROUTERS`.
+   */
+  autoRouterCostTier?: OpenRouterCostTier;
 }
 
 /**

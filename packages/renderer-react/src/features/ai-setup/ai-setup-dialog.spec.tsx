@@ -64,6 +64,35 @@ const CEREBRAS: AIVendor = {
   ],
 };
 
+/**
+ * Stands in for the real OpenRouter vendor: one concrete model and one auto-router. The router's
+ * `apiName` is what makes the cost-tier selector appear — the dialog reads the shared router table,
+ * not the vendor id — so this double exercises the same predicate the app does.
+ */
+const OPENROUTER: AIVendor = {
+  id: 'openrouter',
+  name: 'OpenRouter',
+  requiresApiKey: true,
+  models: [
+    {
+      id: 'openrouter-sonnet',
+      name: 'Claude Sonnet 4.5',
+      apiName: 'anthropic/claude-sonnet-4.5',
+      powerRank: 16,
+      costTier: 'standard',
+      default: true,
+    },
+    {
+      id: 'openrouter-auto',
+      name: 'Auto Router',
+      apiName: 'openrouter/auto',
+      powerRank: 17,
+      costTier: 'premium',
+      excludeFromAutoSelect: true,
+    },
+  ],
+};
+
 interface AiDouble {
   readonly setApiKeyCalls: () => readonly { vendorId: string; apiKey: string }[];
   readonly removeApiKeyCalls: () => readonly string[];
@@ -74,6 +103,8 @@ interface DoubleOptions {
   /** What `validateApiKey` answers. `false` is the rejected-key path. */
   readonly keyValid?: boolean;
   readonly initialSettings?: AISettings;
+  /** The catalogue `ai.getVendors()` answers with. Defaults to the two-vendor list. */
+  readonly vendors?: readonly AIVendor[];
 }
 
 const teardowns: (() => void)[] = [];
@@ -92,7 +123,7 @@ function installAiBridge(options: DoubleOptions = {}): AiDouble {
     installJoineryMock({
       app: appState.app,
       ai: {
-        getVendors: () => Promise.resolve([GEMINI, CEREBRAS]),
+        getVendors: () => Promise.resolve([...(options.vendors ?? [GEMINI, CEREBRAS])]),
         getSettings: () => Promise.resolve(settings),
         // Parameters are annotated because `installJoineryMock` takes a `DeepPartial<JoineryAPI>`,
         // which recurses into function types and erases their signatures (`test/joinery-mock.ts`).
@@ -309,5 +340,91 @@ describe('the AI setup dialog', () => {
     // Defaults are all three on, so a click is what turns one off — and the write must round-trip.
     await userEvent.click(screen.getByTestId('ai-setup-analysis'));
     await waitFor(() => expect(double.settings().features.analysisEnabled).toBe(false));
+  });
+
+  /**
+   * J-80. The cost tier is a routing preference for OpenRouter's auto-routers, so the control has
+   * to be reachable next to the vendor's other settings — and absent for every vendor that has no
+   * router to apply it to.
+   */
+  describe('the auto-router cost tier', () => {
+    /** Switches the vendor picker to `name` and waits for the form to follow. */
+    async function chooseVendor(name: string): Promise<void> {
+      await userEvent.click(screen.getByTestId('ai-setup-vendor'));
+      await userEvent.click(await screen.findByRole('option', { name }));
+    }
+
+    function savedTier(double: AiDouble): string | undefined {
+      return double.settings().vendorSettings.find(entry => entry.vendorId === 'openrouter')
+        ?.autoRouterCostTier;
+    }
+
+    it('is offered only for a vendor that has an auto-router', async () => {
+      installAiBridge({ vendors: [GEMINI, OPENROUTER] });
+      await mount();
+
+      // Gemini is the seeded vendor and has no router.
+      expect(screen.queryByTestId('ai-setup-cost-tier')).toBeNull();
+
+      await chooseVendor('OpenRouter');
+      expect(await screen.findByTestId('ai-setup-cost-tier')).not.toBeNull();
+    });
+
+    it('writes the chosen band through the store', async () => {
+      const double = installAiBridge({ vendors: [GEMINI, OPENROUTER] });
+      await mount();
+      await chooseVendor('OpenRouter');
+
+      await userEvent.click(screen.getByTestId('ai-setup-cost-tier'));
+      await userEvent.click(await screen.findByRole('option', { name: /^High$/ }));
+
+      await waitFor(() => expect(savedTier(double)).toBe('high'));
+    });
+
+    it('offers the five bands plus an unset row, and starts unset', async () => {
+      installAiBridge({ vendors: [GEMINI, OPENROUTER] });
+      await mount();
+      await chooseVendor('OpenRouter');
+
+      await userEvent.click(screen.getByTestId('ai-setup-cost-tier'));
+      const options = await screen.findAllByRole('option');
+      expect(options).toHaveLength(6);
+      expect(options[0]?.textContent).toBe('Provider default');
+      expect(options.map(option => option.getAttribute('data-state'))).toEqual([
+        'checked',
+        'unchecked',
+        'unchecked',
+        'unchecked',
+        'unchecked',
+        'unchecked',
+      ]);
+    });
+
+    it('clears the preference back to undefined, not to the cheapest band', async () => {
+      // Unset is a distinct instruction: OpenRouter then chooses the band itself. Writing `'low'`
+      // here would silently pin the cheapest models forever.
+      const double = installAiBridge({
+        vendors: [GEMINI, OPENROUTER],
+        initialSettings: {
+          ...DEFAULT_AI_SETTINGS,
+          vendorSettings: [
+            {
+              vendorId: 'openrouter',
+              enabled: true,
+              apiKeyConfigured: true,
+              priority: 0,
+              autoRouterCostTier: 'max',
+            },
+          ],
+        },
+      });
+      await mount();
+      await chooseVendor('OpenRouter');
+
+      await userEvent.click(screen.getByTestId('ai-setup-cost-tier'));
+      await userEvent.click(await screen.findByRole('option', { name: 'Provider default' }));
+
+      await waitFor(() => expect(savedTier(double)).toBeUndefined());
+    });
   });
 });

@@ -2,7 +2,7 @@
  * Unit tests for multi-provider LLM abstraction
  */
 import { afterEach, describe, it, expect, vi } from 'vitest';
-import { AI_VENDORS_CONFIG } from '@joinery/shared';
+import { AI_VENDORS_CONFIG, OPENROUTER_COST_TIERS } from '@joinery/shared';
 import {
   getLLMProvider,
   GeminiStreamProvider,
@@ -10,6 +10,7 @@ import {
   OpenAICompatibleStreamProvider,
   OPENROUTER_BASE_URL,
   OPENROUTER_HEADERS,
+  openRouterRoutingPlugins,
   type ChatCompletionParams,
   type StreamCallbacks,
   type StreamToolCall,
@@ -366,5 +367,121 @@ describe('OpenRouter provider', () => {
     expect(caught?.message).not.toContain('sk-or-v1-test-key');
     // A failed turn must not look like a finished one to chat-service.
     expect(recorder.record.completions).toBe(0);
+  });
+});
+
+// ---- OpenRouter auto-router cost tier (J-80) ----
+
+/**
+ * The cost tier is one field on the wire, but the interesting part is where it must NOT appear.
+ * OpenRouter's docs do not say what a routing preference does to a model that is not a router —
+ * ignored, or a 400 — so the tier is attached only to a model in `OPENROUTER_AUTO_ROUTERS`, and
+ * every negative case below is a request that would otherwise be sent speculatively.
+ */
+describe('OpenRouter cost tier', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  /** The `plugins` field of the single request the provider made, or undefined if it sent none. */
+  async function pluginsSentFor(
+    vendorId: string,
+    overrides: Partial<ChatCompletionParams>
+  ): Promise<unknown> {
+    const fetchMock = vi.fn().mockResolvedValue(sseResponse([]));
+    vi.stubGlobal('fetch', fetchMock);
+    await getLLMProvider(vendorId).streamChat(params(overrides), recordingCallbacks().callbacks);
+    return lastRequest(fetchMock).body.plugins;
+  }
+
+  it('sends the auto-router plugin id for openrouter/auto', async () => {
+    const plugins = await pluginsSentFor('openrouter', {
+      model: 'openrouter/auto',
+      costTier: 'medium',
+    });
+    expect(plugins).toEqual([{ id: 'auto-router', cost_tier: 'medium' }]);
+  });
+
+  // A different plugin id, not a suffix of the first: sending `auto-router` to the beta router
+  // is the mistake this pins.
+  it('sends the auto-beta-router plugin id for openrouter/auto-beta', async () => {
+    const plugins = await pluginsSentFor('openrouter', {
+      model: 'openrouter/auto-beta',
+      costTier: 'xhigh',
+    });
+    expect(plugins).toEqual([{ id: 'auto-beta-router', cost_tier: 'xhigh' }]);
+  });
+
+  it('carries each of the five bands verbatim', async () => {
+    for (const tier of OPENROUTER_COST_TIERS) {
+      const plugins = await pluginsSentFor('openrouter', {
+        model: 'openrouter/auto',
+        costTier: tier,
+      });
+      expect(plugins).toEqual([{ id: 'auto-router', cost_tier: tier }]);
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('sends no plugins block when no tier is set, even on a router', async () => {
+    expect(await pluginsSentFor('openrouter', { model: 'openrouter/auto' })).toBeUndefined();
+  });
+
+  // The negative control. Every one of these is a model a user can pin while an OpenRouter cost
+  // tier sits in their settings, so each is a live request that must go out unchanged.
+  const NON_ROUTERS = [
+    'openrouter/fusion',
+    'openrouter/free',
+    'anthropic/claude-sonnet-4.5',
+    'openai/gpt-5',
+    'meta-llama/llama-3.3-70b-instruct',
+    // Near-misses: prefix, suffix and case. String surgery on the model name would pass some.
+    'openrouter/auto-v2',
+    'x-openrouter/auto',
+    'OpenRouter/Auto',
+  ];
+
+  for (const model of NON_ROUTERS) {
+    it(`sends no plugins block for ${model}`, async () => {
+      expect(await pluginsSentFor('openrouter', { model, costTier: 'max' })).toBeUndefined();
+    });
+  }
+
+  it('sends no plugins block for another vendor, whatever the model is called', async () => {
+    expect(
+      await pluginsSentFor('groq', { model: 'openrouter/auto', costTier: 'max' })
+    ).toBeUndefined();
+  });
+
+  it('leaves the rest of the body alone when it does attach one', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(sseResponse([]));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await getLLMProvider('openrouter').streamChat(
+      params({ model: 'openrouter/auto', costTier: 'low' }),
+      recordingCallbacks().callbacks
+    );
+
+    const { body } = lastRequest(fetchMock);
+    expect(body.model).toBe('openrouter/auto');
+    expect(body.stream).toBe(true);
+    expect(body.messages).toEqual([{ role: 'user', content: 'list the tables' }]);
+  });
+
+  describe('openRouterRoutingPlugins', () => {
+    it('needs all three of vendor, router model and tier', () => {
+      expect(openRouterRoutingPlugins('openrouter', 'openrouter/auto', undefined)).toBeNull();
+      expect(openRouterRoutingPlugins('openrouter', 'openrouter/fusion', 'high')).toBeNull();
+      expect(openRouterRoutingPlugins('groq', 'openrouter/auto', 'high')).toBeNull();
+    });
+
+    it('maps each router to its own plugin id', () => {
+      expect(openRouterRoutingPlugins('openrouter', 'openrouter/auto', 'high')).toEqual([
+        { id: 'auto-router', cost_tier: 'high' },
+      ]);
+      expect(openRouterRoutingPlugins('openrouter', 'openrouter/auto-beta', 'high')).toEqual([
+        { id: 'auto-beta-router', cost_tier: 'high' },
+      ]);
+    });
   });
 });

@@ -5,6 +5,8 @@
  * All providers stream responses via callbacks and support function calling.
  */
 
+import type { OpenRouterCostTier } from '@joinery/shared';
+import { OPENROUTER_AUTO_ROUTERS } from '@joinery/shared';
 import { createLogger } from '../../utils/logger';
 
 const log = createLogger('LLM');
@@ -51,6 +53,11 @@ export interface ChatCompletionParams {
   temperature?: number;
   maxTokens?: number;
   signal?: AbortSignal;
+  /**
+   * OpenRouter's routing preference. Reaches the wire only when `model` is one of
+   * `OPENROUTER_AUTO_ROUTERS`; see `openRouterRoutingPlugins`.
+   */
+  costTier?: OpenRouterCostTier;
 }
 
 export interface LLMProvider {
@@ -359,6 +366,41 @@ export const OPENROUTER_HEADERS: Readonly<Record<string, string>> = Object.freez
   'X-Title': 'Joinery',
 });
 
+/** One entry of the `plugins` array OpenRouter reads a routing preference from. */
+export interface OpenRouterRoutingPlugin {
+  readonly id: string;
+  /** OpenRouter's own field name — snake_case is the wire format, not a style slip. */
+  readonly cost_tier: OpenRouterCostTier;
+}
+
+/** The vendor id `ai-vendors.json` gives OpenRouter. */
+export const OPENROUTER_VENDOR_ID = 'openrouter';
+
+/**
+ * The `plugins` block that carries a cost tier to an OpenRouter auto-router, or `null` when this
+ * request must not carry one.
+ *
+ * Three independent conditions, all required, because the documentation is silent on what a
+ * routing preference does to a model that is not a router — it may be ignored, it may be a 400.
+ * So the tier goes out only when OpenRouter is the vendor being called, the outgoing model
+ * appears in `OPENROUTER_AUTO_ROUTERS`, and a tier is actually set; under that router's own
+ * plugin id. Every other request — including a model another vendor happens to name the same
+ * way — gets no block at all.
+ *
+ * Pure and exported: this is the rule the request-shaping tests pin.
+ */
+export function openRouterRoutingPlugins(
+  vendorId: string,
+  model: string,
+  costTier: OpenRouterCostTier | undefined
+): OpenRouterRoutingPlugin[] | null {
+  if (vendorId !== OPENROUTER_VENDOR_ID) return null;
+  if (costTier === undefined) return null;
+  const pluginId = OPENROUTER_AUTO_ROUTERS.get(model);
+  if (pluginId === undefined) return null;
+  return [{ id: pluginId, cost_tier: costTier }];
+}
+
 // ---- OpenAI-compatible Provider (OpenAI, Groq, Cerebras, OpenRouter) ----
 
 export class OpenAICompatibleStreamProvider implements LLMProvider {
@@ -422,6 +464,9 @@ export class OpenAICompatibleStreamProvider implements LLMProvider {
         },
       }));
     }
+
+    const plugins = openRouterRoutingPlugins(this.vendorId, params.model, params.costTier);
+    if (plugins) body.plugins = plugins;
 
     const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
       method: 'POST',

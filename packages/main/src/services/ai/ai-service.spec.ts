@@ -9,9 +9,14 @@
  * exact headers on each of the two calls.
  */
 import { afterEach, describe, it, expect, vi } from 'vitest';
-import type { AIModel, AISettings } from '@joinery/shared';
+import type { AIModel, AISettings, OpenRouterCostTier } from '@joinery/shared';
 import { DEFAULT_AI_SETTINGS } from '@joinery/shared';
-import { AIService, OPENAI_COMPATIBLE_VENDORS, OpenAICompatibleProvider } from './ai-service';
+import {
+  AIService,
+  autoRouterCostTierFor,
+  OPENAI_COMPATIBLE_VENDORS,
+  OpenAICompatibleProvider,
+} from './ai-service';
 import { CredentialStore } from '../keychain/credential-store';
 
 // AIService reads its settings from electron-store on construction, which has no home in a node
@@ -221,13 +226,20 @@ describe('power-rank auto-selection', () => {
 
   /** An AIService whose only enabled vendor is OpenRouter, with a key in the mock keychain. */
   async function serviceWithOnlyOpenRouter(
-    features: Partial<AISettings['features']> = {}
+    features: Partial<AISettings['features']> = {},
+    autoRouterCostTier?: OpenRouterCostTier
   ): Promise<AIService> {
     appState.aiSettings = {
       ...DEFAULT_AI_SETTINGS,
       enabled: true,
       vendorSettings: [
-        { vendorId: 'openrouter', enabled: true, apiKeyConfigured: true, priority: 0 },
+        {
+          vendorId: 'openrouter',
+          enabled: true,
+          apiKeyConfigured: true,
+          priority: 0,
+          autoRouterCostTier,
+        },
       ],
       features: { ...DEFAULT_AI_SETTINGS.features, ...features },
     };
@@ -235,11 +247,16 @@ describe('power-rank auto-selection', () => {
     return new AIService();
   }
 
-  /** The `model` field of the single chat-completions request the service made. */
-  function modelSentTo(fetchMock: ReturnType<typeof vi.fn>): string {
+  /** The single chat-completions request body the service sent. */
+  function bodySentTo(fetchMock: ReturnType<typeof vi.fn>): Record<string, unknown> {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    return (JSON.parse(init.body as string) as { model: string }).model;
+    return JSON.parse(init.body as string) as Record<string, unknown>;
+  }
+
+  /** The `model` field of the single chat-completions request the service made. */
+  function modelSentTo(fetchMock: ReturnType<typeof vi.fn>): string {
+    return bodySentTo(fetchMock).model as string;
   }
 
   function stubCompletion(content: string): ReturnType<typeof vi.fn> {
@@ -280,5 +297,96 @@ describe('power-rank auto-selection', () => {
     await service.generateTabName({ sql: 'SELECT * FROM users' });
 
     expect(modelSentTo(fetchMock)).toBe('openrouter/auto-beta');
+  });
+
+  /**
+   * J-80. The simple features reach OpenRouter through a different class than chat does, so the
+   * cost tier has to be attached in both — under the same rule, which is what these pin. The
+   * feature only ever fires here when the user has pinned a router to one of the three features,
+   * because nothing else can put a router on this path (see the tests above).
+   */
+  describe('cost tier on the simple-features path', () => {
+    it('attaches the tier when a pinned router carries one', async () => {
+      const fetchMock = stubCompletion('Routed');
+      const service = await serviceWithOnlyOpenRouter(
+        { tabRenameModelId: 'openrouter-auto' },
+        'high'
+      );
+
+      await service.generateTabName({ sql: 'SELECT * FROM users' });
+
+      expect(bodySentTo(fetchMock).plugins).toEqual([{ id: 'auto-router', cost_tier: 'high' }]);
+    });
+
+    it("uses the beta router's own plugin id", async () => {
+      const fetchMock = stubCompletion('Routed');
+      const service = await serviceWithOnlyOpenRouter(
+        { analysisModelId: 'openrouter-auto-beta' },
+        'max'
+      );
+
+      await service.analyzeResults({
+        sql: 'SELECT 1',
+        resultSummary: { rowCount: 1, columnCount: 1, columns: [] },
+      });
+
+      expect(bodySentTo(fetchMock).plugins).toEqual([{ id: 'auto-beta-router', cost_tier: 'max' }]);
+    });
+
+    it('attaches nothing when the vendor has no tier saved', async () => {
+      const fetchMock = stubCompletion('Routed');
+      const service = await serviceWithOnlyOpenRouter({ tabRenameModelId: 'openrouter-auto' });
+
+      await service.generateTabName({ sql: 'SELECT * FROM users' });
+
+      expect(bodySentTo(fetchMock).plugins).toBeUndefined();
+    });
+
+    // The negative control that matters most: a tier is saved, and the pinned model is Fusion —
+    // a meta model, but not a router. Nothing may ride along.
+    it('attaches nothing to fusion, tier or no tier', async () => {
+      const fetchMock = stubCompletion('Fused');
+      const service = await serviceWithOnlyOpenRouter(
+        { tabRenameModelId: 'openrouter-fusion' },
+        'medium'
+      );
+
+      await service.generateTabName({ sql: 'SELECT * FROM users' });
+
+      expect(modelSentTo(fetchMock)).toBe('openrouter/fusion');
+      expect(bodySentTo(fetchMock).plugins).toBeUndefined();
+    });
+
+    it('attaches nothing to the concrete model auto-selection lands on', async () => {
+      const fetchMock = stubCompletion('ActiveUsers');
+      const service = await serviceWithOnlyOpenRouter({}, 'medium');
+
+      await service.generateTabName({ sql: 'SELECT * FROM users' });
+
+      expect(ROUTER_API_NAMES).not.toContain(modelSentTo(fetchMock));
+      expect(bodySentTo(fetchMock).plugins).toBeUndefined();
+    });
+  });
+
+  describe('autoRouterCostTierFor', () => {
+    const settings: AISettings = {
+      ...DEFAULT_AI_SETTINGS,
+      vendorSettings: [
+        {
+          vendorId: 'openrouter',
+          enabled: true,
+          apiKeyConfigured: true,
+          priority: 0,
+          autoRouterCostTier: 'xhigh',
+        },
+        { vendorId: 'groq', enabled: true, apiKeyConfigured: true, priority: 1 },
+      ],
+    };
+
+    it('reads the tier off the named vendor only', () => {
+      expect(autoRouterCostTierFor(settings, 'openrouter')).toBe('xhigh');
+      expect(autoRouterCostTierFor(settings, 'groq')).toBeUndefined();
+      expect(autoRouterCostTierFor(settings, 'nobody')).toBeUndefined();
+    });
   });
 });

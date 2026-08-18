@@ -12,7 +12,12 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { SettingsService } from '../../../core/services/settings.service';
 import { AIStateService } from '../../../core/state/ai.state';
-import type { ThemePreference } from '@joinery/shared';
+import type { AIVendor, OpenRouterCostTier, ThemePreference } from '@joinery/shared';
+import {
+  OPENROUTER_AUTO_ROUTERS,
+  OPENROUTER_COST_TIER_LABELS,
+  OPENROUTER_COST_TIERS,
+} from '@joinery/shared';
 import { keyHint } from '../../../core/utils/platform';
 
 @Component({
@@ -430,6 +435,30 @@ import { keyHint } from '../../../core/utils/platform';
                                   {{ model.name }}
                                   <span class="model-tier">{{ model.costTier }}</span>
                                 </mat-option>
+                              }
+                            </mat-select>
+                          </mat-form-field>
+                        </div>
+                      }
+
+                      <!-- Auto-router cost tier (J-80) — OpenRouter's routers only -->
+                      @if (vendorOffersAutoRouter(vendor)) {
+                        <div class="setting-item model-selector">
+                          <div class="setting-info">
+                            <label>Auto-router cost tier</label>
+                            <span class="setting-description">
+                              Applies only to the Auto Router models. Left unset, OpenRouter picks
+                              the band itself.
+                            </span>
+                          </div>
+                          <mat-form-field appearance="outline" class="model-select-field">
+                            <mat-select
+                              [value]="getAutoRouterCostTier(vendor.id) ?? COST_TIER_UNSET"
+                              (selectionChange)="setAutoRouterCostTier(vendor.id, $event.value)"
+                            >
+                              <mat-option [value]="COST_TIER_UNSET">Provider default</mat-option>
+                              @for (tier of costTiers; track tier) {
+                                <mat-option [value]="tier">{{ costTierLabel(tier) }}</mat-option>
                               }
                             </mat-select>
                           </mat-form-field>
@@ -938,6 +967,35 @@ export class SettingsPanelComponent implements OnInit, OnDestroy {
   getPreferredModel(vendorId: string): string | undefined {
     const vs = this.aiState.getVendorSettings(vendorId);
     return vs?.preferredModelId;
+  }
+
+  // ---- OpenRouter auto-router cost tier (J-80) ----
+
+  /** Sentinel for "send no routing preference" — `mat-option` needs a value, and `''` is falsy. */
+  readonly COST_TIER_UNSET = 'provider-default';
+  readonly costTiers = OPENROUTER_COST_TIERS;
+
+  /** Same table the React dialog reads: `'xhigh'` is not something to show a user. */
+  costTierLabel(tier: OpenRouterCostTier): string {
+    return OPENROUTER_COST_TIER_LABELS[tier];
+  }
+
+  /**
+   * Whether this vendor has anything the cost tier could apply to. Read off the shared router
+   * table rather than a hardcoded vendor id, so the control shows exactly where the main process
+   * would act on it.
+   */
+  vendorOffersAutoRouter(vendor: AIVendor): boolean {
+    return vendor.models.some(model => OPENROUTER_AUTO_ROUTERS.has(model.apiName));
+  }
+
+  getAutoRouterCostTier(vendorId: string): OpenRouterCostTier | undefined {
+    return this.aiState.getVendorSettings(vendorId)?.autoRouterCostTier;
+  }
+
+  async setAutoRouterCostTier(vendorId: string, value: string): Promise<void> {
+    const tier = value === this.COST_TIER_UNSET ? undefined : (value as OpenRouterCostTier);
+    await this.aiState.setAutoRouterCostTier(vendorId, tier);
   }
 
   updateApiKeyInput(vendorId: string, value: string): void {

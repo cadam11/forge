@@ -1,5 +1,5 @@
 {
-  "version": "2.1.0",
+  "version": "2.2.0",
   "lastUpdated": "2026-08-18",
   "vendors": [
     {
@@ -396,6 +396,17 @@
           "excludeFromAutoSelect": true,
           "supportsStreaming": true,
           "maxContextTokens": 2000000,
+          "maxOutputTokens": 32768
+        },
+        {
+          "id": "openrouter-fusion",
+          "name": "Fusion (multi-model panel: ~2-3x slower, panel + analyst pricing)",
+          "apiName": "openrouter/fusion",
+          "powerRank": 18,
+          "costTier": "premium",
+          "excludeFromAutoSelect": true,
+          "supportsStreaming": true,
+          "maxContextTokens": 200000,
           "maxOutputTokens": 32768
         },
         {
