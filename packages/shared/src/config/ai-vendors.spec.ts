@@ -31,6 +31,18 @@ describe('ai-vendors.json', () => {
     }
   });
 
+  // The `excludeFromAutoSelect` filter runs for every vendor, in chat's fallback as well as in
+  // the power-rank targeting, so this sweep has to cover every vendor too: the flag landing on a
+  // concrete model anywhere would silently drop it out of both automatic choices. The three
+  // OpenRouter routers (J-79) are the only models entitled to it.
+  it('excludes only the OpenRouter meta models from automatic selection', () => {
+    const excluded = vendors
+      .flatMap(vendor => vendor.models)
+      .filter(model => model.excludeFromAutoSelect)
+      .map(model => model.apiName);
+    expect(excluded).toEqual(['openrouter/auto-beta', 'openrouter/auto', 'openrouter/free']);
+  });
+
   describe('openrouter', () => {
     const openrouter = vendors.find(vendor => vendor.id === 'openrouter');
 
@@ -79,13 +91,6 @@ describe('ai-vendors.json', () => {
           expect(model?.excludeFromAutoSelect).toBe(true);
         });
       }
-
-      it('excludes no concrete model from automatic selection', () => {
-        const excluded = (openrouter?.models ?? [])
-          .filter(model => model.excludeFromAutoSelect)
-          .map(model => model.apiName);
-        expect(excluded).toEqual(routers.map(router => router.apiName));
-      });
     });
 
     it('offers Claude Opus 5 as its top-ranked flagship', () => {
