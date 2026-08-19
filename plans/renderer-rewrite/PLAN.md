@@ -495,6 +495,7 @@ to stay pinned.**
 
 **23. Perf + a11y sweep** — grid at 100k rows, chat streaming, ERD at 200 tables,
 `:focus-visible` on every interactive element, keyboard-operable resize handles and docking.
+**Delivered — see "Phase C appendix — the perf tier and the a11y sweep" below.**
 
 ### Phase C appendix — the Angular → React e2e mapping table (Tasks 20+21, delivered)
 
@@ -625,6 +626,84 @@ per-row status line ("Up 44 minutes (healthy)") changes every minute, so masking
 surface into meaninglessness. A portable baseline needs a deterministic source behind `docker.detect`,
 which is a `packages/` change. Same reason a streamed chat transcript is absent: no test here calls an
 LLM, and a fake provider is also a `packages/` change. Both are flagged, not forgotten.
+
+### Phase C appendix — the perf tier and the a11y sweep (Task 23, delivered)
+
+**A fifth Playwright project, `perf-react` (`tests/e2e-react-perf/` — 3 specs / 5 tests), plus
+`tests/e2e-react/a11y.spec.ts` (9 tests) in the functional tier.** The perf tier is separate rather
+than tagged because its specs are slow by construction, and it is a sibling directory for the same
+reason `e2e-react` and `e2e-react-visual` are: `e2e-react` discovers by a plain `testDir`, so a
+nested directory would join it and change its count.
+
+```bash
+pnpm run test:harness:up      # Docker DBs
+pnpm run test:perf:react      # builds first (pretest hook), then runs the 5 perf tests
+pnpm run test:visual:react    # the script the Task 22 appendix asked the next person to add
+```
+
+**The threshold rule, stated once in `tests/e2e-react-perf/fixtures.ts` and followed everywhere.** A
+wall-clock number measured on a laptop is a fact about that laptop, and a suite that goes red when
+somebody opens a browser is a suite people learn to ignore. So the real gates are **structural** —
+DOM row counts, mutation counts, node counts, all independent of host speed — and every duration is
+a **generous outer bound sized from a recorded median**, with the median in the constant's own
+doc-comment. Task 17's benchmark is the model.
+
+**What was measured** (development machine; every run writes its own numbers to a JSON attachment
+beside the test):
+
+| Gate                       | Measured                                                                                                                                               | Asserted                                                               |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| Grid, 100,000 rows         | first paint 379/380/392 ms; sort 88/90/103 ms; **31** `.ag-row` elements in the DOM; 0 long tasks on scroll                                            | <200 rows in the DOM, <10s paint, <5s sort, <500 ms blocking on scroll |
+| Grid scroll isolation      | **0** sidebar mutations while scrolling row 1 → row 100,000                                                                                            | exactly 0                                                              |
+| ERD, 200 tables            | 826/835/838 ms to a drawn diagram (incl. 400 IPC calls for columns+keys); 1 long task of 52–54 ms, TBT 2–4 ms                                          | <20s draw, <5s blocking, not truncated, 100 < nodes < 200              |
+| ERD re-activation          | 79 ms, same node count                                                                                                                                 | node count unchanged, exactly one ERD tab                              |
+| Chat streaming, 600 chunks | **91 chunks/s**; **108** mutations on the streaming message for 120 coalescer flushes; **0 / 0 / 0** on the 50 prior messages, the grid and the editor | the three zeros, and <3 mutations per flush                            |
+
+The chat spec is Task 17's `.superpowers/sdd/PLAN/task-17-perf.mjs` made durable — that file is
+gitignored scratch, so nothing ran it and nothing failed when the property stopped holding. It needed
+one addition to the shared launcher: an opt-in **`seedUserData`** hook on `withJoinery`, which writes
+into the launch's isolated user-data dir before Electron starts. `ChatService` loads
+`<userData>/chat-history/` in its constructor, and a 50-message transcript with one message still
+streaming has no IPC channel to arrive through.
+
+**Two traps this task found, and both are now guarded.**
+
+1. **`outline-hidden` silently erases a `:focus-visible` ring.** Tailwind v4 compiles `outline-hidden`
+   to `--tw-outline-style: none` and every `outline-<width>` utility to
+   `outline-style: var(--tw-outline-style)`, so the two on ONE element produce a 2px outline drawn in
+   style `none`. The element has a `focus-visible:` rule, passes every source scan, and shows
+   nothing. It had eaten the explorer tree's ring (`ui/tree.tsx`), which is the app's single tab stop
+   for the whole sidebar. `focus-visible:outline-solid` restores it, and
+   `ui/contract.spec.tsx` now walks every `cn(…)` argument list in `src/ui` — per call, because this
+   codebase splits a `cn` across lines and because `switch.tsx` legitimately suppresses on one
+   element and rings another.
+2. **A fixture database that outlives its tier is a fixture every tier shares.** The 200-table ERD
+   schema, left on the container, turns the visual tier's two `shell-connected` baselines red: the
+   explorer lists every database on the server, and those screenshots include the explorer. It is
+   dropped in `afterAll`.
+
+**Also fixed:** Radix gives `TabsContent` `tabIndex={0}`, so a Tab press from a tab trigger lands on
+a panel that had no focus treatment at all. It has one now, `:focus-visible` only, so a pointer-driven
+tab change is unchanged.
+
+**Keyboard docking** (`shell/workspace/panel-docking.ts`) closes the other half of the plan line —
+the resize handles got their keyboard half in Task 7, docking was drag-only. Option+Arrow splits the
+focused tab into a new group on that side; Option+Shift+Arrow moves it into the previous/next
+existing group; both are also in the tab context menu, which Radix opens on Shift+F10. The keys are
+attached natively to Dockview's `.dv-tab`, not through a React `onKeyDown`, because that element —
+not this app's subtree — carries `role="tab"` and the roving `tabIndex`, so it is what has focus when
+a key is pressed.
+
+**Open, and deliberately not fixed here:**
+
+- **A 200-table diagram cannot be seen whole at any zoom the toolbar offers.** Dagre lays it out
+  around 42,000px wide, `MIN_ZOOM` is 0.1 (`features/erd/erd-viewport.ts:37`), and the cull margin
+  gives roughly 33,000px of reach — so fit-on-load is clamped (the readout says 10% the moment the
+  diagram appears), 176 of 200 nodes render, and further zoom-out presses are no-ops. Wants a minimap
+  or a lower floor. A feature gap, not a performance regression.
+- The perf tier's grid spec is **PostgreSQL-only** (`generate_series`). Covering MySQL and SQL Server
+  would triple the slowest tier's runtime to measure the same React component.
+- Screen-reader behaviour beyond focus/contrast/keyboard remains out of scope per §8.
 
 ### Phase D — Cutover (Task 24)
 

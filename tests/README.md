@@ -63,6 +63,9 @@ pnpm run test:harness:down     # tear down when done
 | `pnpm run test:visual`            | Capture/compare visual regression baselines (one-shot)                   |
 | `pnpm run test:visual:live`       | Same, but stream events to the dashboard                                 |
 | `pnpm run test:visual:update`     | Re-capture all visual baselines (use after intentional UI changes)       |
+| `pnpm run test:e2e:react`         | React renderer's functional tier (`tests/e2e-react/`)                    |
+| `pnpm run test:visual:react`      | React renderer's visual baselines (`tests/e2e-react-visual/`) — macOS    |
+| `pnpm run test:perf:react`        | React renderer's performance gates (`tests/e2e-react-perf/`) — slow      |
 | `pnpm run test:harness:up`        | Start docker-compose network, generate SSH keypair if needed             |
 | `pnpm run test:harness:down`      | Stop network and remove volumes                                          |
 | `pnpm run test:harness:status`    | Show compose service health                                              |
