@@ -268,12 +268,19 @@ async function measureActiveElement(
 }
 
 /**
- * A surface whose focus indicator is drawn somewhere `getComputedStyle` on the focused element
- * cannot see it, plus the assertion that proves the indicator is nonetheless there.
+ * A stop the ordinary gate cannot judge, plus the assertion that says what is true instead.
  *
- * Three of these exist and all three are vendor DOM. An exemption without `verify` would be a hole,
- * so every one carries a positive check of its own — the point is to measure the indicator the
- * vendor does draw, not to stop asking.
+ * Four of these exist and no two share a reason: two vendor surfaces draw the indicator on a
+ * different element (Monaco, AG Grid), one surface's field is its own only focus stop so the caret
+ * is the indicator (the command overlay), and one element cannot hold focus at all (a Radix
+ * roving-focus group root). An exemption without a `verify` would be a hole rather than a documented
+ * edge, so every one carries a positive check — the point is to measure what IS there, not to stop
+ * asking.
+ *
+ * Note what is deliberately NOT an exemption: an indicator drawn by an ancestor through
+ * `has-focus-visible:` (`ui/switch.tsx`, `ui/field.tsx`). That one the measurement understands
+ * directly — see `indicatedOn` — because the ring genuinely exists and a rule excusing it would
+ * excuse its absence too.
  */
 export interface FocusExemption {
   /** Matches the stop this exemption covers. */
@@ -456,7 +463,7 @@ function focusTable(title: string, walk: FocusWalk): string {
       `| ${stop.order} | \`${stop.id}\` | ${stop.tag} | ${stop.role ?? '—'} | ` +
       `${stop.focusVisible ? 'yes' : 'no'} | ${stop.outlineStyle} ${stop.outlineWidthPx}px ` +
       `${stop.outlineColor} | ${stop.outlineStyleVar} | ` +
-      `${stop.boxShadow === 'none' ? '—' : 'ring'} | ` +
+      `${stop.boxShadow === 'none' ? '—' : 'ring'} | ${stop.indicatedOn} | ` +
       `${stop.indicated && stop.focusVisible ? 'PASS' : 'FAIL'} | \`${stop.classes}\` |`
   );
 
@@ -472,8 +479,8 @@ function focusTable(title: string, walk: FocusWalk): string {
   return [
     `### ${title} — ${walk.stops.length} stops, ${ending}`,
     '',
-    '| # | element | tag | role | :focus-visible | outline | --tw-outline-style | shadow | gate | classes |',
-    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+    '| # | element | tag | role | :focus-visible | outline | --tw-outline-style | shadow | drawn on | gate | classes |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
     ...rows,
     '',
   ].join('\n');
