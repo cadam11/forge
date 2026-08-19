@@ -1,7 +1,7 @@
 /**
  * The AI assistant: the side panel, the chat tab, the conversation list.
  *
- * One surface, mounted twice (`renderer-react/src/features/chat/chat-surface.tsx`), so every helper
+ * One surface, mounted twice (`renderer/src/features/chat/chat-surface.tsx`), so every helper
  * below takes the ROOT it should look inside: `chatPanel(window)` or `chatTab(window)`. That is not
  * tidiness — the panel and the tab hold independent store instances, and a helper that searched the
  * whole document would happily assert one tab's transcript against the other's, which is the exact

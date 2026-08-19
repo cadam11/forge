@@ -1,5 +1,5 @@
 /**
- * E2E interaction helpers for the **React** renderer (`packages/renderer-react`) — the public
+ * E2E interaction helpers for the **React** renderer (`packages/renderer`) — the public
  * surface, re-exported from the eleven modules under `tests/helpers/react/`.
  *
  * ── Why this file is a barrel now (Task 20) ───────────────────────────────────

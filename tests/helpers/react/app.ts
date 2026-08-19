@@ -153,7 +153,7 @@ export async function withJoineryReact<T>(
 
 /**
  * The boot gate: `AppShell` renders the startup screen until the stores are
- * hydrated (`renderer-react/src/shell/boot.ts`), so `app-shell` appearing is
+ * hydrated (`renderer/src/shell/boot.ts`), so `app-shell` appearing is
  * the earliest moment any other locator means anything.
  */
 export async function waitForShell(window: Page): Promise<void> {

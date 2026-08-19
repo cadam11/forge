@@ -8,7 +8,7 @@
  * conversation in `<userData>/chat-history/` — so the round trips below are real, and the reload proves
  * they reached disk. The one thing that DOES need a provider is a reply, and the assertion about that is
  * that the app says so instead of pretending: the streaming path itself is covered against a scripted
- * bridge in `renderer-react/src/features/chat/*.spec.tsx` and, in the shipped bundle, by
+ * bridge in `renderer/src/features/chat/*.spec.tsx` and, in the shipped bundle, by
  * `.superpowers/sdd/PLAN/task-17-perf.mjs`.
  *
  * No database either: chat does not need a connection, and the one place the two meet — the context line

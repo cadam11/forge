@@ -7,7 +7,10 @@ on:
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
       - 'packages/**'
+      - 'tests/**'
       - 'vitest.config.ts'
+      - 'tsconfig.tests.json'
+      - 'playwright.config.ts'
   push:
     branches: [main]
 
@@ -40,7 +43,7 @@ jobs:
         run: pnpm --filter @joinery/shared exec tsc --build
 
       # Same reason as the step above: dist/ is gitignored, so on a clean checkout there
-      # are no declarations to type-check against. packages/renderer-react imports
+      # are no declarations to type-check against. packages/renderer imports
       # `JoineryAPI` from @joinery/preload, which resolves via the package's
       # "types": "dist/index.d.ts" — absent here until something emits it. The
       # "Type-check preload" step below cannot serve: it is --noEmit, and it runs after.
@@ -55,19 +58,18 @@ jobs:
       - name: Type-check renderer
         run: pnpm exec tsc --noEmit -p packages/renderer/tsconfig.json
 
-      - name: Type-check renderer-react
-        run: pnpm exec tsc --noEmit -p packages/renderer-react/tsconfig.json
-
       - name: Type-check preload
         run: pnpm exec tsc --noEmit -p packages/preload/tsconfig.json
 
-      # Scoped to renderer-react on purpose. Root `pnpm run lint` (turbo) is red on
-      # main because packages/renderer declares `ng lint` with no Angular lint target
-      # (plans/rebrand/FOLLOW-UPS.md items 6 and 14), so it cannot gate CI. Without
-      # this step nothing enforces react-hooks / jsx-a11y for the whole rewrite.
-      # Widen to the root script once that target is fixed or removed.
-      - name: Lint renderer-react
-        run: pnpm --filter @joinery/renderer-react run lint
+      - name: Type-check tests
+        run: pnpm run typecheck:tests
+
+      # Scoped to the renderer on purpose. Root `pnpm run lint` (turbo) covers only the
+      # packages that declare a `lint` task, and today that is this one — main, preload,
+      # shared and cli have none (plans/rebrand/FOLLOW-UPS.md items 6 and 14). Widen to
+      # the root script once they do.
+      - name: Lint renderer
+        run: pnpm --filter @joinery/renderer run lint
 
       - name: Run tests with coverage
         run: pnpm run test:coverage
