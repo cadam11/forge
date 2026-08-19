@@ -18,7 +18,7 @@
  * break first.
  */
 
-import { expect, test } from './fixtures';
+import { expect, test, type Page } from '@playwright/test';
 import {
   connectFromSidebar,
   createPostgresProfile,
@@ -33,7 +33,6 @@ import {
   typeSql,
   withJoineryReact,
 } from '../helpers/joinery-actions-react';
-import type { Page } from '@playwright/test';
 
 const PROFILE = 'Test PG';
 

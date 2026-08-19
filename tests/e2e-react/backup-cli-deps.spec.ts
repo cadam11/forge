@@ -19,7 +19,7 @@
  * form and `missing-cli-tools` is absent. Neither test means much without the other.
  */
 
-import { expect, test } from './fixtures';
+import { expect, test } from '@playwright/test';
 import {
   backupDialog,
   connectFromSidebar,

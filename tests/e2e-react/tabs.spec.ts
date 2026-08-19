@@ -27,9 +27,7 @@
  * `menu:previous-tab` — three of the 31 channels `shell/menu-bridge.tsx` routes.
  */
 
-import type { Page } from '@playwright/test';
-
-import { expect, test } from './fixtures';
+import { expect, test, type Page } from '@playwright/test';
 import {
   activeTabTitle,
   connectFromSidebar,

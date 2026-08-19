@@ -13,7 +13,7 @@
     "build": "turbo run build",
     "build:stream": "turbo run build --log-order=stream",
     "dev": "pnpm run build && concurrently -k \"pnpm run dev:renderer\" \"pnpm run dev:main\"",
-    "dev:renderer": "pnpm --filter ${JOINERY_RENDERER:-@joinery/renderer} run start",
+    "dev:renderer": "pnpm --filter @joinery/renderer run start",
     "dev:main": "wait-on http://localhost:4200 && unset ELECTRON_RUN_AS_NODE && NODE_ENV=development pnpm --filter @joinery/main run start",
     "start": "turbo run start",
     "watch": "turbo run watch",
@@ -27,18 +27,15 @@
     "test:harness:status": "docker compose -f tests/docker-compose.test.yml ps",
     "test:full": "node tests/reporter/build-report.mjs",
     "test:dashboard": "node tests/reporter/serve.mjs",
-    "test:e2e": "playwright test --project=e2e",
     "pretest:e2e:react": "pnpm run build",
     "test:e2e:react": "playwright test --project=e2e-react",
     "pretest:visual:react": "pnpm run build",
     "test:visual:react": "playwright test --project=visual-react",
     "pretest:perf:react": "pnpm run build",
     "test:perf:react": "playwright test --project=perf-react",
-    "test:e2e:ui": "playwright test --project=e2e --ui",
-    "test:e2e:live": "JOINERY_LIVE_REPORTER_URL=http://127.0.0.1:5188/_event playwright test --project=e2e",
-    "test:visual": "playwright test --project=visual",
-    "test:visual:live": "JOINERY_LIVE_REPORTER_URL=http://127.0.0.1:5188/_event playwright test --project=visual",
-    "test:visual:update": "playwright test --project=visual --update-snapshots",
+    "test:e2e:react:ui": "playwright test --project=e2e-react --ui",
+    "test:e2e:react:live": "JOINERY_LIVE_REPORTER_URL=http://127.0.0.1:5188/_event playwright test --project=e2e-react",
+    "test:visual:react:live": "JOINERY_LIVE_REPORTER_URL=http://127.0.0.1:5188/_event playwright test --project=visual-react",
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",
     "format": "prettier --write \"**/*.{ts,tsx,jsx,json,md,scss,css,html}\"",
@@ -95,13 +92,13 @@
     "wait-on": "^9.0.3"
   },
   "lint-staged": {
-    "!(packages/renderer-react/**)*.{ts,tsx}": [
+    "!(packages/renderer/**)*.{ts,tsx}": [
       "prettier --write",
       "eslint --fix"
     ],
-    "packages/renderer-react/**/*.{ts,tsx}": [
+    "packages/renderer/**/*.{ts,tsx}": [
       "prettier --write",
-      "pnpm --filter @joinery/renderer-react exec eslint --fix"
+      "pnpm --filter @joinery/renderer exec eslint --fix"
     ],
     "*.{json,md,scss,css,html}": [
       "prettier --write"

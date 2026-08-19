@@ -8,7 +8,7 @@
  * `features/query/ai-analysis-panel.spec.tsx`.
  */
 
-import { expect, test } from './fixtures';
+import { expect, test } from '@playwright/test';
 import {
   aiSetupDialog,
   connectFromSidebar,

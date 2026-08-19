@@ -12,7 +12,7 @@
  * renderer's profile list to notice.
  *
  * `getByLabel` throughout, with `exact: true`. The Field primitive emits a real
- * `<label for>` (`renderer-react/src/ui/field.tsx`), which is the whole reason
+ * `<label for>` (`renderer/src/ui/field.tsx`), which is the whole reason
  * PLAN.md's Task 20 says `fillField` collapses to `getByLabel` — the Angular
  * helper had to match `mat-form-field` filtered by `mat-label:text-is(…)`.
  * `exact` matters: the default is a case-insensitive substring match, so a bare

@@ -5,7 +5,7 @@
 - The main Claude Code session in this repo is a **coordinator**: it holds minimal context, does no implementation work itself, and dispatches **Opus subagents** (Agent tool, `model: "opus"`, structured via the superpowers subagent-driven-development skill) for all real work — code, scrubs, UI, tests. It writes briefs, reviews reports, and keeps durable notes current.
 - The coordinator is **restartable at any time**. The durable pointers a fresh coordinator must read before dispatching anything are: this section, `plans/rebrand/` (esp. `JOINERY-RENAME-PLAN.md` and `FOLLOW-UPS.md`), and the session memory directory. `.superpowers/sdd/` holds per-task briefs and reports, but it is **local-only scratch** — it is gitignored and may not exist in a fresh clone or on another machine, so never treat it as the source of truth. Anything that must survive belongs in `plans/rebrand/` or this file.
 - **Rebrand DONE (2026-08-15)**: the product is **Joinery** (clean break from MJ Forge / Forge prior art; scrub merged as PR #6, git history reset to a single fresh-root commit). Brand kit: `docs/brand/`. Naming table: `plans/rebrand/JOINERY-RENAME-PLAN.md`.
-- **Priorities to v1** (Craig's rulings 2026-08-15): (1) ~~rename scrub~~ done; (2) **rewrite the renderer in React + Tailwind, dropping Angular** — Craig chose this over retheming; plan lives in `plans/renderer-rewrite/`; the UI audit in `plans/ui-overhaul/PROPOSAL.md` still supplies the brand direction (ink-first default per D2) and current-state findings; the typed `window.joinery` IPC contract, Electron main process, and vitest integration tier survive unchanged; (3) verify database querying works end-to-end (integration tier first — it is UI-independent). Then plan a v1 release.
+- **Priorities to v1** (Craig's rulings 2026-08-15): (1) ~~rename scrub~~ done; (2) ~~rewrite the renderer in React + Tailwind, dropping Angular~~ **DONE (Task 24, the cutover)** — `packages/renderer` is the React app, the Angular package and its frozen test tiers are deleted, and the typed `window.joinery` IPC contract, Electron main process and vitest integration tier survived unchanged as planned. Plan and its Phase appendices: `plans/renderer-rewrite/PLAN.md`; the UI audit in `plans/ui-overhaul/PROPOSAL.md` remains the brand reference (ink-first default per D2); (3) verify database querying works end-to-end (integration tier first — it is UI-independent). Then plan a v1 release.
 - **UI work must use the licensed local design skills** (`.claude/skills/design`, `brand-kit`, `add-dark-mode`, `componentize`, `canonicalize-tailwind`, `ideas` — gitignored, Tailwind-idiomatic): point every UI subagent at them.
 - **Docker note**: integration/e2e/visual test tiers need Docker DBs; Craig starts Docker Desktop manually — **ping him before running those tiers**.
 - Solo project: no reviewer besides Craig, and he only reviews high-level architecture/design/security/tradeoffs. PRs still required (never commit to `main`), but the coordinator merges routine PRs after its own subagent review passes.
@@ -13,17 +13,17 @@
 
 ## Project Overview
 
-Joinery is a native macOS desktop application providing database management workflows for **SQL Server**, **PostgreSQL**, and **MySQL**. Built with Electron + Angular + Node.js.
+Joinery is a native macOS desktop application providing database management workflows for **SQL Server**, **PostgreSQL**, and **MySQL**. Built with Electron + React + Node.js.
 
 ## Tech Stack
 
 - **Desktop Shell**: Electron
-- **UI Framework**: Angular 18+ (standalone components)
+- **UI Framework**: React 19 (function components, hooks)
 - **Main Process**: Node.js with TypeScript
 - **SQL Connectivity**: node-mssql (SQL Server), pg (PostgreSQL), mysql2 (MySQL)
-- **State Management**: Angular signals + RxJS
-- **UI Components**: Angular Material or PrimeNG
-- **Build Tools**: electron-builder, Angular CLI
+- **State Management**: Zustand stores + TanStack Query
+- **UI Components**: Radix primitives styled with Tailwind v4; AG Grid for results; Dockview for the workspace; Monaco for the editor
+- **Build Tools**: electron-builder, Vite
 
 ## Project Structure
 
@@ -41,12 +41,15 @@ joinery/
 │   │       │   ├── keychain/ # Credential storage
 │   │       │   └── config/   # App state persistence
 │   │       └── utils/        # Logger, singleton
-│   ├── renderer/             # Angular application
-│   │   └── src/app/
-│   │       ├── core/         # Singleton services, state (signals)
-│   │       ├── shared/       # Shared components (settings, dialogs)
-│   │       ├── features/     # Feature modules (chat, erd, query, etc.)
-│   │       └── layout/       # Shell, sidebar, panels
+│   ├── renderer/             # React application (Vite)
+│   │   └── src/
+│   │       ├── state/        # Zustand stores
+│   │       ├── persistence/  # AppState bridge, one-shot legacy migration, theme mirror
+│   │       ├── ipc/          # Typed window.joinery wrappers, query cache
+│   │       ├── ui/           # Radix + Tailwind primitives
+│   │       ├── features/     # Feature areas (chat, erd, query, backup, etc.)
+│   │       ├── commands/     # Command bus, palette catalogue, menu registry
+│   │       └── shell/        # Shell, sidebar, Dockview workspace
 │   ├── shared/               # Shared types between main/renderer
 │   │   └── src/
 │   │       ├── types/        # TypeScript interfaces
@@ -87,21 +90,21 @@ joinery/
    // Use send/on for one-way or streaming
    ```
 
-4. **Window Management**: Single window for v1. All state managed within Angular.
+4. **Window Management**: Single window for v1. All UI state lives in the renderer; anything that must survive a quit lives in main-process `AppState`.
 
-### Angular-Specific Rules
+### Renderer-Specific Rules (React)
 
-1. **Standalone Components**: Use standalone components exclusively. No NgModules for new code.
+1. **Function components and hooks only.** No class components.
 
-2. **Signals**: Prefer Angular signals over BehaviorSubject for component state.
+2. **Zustand for shared state, `useState` for local.** A store per domain under `src/state/`; server-ish data (metadata, query results) goes through TanStack Query in `src/ipc/`.
 
 3. **Smart/Dumb Pattern**:
    - Container components handle data/logic
-   - Presentational components receive inputs, emit outputs
+   - Presentational components take props and call callbacks
 
-4. **Lazy Loading**: Feature areas should be lazy-loaded routes.
+4. **Persistence goes through main.** `localStorage` is off-limits except the two documented modules in `src/persistence/` — `no-local-storage-writes.spec.ts` enforces it structurally.
 
-5. **Change Detection**: Use OnPush strategy for all components.
+5. **`data-testid` is the e2e contract.** The tiers under `tests/e2e-react*/` locate by testid and ARIA role, never by structural classes or component-library internals.
 
 ### SQL Operations Rules
 
@@ -124,7 +127,7 @@ joinery/
 ### Code Style
 
 1. **File Naming**:
-   - Angular: `kebab-case.component.ts`, `kebab-case.service.ts`
+   - Renderer: `kebab-case.tsx` for components, `kebab-case.ts` for stores/utilities
    - Main process: `kebab-case.ts` or `PascalCase.ts` for classes
    - Types/Interfaces: `PascalCase`
 
@@ -164,7 +167,7 @@ joinery/
 
 1. **Never make direct LLM API calls.** All AI interactions MUST go through the multi-provider abstraction layer in `packages/main/src/services/ai/llm-providers.ts`. This ensures provider-agnostic code that works with Google, Anthropic, OpenAI, Groq, and Cerebras.
 
-2. **Use `<app-markdown>`** (`packages/renderer/src/app/shared/markdown/`) for rendering any AI-generated content or markdown in the renderer. It parses with `marked` and sanitizes with DOMPurify before binding. Never hand-roll markdown-to-HTML conversion, and never bind an unsanitized string to `[innerHTML]`.
+2. **Use `packages/renderer/src/markdown/`** (`renderMarkdown`, `<Markdown>`) for rendering any AI-generated content or markdown in the renderer. It parses with `marked` and sanitizes with DOMPurify before binding. Never hand-roll markdown-to-HTML conversion; `dangerouslySetInnerHTML` is banned by ESLint everywhere else in the package.
 
 3. **Streaming is required** for all chat/conversational AI features. Use the `StreamCallbacks` interface from `llm-providers.ts`.
 
@@ -179,7 +182,7 @@ joinery/
 - `eval()` or `new Function()` in any context
 - Dynamic `require()` or `import()` (use static imports)
 - Storing credentials in localStorage, files, or memory longer than necessary
-- Direct DOM manipulation in Angular components
+- Direct DOM manipulation outside a ref/effect in React components
 - Synchronous IPC calls (`ipcRenderer.sendSync`)
 - Console.log in production code (use proper logging service)
 - Direct HTTP calls to LLM APIs (use the provider abstraction layer)
@@ -198,9 +201,10 @@ pnpm run package          # Package as .app
 pnpm run package:dmg      # Create distributable DMG
 
 # Testing
-pnpm run test             # Run all tests
-pnpm run test:unit        # Unit tests only
-pnpm run test:e2e         # E2E tests only
+pnpm run test             # Unit tests (vitest)
+pnpm run test:integration # Integration tier (needs the Docker harness up)
+pnpm run test:e2e:react   # E2E tests (Playwright + Electron)
+pnpm run test:full        # Every tier + HTML report
 
 # Utilities
 pnpm run lint             # Lint all code
@@ -221,18 +225,24 @@ pnpm run typecheck        # TypeScript check without emit
 ## Key Dependencies
 
 - `electron`: Desktop shell
-- `@angular/*`: UI framework
+- `react` / `react-dom`: UI framework
+- `tailwindcss` + `@radix-ui/*`: styling and unstyled primitives
+- `ag-grid-react`: results grid
+- `dockview-react`: tab/split workspace
+- `zustand` + `@tanstack/react-query`: state
 - `mssql`: SQL Server connectivity
 - `pg`: PostgreSQL connectivity
 - `mysql2`: MySQL connectivity
 - `keytar`: macOS Keychain access
 - `dockerode`: Docker API client (for container detection)
-- `monaco-editor`: Query editor (or CodeMirror)
+- `monaco-editor`: Query editor
 
 ## Resources
 
 - [Electron Docs](https://www.electronjs.org/docs)
-- [Angular Docs](https://angular.dev)
+- [React Docs](https://react.dev)
+- [Vite Docs](https://vite.dev)
+- [Tailwind CSS Docs](https://tailwindcss.com/docs)
 - [node-mssql Docs](https://github.com/tediousjs/node-mssql)
 - [node-postgres Docs](https://node-postgres.com)
 - [mysql2 Docs](https://sidorares.github.io/node-mysql2/docs)

@@ -29,7 +29,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import mysql from 'mysql2/promise';
 
-import { expect, test } from './fixtures';
+import { expect, test } from '@playwright/test';
 import {
   createAndConnectMysql,
   createPostgresProfile,

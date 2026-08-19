@@ -11,9 +11,7 @@
  * foreign keys, one of them `ON DELETE CASCADE`. A tab that rendered four empty tables used to be indistinguishable from a correct one.
  */
 
-import type { Page } from '@playwright/test';
-
-import { expect, test } from './fixtures';
+import { expect, test, type Page } from '@playwright/test';
 import {
   connectFromSidebar,
   createPostgresProfile,

@@ -4,7 +4,6 @@ node_modules/
 # Build outputs
 dist/
 build/
-.angular/
 out/
 *.tsbuildinfo
 release/builder-debug.yml

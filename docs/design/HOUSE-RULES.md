@@ -8,7 +8,7 @@ and Joinery is a desktop workbench: a fixed 800×600-minimum Electron window
 three-state theme control, and a virtualized data grid.
 
 Source: `plans/renderer-rewrite/PLAN.md` 0.7, which fixes this content.
-Token authority: `packages/renderer-react/src/styles/theme.css`.
+Token authority: `packages/renderer/src/styles/theme.css`.
 
 ---
 
@@ -72,7 +72,7 @@ toggle already exists and is persisted: `ThemePreference = 'system' | 'light' | 
 (`packages/shared/src/types/settings.types.ts:5`).
 
 - `data-theme` is written on `<html>` **before React mounts**, by the inline script in
-  `packages/renderer-react/index.html`. Anything that changes the theme writes that
+  `packages/renderer/index.html`. Anything that changes the theme writes that
   attribute; nothing styles off a React state flag.
 - The `dark` and `light` variants are `@custom-variant`s matching `[data-theme]` **and**
   `prefers-color-scheme` for the `system` state. Tailwind's stock `dark:` behaviour is

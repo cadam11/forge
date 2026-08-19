@@ -1,5 +1,5 @@
 /**
- * E2E interaction helpers for the **React** renderer (`packages/renderer-react`) — the public
+ * E2E interaction helpers for the **React** renderer (`packages/renderer`) — the public
  * surface, re-exported from the eleven modules under `tests/helpers/react/`.
  *
  * ── Why this file is a barrel now (Task 20) ───────────────────────────────────
@@ -19,13 +19,15 @@
  *
  * **Add nothing to this file but re-exports.** A helper belongs in the module that owns its surface.
  *
- * ── Why there are two helper trees at all ─────────────────────────────────────
+ * ── Why the name still says `-react` ──────────────────────────────────────────
  *
- * Separate from `joinery-actions.ts` on purpose, and not a shared abstraction over both: the Angular
- * helper is Material-coupled end to end (`mat-form-field` filtered by `mat-label:text-is(…)`,
- * `mat-dialog-container`, `.mat-mdc-menu-panel [role="menuitem"]`,
- * `.mat-mdc-snack-bar-container button`) and PLAN.md Task 24 exists to delete it. Sharing would drag
- * those locators forward; the two trees coexist for exactly as long as the two renderers do.
+ * There were two helper trees while the two renderers coexisted, and this one was deliberately not
+ * an abstraction over both: the Angular helper was Material-coupled end to end (`mat-form-field`
+ * filtered by `mat-label:text-is(…)`, `mat-dialog-container`, `.mat-mdc-menu-panel
+ * [role="menuitem"]`), and sharing would have dragged those locators forward. Task 24 deleted it
+ * with the renderer it drove. The suffix stays because the tier directories it serves
+ * (`tests/e2e-react/`, `-visual`, `-perf`) keep theirs — `tests/__snapshots__/visual-react/` is
+ * keyed by them.
  */
 
 export {
@@ -36,8 +38,6 @@ export {
   dismissToasts,
   ensureJoineryTestSeeded,
   exactly,
-  launchedRenderers,
-  resetLaunchedRenderers,
   sendMenuCommand,
   waitForShell,
   withJoineryReact,

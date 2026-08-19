@@ -30,39 +30,18 @@
  */
 
 import { writeFile } from 'node:fs/promises';
-import { test as base, expect, type Page } from '@playwright/test';
-
-import { launchedRenderers, resetLaunchedRenderers } from '../helpers/joinery-actions-react';
+import { expect, test, type Page } from '@playwright/test';
 
 /**
- * The same auto fixture `tests/e2e-react/fixtures.ts` installs, and for the same reason: a spec here
- * that reached for the plain `withJoinery` would run green against the ANGULAR renderer and measure
- * the package this task is not about. Duplicated rather than imported across projects because the
- * two directories are independent Playwright projects and importing a `test` object between them
- * would tie their fixture graphs together.
+ * Re-exported so a spec in this tier has one import for `test`, `expect` and the measurement
+ * helpers below.
+ *
+ * This used to be a `base.extend` carrying an auto fixture that asserted every launch in the tier
+ * had gone through `withJoineryReact` — a spec reaching for the plain `withJoinery` would otherwise
+ * have measured the ANGULAR renderer, which the launcher defaulted to while the two coexisted.
+ * Task 24 deleted that renderer, and with one renderer left the fixture asserted nothing.
  */
-export const test = base.extend<{ reactRendererOnly: void }>({
-  reactRendererOnly: [
-    // eslint-disable-next-line no-empty-pattern
-    async ({}, use) => {
-      resetLaunchedRenderers();
-      await use();
-
-      const launched = launchedRenderers();
-      expect(
-        launched.length,
-        'this spec launched no Joinery app through withJoineryReact — a stray withJoinery() would ' +
-          'have silently measured the Angular renderer'
-      ).toBeGreaterThan(0);
-      expect(launched, 'every launch in tests/e2e-react-perf must show the React renderer').toEqual(
-        launched.map(() => 'react')
-      );
-    },
-    { auto: true },
-  ],
-});
-
-export { expect };
+export { expect, test };
 
 /** What `withMainThreadWatch` reports about the main thread while a block of work ran. */
 export interface MainThreadReport {

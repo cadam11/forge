@@ -72,18 +72,19 @@ To re-run a single suite:
 ```bash
 curl -sX POST http://127.0.0.1:5188/control/run-suite \
   -H 'content-type: application/json' \
-  -d '{"tier":"e2e","file":"tests/e2e/connection.spec.ts"}'
+  -d '{"tier":"e2e","file":"tests/e2e-react/connection.spec.ts"}'
 ```
 
 ### When the dashboard is NOT up: npm scripts
 
-| Script                      | Tier(s)                     | Wall time | Infra needed                     |
-| --------------------------- | --------------------------- | --------- | -------------------------------- |
-| `pnpm test`                 | Unit                        | ~700ms    | None                             |
-| `pnpm run test:integration` | Integration                 | ~3s       | `pnpm run test:harness:up` first |
-| `pnpm run test:e2e`         | E2E (Playwright + Electron) | ~3s       | `pnpm run build` first           |
-| `pnpm run test:visual`      | Visual regression baselines | ~10s      | `pnpm run build` first           |
-| `pnpm run test:full`        | All four                    | ~13s      | Brings harness up automatically  |
+| Script                       | Tier(s)                     | Wall time | Infra needed                     |
+| ---------------------------- | --------------------------- | --------- | -------------------------------- |
+| `pnpm test`                  | Unit                        | ~700ms    | None                             |
+| `pnpm run test:integration`  | Integration                 | ~3s       | `pnpm run test:harness:up` first |
+| `pnpm run test:e2e:react`    | E2E (Playwright + Electron) | minutes   | `pnpm run build` first           |
+| `pnpm run test:visual:react` | Visual regression baselines | ~2 min    | `pnpm run build` first           |
+| `pnpm run test:perf:react`   | Performance budget gates    | slow      | `pnpm run build` first           |
+| `pnpm run test:full`         | All five                    | ~20 min   | Brings harness up automatically  |
 
 `pnpm run test:full` is the most useful single command: brings the Docker harness up, runs every tier, writes structured JSON to `tests/reports/.cache/`, generates the HTML report at `tests/reports/latest.html`, and exits non-zero on any failure.
 
@@ -113,12 +114,12 @@ When a test fails, do this — not a dump-and-pray full-pipeline retry:
    ```bash
    curl -sX POST 'http://127.0.0.1:5188/control/run-suite' \
      -H 'content-type: application/json' \
-     -d '{"tier":"e2e","file":"tests/e2e/connection.spec.ts"}'
+     -d '{"tier":"e2e","file":"tests/e2e-react/connection.spec.ts"}'
    curl -s http://127.0.0.1:5188/api/result/e2e
    ```
    Otherwise:
    - Vitest: `pnpm exec vitest run <path/to/spec.ts>` (unit) or `pnpm exec vitest run --config vitest.integration.config.ts <path>` (integration)
-   - Playwright: `pnpm exec playwright test --project=e2e <path>` or `--project=visual <path>`
+   - Playwright: `pnpm exec playwright test --project=e2e-react <path>` or `--project=visual-react <path>`
 6. Once the targeted suite passes, run the broader tier with `?wait=true` (dashboard) or `pnpm test` / `pnpm run test:integration` (no dashboard) to catch neighbor regressions.
 7. Before declaring done, run `pnpm run test:full`.
 
@@ -129,17 +130,17 @@ Match the tier to what you touched:
 - **Pure logic changes** (utilities, parsers, validators in `packages/*/src/`) → `pnpm test` (unit). Almost always the right starting point.
 - **Service / SQL / DB changes** (anything in `packages/main/src/services/sql`, `services/ssh`, dialects, providers) → `pnpm run test:integration`. Real DB roundtrips catch what mocks can't.
 - **AI / LLM provider changes** → `pnpm run test` for the unit-level llm-providers spec. (Live LLM calls are intentionally not in the suite — manual pre-release check.)
-- **UI / Angular component changes** → `pnpm run build && pnpm run test:e2e` for functional, plus `pnpm run test:visual` for layout regression.
+- **UI / React component changes** → `pnpm run build && pnpm run test:e2e:react` for functional, plus `pnpm run test:visual:react` for layout regression.
 - **Anything significant** → `pnpm run test:full` before declaring done.
 
 ## Visual regression specifics
 
-The visual tier uses Playwright's `toHaveScreenshot()` against committed PNG baselines under `tests/__snapshots__/visual/`. It's macOS-only by design (per-developer M-series Macs all produce equivalent baselines).
+The visual tier uses Playwright's `toHaveScreenshot()` against committed PNG baselines under `tests/__snapshots__/visual-react/`. It's macOS-only by design (per-developer M-series Macs all produce equivalent baselines).
 
 When you make an **intentional UI change**, the visual tests will fail (the new look doesn't match the old baseline). Re-capture with:
 
 ```
-pnpm run test:visual:update
+pnpm exec playwright test --project=visual-react --update-snapshots
 ```
 
 Then verify the regenerated baselines look right (the human will see them in the dashboard / static report) and commit them alongside the UI change. Don't blindly run `:update` to silence failures — confirm the change was deliberate first.
@@ -185,6 +186,6 @@ User says: "Add a `formatBytes` utility to the shared package and use it in the 
 4. **Implement the smallest thing that passes** — `format-bytes.ts`. Re-run the targeted spec until green.
 5. **Wire into the consumer** — connection pool stats display in renderer. If the consumer is in the renderer, the visual tier is the place to assert the user-visible result; either capture a new baseline alongside (intentional UI change) or rely on existing baselines if the layout is unchanged.
 6. **Tier check** — `pnpm test` to confirm shared changes haven't broken consumers in main.
-7. **Visual check (only because UI changed)** — `pnpm run build && pnpm run test:visual`. Diff visible? Confirm intent, `pnpm run test:visual:update`, commit the new baseline alongside the code change.
+7. **Visual check (only because UI changed)** — `pnpm run build && pnpm run test:visual:react`. Diff visible? Confirm intent, `pnpm exec playwright test --project=visual-react --update-snapshots`, commit the new baseline alongside the code change.
 8. **Final** — `pnpm run test:full` before declaring done.
 9. Open the static report at `tests/reports/latest.html`, verify the green run, summarize for the user.

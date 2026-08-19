@@ -38,11 +38,17 @@ files:
   - "!**/{appveyor.yml,.travis.yml,circle.yml}"
   - "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
   - "!**/node_modules/cpu-features/**"
-  - "!**/node_modules/@angular-devkit/**"
-  - "!**/node_modules/@angular/cli/**"
+  # Build-time toolchain. `nodeLinker: hoisted` puts every devDependency in the
+  # root node_modules, which the `node_modules/**/*` line above collects, so each
+  # of these ships in the asar unless it is named here. The four Angular entries
+  # (@angular-devkit, @angular/cli, karma*, jasmine*) were swapped for their Vite
+  # equivalents at Task 24.
   - "!**/node_modules/typescript/**"
-  - "!**/node_modules/karma*/**"
-  - "!**/node_modules/jasmine*/**"
+  - "!**/node_modules/vite/**"
+  - "!**/node_modules/rolldown/**"
+  - "!**/node_modules/@vitejs/**"
+  - "!**/node_modules/tailwindcss/**"
+  - "!**/node_modules/@tailwindcss/**"
 
 # Extra resources (outside asar)
 extraResources:

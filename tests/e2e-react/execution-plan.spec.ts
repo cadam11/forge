@@ -8,7 +8,7 @@
  * (`features/query/execution-plan.spec.ts`), plus the confirmation gate asserted here.
  */
 
-import { expect, test } from './fixtures';
+import { expect, test } from '@playwright/test';
 import {
   connectFromSidebar,
   createPostgresProfile,

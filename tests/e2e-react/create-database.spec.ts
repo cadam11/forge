@@ -25,11 +25,11 @@
  * (`packages/main/src/ipc/explorer.ipc.ts:113-123`) and has been on the preload bridge all along —
  * it was simply DEAD CODE that neither renderer ever called. It is called now, by the create/rename
  * fan-out and by both of the sidebar's Refresh affordances
- * (`packages/renderer-react/src/ipc/main-metadata-cache.ts`), so a Refresh finally means what it says
+ * (`packages/renderer/src/ipc/main-metadata-cache.ts`), so a Refresh finally means what it says
  * and `serves no stale diagram…` below is the discriminating proof, at this tier, of both halves.
  *
  * The exact-cache-key version of the ERD assertion stays in
- * `packages/renderer-react/src/features/databases/database-dialogs.spec.tsx`, where the keys can be read
+ * `packages/renderer/src/features/databases/database-dialogs.spec.tsx`, where the keys can be read
  * directly. What remains on J-64 is the part no renderer can do: the automatic signal that turns a DDL
  * statement main has just executed into an invalidation nobody had to ask for.
  *
@@ -43,9 +43,7 @@
  * cleanup.
  */
 
-import type { Page } from '@playwright/test';
-
-import { expect, test } from './fixtures';
+import { expect, test, type Page } from '@playwright/test';
 import {
   closeTabTitled,
   connectFromSidebar,

@@ -16,9 +16,7 @@
  *     that pressing it now raises the tour — with no line of the welcome tab having changed.
  */
 
-import type { Page } from '@playwright/test';
-
-import { expect, test } from './fixtures';
+import { expect, test, type Page } from '@playwright/test';
 import {
   aiSetupDialog,
   closeSettings,

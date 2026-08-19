@@ -125,7 +125,7 @@ See exactly what the optimizer is doing — across **all three engines**. SQL Se
 - **Connection color coding** — visually distinguish Dev / Staging / Prod
 - **Status bar engine icon** — always know which engine you're on
 - **Keyboard shortcuts** — Cmd+Enter to execute, Cmd+N for new tab, and more
-- **GoldenLayout tabs** — split, stack, and rearrange your workspace
+- **Dockview tabs** — split, stack, and rearrange your workspace
 
 ---
 
@@ -274,25 +274,26 @@ Windows builds are produced automatically by [GitHub Actions](.github/workflows/
 
 ## Tech Stack
 
-| Layer              | Technology                                                        |
-| ------------------ | ----------------------------------------------------------------- |
-| Desktop Shell      | Electron 41                                                       |
-| UI Framework       | Angular 18 (standalone components, signals)                       |
-| State Management   | Angular signals + RxJS                                            |
-| SQL Connectivity   | `mssql` (SQL Server, TDS), `pg` (PostgreSQL), `mysql2` (MySQL)    |
-| Dialect Conversion | Vendored sqlglot client (Python)                                  |
-| Auth               | SQL auth, Windows auth, Microsoft Entra ID (`@azure/msal-node`)   |
-| AI Abstraction     | Multi-provider LLM layer (Gemini, Claude, OpenAI, Groq, Cerebras) |
-| Query Editor       | Monaco editor                                                     |
-| Results Grid       | AG Grid                                                           |
-| ERD                | D3.js                                                             |
-| Tab Layout         | GoldenLayout                                                      |
-| SSH Tunneling      | `ssh2` (with idle-reconnect)                                      |
-| Credential Storage | macOS Keychain / Windows Credential Store (`keytar`)              |
-| Docker Integration | `dockerode`                                                       |
-| Build System       | Turborepo + electron-builder                                      |
-| Test Runner        | Vitest                                                            |
-| CI/CD              | GitHub Actions                                                    |
+| Layer              | Technology                                                           |
+| ------------------ | -------------------------------------------------------------------- |
+| Desktop Shell      | Electron 41                                                          |
+| UI Framework       | React 19 + Tailwind CSS v4 (Vite)                                    |
+| UI Primitives      | Radix UI (unstyled), lucide icons                                    |
+| State Management   | Zustand stores + TanStack Query                                      |
+| SQL Connectivity   | `mssql` (SQL Server, TDS), `pg` (PostgreSQL), `mysql2` (MySQL)       |
+| Dialect Conversion | Vendored sqlglot client (Python)                                     |
+| Auth               | SQL auth, Windows auth, Microsoft Entra ID (`@azure/msal-node`)      |
+| AI Abstraction     | Multi-provider LLM layer (Gemini, Claude, OpenAI, Groq, Cerebras)    |
+| Query Editor       | Monaco editor                                                        |
+| Results Grid       | AG Grid                                                              |
+| ERD                | Mermaid + dagre layout                                               |
+| Tab Layout         | Dockview                                                             |
+| SSH Tunneling      | `ssh2` (with idle-reconnect)                                         |
+| Credential Storage | macOS Keychain / Windows Credential Store (`keytar`)                 |
+| Docker Integration | `dockerode`                                                          |
+| Build System       | Turborepo + electron-builder                                         |
+| Test Runner        | Vitest (unit + integration), Playwright + Electron (e2e/visual/perf) |
+| CI/CD              | GitHub Actions                                                       |
 
 ---
 
@@ -305,7 +306,7 @@ Windows builds are produced automatically by [GitHub Actions](.github/workflows/
 │   Main Process   │         Renderer Process          │
 │                  │                                   │
 │  ┌────────────┐  │  ┌──────────────────────────────┐ │
-│  │ SQL Layer  │  │  │     Angular 18 Application   │ │
+│  │ SQL Layer  │  │  │     React 19 Application     │ │
 │  │ ┌────────┐ │  │  │                              │ │
 │  │ │MSSQL   │ │  │  │  ┌──────────┐ ┌────────────┐ │ │
 │  │ │Postgres│ │  │  │  │  Query   │ │   AI Chat  │ │ │
@@ -346,12 +347,13 @@ joinery/
 │   │           ├── docker/# Container detection
 │   │           ├── keychain/ # Credential storage
 │   │           └── config/# App state persistence
-│   ├── renderer/          # Angular application
-│   │   └── src/app/
-│   │       ├── core/      # Singleton services, state (signals)
+│   ├── renderer/          # React application (Vite)
+│   │   └── src/
+│   │       ├── state/     # Zustand stores
+│   │       ├── ipc/       # Typed window.joinery wrappers, query cache
 │   │       ├── features/  # Chat, ERD, query, explorer, exec-plan, welcome
-│   │       ├── shared/    # Settings dialog, reusable components
-│   │       └── layout/    # Shell, sidebar, GoldenLayout container
+│   │       ├── ui/        # Radix + Tailwind primitives
+│   │       └── shell/     # Shell, sidebar, Dockview workspace
 │   ├── shared/            # Types shared between main & renderer
 │   │   └── src/
 │   │       ├── types/     # TypeScript interfaces

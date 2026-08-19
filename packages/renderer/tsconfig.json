@@ -1,36 +1,48 @@
+// Deliberately does NOT extend the root tsconfig.json. That one is written for the
+// main/preload/shared CommonJS-ish toolchain — `moduleResolution: "node"`,
+// `experimentalDecorators` + `emitDecoratorMetadata`, `lib: ["ES2022"]` with no DOM,
+// and `paths` aliases for the main-process packages. Inheriting any of it would
+// fight `moduleResolution: "bundler"` and the browser lib set below, so this file is
+// standalone on purpose. Do not "align" it with the root.
 {
-  "compileOnSave": false,
   "compilerOptions": {
-    "baseUrl": ".",
-    "outDir": "./dist/out-tsc",
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+
     "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "verbatimModuleSyntax": true,
     "noImplicitOverride": true,
-    "noPropertyAccessFromIndexSignature": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+
+    "noEmit": true,
     "skipLibCheck": true,
-    "esModuleInterop": true,
-    "sourceMap": true,
-    "declaration": false,
-    "experimentalDecorators": true,
-    "moduleResolution": "bundler",
-    "importHelpers": true,
-    "target": "ES2022",
-    "module": "ES2022",
-    "lib": ["ES2022", "dom"],
-    "paths": {
-      "@app/*": ["src/app/*"],
-      "@core/*": ["src/app/core/*"],
-      "@shared/*": ["src/app/shared/*"],
-      "@features/*": ["src/app/features/*"],
-      "@joinery/shared": ["../shared/src/index.ts"],
-      "@joinery/shared/*": ["../shared/src/*"]
-    }
+    "isolatedModules": true,
+
+    // Deliberately NOT ["vite/client", "node"]. Electron loads this bundle with
+    // sandbox: true / nodeIntegration: false (packages/main/src/window.ts:59-64),
+    // so omitting @types/node makes any reach for `process`, `require` or a Node
+    // builtin a compile error rather than a runtime crash in the packaged app.
+    "types": ["vite/client"]
   },
-  "angularCompilerOptions": {
-    "enableI18nLegacyMessageIdFormat": false,
-    "strictInjectionParameters": true,
-    "strictInputAccessModifiers": true,
-    "strictTemplates": true
-  }
+  // `*.ts` keeps root-level config files (tailwind, postcss, vitest, …) inside the
+  // program, so a later task's config is type-checked rather than silently unchecked.
+  "include": ["src", "*.ts"],
+
+  // Exactly one exception, and it is a toolchain defect, not a choice.
+  // @vitejs/plugin-react 6 ships `export { viteReactForCjs as "module.exports" }` in
+  // its .d.ts, and TypeScript 5.4.5 cannot *parse* that, so it errors regardless of
+  // skipLibCheck. ESLint still covers the file.
+  //
+  // Task 24 dropped the pnpm-workspace `overrides` entry that forced 5.4.5 on the whole
+  // tree (it was there for the Angular 18 toolchain), but every package still DECLARES
+  // ~5.4.5, so the parse failure stands. Delete this exclusion when the TypeScript bump
+  // lands. Do NOT widen it to cover other root-level files.
+  "exclude": ["vite.config.ts"]
 }

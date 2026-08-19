@@ -22,7 +22,7 @@
  * `tabId`, a fresh query tab per case means a list holding nothing else.
  */
 
-import { expect, test } from './fixtures';
+import { expect, test, type Page } from '@playwright/test';
 import {
   captureResult,
   connectFromSidebar,
@@ -38,7 +38,6 @@ import {
   typeSql,
   withJoineryReact,
 } from '../helpers/joinery-actions-react';
-import type { Page } from '@playwright/test';
 
 const PROFILE = 'Test PG';
 

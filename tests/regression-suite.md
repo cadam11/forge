@@ -62,16 +62,16 @@ pnpm exec playwright test e2e/full-audit.spec.ts -g "01|02|03|04|05"
 
 ### UI Features (Tests 14-21)
 
-| #   | Test                      | What it checks                                                                                                                        |
-| --- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| 14  | Settings panel            | Cmd+, opens settings, theme/font/tab settings visible                                                                                 |
-| 15  | Command palette           | Cmd+Shift+P opens palette, lists commands                                                                                             |
-| 16  | Object search (Cmd+P)     | Quick search dialog opens                                                                                                             |
-| 17  | Object search with filter | Types search term, checks results                                                                                                     |
-| 18  | Shortcuts dialog          | Cmd+Shift+/ opens keyboard shortcuts reference                                                                                        |
-| 19  | Docker panel              | Docker status panel accessible                                                                                                        |
-| 20  | Backup feature            | Backup dialog opens with options (type, path, compression) — _covered by `tests/e2e/backup-restore.spec.ts` (PG + MySQL round-trip)_  |
-| 21  | Restore feature           | Restore dialog opens with file browser and recovery options — _covered by `tests/e2e/backup-restore.spec.ts` (PG + MySQL round-trip)_ |
+| #   | Test                      | What it checks                                                                                                                                          |
+| --- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 14  | Settings panel            | Cmd+, opens settings, theme/font/tab settings visible                                                                                                   |
+| 15  | Command palette           | Cmd+Shift+P opens palette, lists commands                                                                                                               |
+| 16  | Object search (Cmd+P)     | Quick search dialog opens                                                                                                                               |
+| 17  | Object search with filter | Types search term, checks results                                                                                                                       |
+| 18  | Shortcuts dialog          | Cmd+Shift+/ opens keyboard shortcuts reference                                                                                                          |
+| 19  | Docker panel              | Docker status panel accessible                                                                                                                          |
+| 20  | Backup feature            | Backup dialog opens with options (type, path, compression) — _covered by `tests/e2e-react/backup.spec.ts` + `restore.spec.ts` (PG + MySQL round-trip)_  |
+| 21  | Restore feature           | Restore dialog opens with file browser and recovery options — _covered by `tests/e2e-react/backup.spec.ts` + `restore.spec.ts` (PG + MySQL round-trip)_ |
 
 ### MJ Metadata (Tests 22-23)
 

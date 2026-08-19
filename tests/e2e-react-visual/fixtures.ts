@@ -17,15 +17,15 @@
  *  3. **`VISUAL_THEMES` is the pair every surface is captured in**, so "dark and light" is a loop
  *     rather than a habit each spec has to remember.
  *
- * The React-renderer guard is inherited from `tests/e2e-react/fixtures.ts` rather than restated:
- * that auto fixture asserts every launch in the test went through `withJoineryReact` and showed
- * React, which matters at least as much here — a baseline quietly captured from the Angular
- * renderer would be a picture of the thing this rewrite is replacing.
+ * `test` came from `tests/e2e-react/fixtures.ts` until Task 24, for a fourth reason that no longer
+ * exists: that auto fixture asserted every launch in the test showed the React renderer rather than
+ * the Angular one the launcher defaulted to, because a baseline quietly captured from Angular would
+ * have been a picture of the thing this rewrite replaced. With one renderer left it asserted
+ * nothing, so it and its module were deleted and `test` comes straight from Playwright.
  */
 
-import { expect, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
-import { test } from '../e2e-react/fixtures';
 import {
   CONNECT_TIMEOUT_MS,
   UI_TIMEOUT_MS,
@@ -95,13 +95,31 @@ async function pinTheme(window: Page, theme: VisualTheme): Promise<void> {
   // `DropdownMenu` returns focus to its trigger, and `Tooltip` opens on FOCUS as well as on hover.
   // So a theme pin left "Theme: Ink" floating over the bottom-right corner of every surface that
   // reaches that far down — reproducibly, which is exactly what makes it dangerous rather than
-  // flaky. The pointer is moved off the bar as well: `click()` really does move the mouse there, so
+  // flaky. The pointer is moved off the bar first: `click()` really does move the mouse there, so
   // the hover half would re-open the tip on its own.
-  await trigger.blur();
   await window.mouse.move(0, 0);
-  await expect(window.locator('[role="tooltip"]:visible')).toHaveCount(0, {
-    timeout: UI_TIMEOUT_MS,
-  });
+
+  // ── Why this converges instead of firing once (Task 24 review, I2) ─────────────────────────
+  //
+  // A single `blur()` here was a RACE, and it cost the tier two red runs in three: the menu's exit
+  // animation and Radix's focus-restore effect are not ordered against each other, so a `blur()`
+  // that lands BEFORE the restore is undone by it. The trigger ends up focused with the pointer
+  // elsewhere, nothing closes the tip again, and `toHaveCount(0)` then watches a stuck tooltip for
+  // the full timeout (measured: 24 polls, 1 element every time).
+  //
+  // So the blur is retried until BOTH facts hold at once. Focus is the load-bearing half — a
+  // tooltip has an open delay, so "no tooltip right now" can be true a tick before one appears,
+  // while "the trigger is not focused" means none can be opened by focus at all. Bounded by
+  // `toPass`'s own timeout, per the house rule on loops.
+  //
+  // Nothing here touches the page's pixels: `blur()` and a pointer move off-window change no
+  // layout, and the baselines are unchanged by this fix (verified over repeat runs, no
+  // `--update-snapshots`).
+  await expect(async () => {
+    await trigger.blur();
+    await expect(trigger).not.toBeFocused({ timeout: 500 });
+    await expect(window.locator('[role="tooltip"]:visible')).toHaveCount(0, { timeout: 500 });
+  }).toPass({ timeout: UI_TIMEOUT_MS, intervals: [50, 100, 250, 500] });
 }
 
 /**

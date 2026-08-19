@@ -1,7 +1,7 @@
 {
   "versionGroups": [
     {
-      "label": "TypeScript should be pinned",
+      "label": "TypeScript should be pinned (bumping past 5.4 is a follow-up — see pnpm-workspace.yaml)",
       "packages": ["**"],
       "dependencies": ["typescript"],
       "pinVersion": "~5.4.5"
@@ -13,21 +13,9 @@
       "policy": "sameRange"
     },
     {
-      "label": "Use consistent Angular versions",
-      "packages": ["**"],
-      "dependencies": ["@angular/*"],
-      "policy": "sameRange"
-    },
-    {
-      "label": "ESLint majors coexist until the Angular renderer is deleted",
+      "label": "ESLint majors coexist: the root config is eslintrc/8, the renderer is flat/9",
       "packages": ["**"],
       "dependencies": ["eslint", "eslint-config-prettier"],
-      "isIgnored": true
-    },
-    {
-      "label": "Editor deps coexist until the Angular renderer is deleted",
-      "packages": ["**"],
-      "dependencies": ["monaco-editor", "sql-formatter"],
       "isIgnored": true
     }
   ],

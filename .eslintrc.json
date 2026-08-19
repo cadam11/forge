@@ -30,25 +30,5 @@
     "prefer-const": "error",
     "prettier/prettier": "error"
   },
-  "overrides": [
-    {
-      "files": ["tests/e2e-react/**/*.ts", "tests/e2e-react-visual/**/*.ts"],
-      "excludedFiles": ["tests/e2e-react/fixtures.ts", "tests/e2e-react-visual/fixtures.ts"],
-      "rules": {
-        "no-restricted-imports": [
-          "error",
-          {
-            "paths": [
-              {
-                "name": "@playwright/test",
-                "importNames": ["test"],
-                "message": "Import `test` from './fixtures', which carries the fixture asserting this spec actually launched the React renderer. electron-app.ts defaults a launch to `angular` (the coexistence invariant), so the plain `test` + `withJoinery` runs green against the WRONG renderer. Types and `expect` may still come from @playwright/test. See tests/e2e-react/fixtures.ts."
-              }
-            ]
-          }
-        ]
-      }
-    }
-  ],
   "ignorePatterns": ["node_modules", "dist", "build", ".turbo", "coverage", "*.js", "*.d.ts"]
 }

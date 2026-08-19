@@ -18,22 +18,71 @@
  *    except the three documented vendor exemptions (Monaco, AG Grid, Dockview), each of which is
  *    confined to the one module that owns that surface and carries its own rationale.
  *
- * The seeded database fixtures are shared with the Angular tier — they are about the *container*,
- * not the UI — so `TEST_PG` and `ensureJoineryTestSeeded` are re-exported from the old helper
- * rather than duplicated. **Task 24 note:** these two are the only symbols the Angular helper still
- * owes this tier; move them before deleting `tests/helpers/joinery-actions.ts`.
+ * The seeded database fixtures below — `TEST_PG` and `ensureJoineryTestSeeded` — are about the
+ * *container*, not the UI. They lived in `tests/helpers/joinery-actions.ts` while that file existed
+ * and moved here unchanged at Task 24, when the Angular tier and its Material-coupled helper were
+ * deleted.
  */
 
 import { expect, type ElectronApplication, type Page } from '@playwright/test';
-import {
-  withJoinery,
-  type LaunchOptions,
-  type LaunchedApp,
-  type RendererTarget,
-} from '../electron-app';
-import { TEST_PG, ensureJoineryTestSeeded } from '../joinery-actions';
+import { Client as PgClient } from 'pg';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { withJoinery, type LaunchOptions, type LaunchedApp } from '../electron-app';
 
-export { TEST_PG, ensureJoineryTestSeeded };
+// Test PG container connection details (matches docker-compose.test.yml).
+export const TEST_PG = {
+  host: '127.0.0.1',
+  port: 15432,
+  user: 'joinery',
+  password: 'joinery',
+  database: 'joinery_test',
+} as const;
+
+/**
+ * Idempotently seed the default `joinery_test` database with the synthetic
+ * schema + data so functional / visual specs that connect via the UI find
+ * a populated database. The integration tier uses isolated per-test DBs
+ * via `withFreshDatabase` and never touches `joinery_test`.
+ *
+ * Two distinct schemas are seeded:
+ *   - `public.*` — synthetic e-commerce (products / customers / orders /
+ *     order_items). Used by everyday spec/visual tests.
+ *   - `app_meta.*` — minimal app-metadata shape (user / application / entity)
+ *     in a non-public schema. Used by the cross-schema-query regression
+ *     tests; row counts chosen to match the legacy 31-suite expectations
+ *     (11 applications, 24 entities).
+ *
+ * Each schema's presence is checked independently so adding either to an
+ * existing seeded database doesn't redo the other.
+ */
+export async function ensureJoineryTestSeeded(): Promise<void> {
+  const client = new PgClient({ ...TEST_PG });
+  await client.connect();
+  try {
+    const fixturesRoot = join(__dirname, '..', '..', 'fixtures', 'postgres');
+
+    // Public e-commerce schema.
+    const ecomSeeded = await client.query(
+      "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'products'"
+    );
+    if (!(ecomSeeded.rowCount && ecomSeeded.rowCount > 0)) {
+      await client.query(readFileSync(join(fixturesRoot, 'schema.sql'), 'utf8'));
+      await client.query(readFileSync(join(fixturesRoot, 'seed.sql'), 'utf8'));
+    }
+
+    // app_meta schema.
+    const appMetaSeeded = await client.query(
+      "SELECT 1 FROM information_schema.tables WHERE table_schema = 'app_meta' AND table_name = 'entity'"
+    );
+    if (!(appMetaSeeded.rowCount && appMetaSeeded.rowCount > 0)) {
+      await client.query(readFileSync(join(fixturesRoot, 'app-meta-schema.sql'), 'utf8'));
+      await client.query(readFileSync(join(fixturesRoot, 'app-meta-seed.sql'), 'utf8'));
+    }
+  } finally {
+    await client.end();
+  }
+}
 
 /** How long a real connect to the seeded container is allowed to take. */
 export const CONNECT_TIMEOUT_MS = 20_000;
@@ -74,37 +123,21 @@ export function exactly(text: string): RegExp {
 }
 
 /**
- * Which renderer every `withJoineryReact` launch in the current test actually showed.
+ * `withJoinery` plus the boot gate: the body runs with the shell already on screen.
  *
- * Recorded from `LaunchedApp.renderer` — the value the launcher resolved, not the one this file
- * asked for — so it is evidence rather than a restatement of the request. `tests/e2e-react/fixtures.ts`
- * asserts it after every test: all `react`, and at least one, which is what turns "a stray
- * `withJoinery` silently tested Angular" into a failure. A spec that bypasses this helper records
- * nothing and fails the "at least one" half.
- */
-let launchedRendererLog: RendererTarget[] = [];
-
-/** The renderers launched since the last reset. Read by the project fixture. */
-export function launchedRenderers(): readonly RendererTarget[] {
-  return launchedRendererLog;
-}
-
-/** Clears the log. Called by the project fixture before each test. */
-export function resetLaunchedRenderers(): void {
-  launchedRendererLog = [];
-}
-
-/**
- * `withJoinery`, pinned to the React renderer, so a spec under `tests/e2e-react/`
- * cannot accidentally run against Angular when `$JOINERY_E2E_RENDERER` is unset.
+ * It used to pin the launcher's `renderer` option to `react` as well — the launcher defaulted to
+ * Angular while the two renderers coexisted, and `tests/e2e-react/fixtures.ts` carried a fixture
+ * asserting every launch had gone through here. Task 24 deleted the Angular renderer, so both
+ * halves went with it and what is left is the `waitForShell`, which every spec in the tier needs
+ * before its first locator means anything.
  */
 export async function withJoineryReact<T>(fn: (launched: LaunchedApp) => Promise<T>): Promise<T>;
 export async function withJoineryReact<T>(
-  options: Omit<LaunchOptions, 'renderer'>,
+  options: LaunchOptions,
   fn: (launched: LaunchedApp) => Promise<T>
 ): Promise<T>;
 export async function withJoineryReact<T>(
-  optionsOrFn: Omit<LaunchOptions, 'renderer'> | ((launched: LaunchedApp) => Promise<T>),
+  optionsOrFn: LaunchOptions | ((launched: LaunchedApp) => Promise<T>),
   maybeFn?: (launched: LaunchedApp) => Promise<T>
 ): Promise<T> {
   const [options, fn] =
@@ -112,8 +145,7 @@ export async function withJoineryReact<T>(
       ? [{}, optionsOrFn]
       : [optionsOrFn, maybeFn as (launched: LaunchedApp) => Promise<T>];
 
-  return withJoinery({ ...options, renderer: 'react' }, async launched => {
-    launchedRendererLog.push(launched.renderer);
+  return withJoinery(options, async launched => {
     await waitForShell(launched.window);
     return fn(launched);
   });
@@ -121,7 +153,7 @@ export async function withJoineryReact<T>(
 
 /**
  * The boot gate: `AppShell` renders the startup screen until the stores are
- * hydrated (`renderer-react/src/shell/boot.ts`), so `app-shell` appearing is
+ * hydrated (`renderer/src/shell/boot.ts`), so `app-shell` appearing is
  * the earliest moment any other locator means anything.
  */
 export async function waitForShell(window: Page): Promise<void> {

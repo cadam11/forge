@@ -6,9 +6,9 @@
  * - Per-package test projects
  * - Shared setup files with timeout configuration
  *
- * Two projects, because the two renderers need different environments while they
- * coexist (plans/renderer-rewrite/PLAN.md §3). Coverage, thresholds and the
- * reporter stay root-level: they are whole-run concerns, not per-project ones.
+ * Two projects, because the renderer's specs need jsdom and everything else needs
+ * node. Coverage, thresholds and the reporter stay root-level: they are
+ * whole-run concerns, not per-project ones.
  */
 
 import { defineConfig } from 'vitest/config';
@@ -25,11 +25,11 @@ export default defineConfig({
         test: {
           name: 'node',
 
-          // Test discovery. renderer-react is excluded rather than left to the
+          // Test discovery. The renderer is excluded rather than left to the
           // `.ts`-only glob: a stray `.spec.ts` there would otherwise run in the
           // node environment AND load the main-process setup file below.
           include: ['packages/*/src/**/*.{test,spec}.ts'],
-          exclude: ['**/node_modules/**', '**/dist/**', 'packages/renderer-react/**'],
+          exclude: ['**/node_modules/**', '**/dist/**', 'packages/renderer/**'],
 
           // Environment
           environment: 'node',
@@ -52,8 +52,8 @@ export default defineConfig({
       {
         extends: true,
         test: {
-          name: 'renderer-react',
-          include: ['packages/renderer-react/src/**/*.{test,spec}.{ts,tsx}'],
+          name: 'renderer',
+          include: ['packages/renderer/src/**/*.{test,spec}.{ts,tsx}'],
           exclude: ['**/node_modules/**', '**/dist/**'],
           environment: 'jsdom',
           // Only so that `?raw` imports of CSS return the file's text. Vitest's default
@@ -64,27 +64,22 @@ export default defineConfig({
           css: true,
           testTimeout: 30000,
           hookTimeout: 30000,
-          setupFiles: ['./packages/renderer-react/src/test/setup.ts'],
+          setupFiles: ['./packages/renderer/src/test/setup.ts'],
 
-          // ONE copy of ag-grid-community, stated as an absolute path.
+          // ── Deleted at cutover: the ag-grid-community alias and `server.deps.inline` ──────────
           //
-          // `packages/renderer-react/vite.config.ts` has the full argument (two physical copies of
-          // `@36` exist under `nodeLinker: hoisted`, and `ModuleRegistry` is module state, so the
-          // grid reports every feature unregistered). It fixes the app with `resolve.dedupe`, which
-          // resolves from ITS root; this config's root is the repo, where the deduped copy would be
-          // the Angular renderer's `@35` — the wrong major to run `@36` code against. So the path is
-          // spelled out, the same way `@joinery/shared`, keytar and ssh2 are in the node project.
-          alias: {
-            'ag-grid-community': new URL(
-              './packages/renderer-react/node_modules/ag-grid-community/dist/package/main.esm.mjs',
-              import.meta.url
-            ).pathname,
-          },
-          // The alias alone is not enough: Vitest externalises `node_modules` by default, so
-          // `ag-grid-react`'s own `import 'ag-grid-community'` is resolved by Node and never sees it.
-          // Inlining that one package puts it through Vite's resolution, where the alias applies —
-          // which is what makes both halves of the grid share one `ModuleRegistry`.
-          server: { deps: { inline: ['ag-grid-react'] } },
+          // This project used to carry an absolute-path `alias` for `ag-grid-community` pointing
+          // into `packages/renderer-react/node_modules/…`, plus `server.deps.inline:
+          // ['ag-grid-react']` to force `ag-grid-react`'s own import through it. Both existed
+          // because `nodeLinker: hoisted` gives the repo root ONE copy of each package and that
+          // slot belonged to the Angular renderer's `ag-grid-community@35` — so `@36` landed twice
+          // on disk, `ModuleRegistry` is module state, and the grid reported every feature
+          // unregistered (AG Grid error #200). Task 11's report §1 has the full failure.
+          //
+          // Deleting the Angular package freed the root slot: there is now one physical `@36`, both
+          // halves of the grid resolve to it, and nothing is needed in their place. The alias also
+          // named the pre-rename path, so leaving it would have failed this whole project to
+          // resolve — see PLAN.md Phase D.
         },
       },
     ],
@@ -102,11 +97,17 @@ export default defineConfig({
         '**/dist/**',
         '**/__tests__/**',
         '**/__mocks__/**',
-        // Exclude packages without tests from coverage thresholds
-        'packages/renderer/**',
-        'packages/renderer-react/**',
+        // `packages/preload` and `packages/cli` have no tests, so including them would only drag the
+        // thresholds down.
         'packages/preload/**',
         'packages/cli/**',
+        // `packages/renderer` is a different case and this line is a DECISION, not an oversight
+        // (Task 24 review, M7): it holds ~2,190 of the repo's ~2,690 tests, and the `include` above
+        // names only main and shared, so folding it in would move the thresholds' meaning entirely.
+        // The exclusion was inherited from when this package was `renderer-react` and genuinely
+        // untested; raising the gate to cover it is worth doing on its own, with numbers chosen for
+        // the code rather than inherited from a 10% floor written for the main process.
+        'packages/renderer/**',
       ],
       thresholds: {
         statements: 10,

@@ -12,10 +12,10 @@
 const URL = process.env.JOINERY_LIVE_REPORTER_URL;
 const DEFAULT_TIER = process.env.JOINERY_LIVE_REPORTER_TIER || 'e2e';
 
-// Visual baselines live under tests/e2e/visual/ — route them to the
+// Visual baselines live under tests/e2e-react-visual/ — route them to the
 // dedicated 'visual' tier so the dashboard shows them as a distinct row.
 function tierForFile(file) {
-  if (typeof file === 'string' && file.includes('/tests/e2e/visual/')) return 'visual';
+  if (typeof file === 'string' && file.includes('/tests/e2e-react-visual/')) return 'visual';
   return DEFAULT_TIER;
 }
 

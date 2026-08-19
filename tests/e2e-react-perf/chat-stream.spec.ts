@@ -34,7 +34,7 @@
  * gated are all RATIOS and ZEROS — mutations on prior messages, on the grid, on the editor — and
  * none of them is a function of stream length. The one number that is (mutations on the streaming
  * message) is asserted as a bound derived from the coalescing window, which scales. The unit half
- * of the same gate, `packages/renderer-react/src/features/chat/stream-render-isolation.spec.tsx`,
+ * of the same gate, `packages/renderer/src/features/chat/stream-render-isolation.spec.tsx`,
  * measures the same three things at the memo boundary and runs on every unit run.
  */
 
@@ -89,7 +89,7 @@ const CHUNK_INTERVAL_MS = 10;
 const FLUSH_MS = 50;
 
 /** Where the renderer keeps the value `FLUSH_MS` mirrors. Read as text; see the constant's note. */
-const STREAM_TAIL_SOURCE = 'packages/renderer-react/src/features/chat/use-stream-tail.ts';
+const STREAM_TAIL_SOURCE = 'packages/renderer/src/features/chat/use-stream-tail.ts';
 
 /**
  * Ceiling on DOM mutations under the STREAMING message.

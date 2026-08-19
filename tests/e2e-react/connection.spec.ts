@@ -15,7 +15,7 @@
  * `<label for>`, so it does not.
  */
 
-import { expect, test } from './fixtures';
+import { expect, test } from '@playwright/test';
 import {
   connectFromSidebar,
   connectionEditor,

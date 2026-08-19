@@ -18,7 +18,7 @@
  *    where it lands: the sidebar divider is the handle the audit finding was about.
  */
 
-import { expect, test } from './fixtures';
+import { expect, test } from '@playwright/test';
 import {
   createPostgresProfile,
   dragResizeHandle,
@@ -36,11 +36,19 @@ const PROFILE = 'Test PG';
 // this the one spec in the tier that runs with the containers down, which is worth keeping true.
 
 /**
- * Every localStorage key the ANGULAR renderer owns (`renderer/src/app/**`, as of the Task 20 audit).
- * None of them may exist in a React launch: the substrate reaches the React renderer by superseding
- * the Angular document (`helpers/electron-app.ts`), and if Angular's bootstrap ever completed before
- * the redirect landed it would write some of these — which React's one-shot legacy migration
+ * The six localStorage keys the ANGULAR renderer owned (`renderer/src/app/**`, as of the Task 20
+ * audit). A launch on a fresh profile must have none of them.
+ *
+ * Until the cutover this asserted a race: the launcher reached the React renderer by SUPERSEDING an
+ * already-loading Angular document, and a redirect slow enough to lose that race would let Angular's
+ * bootstrap write some of these — which React's one-shot legacy migration
  * (`persistence/migration.ts`) would then import as if a real user had left them.
+ *
+ * There is no second renderer and no redirect now, so what is left is the other half, and it is the
+ * half that still has teeth: **nothing in the shipped renderer may create one of these names.** The
+ * migration reads them, lifts them into `AppState` and REMOVES them, so a key appearing on a profile
+ * that never ran Angular would mean something is writing a name it does not own — and the next boot
+ * would migrate it over the user's real state.
  */
 const ANGULAR_LOCAL_STORAGE_KEYS = [
   'joinery:welcomeDismissed',
@@ -51,24 +59,22 @@ const ANGULAR_LOCAL_STORAGE_KEYS = [
   'joinery-flyway-placeholder-values',
 ] as const;
 
-test.describe('Joinery (React) — the launch substrate', () => {
-  test('the superseded Angular boot writes nothing a React launch can read', async () => {
+test.describe('Joinery — the launch substrate', () => {
+  test('a launch creates none of the six legacy localStorage keys', async () => {
     await withJoineryReact(async ({ window }) => {
-      // MEASURED, not assumed: `redirectToReactRenderer` supersedes the Angular document immediately
-      // after `domcontentloaded`, which is before Angular's bootstrap reaches any of its own writers.
-      // This test is what keeps that true — a redirect that slowed down enough to lose the race would
-      // fail here rather than quietly seeding the next assertion's state.
       const keys = await window.evaluate(() => Object.keys(window.localStorage));
-      expect(keys).not.toContain('joinery:welcomeDismissed');
       for (const key of ANGULAR_LOCAL_STORAGE_KEYS) {
-        expect(keys, `an Angular localStorage key survived the redirect: ${key}`).not.toContain(
+        expect(keys, `a legacy localStorage key was created by this launch: ${key}`).not.toContain(
           key
         );
       }
+      // Non-vacuous: the launch DOES write one key — the React-owned theme mirror the pre-mount
+      // FOUC script reads (`persistence/theme-mirror.ts`). Without this, an evaluate that returned
+      // an empty list for any reason would pass every assertion above.
+      expect(keys).toContain('joinery:theme-preference');
 
-      // And nothing reached `AppState` either, which is the store React hydrates its workspace from.
-      // Angular's `tab.state.ts` calls `saveTabs()` from `openTab`, and it opens a Welcome tab at
-      // boot — so a lost race would show up as tabs this launch did not open.
+      // And the workspace store is empty on a fresh profile, which is what the tab assertions in the
+      // rest of this tier assume as their starting point.
       const persisted = await window.evaluate(async () => {
         const api = (window as unknown as { joinery: JoineryProbeApi }).joinery;
         return api.app.getTabs();

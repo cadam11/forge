@@ -16,6 +16,9 @@
  * Any file resolving OUTSIDE the extract directory is a leak: the module only
  * loaded because this machine has it elsewhere, and it would be absent for a user.
  *
+ * That covers the MAIN process. `checkRendererBundle` covers the other half — the static bundle
+ * `window.ts` loads over `file://` — which nothing checked until Task 24 replaced the renderer.
+ *
  * Usage: node scripts/verify-package.js [path/to/app.asar]
  *   defaults to release/mac-arm64/Joinery.app/Contents/Resources/app.asar
  */
@@ -26,7 +29,10 @@ const os = require('os');
 const path = require('path');
 
 const ROOT_DIR = path.join(__dirname, '..');
-const DEFAULT_ASAR = path.join(ROOT_DIR, 'release/mac-arm64/Joinery.app/Contents/Resources/app.asar');
+const DEFAULT_ASAR = path.join(
+  ROOT_DIR,
+  'release/mac-arm64/Joinery.app/Contents/Resources/app.asar'
+);
 
 /** Modules loaded for real — require() runs their transitive requires too. */
 const JS_MODULES = [
@@ -63,8 +69,14 @@ const ALLOWED_OUTSIDE = [/[/\\]node_modules[/\\]supports-color[/\\]/];
 function writeElectronStub(extractDir) {
   const stubDir = path.join(extractDir, 'node_modules', 'electron');
   fs.mkdirSync(stubDir, { recursive: true });
-  fs.writeFileSync(path.join(stubDir, 'package.json'), JSON.stringify({ name: 'electron', version: '0.0.0-stub', main: 'index.js' }));
-  fs.writeFileSync(path.join(stubDir, 'index.js'), 'module.exports = { app: { getPath: () => process.cwd(), getName: () => "Joinery", getVersion: () => "0.0.0" }, ipcMain: { on() {}, handle() {} }, shell: {} };\n');
+  fs.writeFileSync(
+    path.join(stubDir, 'package.json'),
+    JSON.stringify({ name: 'electron', version: '0.0.0-stub', main: 'index.js' })
+  );
+  fs.writeFileSync(
+    path.join(stubDir, 'index.js'),
+    'module.exports = { app: { getPath: () => process.cwd(), getName: () => "Joinery", getVersion: () => "0.0.0" }, ipcMain: { on() {}, handle() {} }, shell: {} };\n'
+  );
 }
 
 function buildProbeSource(extractDir) {
@@ -117,13 +129,130 @@ function checkExternalResources(asarPath, asarEntries) {
     failures++;
   }
 
-  const inAsar = asarEntries.filter((f) => f.endsWith('sqlglot-server.py'));
+  const inAsar = asarEntries.filter(f => f.endsWith('sqlglot-server.py'));
   if (inAsar.length > 0) {
-    console.log(`  FAIL  ${'sqlglot-server.py'.padEnd(44)} also packed INSIDE the asar: ${inAsar[0]}`);
+    console.log(
+      `  FAIL  ${'sqlglot-server.py'.padEnd(44)} also packed INSIDE the asar: ${inAsar[0]}`
+    );
     failures++;
   }
 
   return failures;
+}
+
+/**
+ * The renderer itself, which nothing checked until the cutover (Task 24).
+ *
+ * Everything above probes the MAIN process's dependency tree. The renderer is a directory of static
+ * files, so it has no `require` graph to walk — and the consequence was that a packaged app with an
+ * empty, absolute-URL'd or worker-less renderer passed `verify:package` cleanly and only failed when
+ * a human double-clicked it. Since the cutover replaced that renderer wholesale, "the bundle landed
+ * and can load itself over file://" is exactly the claim that needed evidence.
+ *
+ * Three assertions, each one a way the bundle has actually been able to break:
+ *
+ *  1. `index.html` is in the asar at the path `window.ts` loads.
+ *  2. Every asset it references is RELATIVE. `base: './'` (vite.config.ts) is a non-negotiable of
+ *     §3.1: an absolute `/assets/…` resolves against the filesystem root under `file://` and the
+ *     window comes up blank.
+ *  3. **Every file `vite build` emitted is in the asar** — compared file-by-file against
+ *     `packages/renderer/dist/browser` on disk, which `package:mac` has just rebuilt.
+ *
+ * The third check replaced two narrower ones (Task 24 review, M2 + M4): "every URL named in
+ * index.html resolves" missed lazy chunks reached from JS and fonts reached from CSS (3 of the
+ * build's 210 files were checked), and "at least one *worker*.js exists" would have passed with one
+ * worker when six shipped. Comparing the whole tree covers both, and it is the honest invariant:
+ * the asar must contain what the build produced, not a subset someone thought to name.
+ */
+function checkRendererBundle(extractDir) {
+  const INDEX_REL = path.join('packages', 'renderer', 'dist', 'browser', 'index.html');
+  const BROWSER_REL = path.dirname(INDEX_REL);
+  const label = name => `  ${name.padEnd(46)}`;
+  const indexOnDisk = path.join(extractDir, INDEX_REL);
+  let failures = 0;
+
+  if (!fs.existsSync(indexOnDisk)) {
+    console.log(`  FAIL${label('renderer index.html')} not in the asar at ${INDEX_REL}`);
+    return 1;
+  }
+  console.log(`  ok  ${label('renderer index.html')}`);
+
+  const html = fs.readFileSync(indexOnDisk, 'utf8');
+  const referenced = [...html.matchAll(/(?:src|href)="([^"]+)"/g)].map(m => m[1]);
+  const local = referenced.filter(url => !/^(https?:)?\/\//.test(url) && !url.startsWith('data:'));
+
+  const absolute = local.filter(url => url.startsWith('/'));
+  if (absolute.length > 0) {
+    console.log(`  FAIL${label('renderer asset URLs are relative')} absolute: ${absolute[0]}`);
+    failures++;
+  } else if (local.length === 0) {
+    // A parse that found nothing would make the check above vacuous.
+    console.log(
+      `  FAIL${label('renderer asset URLs are relative')} index.html references no assets`
+    );
+    failures++;
+  } else {
+    console.log(`  ok  ${label(`renderer asset URLs are relative (${local.length})`)}`);
+  }
+
+  failures += checkRendererTreeComplete(path.join(extractDir, BROWSER_REL));
+  return failures;
+}
+
+/**
+ * Every file the renderer build emitted, present in the asar.
+ *
+ * The on-disk `dist/browser` is the reference because `pnpm run package:mac` is
+ * `pnpm run build && node scripts/package.js --mac` — the tree electron-builder collected is the
+ * one still sitting there. Running `verify:package` against an asar with no matching local build is
+ * a hard failure rather than a skip: a check that silently passes when it cannot run is the exact
+ * vacuity this script exists to avoid.
+ *
+ * Dotfiles are excluded from both sides because electron-builder drops them
+ * (`!**​/{.DS_Store,.git,…}` in electron-builder.yml), so a Finder visit to the build directory must
+ * not fail the gate.
+ */
+function checkRendererTreeComplete(browserInAsar) {
+  const label = name => `  ${name.padEnd(46)}`;
+  const browserOnDisk = path.join(ROOT_DIR, 'packages', 'renderer', 'dist', 'browser');
+
+  if (!fs.existsSync(browserOnDisk)) {
+    console.log(
+      `  FAIL${label('renderer bundle complete')} no local build at ${path.relative(ROOT_DIR, browserOnDisk)} ` +
+        `to compare against — run "pnpm run build" first`
+    );
+    return 1;
+  }
+
+  const built = listFilesRelative(browserOnDisk);
+  if (built.length === 0) {
+    console.log(`  FAIL${label('renderer bundle complete')} the local build directory is empty`);
+    return 1;
+  }
+
+  const missing = built.filter(rel => !fs.existsSync(path.join(browserInAsar, rel)));
+  if (missing.length > 0) {
+    console.log(
+      `  FAIL${label('renderer bundle complete')} ${missing.length} of ${built.length} built ` +
+        `file(s) absent from the asar, e.g. ${missing[0]}`
+    );
+    return 1;
+  }
+
+  console.log(`  ok  ${label(`renderer bundle complete (${built.length} files)`)}`);
+  return 0;
+}
+
+/** Every non-dot file under `root`, as paths relative to it. Bounded by the directory tree. */
+function listFilesRelative(root, prefix = '') {
+  const files = [];
+  for (const entry of fs.readdirSync(path.join(root, prefix), { withFileTypes: true })) {
+    if (entry.name.startsWith('.')) continue;
+    const rel = path.join(prefix, entry.name);
+    if (entry.isDirectory()) files.push(...listFilesRelative(root, rel));
+    else files.push(rel);
+  }
+  return files;
 }
 
 function report(results) {
@@ -133,7 +262,9 @@ function report(results) {
       console.log(`  FAIL  ${r.name.padEnd(44)} ${r.err}`);
       failures++;
     } else if (r.outsideCount > 0) {
-      console.log(`  LEAK  ${r.name.padEnd(44)} ${r.outsideCount} file(s) outside bundle: ${r.outside[0]}`);
+      console.log(
+        `  LEAK  ${r.name.padEnd(44)} ${r.outsideCount} file(s) outside bundle: ${r.outside[0]}`
+      );
       failures++;
     } else {
       console.log(`  ok    ${r.name.padEnd(44)}${r.resolveOnly ? '(resolve-only, native)' : ''}`);
@@ -167,9 +298,14 @@ try {
   });
   failures = report(JSON.parse(stdout.trim().split('\n').pop()));
   failures += checkExternalResources(asarPath, asarEntries);
+  failures += checkRendererBundle(extractDir);
 } finally {
   fs.rmSync(extractDir, { recursive: true, force: true });
 }
 
-console.log(failures ? `\n${failures} problem(s) — the packaged app is missing dependencies.` : '\nAll modules load entirely from within the bundle.');
+console.log(
+  failures
+    ? `\n${failures} problem(s) — the packaged app is missing dependencies.`
+    : '\nAll modules load entirely from within the bundle.'
+);
 process.exit(failures ? 1 : 0);

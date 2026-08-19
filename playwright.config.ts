@@ -2,29 +2,28 @@ import { defineConfig } from '@playwright/test';
 
 // Playwright + Electron config for the Joinery regression harness.
 //
-// Specs live under tests/e2e/. Each test launches its own Electron instance
-// via tests/helpers/electron-app.ts.
+// Each test launches its own Electron instance via tests/helpers/electron-app.ts.
 //
-// Four projects:
-//   - e2e: functional E2E specs against the Angular renderer (anything under
-//     tests/e2e/ that is not inside tests/e2e/visual/)
-//   - visual: snapshot baselines (anything under tests/e2e/visual/)
-//   - e2e-react: functional specs against the React renderer (tests/e2e-react/)
-//   - visual-react: snapshot baselines for the React renderer, with the two
-//     host variables pinned — device pixel ratio and macOS scroller style
-//     (tests/e2e-react-visual/)
+// Three projects, one per tier, each with its own testDir:
+//   - e2e-react: functional specs (tests/e2e-react/)
+//   - perf-react: the slow-by-construction performance specs (tests/e2e-react-perf/)
+//   - visual-react: snapshot baselines, with the two host variables pinned —
+//     device pixel ratio and macOS scroller style (tests/e2e-react-visual/)
 //
-// `pnpm run test:e2e` and `pnpm run test:visual` invoke the first two
-// separately so the static report and live dashboard can show them as distinct
-// tiers. The React tier runs as `pnpm exec playwright test --project=e2e-react`
-// until it earns a script of its own (see the note on the project below).
+// Each has a `pnpm run test:*:react` script so the static report and the live
+// dashboard can show them as distinct tiers.
+//
+// The `-react` suffixes are historical: they distinguished these tiers from the
+// Angular ones while the two renderers coexisted (PLAN.md §3). Task 24 deleted
+// the Angular tiers; the names stay because the committed baseline tree
+// (tests/__snapshots__/visual-react/) is keyed by them and renaming it would
+// rewrite 22 baselines for cosmetics.
 export default defineConfig({
-  testDir: './tests/e2e',
+  // Every project below sets its own testDir, so this is only the fallback for a
+  // project that forgets to — pointed at the functional tier rather than at
+  // ./tests, which would sweep the vitest integration specs into discovery.
+  testDir: './tests/e2e-react',
   outputDir: './tests/reports/.cache/playwright-results',
-  // Snapshots live outside .cache so they survive cache wipes and get committed.
-  // Per-test-file directory keeps things tidy when there are many baselines.
-  snapshotDir: './tests/__snapshots__/visual',
-  snapshotPathTemplate: '{snapshotDir}/{testFileName}/{arg}{ext}',
   timeout: 60000,
   expect: {
     timeout: 10000,
@@ -72,34 +71,16 @@ export default defineConfig({
     video: 'retain-on-failure',
   },
   projects: [
-    {
-      name: 'e2e',
-      // Anything under tests/e2e/ that's NOT inside the visual subdir.
-      testIgnore: /tests\/e2e\/visual\//,
-    },
-    {
-      name: 'visual',
-      testMatch: /tests\/e2e\/visual\/.*\.spec\.ts$/,
-    },
-    // The React renderer's functional tier. A project-level `testDir` rather
-    // than a testMatch under the shared one, so nothing about the `e2e`
-    // project's discovery changes: tests/e2e-react/ is outside the top-level
-    // testDir entirely and the Angular tier's 38 tests are the same 38.
-    //
-    // Every spec here pins itself to the React renderer through
-    // `withJoineryReact` (tests/helpers/joinery-actions-react.ts), so this
-    // project needs no env var to be correct — the env var
-    // (JOINERY_E2E_RENDERER) exists for driving the *Angular* specs against
-    // React in Task 20, which is the other direction.
+    // The functional tier.
     {
       name: 'e2e-react',
       testDir: './tests/e2e-react',
     },
-    // ── The React renderer's performance tier (Task 23) ───────────────────────
+    // ── The performance tier (Task 23) ────────────────────────────────────────
     //
-    // A fourth sibling directory, for the reason the two above are siblings and
-    // not subdirectories: `e2e-react` discovers by a plain `testDir`, so a
-    // nested `perf/` would join the functional tier and change its count.
+    // A sibling directory rather than a subdirectory of the functional tier:
+    // `e2e-react` discovers by a plain `testDir`, so a nested `perf/` would join
+    // it and change its count.
     //
     // Separate from `e2e-react` rather than tagged inside it because these
     // specs are SLOW BY CONSTRUCTION — a 100k-row result set, a 200-table
@@ -118,20 +99,17 @@ export default defineConfig({
       testDir: './tests/e2e-react-perf',
       timeout: 300_000,
     },
-    // ── The React renderer's visual tier ──────────────────────────────────────
+    // ── The visual tier ───────────────────────────────────────────────────────
     //
     // A SIBLING directory rather than `tests/e2e-react/visual/`, for the same
-    // reason `e2e-react` is a sibling of `tests/e2e` rather than a testMatch
-    // inside it: the `e2e-react` project's discovery is a plain `testDir`, so a
-    // `visual/` subdirectory would be swept into it and the functional tier's
-    // test count would change. Keeping the tree outside means nothing about the
-    // two existing projects' discovery is edited at all — this project addition
-    // is additive in the strict sense.
+    // reason the perf tier is one: the `e2e-react` project's discovery is a
+    // plain `testDir`, so a `visual/` subdirectory would be swept into it and
+    // the functional tier's test count would change.
     //
-    // Snapshots go to their own directory, so the Angular tier's 11 committed
-    // PNGs (tests/__snapshots__/visual/) and these are never confused for one
-    // another; the Angular tree is deleted with its tier at Task 24 and this one
-    // survives.
+    // Snapshots go to their own directory. It held the 22 React baselines apart
+    // from the Angular tier's 11 while both existed; now it is simply where the
+    // committed baselines live, and its name is why this project keeps its
+    // `-react` suffix (see the header).
     {
       name: 'visual-react',
       testDir: './tests/e2e-react-visual',
