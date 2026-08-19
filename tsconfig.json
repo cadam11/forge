@@ -23,8 +23,6 @@
     "paths": {
       "@joinery/main": ["packages/main/src/index.ts"],
       "@joinery/main/*": ["packages/main/src/*"],
-      "@joinery/renderer": ["packages/renderer/src/index.ts"],
-      "@joinery/renderer/*": ["packages/renderer/src/*"],
       "@joinery/preload": ["packages/preload/src/index.ts"],
       "@joinery/preload/*": ["packages/preload/src/*"],
       "@joinery/shared": ["packages/shared/src/index.ts"],

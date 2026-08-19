@@ -3,7 +3,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", "build/**", ".angular/**"],
+      "outputs": ["dist/**", "build/**"],
       "cache": true
     },
     "dev": {

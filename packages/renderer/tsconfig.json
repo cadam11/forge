@@ -1,7 +1,7 @@
 // Deliberately does NOT extend the root tsconfig.json. That one is written for the
 // main/preload/shared CommonJS-ish toolchain — `moduleResolution: "node"`,
 // `experimentalDecorators` + `emitDecoratorMetadata`, `lib: ["ES2022"]` with no DOM,
-// and `paths` aliases pointing at the Angular renderer. Inheriting any of it would
+// and `paths` aliases for the main-process packages. Inheriting any of it would
 // fight `moduleResolution: "bundler"` and the browser lib set below, so this file is
 // standalone on purpose. Do not "align" it with the root.
 {
@@ -37,10 +37,12 @@
 
   // Exactly one exception, and it is a toolchain defect, not a choice.
   // @vitejs/plugin-react 6 ships `export { viteReactForCjs as "module.exports" }` in
-  // its .d.ts, and the TS 5.4.5 the workspace override pins (pnpm-workspace.yaml, for
-  // the Angular 18 toolchain — see plans/renderer-rewrite/PLAN.md 0.6) cannot *parse*
-  // that, so it errors regardless of skipLibCheck. ESLint still covers the file.
-  // Delete this exclusion when the cutover PR drops the TypeScript pin. Do NOT widen
-  // it to cover other root-level files.
+  // its .d.ts, and TypeScript 5.4.5 cannot *parse* that, so it errors regardless of
+  // skipLibCheck. ESLint still covers the file.
+  //
+  // Task 24 dropped the pnpm-workspace `overrides` entry that forced 5.4.5 on the whole
+  // tree (it was there for the Angular 18 toolchain), but every package still DECLARES
+  // ~5.4.5, so the parse failure stands. Delete this exclusion when the TypeScript bump
+  // lands. Do NOT widen it to cover other root-level files.
   "exclude": ["vite.config.ts"]
 }

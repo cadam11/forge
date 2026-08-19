@@ -13,7 +13,7 @@
     "build": "turbo run build",
     "build:stream": "turbo run build --log-order=stream",
     "dev": "pnpm run build && concurrently -k \"pnpm run dev:renderer\" \"pnpm run dev:main\"",
-    "dev:renderer": "pnpm --filter ${JOINERY_RENDERER:-@joinery/renderer} run start",
+    "dev:renderer": "pnpm --filter @joinery/renderer run start",
     "dev:main": "wait-on http://localhost:4200 && unset ELECTRON_RUN_AS_NODE && NODE_ENV=development pnpm --filter @joinery/main run start",
     "start": "turbo run start",
     "watch": "turbo run watch",

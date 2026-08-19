@@ -12,16 +12,22 @@ packages:
 # .npmrc are silently ignored (`pnpm config get node-linker` -> undefined).
 nodeLinker: hoisted
 
-# Angular and the Electron toolchain carry loose peer ranges that are warnings
-# rather than real conflicts; failing the install on them blocks CI for no gain.
+# The Electron toolchain and several React ecosystem packages carry loose peer
+# ranges that are warnings rather than real conflicts; failing the install on
+# them blocks CI for no gain.
 strictPeerDependencies: false
 
 # Moved from package.json "overrides" during the npm -> pnpm migration.
-# @types/node is pinned to 20.x to match .nvmrc / CI, and typescript to the
-# version the Angular 18 toolchain supports.
+# @types/node is pinned to 20.x to match .nvmrc / CI.
+#
+# `typescript: ~5.4.5` used to sit here too, pinned to the version the Angular 18
+# toolchain supported. Task 24 deleted that toolchain and dropped the override.
+# The version each package DECLARES is still ~5.4.5 (and .syncpackrc pins it), so
+# nothing moved in this PR — bumping it is a follow-up with its own verification,
+# and packages/renderer/tsconfig.json's `exclude: ["vite.config.ts"]` is waiting
+# on it.
 overrides:
   '@types/node': ^20.14.2
-  typescript: ~5.4.5
 
 # pnpm does not run dependency lifecycle scripts unless they are listed here.
 # Anything not listed stays blocked, so new install scripts arriving via a
@@ -34,12 +40,6 @@ allowBuilds:
   ssh2: true
   # esbuild links its platform binary; the preload bundle step needs it.
   esbuild: true
-  # Angular CLI's build cache and its optional accelerators. Not strictly
-  # required, but denying them makes every renderer build slower.
-  lmdb: true
-  msgpackr-extract: true
-  nice-napi: true
-  protobufjs: true
   # Squirrel.Windows installer support, reached transitively through
   # electron-builder. Kept enabled so Windows release builds match npm.
   electron-winstaller: true
@@ -48,3 +48,8 @@ allowBuilds:
   # electron-builder.yml excludes it from the asar, so building it is wasted
   # work. ssh2 require()s it in a try/catch and degrades cleanly.
   cpu-features: false
+  # Reached transitively through @grpc/proto-loader. It was previously listed with
+  # the Angular CLI accelerators (lmdb, msgpackr-extract, nice-napi) and its comment
+  # said so, which was wrong: those three left the tree with Angular at Task 24 and
+  # this one did not. Its postinstall generates the package's CommonJS/ESM shims.
+  protobufjs: true
