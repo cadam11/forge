@@ -16,7 +16,7 @@
  * The theme is `theme.spec.ts`, which owns the `[data-theme]` contract and its persistence.
  */
 
-import { expect, test } from './fixtures';
+import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import {
   connectFromSidebar,
   createPostgresProfile,
@@ -35,7 +35,6 @@ import {
   typeSql,
   withJoineryReact,
 } from '../helpers/joinery-actions-react';
-import type { ElectronApplication, Page } from '@playwright/test';
 
 const PROFILE = 'Test PG';
 const CUSTOMERS_SQL = 'SELECT id, email FROM customers ORDER BY id';

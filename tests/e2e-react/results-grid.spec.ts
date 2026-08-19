@@ -12,7 +12,7 @@
  * also documents the two AG Grid 36 DOM facts these assertions depend on.
  */
 
-import { expect, test } from './fixtures';
+import { expect, test, type Page } from '@playwright/test';
 import {
   connectFromSidebar,
   copyGridSelection,
@@ -33,7 +33,6 @@ import {
   typeSql,
   withJoineryReact,
 } from '../helpers/joinery-actions-react';
-import type { Page } from '@playwright/test';
 import { readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

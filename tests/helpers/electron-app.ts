@@ -7,62 +7,25 @@
  * `withJoinery` form for guaranteed teardown).
  *
  * Requires `pnpm run build` to have produced packages/main/dist/index.js and
- * the target renderer's dist/browser/index.html.
+ * packages/renderer/dist/browser/index.html.
  *
- * ── Two renderers, one main process ────────────────────────────────────────
+ * ── One renderer, and what that deleted (Task 24) ───────────────────────────
  *
- * The React rewrite (`packages/renderer-react`) coexists with the Angular
- * renderer until the cutover task. `renderer` selects which one a launch
- * shows, defaulting to `angular` (or `$JOINERY_E2E_RENDERER`) so the existing
- * functional tier is bit-for-bit unaffected — that default IS the coexistence
- * invariant.
+ * Until the cutover this helper took a `renderer: 'angular' | 'react'` option
+ * (defaulting to `$JOINERY_E2E_RENDERER`, then `angular`) and reached the React
+ * build by re-pointing the already-created BrowserWindow at a second index.html
+ * after launch — because `window.ts` hard-coded the Angular path and the main
+ * process was out of scope for the rewrite tasks.
  *
- * `packages/main/src/window.ts:114` hard-codes the Angular index path and the
- * main process is out of scope for the rewrite tasks, so the React target is
- * reached by re-pointing the already-created BrowserWindow at the React
- * index after launch. That is a test-only redirect, and it is sound because
- * the preload script is attached to the *window* (`window.ts:63`), not to the
- * document: the bridge re-installs itself on the new page exactly as it does
- * on the first one. The alternative — an env var read by `window.ts` — would
- * put test wiring in the shipped main process.
+ * `packages/renderer` is now the React renderer, so `window.ts` loads it
+ * directly and the redirect is gone with the option, the env var and the
+ * per-target font table. That is worth ~790ms per launch (measured Task 20:
+ * `react=1301ms` vs `angular=510ms` launch-to-window), and at ~160 launches a
+ * full run, roughly two minutes.
  *
- * ── The double boot: settled, with numbers (Task 20) ────────────────────────
- *
- * PLAN.md Task 20 trap (a) asked whether the double boot can be eliminated
- * without a `window.ts` change. **It cannot, and it is kept deliberately.**
- * What was measured and decided:
- *
- *  - **Cost: ~790ms per launch.** Timed launch-to-window with everything else
- *    equal: `react=1301ms`, `angular=510ms`. The tier launches an app per test,
- *    so at ~160 launches the redirect is roughly two minutes of a full run.
- *  - **Leakage: none, and it is now asserted rather than assumed.** The
- *    redirect fires immediately after `domcontentloaded`, before Angular's
- *    bootstrap reaches any of its own persistence writers. Probed on a fresh
- *    userData dir: `AppState.openTabs` is `[]`, `activeTabId` is `null`, and
- *    localStorage holds exactly one key — `joinery:theme-preference`, which is
- *    React's own theme mirror (`persistence/theme-mirror.ts:37`). Not one of
- *    Angular's six keys (`joinery:welcomeDismissed`, `joinery-settings`,
- *    `joinery:completed-tours`, `joinery-snippets`,
- *    `joinery-ctrl-e-execute-confirmed`, `joinery-flyway-placeholder-values`)
- *    was present. **`tests/e2e-react/shell.spec.ts` asserts this every run**,
- *    because the failure mode if the race were ever lost is quiet: React's
- *    one-shot legacy migration (`persistence/migration.ts`) would import
- *    Angular-authored keys as though a real user had left them.
- *  - **The one alternative that exists was rejected on evidence.**
- *    `window.ts:110` already honours an env var: `NODE_ENV=development` makes
- *    it `loadURL('http://localhost:4200')`, so serving the React build there
- *    would skip the Angular document entirely and cost nothing. It is worse.
- *    The renderer would then be loaded over `http://` instead of the `file://`
- *    it actually ships on, and several behaviours differ across exactly that
- *    line — the CSP (`default-src 'none'` over `file://` is why the results
- *    grid exports through IPC rather than a synthetic `<a download>`), relative
- *    asset resolution, and origin-scoped storage. A suite that tested the app
- *    under a loading mode it never ships in would be buying 790ms with the
- *    fidelity that is the entire point of an e2e tier.
- *
- * The guard that makes the redirect safe in the first place is the per-launch
- * `mkdtemp` userData dir below: whatever any boot writes goes to a directory
- * that is deleted in `withJoinery`'s `finally`.
+ * The isolation that made the redirect safe is unchanged and still load-bearing
+ * on its own: the per-launch `mkdtemp` userData dir below means whatever a boot
+ * writes goes to a directory deleted in `withJoinery`'s `finally`.
  */
 
 import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
@@ -74,9 +37,6 @@ import { join } from 'node:path';
 // Avoiding `import.meta.url` keeps this helper loadable from playwright specs.
 const REPO_ROOT = join(__dirname, '..', '..');
 const MAIN_ENTRY = join(REPO_ROOT, 'packages', 'main', 'dist', 'index.js');
-
-/** Which renderer package a launch should show. */
-export type RendererTarget = 'angular' | 'react';
 
 /**
  * macOS's three scroller-style settings, spelled as Cocoa's `AppleShowScrollBars` preference does.
@@ -93,21 +53,13 @@ const MAC_SCROLL_BAR_STYLES: readonly MacScrollBarStyle[] = [
   'WhenScrolling',
 ];
 
-const RENDERER_INDEXES: Record<RendererTarget, string> = {
-  angular: join(REPO_ROOT, 'packages', 'renderer', 'dist', 'browser', 'index.html'),
-  react: join(REPO_ROOT, 'packages', 'renderer-react', 'dist', 'browser', 'index.html'),
-};
+/** The built renderer `window.ts` loads under `NODE_ENV=production`. */
+const RENDERER_INDEX = join(REPO_ROOT, 'packages', 'renderer', 'dist', 'browser', 'index.html');
 
 /**
- * The faces each renderer actually paints with, forced before any assertion —
+ * The faces the renderer actually paints with, forced before any assertion —
  * see the `document.fonts.load` block below for why passively awaiting
  * `document.fonts.ready` is not enough.
- *
- * The lists differ and MUST differ: the React renderer ships the brand faces
- * (Archivo / Instrument Sans / IBM Plex Mono, `renderer-react/src/styles/theme.css`)
- * and no Material Icons font at all — it uses lucide SVGs. Forcing `Inter` and
- * `"Material Icons"` there would resolve against nothing, silently succeed, and
- * let a shot flip between a fallback render and a real one.
  *
  * **Re-verified against the shipped CSS at Task 20**, which is the check PLAN.md
  * asks for — a face list is only useful if every entry resolves:
@@ -121,48 +73,23 @@ const RENDERER_INDEXES: Record<RendererTarget, string> = {
  *    is inside the range rather than being synthesised;
  *  - IBM Plex Mono is a static family here, and only 400 and 500 are imported —
  *    which is why the list asks for those two and no others.
+ *
+ * There is no Material Icons entry because there is no icon font: the renderer
+ * draws its icons as lucide SVGs.
  */
-const RENDERER_FONTS: Record<RendererTarget, readonly string[]> = {
-  angular: [
-    '400 1em Inter',
-    '500 1em Inter',
-    '600 1em Inter',
-    '700 1em Inter',
-    '400 1em "JetBrains Mono"',
-    '500 1em "JetBrains Mono"',
-    '24px "Material Icons"',
-  ],
-  react: [
-    '400 1em "Instrument Sans Variable"',
-    '500 1em "Instrument Sans Variable"',
-    '800 1em "Archivo Variable"',
-    '400 1em "IBM Plex Mono"',
-    '500 1em "IBM Plex Mono"',
-  ],
-};
-
-/**
- * The target for this launch: the explicit option, then the env var, then
- * Angular. An unrecognised env value throws rather than silently falling back —
- * a typo that quietly ran the wrong renderer would make a green suite meaningless.
- */
-export function resolveRendererTarget(explicit?: RendererTarget): RendererTarget {
-  const raw = explicit ?? process.env.JOINERY_E2E_RENDERER ?? 'angular';
-  if (raw !== 'angular' && raw !== 'react') {
-    throw new Error(
-      `[electron-app] JOINERY_E2E_RENDERER must be "angular" or "react", got ${JSON.stringify(raw)}`
-    );
-  }
-  return raw;
-}
+const RENDERER_FONTS: readonly string[] = [
+  '400 1em "Instrument Sans Variable"',
+  '500 1em "Instrument Sans Variable"',
+  '800 1em "Archivo Variable"',
+  '400 1em "IBM Plex Mono"',
+  '500 1em "IBM Plex Mono"',
+];
 
 export interface LaunchedApp {
   app: ElectronApplication;
   window: Page;
   /** Per-launch userData dir (isolated tmp). Cleaned up by withJoinery. */
   userDataDir: string;
-  /** Which renderer this launch is showing. */
-  renderer: RendererTarget;
 }
 
 export interface LaunchOptions {
@@ -172,8 +99,6 @@ export interface LaunchOptions {
    * the CLI dep probe fails and the missing-tools view renders).
    */
   envOverrides?: Record<string, string>;
-  /** Renderer package to show. Defaults to `$JOINERY_E2E_RENDERER`, then `angular`. */
-  renderer?: RendererTarget;
   /**
    * Pin the window's device pixel ratio, in device pixels per CSS pixel.
    *
@@ -297,18 +222,15 @@ export async function launchJoinery(options: LaunchOptions = {}): Promise<Launch
     );
   }
 
-  const renderer = resolveRendererTarget(options.renderer);
-  const rendererIndex = RENDERER_INDEXES[renderer];
-
   if (!existsSync(MAIN_ENTRY)) {
     throw new Error(
       `[electron-app] expected built main process at ${MAIN_ENTRY}. ` +
         `Run \`pnpm run build\` first.`
     );
   }
-  if (!existsSync(rendererIndex)) {
+  if (!existsSync(RENDERER_INDEX)) {
     throw new Error(
-      `[electron-app] expected the ${renderer} renderer build at ${rendererIndex}. ` +
+      `[electron-app] expected the renderer build at ${RENDERER_INDEX}. ` +
         `Run \`pnpm run build\` first.`
     );
   }
@@ -359,45 +281,8 @@ export async function launchJoinery(options: LaunchOptions = {}): Promise<Launch
   const window = await app.firstWindow();
   await window.waitForLoadState('domcontentloaded');
 
-  // The React redirect. Only for that target, so the Angular path is the same
-  // sequence of calls it always was.
-  if (renderer === 'react') {
-    await redirectToReactRenderer(app, window, rendererIndex);
-  }
-
-  await forceFonts(window, renderer);
-  return { app, window, userDataDir, renderer };
-}
-
-/**
- * Re-points the live BrowserWindow at the React renderer's index.
- *
- * Two things about this are the result of measurement rather than taste:
- *
- *  - **`loadFile`'s promise is deliberately not awaited.** Superseding a navigation makes the
- *    previous one fail with `ERR_ABORTED (-3)`, and Electron delivers that failure to the *new*
- *    `loadFile` call's own listener — so awaiting it rejected with "loading '…/packages/renderer/
- *    dist/browser/index.html'", i.e. the URL we were navigating away from. The successful arrival
- *    is waited for below instead, which is the honest signal anyway.
- *  - **The wait is on the URL, not on a load state.** `waitForLoadState` resolves against whatever
- *    document is current, including the Angular one, so it can pass before the redirect has
- *    happened at all.
- */
-async function redirectToReactRenderer(
-  app: ElectronApplication,
-  window: Page,
-  rendererIndex: string
-): Promise<void> {
-  await app.evaluate(({ BrowserWindow }, indexPath: string) => {
-    const [target] = BrowserWindow.getAllWindows();
-    if (!target) {
-      throw new Error('[electron-app] no BrowserWindow to re-point at the React renderer');
-    }
-    void target.loadFile(indexPath).catch(() => undefined);
-  }, rendererIndex);
-
-  await window.waitForURL(/renderer-react\/dist\/browser\/index\.html$/, { timeout: 30_000 });
-  await window.waitForLoadState('domcontentloaded');
+  await forceFonts(window);
+  return { app, window, userDataDir };
 }
 
 /**
@@ -405,16 +290,16 @@ async function redirectToReactRenderer(
  * font loading and visual baselines flip between fallback-font and real
  * renders. Passively watching document.fonts.status is NOT enough — it reads
  * "loaded" before any text has even requested a face. Force every face the
- * target renderer uses, then await completion.
+ * renderer uses, then await completion.
  *
  * String form keeps this file free of the DOM lib (the tests tsconfig targets
  * node), which is also why the face list is interpolated rather than passed as
  * an argument.
  */
-export async function forceFonts(window: Page, renderer: RendererTarget): Promise<void> {
-  const loads = RENDERER_FONTS[renderer]
-    .map(face => `document.fonts.load(${JSON.stringify(face)})`)
-    .join(',\n      ');
+export async function forceFonts(window: Page): Promise<void> {
+  const loads = RENDERER_FONTS.map(face => `document.fonts.load(${JSON.stringify(face)})`).join(
+    ',\n      '
+  );
   await window.evaluate(`(async () => {
     await Promise.all([
       ${loads},

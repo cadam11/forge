@@ -21,7 +21,7 @@
  * between "15 characters long" and the characters themselves is the one this file guards.
  */
 
-import { expect, test } from './fixtures';
+import { expect, test } from '@playwright/test';
 import {
   TEST_PG,
   connectionEditor,

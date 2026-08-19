@@ -9,7 +9,7 @@
  * which is the only place history entries are written. Nothing in the renderer records one.
  */
 
-import { expect, test } from './fixtures';
+import { expect, test } from '@playwright/test';
 import {
   connectFromSidebar,
   createPostgresProfile,

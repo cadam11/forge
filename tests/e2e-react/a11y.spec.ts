@@ -81,9 +81,8 @@ import {
   type FocusWalk,
   type SettingsGroup,
 } from '../helpers/joinery-actions-react';
-import type { Page } from '@playwright/test';
 
-import { expect, test } from './fixtures';
+import { expect, test, type Page } from '@playwright/test';
 
 const PROFILE = 'A11y PG';
 const DATABASE = 'joinery_test';

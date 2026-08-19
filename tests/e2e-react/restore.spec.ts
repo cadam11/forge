@@ -35,7 +35,7 @@ import { randomUUID } from 'node:crypto';
 import { Client as PgClient } from 'pg';
 import mysql from 'mysql2/promise';
 
-import { expect, test } from './fixtures';
+import { expect, test } from '@playwright/test';
 import {
   createAndConnectMysql,
   createPostgresProfile,

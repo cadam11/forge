@@ -11,7 +11,7 @@
  *    row the virtualizer had never mounted. There is no way to fake that and learn anything.
  */
 
-import { expect, test } from './fixtures';
+import { expect, test, type Page } from '@playwright/test';
 import {
   closeOverlay,
   connectFromSidebar,
@@ -27,7 +27,6 @@ import {
   visibleSql,
   withJoineryReact,
 } from '../helpers/joinery-actions-react';
-import type { Page } from '@playwright/test';
 
 const PROFILE = 'Test PG';
 

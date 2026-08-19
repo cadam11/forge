@@ -16,7 +16,7 @@
  * it says there is no context rather than implying one.
  */
 
-import { expect, test } from './fixtures';
+import { expect, test } from '@playwright/test';
 import {
   chatConversationRow,
   chatPanel,

@@ -21,7 +21,7 @@
  *    Angular, and the panel's select did not track the status-bar toggle at all.
  */
 
-import { expect, test } from './fixtures';
+import { expect, test } from '@playwright/test';
 import {
   closeSettings,
   openSettings,

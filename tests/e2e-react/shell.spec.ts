@@ -18,7 +18,7 @@
  *    where it lands: the sidebar divider is the handle the audit finding was about.
  */
 
-import { expect, test } from './fixtures';
+import { expect, test } from '@playwright/test';
 import {
   createPostgresProfile,
   dragResizeHandle,

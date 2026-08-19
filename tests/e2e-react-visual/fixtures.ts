@@ -17,15 +17,15 @@
  *  3. **`VISUAL_THEMES` is the pair every surface is captured in**, so "dark and light" is a loop
  *     rather than a habit each spec has to remember.
  *
- * The React-renderer guard is inherited from `tests/e2e-react/fixtures.ts` rather than restated:
- * that auto fixture asserts every launch in the test went through `withJoineryReact` and showed
- * React, which matters at least as much here — a baseline quietly captured from the Angular
- * renderer would be a picture of the thing this rewrite is replacing.
+ * `test` came from `tests/e2e-react/fixtures.ts` until Task 24, for a fourth reason that no longer
+ * exists: that auto fixture asserted every launch in the test showed the React renderer rather than
+ * the Angular one the launcher defaulted to, because a baseline quietly captured from Angular would
+ * have been a picture of the thing this rewrite replaced. With one renderer left it asserted
+ * nothing, so it and its module were deleted and `test` comes straight from Playwright.
  */
 
-import { expect, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
-import { test } from '../e2e-react/fixtures';
 import {
   CONNECT_TIMEOUT_MS,
   UI_TIMEOUT_MS,

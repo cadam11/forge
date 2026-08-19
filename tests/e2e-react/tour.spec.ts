@@ -6,7 +6,7 @@
  * can prove the elements are on screen, laid out, and in the place the spotlight is drawn.
  */
 
-import { expect, test } from './fixtures';
+import { expect, test } from '@playwright/test';
 import {
   openPalette,
   paletteRowState,

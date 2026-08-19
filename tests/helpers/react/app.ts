@@ -28,12 +28,7 @@ import { expect, type ElectronApplication, type Page } from '@playwright/test';
 import { Client as PgClient } from 'pg';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import {
-  withJoinery,
-  type LaunchOptions,
-  type LaunchedApp,
-  type RendererTarget,
-} from '../electron-app';
+import { withJoinery, type LaunchOptions, type LaunchedApp } from '../electron-app';
 
 // Test PG container connection details (matches docker-compose.test.yml).
 export const TEST_PG = {
@@ -128,37 +123,21 @@ export function exactly(text: string): RegExp {
 }
 
 /**
- * Which renderer every `withJoineryReact` launch in the current test actually showed.
+ * `withJoinery` plus the boot gate: the body runs with the shell already on screen.
  *
- * Recorded from `LaunchedApp.renderer` — the value the launcher resolved, not the one this file
- * asked for — so it is evidence rather than a restatement of the request. `tests/e2e-react/fixtures.ts`
- * asserts it after every test: all `react`, and at least one, which is what turns "a stray
- * `withJoinery` silently tested Angular" into a failure. A spec that bypasses this helper records
- * nothing and fails the "at least one" half.
- */
-let launchedRendererLog: RendererTarget[] = [];
-
-/** The renderers launched since the last reset. Read by the project fixture. */
-export function launchedRenderers(): readonly RendererTarget[] {
-  return launchedRendererLog;
-}
-
-/** Clears the log. Called by the project fixture before each test. */
-export function resetLaunchedRenderers(): void {
-  launchedRendererLog = [];
-}
-
-/**
- * `withJoinery`, pinned to the React renderer, so a spec under `tests/e2e-react/`
- * cannot accidentally run against Angular when `$JOINERY_E2E_RENDERER` is unset.
+ * It used to pin the launcher's `renderer` option to `react` as well — the launcher defaulted to
+ * Angular while the two renderers coexisted, and `tests/e2e-react/fixtures.ts` carried a fixture
+ * asserting every launch had gone through here. Task 24 deleted the Angular renderer, so both
+ * halves went with it and what is left is the `waitForShell`, which every spec in the tier needs
+ * before its first locator means anything.
  */
 export async function withJoineryReact<T>(fn: (launched: LaunchedApp) => Promise<T>): Promise<T>;
 export async function withJoineryReact<T>(
-  options: Omit<LaunchOptions, 'renderer'>,
+  options: LaunchOptions,
   fn: (launched: LaunchedApp) => Promise<T>
 ): Promise<T>;
 export async function withJoineryReact<T>(
-  optionsOrFn: Omit<LaunchOptions, 'renderer'> | ((launched: LaunchedApp) => Promise<T>),
+  optionsOrFn: LaunchOptions | ((launched: LaunchedApp) => Promise<T>),
   maybeFn?: (launched: LaunchedApp) => Promise<T>
 ): Promise<T> {
   const [options, fn] =
@@ -166,8 +145,7 @@ export async function withJoineryReact<T>(
       ? [{}, optionsOrFn]
       : [optionsOrFn, maybeFn as (launched: LaunchedApp) => Promise<T>];
 
-  return withJoinery({ ...options, renderer: 'react' }, async launched => {
-    launchedRendererLog.push(launched.renderer);
+  return withJoinery(options, async launched => {
     await waitForShell(launched.window);
     return fn(launched);
   });

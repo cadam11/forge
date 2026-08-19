@@ -11,7 +11,7 @@
 
 import mysql from 'mysql2/promise';
 
-import { expect, test } from './fixtures';
+import { expect, test } from '@playwright/test';
 import {
   connectFromSidebar,
   createAndConnectMysql,

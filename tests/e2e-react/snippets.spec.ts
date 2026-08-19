@@ -7,7 +7,7 @@
  * same proof `settings.spec.ts` makes about settings, applied to the data whose migration Task 5 built.
  */
 
-import { expect, test } from './fixtures';
+import { expect, test, type Page } from '@playwright/test';
 import {
   closeOverlay,
   connectFromSidebar,
@@ -27,7 +27,6 @@ import {
   waitForShell,
   withJoineryReact,
 } from '../helpers/joinery-actions-react';
-import type { Page } from '@playwright/test';
 
 const PROFILE = 'Test PG';
 const SNIPPET_SQL = 'SELECT id, email FROM customers ORDER BY id';

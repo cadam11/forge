@@ -10,7 +10,7 @@
  * results pane's states, and the two dialogs that used to be hand-built `innerHTML` overlays.
  */
 
-import { expect, test } from './fixtures';
+import { expect, test } from '@playwright/test';
 import {
   connectFromSidebar,
   createPostgresProfile,

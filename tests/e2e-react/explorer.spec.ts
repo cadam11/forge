@@ -14,7 +14,7 @@
  * statement anyone could make about it.
  */
 
-import { expect, test } from './fixtures';
+import { expect, test } from '@playwright/test';
 import {
   createPostgresProfile,
   ensureJoineryTestSeeded,
