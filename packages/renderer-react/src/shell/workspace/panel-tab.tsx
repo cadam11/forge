@@ -22,7 +22,7 @@
  * comparison, not a new object per render.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import type { DockviewGroupPanel, IDockviewPanelHeaderProps } from 'dockview-react';
 import {
   ArrowRightToLine,
@@ -118,51 +118,50 @@ const DOCKING_KEYSHORTCUTS = DOCKING_BINDINGS.map(binding => binding.accelerator
  * `.dv-tab` is a vendor class name, which this codebase otherwise avoids. It is the third of the
  * three documented Dockview exemptions (`shell/dockview-theme.css` already styles `.dv-tab` for the
  * same reason: it is the focusable element and the vendor gives it no focus treatment). If it ever
- * disappears, the effect below logs and does nothing — the tab still renders and the menu still
- * offers all six moves.
+ * disappears, this logs and does nothing — the tab still renders and the menu still offers all six
+ * moves.
+ *
+ * A **ref callback with a cleanup** (React 19) rather than a `useEffect` reading a ref: the wiring
+ * belongs to the NODE, and this component has a render path that produces no node at all — the
+ * one-frame fallback for a tab that has left the store. An effect keyed on anything but the node
+ * would either miss the node arriving or run against a stale one. `useCallback` keeps the identity
+ * stable, so a re-render does not detach and reattach.
  */
 function useDockingKeys(
   dock: (move: DockingBinding['move']) => void
-): (node: HTMLDivElement | null) => void {
-  const host = useRef<HTMLDivElement | null>(null);
-  const setHost = useCallback((node: HTMLDivElement | null): void => {
-    host.current = node;
-  }, []);
+): (node: HTMLDivElement | null) => (() => void) | undefined {
+  return useCallback(
+    (node: HTMLDivElement | null) => {
+      if (node === null) return undefined;
 
-  useEffect(() => {
-    // No host at all is the documented one-frame state where the tab has left the store and the
-    // fallback markup — which carries no ref — is on screen. Nothing to wire, nothing wrong.
-    const node = host.current;
-    if (node === null) return undefined;
+      const tabElement = node.closest<HTMLElement>('.dv-tab');
+      if (tabElement === null) {
+        diagnostics.warn(
+          'workspace tab: no .dv-tab ancestor, so keyboard docking is unavailable on this tab',
+          new Error('dockview tab element not found')
+        );
+        return undefined;
+      }
 
-    const tabElement = node.closest<HTMLElement>('.dv-tab');
-    if (tabElement === null) {
-      diagnostics.warn(
-        'workspace tab: no .dv-tab ancestor, so keyboard docking is unavailable on this tab',
-        new Error('dockview tab element not found')
-      );
-      return undefined;
-    }
+      const onKeyDown = (event: KeyboardEvent): void => {
+        const binding = bindingFor(event);
+        if (binding === undefined) return;
+        // Only reached for a key this component claims, so everything else still reaches Dockview's
+        // own tab navigation (`ctrl+[`, `ctrl+]`, F6) and the shell's shortcuts.
+        event.preventDefault();
+        event.stopPropagation();
+        dock(binding.move);
+      };
 
-    const onKeyDown = (event: KeyboardEvent): void => {
-      const binding = bindingFor(event);
-      if (binding === undefined) return;
-      // Only reached for a key this component claims, so everything else still reaches Dockview's
-      // own tab navigation (`ctrl+[`, `ctrl+]`, F6) and the shell's shortcuts.
-      event.preventDefault();
-      event.stopPropagation();
-      dock(binding.move);
-    };
-
-    tabElement.setAttribute('aria-keyshortcuts', DOCKING_KEYSHORTCUTS);
-    tabElement.addEventListener('keydown', onKeyDown);
-    return () => {
-      tabElement.removeEventListener('keydown', onKeyDown);
-      tabElement.removeAttribute('aria-keyshortcuts');
-    };
-  }, [dock]);
-
-  return setHost;
+      tabElement.setAttribute('aria-keyshortcuts', DOCKING_KEYSHORTCUTS);
+      tabElement.addEventListener('keydown', onKeyDown);
+      return () => {
+        tabElement.removeEventListener('keydown', onKeyDown);
+        tabElement.removeAttribute('aria-keyshortcuts');
+      };
+    },
+    [dock]
+  );
 }
 
 export function PanelTab(props: IDockviewPanelHeaderProps) {

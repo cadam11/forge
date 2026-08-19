@@ -225,16 +225,6 @@ export function unindicatedStops(
   );
 }
 
-/** The stops each exemption covered. Empty for an exemption means it is no longer needed. */
-export function exemptedStops(
-  stops: readonly FocusStop[],
-  exemptions: readonly FocusExemption[]
-): Map<string, FocusStop[]> {
-  return new Map(
-    exemptions.map(exemption => [exemption.why, stops.filter(stop => exemption.matches(stop))])
-  );
-}
-
 /**
  * Writes a walk's table into the test's output directory and attaches it.
  *
@@ -259,7 +249,7 @@ export async function attachFocusTable(
 }
 
 /** The walk as a markdown table — this is the task's inventory evidence. */
-export function focusTable(title: string, stops: readonly FocusStop[], cycled: boolean): string {
+function focusTable(title: string, stops: readonly FocusStop[], cycled: boolean): string {
   const rows = stops.map(
     stop =>
       `| ${stop.order} | \`${stop.id}\` | ${stop.tag} | ${stop.role ?? '—'} | ` +

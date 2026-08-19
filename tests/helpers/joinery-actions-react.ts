@@ -235,8 +235,6 @@ export {
   COMMAND_OVERLAY_INPUT_EXEMPTION,
   MONACO_EXEMPTION,
   attachFocusTable,
-  exemptedStops,
-  focusTable,
   unindicatedStops,
   walkTabOrder,
   type FocusExemption,
