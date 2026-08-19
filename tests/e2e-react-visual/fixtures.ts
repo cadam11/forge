@@ -3,10 +3,13 @@
  *
  * Three things, and each one closes a specific way a baseline goes bad:
  *
- *  1. **`withVisualApp` pins the device pixel ratio and the theme before any state is built.** The
- *     DPR is the structural fix for the trap the Angular tier fell into; the theme is the reason
- *     that tier is single-theme (a `system` preference resolves through `nativeTheme`, so an
- *     unpinned shot records the developer's macOS appearance setting rather than the app's).
+ *  1. **`withVisualApp` pins the device pixel ratio, the macOS scroller style and the theme before
+ *     any state is built.** The DPR is the structural fix for the trap the Angular tier fell into;
+ *     the scroller style is the second host variable (macOS resolves its `Automatic` default from
+ *     the attached pointing device, and legacy scrollbars take 15px of layout width that overlay
+ *     ones do not); the theme is the reason that tier is single-theme (a `system` preference
+ *     resolves through `nativeTheme`, so an unpinned shot records the developer's macOS appearance
+ *     setting rather than the app's). All three are asserted per launch, not merely requested.
  *  2. **`shoot` refuses to take a picture with a vacuous mask.** Playwright silently ignores a mask
  *     locator that matches nothing, so a mask outlives the element it was hiding and the baseline
  *     starts recording the volatile pixels it was written to exclude. Every mask here is asserted to
@@ -28,7 +31,7 @@ import {
   UI_TIMEOUT_MS,
   withJoineryReact,
 } from '../helpers/joinery-actions-react';
-import type { LaunchedApp } from '../helpers/electron-app';
+import type { LaunchedApp, MacScrollBarStyle } from '../helpers/electron-app';
 
 export { expect, test };
 
@@ -102,6 +105,70 @@ async function pinTheme(window: Page, theme: VisualTheme): Promise<void> {
 }
 
 /**
+ * The macOS scroller style this tier's baselines are captured in, from the project's own config.
+ *
+ * Only `Always` (legacy, space-taking scrollbars) is accepted, and the throw is not pedantry: the
+ * per-launch guard below knows exactly one expectation — that a scrolling container has a non-zero
+ * scrollbar gutter — so a project that pinned `WhenScrolling` or `Automatic` would run with a guard
+ * asserting the opposite of what it asked for. Read from `metadata` for the same reason the DPR is:
+ * the number lives with the project it describes, and `metadata` is untyped by Playwright, so it is
+ * validated rather than trusted.
+ */
+function pinnedScrollBarStyle(): MacScrollBarStyle {
+  const raw: unknown = test.info().project.metadata['macScrollBarStyle'];
+  if (raw !== 'Always') {
+    throw new Error(
+      `[visual] the visual-react project must set metadata.macScrollBarStyle to "Always" — the ` +
+        `baselines are captured with legacy (space-taking) scrollbars and the launch guard only ` +
+        `knows that expectation; got ${JSON.stringify(raw)}`
+    );
+  }
+  return raw;
+}
+
+/**
+ * Measure how many CSS pixels a scrolling container loses to its scrollbar, in this window.
+ *
+ * This is the observable that separates the two macOS scroller styles: legacy scrollbars take
+ * layout width (15px on macOS today), overlay scrollbars float above the content and take none. It
+ * is measured rather than read from a preference API because the preference is not what the layout
+ * obeys — Chromium's own resolution of it is.
+ *
+ * **Measured inside an iframe**, whose document inherits no author CSS. The React renderer ships no
+ * `::-webkit-scrollbar` rules today, so a bare `<div>` in the page reads the same number (probed:
+ * both say 0 unpinned, both say 15 pinned) — but the day a stylesheet gives scrollbars a width of
+ * their own, a bare div would report that width in BOTH modes and this guard would quietly stop
+ * distinguishing them. The iframe keeps the guard a question about the platform.
+ *
+ * String form keeps the DOM lib out of a file the tests tsconfig compiles as node, matching
+ * `forceFonts` in the launcher.
+ */
+async function scrollBarGutterPx(window: Page): Promise<number> {
+  const measured: unknown = await window.evaluate(`(async () => {
+    const frame = document.createElement('iframe');
+    frame.style.cssText = 'position:absolute;top:-9999px;width:200px;height:200px;border:0;';
+    frame.srcdoc = '<!doctype html><body style="margin:0">' +
+      '<div id="probe" style="width:100px;height:100px;overflow:scroll">' +
+      '<div style="width:300px;height:300px"></div></div>';
+    const loaded = new Promise(resolve => { frame.onload = resolve; });
+    document.body.appendChild(frame);
+    await loaded;
+    const probe = frame.contentDocument && frame.contentDocument.getElementById('probe');
+    if (!probe) {
+      frame.remove();
+      throw new Error('[visual] the scrollbar probe iframe did not render — cannot read the gutter');
+    }
+    const gutter = probe.offsetWidth - probe.clientWidth;
+    frame.remove();
+    return gutter;
+  })()`);
+  if (typeof measured !== 'number' || !Number.isFinite(measured)) {
+    throw new Error(`[visual] the scrollbar probe returned ${JSON.stringify(measured)}`);
+  }
+  return measured;
+}
+
+/**
  * Launch the React renderer with the DPR pinned and the theme set, then run the body.
  *
  * The `devicePixelRatio` assertion is the point of the whole arrangement: `--force-device-scale-factor`
@@ -109,20 +176,42 @@ async function pinTheme(window: Page, theme: VisualTheme): Promise<void> {
  * (an Electron upgrade, a display-specific override) would otherwise re-introduce the exact
  * capture-at-2/compare-at-1 geometry failure J-21 records — silently, and only for whoever next ran
  * the tier on a Retina display. Asserted per launch, it fails here instead, naming the ratio.
+ *
+ * The scrollbar assertion is the same arrangement for the second host variable. macOS resolves its
+ * default `Automatic` scroller style from the attached pointing device, so an unpinned run captures
+ * (or compares against) whichever style the developer's desk implies — a 15px reflow of every
+ * scrolling panel, which cost this tier 3 outright failures out of 22 the first time the host
+ * resolved the other way. `-AppleShowScrollBars Always` pins it per process through Cocoa's argument
+ * domain, and the gutter is re-measured here so an Electron that stopped honouring the argument
+ * domain fails with a name on it rather than re-arming the trap.
  */
 export async function withVisualApp(
   theme: VisualTheme,
   body: (launched: LaunchedApp) => Promise<void>
 ): Promise<void> {
   const deviceScaleFactor = pinnedDeviceScaleFactor();
+  const macScrollBarStyle = pinnedScrollBarStyle();
 
-  await withJoineryReact({ deviceScaleFactor }, async launched => {
+  await withJoineryReact({ deviceScaleFactor, macScrollBarStyle }, async launched => {
     const actual = await launched.window.evaluate('window.devicePixelRatio');
     expect(
       actual,
       '--force-device-scale-factor was not honoured — every baseline in this tier would be captured ' +
         'at the display DPR, which is the J-21 geometry trap'
     ).toBe(deviceScaleFactor);
+
+    // Greater-than-zero rather than exactly 15: the two modes are 15 and 0, so "takes layout space"
+    // is the whole distinction, and pinning the metric as well would turn a Chromium change in
+    // scrollbar WIDTH into a guard failure — when the honest place for that is the baselines, which
+    // would show it as the pixel difference it is.
+    const gutter = await scrollBarGutterPx(launched.window);
+    expect(
+      gutter,
+      `-AppleShowScrollBars ${macScrollBarStyle} was not honoured: a scrolling container lost ` +
+        `${gutter}px to its scrollbar, i.e. this launch has macOS OVERLAY scrollbars. Every ` +
+        `baseline in this tier was captured with LEGACY scrollbars, which take 15px of layout ` +
+        `width out of every scrolling panel — comparing across the two is a reflow, not a UI change`
+    ).toBeGreaterThan(0);
 
     await pinTheme(launched.window, theme);
     await body(launched);

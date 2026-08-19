@@ -10,7 +10,8 @@ import { defineConfig } from '@playwright/test';
 //     tests/e2e/ that is not inside tests/e2e/visual/)
 //   - visual: snapshot baselines (anything under tests/e2e/visual/)
 //   - e2e-react: functional specs against the React renderer (tests/e2e-react/)
-//   - visual-react: snapshot baselines for the React renderer, DPR-pinned
+//   - visual-react: snapshot baselines for the React renderer, with the two
+//     host variables pinned — device pixel ratio and macOS scroller style
 //     (tests/e2e-react-visual/)
 //
 // `pnpm run test:e2e` and `pnpm run test:visual` invoke the first two
@@ -133,7 +134,73 @@ export default defineConfig({
       // reads this number, passes it to the launcher as Chromium's
       // `--force-device-scale-factor`, and then ASSERTS that the page agrees —
       // so the pin cannot rot into decoration.
-      metadata: { deviceScaleFactor: 1 },
+      //
+      // ── The scrollbar pin ──────────────────────────────────────────────────
+      //
+      // The second host variable this tier cannot afford to inherit. macOS's
+      // `AppleShowScrollBars` default is `Automatic`, which the OS resolves from
+      // the pointing device attached at the time: with a mouse plugged in the
+      // app gets LEGACY scrollbars, which take 15 CSS px of layout width out of
+      // every scrolling panel; without one it gets OVERLAY scrollbars, which
+      // take none. The React renderer styles no scrollbars of its own, so that
+      // is a 15px reflow of real content.
+      //
+      // Measured on this tier's committed baselines (captured in legacy mode):
+      // in overlay mode 3 of 22 fail outright and a 4th passes only inside the
+      // pixel tolerance. With the pin, 22 of 22 pass. Unpinned, which result a
+      // developer gets is a fact about their desk, not about Joinery.
+      //
+      // `-AppleShowScrollBars Always` is a Cocoa NSArgumentDomain pair, applied
+      // to the test process only — no `defaults write`, so nothing is mutated on
+      // the host and nothing needs cleaning up if a run dies. That Electron
+      // honours it was probed, not assumed; the numbers are in
+      // `tests/helpers/electron-app.ts`'s `macScrollBarStyle` doc, and
+      // `tests/e2e-react-visual/fixtures.ts` re-measures the gutter on every
+      // launch so the pin cannot rot into decoration.
+      metadata: { deviceScaleFactor: 1, macScrollBarStyle: 'Always' },
+      // ── The comparison tolerance, sized to this tier's measured noise ──────
+      //
+      // The root `expect` block allows `maxDiffPixelRatio: 0.01` — on a
+      // 1115x798 baseline that is 8,897 pixels, enough for a moved label or a
+      // swapped icon to pass unnoticed. That number was written for the Angular
+      // tier; this tier's measured drift is three orders of magnitude smaller.
+      //
+      // What it is sized from, worst measurement first:
+      //
+      //  - three independent full RE-CAPTURES byte-compared against the
+      //    committed set drifted by at most **8 pixels** (64 of 66 image
+      //    comparisons byte-identical; the two that moved were 2px and 8px of
+      //    antialiasing on SVG and text edges);
+      //  - a full comparison run of this tier with the pins in place and
+      //    `maxDiffPixels: 0` passed **22 of 22** — i.e. zero pixels exceeded
+      //    `threshold` on any baseline.
+      //
+      // 20 is 2.5x the worst number ever measured, and it is deliberately BELOW
+      // the smallest real artefact this tier has actually caught: Monaco's
+      // caret, a 2x20 = 40px rectangle that flipped between otherwise identical
+      // captures during development. A budget that admitted the caret would
+      // admit the class of defect the capture work spent its time killing.
+      //
+      // Flat pixels rather than a ratio on purpose: a ratio scales the
+      // allowance with the size of the surface, so the big shots — the ones
+      // with the most room to hide a regression — would get the loosest bound.
+      // `threshold` stays at the root's 0.2, which is what decides whether a
+      // pixel counts as different at all.
+      //
+      // `timeout` is restated rather than inherited because a project's
+      // `expect` REPLACES the top-level one — Playwright resolves it with
+      // `takeFirst(projectConfig.expect, config.expect, {})`, not a merge
+      // (`playwright/lib/common/index.js`). Omitting it here would silently drop
+      // every un-timed assertion in this tier from the 10s budget the specs were
+      // written against to Playwright's 5s default. Dropping the root's
+      // `maxDiffPixelRatio` is the same mechanism, and there it is the point.
+      expect: {
+        timeout: 10000,
+        toHaveScreenshot: {
+          maxDiffPixels: 20,
+          threshold: 0.2,
+        },
+      },
     },
   ],
 });
