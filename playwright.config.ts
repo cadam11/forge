@@ -95,6 +95,28 @@ export default defineConfig({
       name: 'e2e-react',
       testDir: './tests/e2e-react',
     },
+    // ── The React renderer's performance tier (Task 23) ───────────────────────
+    //
+    // A fourth sibling directory, for the reason the two above are siblings and
+    // not subdirectories: `e2e-react` discovers by a plain `testDir`, so a
+    // nested `perf/` would join the functional tier and change its count.
+    //
+    // Separate from `e2e-react` rather than tagged inside it because these
+    // specs are SLOW BY CONSTRUCTION — a 100k-row result set, a 200-table
+    // schema, and a 3,000-chunk stream — and their cost should not be paid by
+    // every run of the functional suite. `pnpm run test:perf:react` invokes
+    // them on their own.
+    //
+    // `timeout` is raised from the root's 60s: building the 200-table fixture
+    // and streaming 3,000 chunks at 100/s are minutes of real work before any
+    // assertion runs. The thresholds the specs assert are their own, stated
+    // next to each measurement with the median it was sized from — this number
+    // is only the outer bound on a test that has hung.
+    {
+      name: 'perf-react',
+      testDir: './tests/e2e-react-perf',
+      timeout: 300_000,
+    },
     // ── The React renderer's visual tier ──────────────────────────────────────
     //
     // A SIBLING directory rather than `tests/e2e-react/visual/`, for the same
