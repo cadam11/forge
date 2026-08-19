@@ -807,6 +807,34 @@ become dead weight:
    Delete both keys (preferred: the root slot is free, so nothing is needed) or repoint the alias to
    the new package path in the same commit as the rename.
 
+### Phase D appendix — the cutover, as delivered (Task 24)
+
+**Delivered.** `packages/renderer` is the React app; the Angular package, its 16 e2e specs and its
+11 visual baselines are deleted. Four things the plan above did not predict, recorded because the
+next reader will otherwise re-derive them:
+
+1. **`protobufjs` is not an Angular CLI accelerator.** §3.1 lists it with `lmdb`,
+   `msgpackr-extract` and `nice-napi` as the four to drop from `allowBuilds`. The other three left
+   the lockfile with Angular; this one did not — it arrives through `@grpc/proto-loader` — so it
+   stays enabled, with a corrected comment.
+
+2. **The `optimizeDeps.include: ['@joinery/shared']` workaround did NOT go.** §3.1 pencils the real
+   fix (emitting ESM from `packages/shared`) in for this PR. It is a dual-emit or an `exports` map
+   plus a main-process verification pass, because `packages/main` is CommonJS and consumes the same
+   `dist` — real work, unrelated to deleting Angular. Follow-up.
+
+3. **The legacy localStorage module was NOT retired**, though §3.1 says deleting the six keys
+   "retires that whole module". It cannot: a profile that has only ever run the Angular app has its
+   snippet library in those keys and nothing in `AppState`, so the one-shot lift must still run.
+   The change is leave-in-place -> migrate-then-delete, guarded on the write being acknowledged,
+   and never for an unparseable key or an `already-migrated` boot. See `persistence/migration.ts`.
+
+4. **`scripts/verify-package.js` now checks the renderer**, which closes the gap §3.1 names: it
+   asserts `index.html` is in the asar, every asset URL is relative (the `base: './'`
+   non-negotiable), every referenced asset is present, and Monaco's workers landed inside.
+
+The claim §3.1 makes about the six hard-coded renderer paths held exactly: **none of them changed.**
+
 ---
 
 ## 5. Decisions for Craig

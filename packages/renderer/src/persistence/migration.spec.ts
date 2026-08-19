@@ -173,6 +173,32 @@ describe('localStorage → AppState migration — the round trip', () => {
     expect(Object.keys(localStorageSnapshot())).toEqual([LEGACY_KEYS.snippets]);
   });
 
+  it('leaves keys alone when AppState already held state, because a lift can LOSE the merge', async () => {
+    // `{...lifted, ...current}` means an existing AppState value wins. So on a profile that had
+    // already run a (pre-cutover) React build, `joinery-snippets` can be reported as migrated while
+    // contributing nothing — and it is then the only copy of that list. Removing it would be the
+    // loss this module exists to prevent, so the removal is gated on AppState having been EMPTY.
+    seedAngularLocalStorage();
+    const seeded = createAppStateDouble({
+      reactRendererState: { snippets: [{ id: 'react-made', sql: 'SELECT 3' }] },
+    });
+    removeJoineryMock();
+    installJoineryMock({ app: seeded.app });
+
+    const result = await migrateLegacyLocalStorage(createRendererStatePersistence());
+
+    expect(result.outcome).toBe('migrated');
+    expect(result.keysCleared).toEqual([]);
+    expect(seeded.snapshot().reactRendererState?.snippets).toEqual([
+      { id: 'react-made', sql: 'SELECT 3' },
+    ]);
+    // The Angular list is still on disk, which is the whole point: it lost the merge, so this is
+    // the only place it exists.
+    expect(window.localStorage.getItem(LEGACY_KEYS.snippets)).toBe(
+      ANGULAR_LOCAL_STORAGE[LEGACY_KEYS.snippets]
+    );
+  });
+
   it('leaves keys alone on an already-migrated boot: they may be newer than the marker', async () => {
     // The marker says a previous run lifted what was there THEN. A key written since — a snippet
     // created in Angular after a React boot, during coexistence — is unlifted user data, and
