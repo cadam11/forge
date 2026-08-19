@@ -490,6 +490,8 @@ object search, chat, ERD, table properties, docker panel.
 `dialogs`, `welcome`), mostly single-theme and already stale/RED per FOLLOW-UPS. Produce a
 dark **and** light pair per major surface, then **inspect every PNG before committing** —
 FOLLOW-UPS is explicit that `--update-snapshots` must not be run reflexively.
+**Delivered — see "Phase C appendix — the React visual tier" below for how to run it and what has
+to stay pinned.**
 
 **23. Perf + a11y sweep** — grid at 100k rows, chat streaming, ERD at 200 tables,
 `:focus-visible` on every interactive element, keyboard-operable resize handles and docking.
@@ -505,10 +507,15 @@ by surface, so one Angular test sometimes maps to two React tests and vice versa
 
 **Two things Task 24 must not assume this table covers:**
 
-1. **`tests/e2e/visual/` is NOT in it** — 4 specs / 11 tests / 11 committed PNGs, which are **Task
-   22's** deliverable and live _inside_ `tests/e2e/`. A Task 24 that deletes that directory wholesale
-   takes the visual tier with it. Either Task 22 lands first, or Task 24 deletes only
-   `tests/e2e/*.spec.ts` plus `tests/helpers/joinery-actions.ts`.
+1. **`tests/e2e/visual/` is NOT in it, and no longer needs to be** — 4 specs / 11 tests / 11
+   committed PNGs, all against the Angular renderer, mostly single-theme and RED per FOLLOW-UPS.
+   **Task 22 replaced that tier rather than porting it**: `tests/e2e-react-visual/` (4 specs / 22
+   tests / 22 committed PNGs, dark and light for every surface) is a sibling tree with its own
+   snapshot directory, so **Task 24 may delete `tests/e2e/` wholesale — the visual subdirectory
+   included — and lose nothing.** Delete `tests/__snapshots__/visual/` with it; the React tier's
+   baselines live in `tests/__snapshots__/visual-react/`.
+   _(This item previously said the opposite — that Task 22's deliverable lived inside `tests/e2e/`
+   and Task 24 had to spare it. That was written before Task 22 chose the sibling tree.)_
 2. **`tests/helpers/joinery-actions.ts` still owes the React tier two symbols**: `TEST_PG` and
    `ensureJoineryTestSeeded`, re-exported by `tests/helpers/react/app.ts` because they describe the
    seeded _container_ rather than any UI. Move them (to `tests/helpers/react/` or
@@ -556,6 +563,68 @@ by surface, so one Angular test sometimes maps to two React tests and vice versa
 | 36  | `ui-actions` › object search input accepts typed input and shows a result region                      | `object-search` › ranks the exact match first and refuses an unrelated one                                                                                             | strengthened: Angular explicitly did **not** assert results ("indexing may not be populated in test")                                                                                                                                                                                                                                                                                                                                                                                                    |
 | 37  | `ui-actions` › shortcuts dialog opens via menu IPC                                                    | `palette` › the same cheatsheet arrives from Help ▸ Keyboard Shortcuts                                                                                                 | via `openShortcuts`, which fires `menu:show-shortcuts`                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | 38  | `ui-actions` › docker panel opens from the status-bar indicator                                       | `docker-panel` › the pip reports the running containers, and the panel lists the real ones                                                                             |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+
+### Phase C appendix — the React visual tier (Task 22, delivered)
+
+**`tests/e2e-react-visual/` — 4 specs / 22 tests / 22 committed PNGs** in
+`tests/__snapshots__/visual-react/`: 11 surfaces × the dark/light pair, which is the gap this task
+existed to close (the Angular tier is almost entirely single-theme, so a regression on one canvas had
+nothing to fail against). A **sibling** of `tests/e2e-react/`, not a subdirectory of it: that project
+discovers by a plain `testDir`, so a nested `visual/` would have been swept into the functional tier
+and changed its count.
+
+**How to run it.**
+
+```bash
+pnpm run test:harness:up                                              # Docker DBs — the fixtures ARE the containers
+pnpm run build                                                        # required, and NOT automatic here
+pnpm exec playwright test --project=visual-react                      # verify
+pnpm exec playwright test --project=visual-react --update-snapshots   # re-shoot (never reflexively — inspect every PNG)
+```
+
+There is **no `test:visual:react` script and no `pre*` build hook, on purpose**: Task 22 was
+forbidden from touching the root `package.json`. The missing hook fails loudly rather than
+mysteriously — `launchJoinery` throws a named "run `pnpm run build` first" error against a stale
+build. Whoever is next allowed to edit `package.json` should give the tier a script.
+
+**The two host variables that must stay pinned.** Both are pinned in the `visual-react` project's
+`metadata` and re-asserted on every launch by `tests/e2e-react-visual/fixtures.ts`, so neither can rot
+into decoration. Each one's failure signature when it breaks:
+
+| Pin                           | Mechanism                                                                                                                                                         | Failure signature if it ever stops being honoured                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `deviceScaleFactor: 1`        | Chromium's `--force-device-scale-factor`, passed through Electron                                                                                                 | Every baseline fails on image **size** before a single pixel is compared (a 2× display produces 2800×1800 for a 1400×900 window) — a red tier that says nothing about the UI. This is J-21 / ledger Ruling 5, the defect that killed the Angular tier. The fixture asserts `window.devicePixelRatio` and names the ratio instead.                                                                                                                                                                                                                    |
+| `macScrollBarStyle: 'Always'` | Cocoa NSArgumentDomain pair `-AppleShowScrollBars Always` in the Electron argv — per-process, so **nothing on the host is mutated and nothing needs cleaning up** | macOS resolves its default `Automatic` from the attached pointing device: legacy scrollbars take 15 CSS px of layout width out of every scrolling panel, overlay ones take none, and the React renderer styles no scrollbars of its own. Measured: baselines captured in legacy mode fail **3 of 22** outright in overlay mode, with a 4th passing only inside the pixel tolerance. The fixture measures a scrolling container's gutter (inside a CSS-free iframe, so a future `::-webkit-scrollbar` rule cannot fool it) and fails naming the mode. |
+
+The structural long-term fix for the scrollbar half is to style the app's scrollbars so the platform
+mode stops changing layout at all — a `packages/` change, out of scope for Task 22, worth doing
+whenever the renderer next touches scroll containers. Until then the pin is the whole answer, and it
+is macOS-only, as is this tier generally (its fixture paths are POSIX literals).
+
+**Comparison tolerance.** The `visual-react` project sets its own `expect.toHaveScreenshot`
+(`maxDiffPixels: 20`, `threshold: 0.2`) instead of inheriting the root's `maxDiffPixelRatio: 0.01`,
+which on a 1115×798 baseline would allow 8,897 differing pixels. Sized from measurement: three
+independent full re-captures drifted by at most **8 px**, and a full run at `maxDiffPixels: 0` passed
+22/22. 20 is below the smallest real artefact this tier has caught (Monaco's caret, a 2×20 = 40 px
+rectangle). Note that a project's `expect` **replaces** the root's rather than merging with it, which
+is why `timeout: 10000` is restated there.
+
+**Mask conventions — 3 mask regions, landing on 4 of the 22 baselines; the other 18 are compared
+whole.** `status-version` and `status-docker-count` on the two connected-shell shots (a version bump
+and the host's container count are not UI regressions), and the `Docker: N of M …` note — not the
+card — on the two welcome shots. Everything else is unmasked, and no dialog, workbench or overlay
+baseline passes a mask at all. Two guards keep that honest: `shoot` asserts every mask locator
+resolves before capturing (Playwright **silently ignores** a mask that matches nothing, which is
+exactly how a mask outlives its element and the baseline quietly starts recording volatile pixels
+again), and the masked elements are waited for at full width first, because both **grow** when their
+IPC lands.
+
+**The Docker panel is deliberately not captured.** `services/docker/detector.ts` filters by image
+name, not by compose project, so the panel is a picture of one laptop's container inventory — and its
+per-row status line ("Up 44 minutes (healthy)") changes every minute, so masking it would mask the
+surface into meaninglessness. A portable baseline needs a deterministic source behind `docker.detect`,
+which is a `packages/` change. Same reason a streamed chat transcript is absent: no test here calls an
+LLM, and a fake provider is also a `packages/` change. Both are flagged, not forgotten.
 
 ### Phase D — Cutover (Task 24)
 
