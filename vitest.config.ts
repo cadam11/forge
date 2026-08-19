@@ -97,10 +97,17 @@ export default defineConfig({
         '**/dist/**',
         '**/__tests__/**',
         '**/__mocks__/**',
-        // Exclude packages without tests from coverage thresholds
-        'packages/renderer/**',
+        // `packages/preload` and `packages/cli` have no tests, so including them would only drag the
+        // thresholds down.
         'packages/preload/**',
         'packages/cli/**',
+        // `packages/renderer` is a different case and this line is a DECISION, not an oversight
+        // (Task 24 review, M7): it holds ~2,190 of the repo's ~2,690 tests, and the `include` above
+        // names only main and shared, so folding it in would move the thresholds' meaning entirely.
+        // The exclusion was inherited from when this package was `renderer-react` and genuinely
+        // untested; raising the gate to cover it is worth doing on its own, with numbers chosen for
+        // the code rather than inherited from a 10% floor written for the main process.
+        'packages/renderer/**',
       ],
       thresholds: {
         statements: 10,

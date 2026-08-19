@@ -149,18 +149,24 @@ function checkExternalResources(asarPath, asarEntries) {
  * a human double-clicked it. Since the cutover replaced that renderer wholesale, "the bundle landed
  * and can load itself over file://" is exactly the claim that needed evidence.
  *
- * Four assertions, each one a way the bundle has actually been able to break:
+ * Three assertions, each one a way the bundle has actually been able to break:
  *
  *  1. `index.html` is in the asar at the path `window.ts` loads.
  *  2. Every asset it references is RELATIVE. `base: './'` (vite.config.ts) is a non-negotiable of
  *     §3.1: an absolute `/assets/…` resolves against the filesystem root under `file://` and the
  *     window comes up blank.
- *  3. Every asset it references is actually IN the asar.
- *  4. Monaco's web workers are in there too (`asar: true`, electron-builder.yml). They are loaded at
- *     runtime rather than imported, so nothing else in the pipeline would notice their absence.
+ *  3. **Every file `vite build` emitted is in the asar** — compared file-by-file against
+ *     `packages/renderer/dist/browser` on disk, which `package:mac` has just rebuilt.
+ *
+ * The third check replaced two narrower ones (Task 24 review, M2 + M4): "every URL named in
+ * index.html resolves" missed lazy chunks reached from JS and fonts reached from CSS (3 of the
+ * build's 210 files were checked), and "at least one *worker*.js exists" would have passed with one
+ * worker when six shipped. Comparing the whole tree covers both, and it is the honest invariant:
+ * the asar must contain what the build produced, not a subset someone thought to name.
  */
-function checkRendererBundle(asarEntries, extractDir) {
+function checkRendererBundle(extractDir) {
   const INDEX_REL = path.join('packages', 'renderer', 'dist', 'browser', 'index.html');
+  const BROWSER_REL = path.dirname(INDEX_REL);
   const label = name => `  ${name.padEnd(46)}`;
   const indexOnDisk = path.join(extractDir, INDEX_REL);
   let failures = 0;
@@ -180,7 +186,7 @@ function checkRendererBundle(asarEntries, extractDir) {
     console.log(`  FAIL${label('renderer asset URLs are relative')} absolute: ${absolute[0]}`);
     failures++;
   } else if (local.length === 0) {
-    // A parse that found nothing would make the two checks above vacuous.
+    // A parse that found nothing would make the check above vacuous.
     console.log(
       `  FAIL${label('renderer asset URLs are relative')} index.html references no assets`
     );
@@ -189,28 +195,64 @@ function checkRendererBundle(asarEntries, extractDir) {
     console.log(`  ok  ${label(`renderer asset URLs are relative (${local.length})`)}`);
   }
 
-  const browserDir = path.dirname(indexOnDisk);
-  const missing = local.filter(url => !fs.existsSync(path.join(browserDir, url)));
+  failures += checkRendererTreeComplete(path.join(extractDir, BROWSER_REL));
+  return failures;
+}
+
+/**
+ * Every file the renderer build emitted, present in the asar.
+ *
+ * The on-disk `dist/browser` is the reference because `pnpm run package:mac` is
+ * `pnpm run build && node scripts/package.js --mac` — the tree electron-builder collected is the
+ * one still sitting there. Running `verify:package` against an asar with no matching local build is
+ * a hard failure rather than a skip: a check that silently passes when it cannot run is the exact
+ * vacuity this script exists to avoid.
+ *
+ * Dotfiles are excluded from both sides because electron-builder drops them
+ * (`!**​/{.DS_Store,.git,…}` in electron-builder.yml), so a Finder visit to the build directory must
+ * not fail the gate.
+ */
+function checkRendererTreeComplete(browserInAsar) {
+  const label = name => `  ${name.padEnd(46)}`;
+  const browserOnDisk = path.join(ROOT_DIR, 'packages', 'renderer', 'dist', 'browser');
+
+  if (!fs.existsSync(browserOnDisk)) {
+    console.log(
+      `  FAIL${label('renderer bundle complete')} no local build at ${path.relative(ROOT_DIR, browserOnDisk)} ` +
+        `to compare against — run "pnpm run build" first`
+    );
+    return 1;
+  }
+
+  const built = listFilesRelative(browserOnDisk);
+  if (built.length === 0) {
+    console.log(`  FAIL${label('renderer bundle complete')} the local build directory is empty`);
+    return 1;
+  }
+
+  const missing = built.filter(rel => !fs.existsSync(path.join(browserInAsar, rel)));
   if (missing.length > 0) {
     console.log(
-      `  FAIL${label('renderer assets present')} ${missing.length} missing, e.g. ${missing[0]}`
+      `  FAIL${label('renderer bundle complete')} ${missing.length} of ${built.length} built ` +
+        `file(s) absent from the asar, e.g. ${missing[0]}`
     );
-    failures++;
-  } else {
-    console.log(`  ok  ${label('renderer assets present')}`);
+    return 1;
   }
 
-  const workers = asarEntries.filter(f =>
-    /renderer[/\\]dist[/\\]browser[/\\].*worker.*\.js$/i.test(f)
-  );
-  if (workers.length === 0) {
-    console.log(`  FAIL${label('monaco workers inside the asar')} none found`);
-    failures++;
-  } else {
-    console.log(`  ok  ${label(`monaco workers inside the asar (${workers.length})`)}`);
-  }
+  console.log(`  ok  ${label(`renderer bundle complete (${built.length} files)`)}`);
+  return 0;
+}
 
-  return failures;
+/** Every non-dot file under `root`, as paths relative to it. Bounded by the directory tree. */
+function listFilesRelative(root, prefix = '') {
+  const files = [];
+  for (const entry of fs.readdirSync(path.join(root, prefix), { withFileTypes: true })) {
+    if (entry.name.startsWith('.')) continue;
+    const rel = path.join(prefix, entry.name);
+    if (entry.isDirectory()) files.push(...listFilesRelative(root, rel));
+    else files.push(rel);
+  }
+  return files;
 }
 
 function report(results) {
@@ -256,7 +298,7 @@ try {
   });
   failures = report(JSON.parse(stdout.trim().split('\n').pop()));
   failures += checkExternalResources(asarPath, asarEntries);
-  failures += checkRendererBundle(asarEntries, extractDir);
+  failures += checkRendererBundle(extractDir);
 } finally {
   fs.rmSync(extractDir, { recursive: true, force: true });
 }

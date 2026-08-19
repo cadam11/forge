@@ -810,8 +810,9 @@ become dead weight:
 ### Phase D appendix — the cutover, as delivered (Task 24)
 
 **Delivered.** `packages/renderer` is the React app; the Angular package, its 16 e2e specs and its
-11 visual baselines are deleted. Four things the plan above did not predict, recorded because the
-next reader will otherwise re-derive them:
+11 visual baselines are deleted. Six things the plan above did not predict, recorded because the
+next reader will otherwise re-derive them — this list is the single index of where the cutover
+departed from §3.1:
 
 1. **`protobufjs` is not an Angular CLI accelerator.** §3.1 lists it with `lmdb`,
    `msgpackr-extract` and `nice-napi` as the four to drop from `allowBuilds`. The other three left
@@ -831,7 +832,19 @@ next reader will otherwise re-derive them:
 
 4. **`scripts/verify-package.js` now checks the renderer**, which closes the gap §3.1 names: it
    asserts `index.html` is in the asar, every asset URL is relative (the `base: './'`
-   non-negotiable), every referenced asset is present, and Monaco's workers landed inside.
+   non-negotiable), and every file `vite build` emitted is inside the archive (210 at the cutover),
+   compared tree-to-tree rather than by naming a few paths.
+
+5. **The test tiers keep their `-react` suffixes** (`tests/e2e-react`, `-visual`, `-perf`, the
+   Playwright project names, `withJoineryReact`). `tests/__snapshots__/visual-react/` is keyed by
+   them and renaming would rewrite 22 baselines for cosmetics. Reasoning lives in
+   `playwright.config.ts`'s header, where the next reader hits it.
+
+6. **The theme mirror kept its key and lost its fallback.** §3.1 asked both questions; the answers
+   are "stays" (the pre-mount FOUC script has no other synchronous source) and "goes" (the migration
+   now deletes `joinery-settings`, so the fallback would be live for at most one boot). The cost —
+   one boot of the default canvas for a profile migrating from Angular — is stated in
+   `persistence/theme-mirror.ts` and asserted in `state/settings.spec.tsx`.
 
 The claim §3.1 makes about the six hard-coded renderer paths held exactly: **none of them changed.**
 

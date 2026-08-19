@@ -23,9 +23,11 @@ export {
   type WorkspaceHydrationDeps,
 } from './hydrate';
 
+// `clearLegacyLocalStorage` is deliberately NOT re-exported: it is the package's only destructive
+// call, its safety is a property of having exactly one caller (`migration.ts`), and a barrel export
+// would offer it to every future feature with none of the preconditions attached.
 export {
   LEGACY_KEYS,
-  clearLegacyLocalStorage,
   readLegacyLocalStorage,
   type LegacyLocalStorageReading,
 } from './legacy-local-storage';

@@ -47,8 +47,10 @@
         };
 
         var mirrored = read('joinery:theme-preference');
-        var preference = isPreference(mirrored) ? mirrored : 'system';
-        if (mirrored != null && !isPreference(mirrored)) {
+        var preference = 'system';
+        if (isPreference(mirrored)) {
+          preference = mirrored;
+        } else if (mirrored != null) {
           console.warn('[joinery] ignoring unrecognised persisted theme:', mirrored);
         }
         document.documentElement.setAttribute('data-theme', preference);

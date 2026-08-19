@@ -4,9 +4,10 @@
  * ── The two properties that matter ───────────────────────────────────────────────────────────
  *
  * **Lossless.** It reads the six Angular keys, writes main-process `AppState`, and — since the
- * cutover (Task 24) — removes the keys it lifted. Removal happens only AFTER `update()` has
- * resolved `'written'`, i.e. after main acknowledged the write, and covers only the keys that were
- * actually parsed and carried across. So the two failure orderings are:
+ * cutover (Task 24) — removes the keys it lifted **in full**. Removal happens only AFTER `update()`
+ * has resolved `'written'`, i.e. after main acknowledged the write, and covers only the keys whose
+ * every entry was carried across (`keysSafeToRemove` is the argument, as code). So the two failure
+ * orderings are:
  *
  *   - write acknowledged, process dies before the removal → the marker and the data are on disk and
  *     the keys are still there. A stale copy, read by nothing. Harmless.
@@ -21,11 +22,15 @@
  * inside one `rendererStatePersistence.update()` critical section, which is what makes two
  * concurrent callers (a StrictMode double-effect, say) collapse into one migration rather than two.
  *
- * ── Three cases where it deliberately does NOT remove ────────────────────────────────────────
+ * ── Four cases where it deliberately does NOT remove ─────────────────────────────────────────
  *
  * **A key that was present but unparseable** (`keysRejected`) is left exactly where it is. It did
  * not make it across, so removing it would be the data loss this whole module exists to prevent —
  * and a human can still open devtools and read it.
+ *
+ * **A key that parsed but DISCARDED entries** (`keysPartial`). Three of the six parsers filter
+ * inside a value, so "the key parsed" and "all of the key came across" are different claims. The
+ * survivors are migrated; the key stays, because the discarded entries are in it and nowhere else.
  *
  * **Every key, on an `already-migrated` boot.** The marker says a previous run lifted whatever was
  * there THEN; it says nothing about a key written since. During coexistence a user could migrate in
@@ -58,12 +63,25 @@
  */
 
 import { diagnostics } from '../state/diagnostics';
-import { clearLegacyLocalStorage, readLegacyLocalStorage } from './legacy-local-storage';
+import {
+  clearLegacyLocalStorage,
+  readLegacyLocalStorage,
+  type LegacyLocalStorageReading,
+} from './legacy-local-storage';
 import {
   rendererStatePersistence,
   type ReactRendererState,
   type RendererStatePersistence,
+  type RendererStateWriteResult,
 } from './renderer-state';
+
+/** What `reading` holds before the mutator has read anything, and after a read that threw. */
+const NOTHING_READ: LegacyLocalStorageReading = {
+  lifted: {},
+  keysPresent: [],
+  keysRejected: [],
+  keysPartial: [],
+};
 
 export type MigrationOutcome =
   /** Data was found and lifted into `AppState`; the marker is now set. */
@@ -84,8 +102,13 @@ export interface MigrationResult {
   /** Keys that were present but unparseable, and so were skipped. Never removed. */
   readonly keysRejected: readonly string[];
   /**
-   * Keys removed from localStorage because their contents are now in `AppState`. Empty unless the
-   * write was acknowledged; always a subset of `keysPresent` minus `keysRejected`.
+   * Keys that parsed but discarded at least one entry on the way across. Their survivors are in
+   * `AppState`; the discarded entries are still only in localStorage. Never removed.
+   */
+  readonly keysPartial: readonly string[];
+  /**
+   * Keys removed from localStorage because ALL of their contents are now in `AppState`. Empty
+   * unless the write was acknowledged; always `keysPresent` minus `keysRejected` and `keysPartial`.
    */
   readonly keysCleared: readonly string[];
 }
@@ -100,11 +123,15 @@ export async function migrateLegacyLocalStorage(
   persistence: RendererStatePersistence = rendererStatePersistence
 ): Promise<MigrationResult> {
   let outcome: MigrationOutcome = 'no-data';
-  let keysPresent: readonly string[] = [];
-  let keysRejected: readonly string[] = [];
   /**
-   * Was `AppState` empty when the lift ran? See the removal guard at the bottom — this is what
-   * makes "every key removed had its contents carried across" provable rather than argued.
+   * What the lift saw. Stays `NOTHING_READ` when the mutator never got as far as reading — an
+   * `already-migrated` boot, or a `persistence.update` that failed before the mutator ran. It is
+   * one variable rather than three so the reported lists cannot drift apart from each other.
+   */
+  let reading: LegacyLocalStorageReading = NOTHING_READ;
+  /**
+   * Was `AppState` empty when the lift ran? See `keysSafeToRemove` — this is what makes "every key
+   * removed had its contents carried across" provable rather than argued.
    */
   let liftWasUncontested = false;
 
@@ -114,9 +141,10 @@ export async function migrateLegacyLocalStorage(
       return undefined;
     }
 
-    const reading = readLegacyLocalStorage();
-    keysPresent = reading.keysPresent;
-    keysRejected = reading.keysRejected;
+    // If this throws, `reading` stays `NOTHING_READ`, the exception escapes to `runUpdate`'s catch,
+    // and the result is `failed` with nothing removed. Correct, though the reported lists then
+    // understate what was on disk — there is no reading to report in that case.
+    reading = readLegacyLocalStorage();
 
     if (reading.keysPresent.length === 0) {
       outcome = 'no-data';
@@ -160,14 +188,13 @@ export async function migrateLegacyLocalStorage(
     return next;
   });
 
+  const { keysPresent, keysRejected, keysPartial } = reading;
+
   // `unavailable` and `failed` come from the writer, not from the mutator, so they overrule
   // whatever the mutator had decided — it ran (or didn't) against state that was never written.
   // Neither removes a key: nothing was persisted, so nothing is safe to drop.
-  if (writeResult === 'unavailable') {
-    return { outcome: 'unavailable', keysPresent, keysRejected, keysCleared: [] };
-  }
-  if (writeResult === 'failed') {
-    return { outcome: 'failed', keysPresent, keysRejected, keysCleared: [] };
+  if (writeResult === 'unavailable' || writeResult === 'failed') {
+    return { outcome: writeResult, keysPresent, keysRejected, keysPartial, keysCleared: [] };
   }
 
   if (keysRejected.length > 0) {
@@ -177,34 +204,51 @@ export async function migrateLegacyLocalStorage(
   }
 
   // The removal, and the only call site of the only function in the package that removes a
-  // localStorage key. Two conditions, and between them they make "every key removed had its
-  // contents carried across" a provable statement rather than an argued one.
-  //
-  // **`writeResult === 'written'`** carries two facts at once. It means main acknowledged a write;
-  // and the mutator above returns a value in exactly one branch — the one that read the keys and
-  // set `outcome = 'migrated'` — so it also means THIS run did the lifting. An `already-migrated`
-  // or `no-data` run returns `undefined` and lands on `'unchanged'`, which removes nothing.
-  //
-  // **`liftWasUncontested`** covers the case the merge above creates: `{...lifted, ...current}`
-  // means an `AppState` value WINS over the localStorage copy, so a key can be "migrated" and yet
-  // have contributed nothing. That only happens on a profile which ran a pre-cutover React build
-  // before this migration (Angular is deleted, so nothing can write these keys after a React boot
-  // any more) — a developer profile, in practice. Keeping its keys costs six dead entries; removing
-  // them would discard the one copy of a value that lost the merge.
-  //
-  // Rejected keys are excluded too: present but unparseable, so their contents did not make it
-  // across at all.
-  const lifted =
-    writeResult === 'written' && liftWasUncontested
-      ? keysPresent.filter(key => !keysRejected.includes(key))
-      : [];
-  if (writeResult === 'written' && !liftWasUncontested) {
+  // localStorage key. `keysSafeToRemove` carries the whole argument.
+  const keysCleared = clearLegacyLocalStorage(
+    keysSafeToRemove(reading, writeResult, liftWasUncontested)
+  );
+
+  return { outcome, keysPresent, keysRejected, keysPartial, keysCleared };
+}
+
+/**
+ * Which keys this run may delete. **The safety argument of the whole module, as code.**
+ *
+ * Four conditions, and between them they make "every key removed had ALL of its contents carried
+ * across" a provable statement rather than an argued one:
+ *
+ * 1. **`writeResult === 'written'`** carries two facts at once. It means main acknowledged a write;
+ *    and `migrateLegacyLocalStorage`'s mutator returns a value in exactly one branch — the one that
+ *    read the keys and set `outcome = 'migrated'` — so it also means THIS run did the lifting. An
+ *    `already-migrated` or `no-data` run returns `undefined` and lands on `'unchanged'`, i.e. `[]`.
+ * 2. **`liftWasUncontested`** covers the case the merge creates: `{...lifted, ...current}` means an
+ *    `AppState` value WINS over the localStorage copy, so a key can be "migrated" and yet have
+ *    contributed nothing. That only happens on a profile which ran a pre-cutover React build
+ *    (Angular is deleted, so nothing can write these keys after a React boot any more) — a
+ *    developer profile, in practice. Keeping its keys costs six dead entries; removing them would
+ *    discard the one copy of a value that lost the merge.
+ * 3. **not rejected** — present but unparseable, so its contents did not come across at all.
+ * 4. **not partial** — it parsed, but entries inside it were discarded (`legacy-local-storage.ts`
+ *    counts them). Those entries exist nowhere else.
+ *
+ * Conditions 1 and 2 are all-or-nothing for the run; 3 and 4 are per key, so one bad key never
+ * strands the other five.
+ */
+function keysSafeToRemove(
+  reading: LegacyLocalStorageReading,
+  writeResult: RendererStateWriteResult,
+  liftWasUncontested: boolean
+): readonly string[] {
+  if (writeResult !== 'written') return [];
+  if (!liftWasUncontested) {
     // Never silent: this profile keeps its legacy keys, and the reason is not obvious from outside.
     diagnostics.warn('kept the legacy localStorage keys: AppState already held renderer state', {
-      keys: keysPresent,
+      keys: reading.keysPresent,
     });
+    return [];
   }
-  const keysCleared = clearLegacyLocalStorage(lifted);
-
-  return { outcome, keysPresent, keysRejected, keysCleared };
+  return reading.keysPresent.filter(
+    key => !reading.keysRejected.includes(key) && !reading.keysPartial.includes(key)
+  );
 }

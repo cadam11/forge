@@ -160,6 +160,79 @@ describe('localStorage → AppState migration — the round trip', () => {
     expect(localStorageSnapshot()).toEqual(before);
   });
 
+  it('leaves a key whose value parsed but LOST ENTRIES, and still migrates the survivors', async () => {
+    // The all-or-nothing rule has a hole if it only looks at whole keys: three of the six parsers
+    // filter *inside* a value (`snippets.filter(isSqlSnippet)`, the tours string filter, the flyway
+    // non-string drop). Such a key is not "rejected" — most of it came across — so without a
+    // separate signal it lands in the removal list and the dropped entries are gone unwarned.
+    // NO SILENT DESTRUCTION: a partial lift retains the key, and says so.
+    const warnings: { message: string; context: unknown }[] = [];
+    teardowns.push(
+      setDiagnosticsSink({
+        error: () => undefined,
+        warn: (message, context) => warnings.push({ message, context }),
+      })
+    );
+    seedAngularLocalStorage();
+    const partial = JSON.stringify([{ id: 'ok', sql: 'SELECT 1' }, { nonsense: true }, 42]);
+    window.localStorage.setItem(LEGACY_KEYS.snippets, partial);
+
+    const result = await migrateLegacyLocalStorage(createRendererStatePersistence());
+
+    expect(result.outcome).toBe('migrated');
+    // Not rejected — it parsed, and what parsed was migrated.
+    expect(result.keysRejected).toEqual([]);
+    expect(result.keysPartial).toEqual([LEGACY_KEYS.snippets]);
+    // The survivors are in AppState…
+    expect(bridge.snapshot().reactRendererState?.snippets).toEqual([{ id: 'ok', sql: 'SELECT 1' }]);
+    // …and the key is still on disk, because the two entries that did NOT come across exist
+    // nowhere else.
+    expect(result.keysCleared).not.toContain(LEGACY_KEYS.snippets);
+    expect(window.localStorage.getItem(LEGACY_KEYS.snippets)).toBe(partial);
+    // Every other key was clean, so those ARE removed — one partial key must not strand the rest.
+    expect([...result.keysCleared].sort()).toEqual(
+      Object.values(LEGACY_KEYS)
+        .filter(key => key !== LEGACY_KEYS.snippets)
+        .sort()
+    );
+    // And it is not silent.
+    expect(
+      warnings.some(
+        w =>
+          w.message.includes('discarded') &&
+          JSON.stringify(w.context).includes(LEGACY_KEYS.snippets)
+      ),
+      `expected a warning naming the partially-parsed key; got ${JSON.stringify(warnings)}`
+    ).toBe(true);
+  });
+
+  // The other two lossy parsers, so all three are pinned and none can be "simplified" back into
+  // reporting a clean parse. Each case seeds one key with a value that partly survives.
+  it.each([
+    {
+      key: LEGACY_KEYS.completedTours,
+      raw: JSON.stringify(['welcome', 7, null, 'first-query']),
+      field: 'completedTours' as const,
+      survivors: ['welcome', 'first-query'],
+    },
+    {
+      key: LEGACY_KEYS.flywayPlaceholderValues,
+      raw: JSON.stringify({ schema: 'dbo', port: 5432 }),
+      field: 'flywayPlaceholderValues' as const,
+      survivors: { schema: 'dbo' },
+    },
+  ])('reports $key as partial when entries inside it are dropped', async testCase => {
+    seedAngularLocalStorage();
+    window.localStorage.setItem(testCase.key, testCase.raw);
+
+    const result = await migrateLegacyLocalStorage(createRendererStatePersistence());
+
+    expect(result.keysPartial).toEqual([testCase.key]);
+    expect(result.keysCleared).not.toContain(testCase.key);
+    expect(window.localStorage.getItem(testCase.key)).toBe(testCase.raw);
+    expect(bridge.snapshot().reactRendererState?.[testCase.field]).toEqual(testCase.survivors);
+  });
+
   it('leaves a key it could not parse, because that data did not make it across', async () => {
     seedAngularLocalStorage();
     window.localStorage.setItem(LEGACY_KEYS.snippets, '[{"id":"snip-1",');
@@ -395,8 +468,16 @@ describe('localStorage → AppState migration — idempotency', () => {
     });
 
     const persistence = createRendererStatePersistence();
-    expect((await migrateLegacyLocalStorage(persistence)).outcome).toBe('failed');
+    const before = localStorageSnapshot();
+    const failed = await migrateLegacyLocalStorage(persistence);
+
+    expect(failed.outcome).toBe('failed');
     expect(backing.snapshot().reactRendererState).toBeUndefined();
+    // The stronger of the two "nothing was written" orderings gets the same assertions as the
+    // `unavailable` one: a rejected write must leave localStorage exactly as it found it, or the
+    // retry below would have nothing to migrate.
+    expect(failed.keysCleared).toEqual([]);
+    expect(localStorageSnapshot()).toEqual(before);
 
     // Second attempt, same data still sitting in localStorage.
     expect((await migrateLegacyLocalStorage(persistence)).outcome).toBe('migrated');

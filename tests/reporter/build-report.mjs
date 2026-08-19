@@ -75,16 +75,18 @@ async function main() {
     // 600-chunk stream injected in real time. `--no-perf` is for the runs that cannot pay for it.
     { label: 'Performance', project: 'perf-react', cacheName: 'perf.json', slow: true },
   ];
-  for (const tier of playwrightTiers) {
+  for (const { label, project, cacheName, slow } of playwrightTiers) {
     if (!ARGS.e2e) {
-      tiers.push({ label: tier.label, status: 'pending', note: 'Skipped via --no-e2e.' });
+      tiers.push({ label, status: 'pending', note: 'Skipped via --no-e2e.' });
       continue;
     }
-    if (tier.slow && !ARGS.perf) {
-      tiers.push({ label: tier.label, status: 'pending', note: 'Skipped via --no-perf.' });
+    if (slow && !ARGS.perf) {
+      tiers.push({ label, status: 'pending', note: 'Skipped via --no-perf.' });
       continue;
     }
-    tiers.push(await runPlaywrightTier(tier));
+    // Destructured rather than passing the whole row: `slow` is this loop's business, not the
+    // runner's, and handing it over would read as though the runner did something with it.
+    tiers.push(await runPlaywrightTier({ label, project, cacheName }));
   }
 
   const durationMs = Date.now() - startedAt;

@@ -41,6 +41,7 @@ export function PersistenceProbe() {
         ['hydrations', runs.map(run => run.migration.outcome).join(' → ')],
         ['keys migrated', reading?.keysPresent.join(', ') || 'none'],
         ['keys rejected', reading?.keysRejected.join(', ') || 'none'],
+        ['keys partial', reading?.keysPartial.join(', ') || 'none'],
         ['keys removed', reading?.keysCleared.join(', ') || 'none'],
         ['theme', latest.settings.theme],
         ['editor.fontSize', String(latest.settings.editor.fontSize)],

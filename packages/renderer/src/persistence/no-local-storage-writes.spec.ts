@@ -104,6 +104,23 @@ describe('no code path may write a localStorage key', () => {
     expect(filesMatching(/localStorage\s*\.\s*clear\b/)).toEqual([]);
   });
 
+  it('keeps the destructive function to exactly one caller', () => {
+    // The test above confines `removeItem` to one FILE. That is not enough on its own: a wrapper
+    // around it can be called from anywhere, and `clearLegacyLocalStorage`'s safety is entirely a
+    // property of its single caller establishing the preconditions (write acknowledged, lift
+    // uncontested, key neither rejected nor partial). So the arity is asserted rather than
+    // documented. `persistence/index.ts` deliberately does not re-export it.
+    //
+    // Matches a CALL, not a mention, so the barrel's comment explaining the omission does not
+    // register as a caller.
+    const callers = Object.entries(sources)
+      .filter(([path]) => isProductionSource(path) && !path.endsWith('legacy-local-storage.ts'))
+      .filter(([, source]) => /\bclearLegacyLocalStorage\s*\(/.test(source))
+      .map(([path]) => path);
+
+    expect(callers).toEqual(['./migration.ts']);
+  });
+
   it('has no computed localStorage access, which would sidestep the check above', () => {
     expect(filesMatching(COMPUTED_ACCESS)).toEqual([]);
   });
