@@ -3,8 +3,15 @@
  * nowhere else (PLAN.md 0.5) — so the assertions here are about the two properties that make it safe
  * rather than about its happy path:
  *
- *   idempotent      — a marker in AppState, checked inside the same critical section that writes it
- *   non-destructive — localStorage is byte-identical afterwards, always, including on failure
+ *   idempotent — a marker in AppState, checked inside the same critical section that writes it
+ *   lossless   — a key is removed only after the data it held reached AppState and main said so
+ *
+ * The second property is what Task 24 changed. Before the cutover this migration was
+ * NON-DESTRUCTIVE in the strong sense — localStorage was byte-identical afterwards, always —
+ * because the Angular renderer still read the same six keys on every boot. Angular is gone, so the
+ * keys are now lifted and then removed, and the tests below pin the exact boundary: removed on a
+ * successful lift, NOT removed when the write failed, NOT removed when the value could not be
+ * parsed, NOT removed on a boot that only found a marker.
  *
  * Everything runs against `createAppStateDouble`, which reproduces main's shallow-spread `setState`
  * rather than a forgiving deep merge. See that file for why.
@@ -127,13 +134,60 @@ describe('localStorage → AppState migration — the round trip', () => {
     expect(state.settings?.theme).toBe('light');
   });
 
-  it('leaves the six keys exactly as it found them', async () => {
+  it('removes the six keys once they are safely in AppState', async () => {
+    seedAngularLocalStorage();
+
+    const result = await migrateLegacyLocalStorage(createRendererStatePersistence());
+
+    expect([...result.keysCleared].sort()).toEqual([...Object.values(LEGACY_KEYS)].sort());
+    expect(localStorageSnapshot()).toEqual({});
+    // …and the data is where it was moved to, which is the half that makes the removal a MOVE
+    // rather than a delete.
+    expect(bridge.snapshot().reactRendererState?.snippets).toHaveLength(2);
+  });
+
+  it('removes nothing when the write was refused, so a retry still has the data', async () => {
+    // The ordering that matters most. A removal before the acknowledgement would destroy the
+    // snippet library on any boot where main was not there to take it.
     seedAngularLocalStorage();
     const before = localStorageSnapshot();
+    removeJoineryMock();
 
-    await migrateLegacyLocalStorage(createRendererStatePersistence());
+    const result = await migrateLegacyLocalStorage(createRendererStatePersistence());
 
+    expect(result.outcome).toBe('unavailable');
+    expect(result.keysCleared).toEqual([]);
     expect(localStorageSnapshot()).toEqual(before);
+  });
+
+  it('leaves a key it could not parse, because that data did not make it across', async () => {
+    seedAngularLocalStorage();
+    window.localStorage.setItem(LEGACY_KEYS.snippets, '[{"id":"snip-1",');
+
+    const result = await migrateLegacyLocalStorage(createRendererStatePersistence());
+
+    expect(result.keysRejected).toEqual([LEGACY_KEYS.snippets]);
+    expect(result.keysCleared).not.toContain(LEGACY_KEYS.snippets);
+    expect(window.localStorage.getItem(LEGACY_KEYS.snippets)).toBe('[{"id":"snip-1",');
+    // Everything that DID parse is gone, so one bad key does not strand the other five.
+    expect(Object.keys(localStorageSnapshot())).toEqual([LEGACY_KEYS.snippets]);
+  });
+
+  it('leaves keys alone on an already-migrated boot: they may be newer than the marker', async () => {
+    // The marker says a previous run lifted what was there THEN. A key written since — a snippet
+    // created in Angular after a React boot, during coexistence — is unlifted user data, and
+    // sweeping it because a marker exists would be exactly the loss this module prevents.
+    const persistence = createRendererStatePersistence();
+    seedAngularLocalStorage();
+    await migrateLegacyLocalStorage(persistence);
+    expect(localStorageSnapshot()).toEqual({});
+
+    window.localStorage.setItem(LEGACY_KEYS.snippets, JSON.stringify([{ id: 'later', sql: 'x' }]));
+    const second = await migrateLegacyLocalStorage(persistence);
+
+    expect(second.outcome).toBe('already-migrated');
+    expect(second.keysCleared).toEqual([]);
+    expect(window.localStorage.getItem(LEGACY_KEYS.snippets)).toBe('[{"id":"later","sql":"x"}]');
   });
 
   it('keeps main-process collections, which can only have grown', async () => {

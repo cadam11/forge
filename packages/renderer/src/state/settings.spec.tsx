@@ -252,12 +252,26 @@ describe('settings store — no flash at mount', () => {
     expect(createSettingsStore().getState().settings.theme).toBe('light');
   });
 
-  it('falls back to the Angular settings object when the mirror is absent', () => {
-    // The first React launch for a user coming from Angular: the migration has not run yet.
+  it('does NOT fall back to the Angular settings object when the mirror is absent', () => {
+    // Task 24 dropped that fallback with the renderer that wrote the key — the migration deletes
+    // `joinery-settings` on the first React boot, so a read of it would be live for one launch.
+    // The store therefore starts at `system` for a profile mid-migration, and `hydrate()` (below,
+    // and in persistence/hydrate.spec.ts) writes the mirror from the lifted settings on that same
+    // boot, so the flash is one frame once rather than every launch.
     window.localStorage.setItem(ANGULAR_STORAGE_KEY, JSON.stringify({ theme: 'light' }));
     stubMatchMedia(true);
 
-    expect(createSettingsStore().getState().settings.theme).toBe('light');
+    expect(createSettingsStore().getState().settings.theme).toBe('system');
+  });
+
+  it('primes the mirror from the settings hydration handed it, so the next boot has one', () => {
+    // The other half of the trade above: one flash, and then never again.
+    stubMatchMedia(true);
+    const store = createSettingsStore();
+
+    store.getState().hydrate({ settings: { theme: 'light' }, persistWrites: true });
+
+    expect(window.localStorage.getItem(THEME_MIRROR_KEY)).toBe('light');
   });
 
   it('does not repaint the resolved OS theme over the pre-mount value on mount', async () => {

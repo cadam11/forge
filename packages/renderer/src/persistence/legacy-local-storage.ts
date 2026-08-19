@@ -1,15 +1,22 @@
 /**
- * The six Angular localStorage keys, read-only, forever.
+ * The six Angular localStorage keys: read them, and — once they are safely elsewhere — remove them.
  *
  * PLAN.md 0.5: these keys are the only home for real user data in the Angular renderer — the entire
  * snippet library exists nowhere else — and nothing in main has ever seen them. This module is the
- * one place in the React renderer that reads them, and it contains no `setItem` and no `removeItem`
- * by design, which is what makes the "the migration cannot destroy user data" claim reviewable:
- * grep this directory for `removeItem` and the answer is a single hit in a test.
+ * one place in the React renderer that touches them at all.
  *
- * Why they are not deleted after migrating: the Angular renderer is still shipping alongside the
- * React one (PLAN.md §3) and still reads every one of them on boot. Cleanup belongs to the cutover
- * task, after Angular is gone.
+ * ── What changed at the cutover (Task 24) ─────────────────────────────────────────────────────
+ *
+ * Until now this file contained no `setItem` and no `removeItem` by design: the Angular renderer
+ * still read all six on boot, so the migration lifted them and left them exactly where they were.
+ * Angular is gone, so the keys are now dead weight in the user's profile and
+ * `clearLegacyLocalStorage` below removes them.
+ *
+ * **The module still has no `setItem`, and the removal is deliberately narrow.** It takes the
+ * keys to remove as an argument rather than clearing the six by name, because `migration.ts`
+ * passes exactly the ones it has just written into `AppState` and had acknowledged — never a key
+ * that was present but unparseable, and never anything on a failed write. See that file for the
+ * full ordering argument.
  *
  * Each value is parsed defensively and independently. Corrupt JSON in the snippet key must not cost
  * the user their settings, so a failed key is reported and skipped, never fatal.
@@ -132,4 +139,28 @@ export function readLegacyLocalStorage(): LegacyLocalStorageReading {
   });
 
   return { lifted, keysPresent, keysRejected };
+}
+
+/**
+ * Removes the named keys. The ONLY destructive call in the package, and the only reason it is safe
+ * is the precondition its single caller establishes: every key passed here has already been written
+ * into main-process `AppState` and acknowledged.
+ *
+ * Returns the keys it actually removed, so the caller can report what happened rather than assume
+ * it. A key whose removal throws — storage blocked outright, which is a real state in some Electron
+ * sandboxes — is reported and left out of the result rather than swallowed; the data is already
+ * safe in `AppState`, so a key that could not be removed costs a stale copy on disk and nothing
+ * else.
+ */
+export function clearLegacyLocalStorage(keys: readonly string[]): readonly string[] {
+  const removed: string[] = [];
+  for (const key of keys) {
+    try {
+      window.localStorage.removeItem(key);
+      removed.push(key);
+    } catch (error) {
+      diagnostics.warn(`could not remove migrated localStorage key ${key}`, error);
+    }
+  }
+  return removed;
 }

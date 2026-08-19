@@ -1,16 +1,30 @@
 /**
- * The structural guard behind Task 5's non-destructiveness claim.
+ * The structural guard on which modules may touch localStorage at all.
  *
- * The Angular renderer's six localStorage keys are the only home for real user data in the app
- * today — the whole snippet library included (PLAN.md 0.5) — and the React renderer coexists with it
- * for another twenty tasks. So "React reads those keys and never writes them" cannot be a convention
- * that survives on comments: it has to be checkable. This spec is that check, and it is deliberately
+ * Real user data is at stake — the whole snippet library was in the Angular keys and nowhere else
+ * (PLAN.md 0.5) — so "only these two files, only these operations" cannot be a convention that
+ * survives on comments: it has to be checkable. This spec is that check, and it is deliberately
  * about the source text rather than about behaviour, because behaviour tests can only cover the code
  * paths someone thought to test.
  *
- * The one permitted writer is `persistence/theme-mirror.ts`, which owns a React-only key that the
- * pre-mount FOUC script reads. Everything else in the package — including any future feature — must
- * persist through main-process `AppState`.
+ * ── The two permitted files, and the cutover ruling on each (Task 24) ─────────────────────────
+ *
+ * **`persistence/theme-mirror.ts` — the one `setItem`.** THE MIRROR STAYS. `index.html`'s pre-mount
+ * script needs a synchronous source for the theme and there is no other: `AppState` is async IPC,
+ * and a preload-injected global is not available to a `<head>` script. What it lost is its
+ * `joinery-settings` fallback — that key is now deleted by the migration, so the fallback would be
+ * live for at most one boot. The module documents the trade.
+ *
+ * **`persistence/legacy-local-storage.ts` — the one `removeItem`.** Until the cutover this file had
+ * neither `setItem` nor `removeItem`, because the Angular renderer still read all six keys on every
+ * boot. Angular is gone, so `migration.ts` now removes each key it has lifted, AFTER main
+ * acknowledged the write and never for a key that failed to parse. That ordering is the whole
+ * safety argument and it lives in `migration.ts`; this spec's job is only to keep the operation
+ * confined to the one module that owns those key names.
+ *
+ * Everything else in the package — including any future feature — must persist through
+ * main-process `AppState`. There is no `clear()` anywhere, ever: it would take keys this package
+ * does not own.
  *
  * `import.meta.glob` rather than `node:fs`: this package's tsconfig omits `@types/node` on purpose
  * (`tsconfig.json:28-32`), and Vite's raw-glob import is typed by `vite/client`, which it does not.
@@ -59,22 +73,35 @@ describe('no code path may write a localStorage key', () => {
     const paths = Object.keys(sources).filter(isProductionSource);
     expect(paths.length).toBeGreaterThan(20);
     expect(paths.some(path => path.endsWith('theme-mirror.ts'))).toBe(true);
+    expect(paths.some(path => path.endsWith('legacy-local-storage.ts'))).toBe(true);
     expect(paths.some(path => path.endsWith('state/tab.ts'))).toBe(true);
   });
 
-  it('permits exactly one writer: the theme mirror', () => {
+  it('permits exactly two files to touch storage, each with exactly one operation', () => {
     const writers = filesMatching(WRITE_CALL);
 
-    // Glob keys are relative to this file, so the mirror is a sibling.
-    expect(writers.map(({ path }) => path)).toEqual(['./theme-mirror.ts']);
-    expect(writers[0]?.hits).toEqual(['localStorage.setItem']);
+    // Glob keys are relative to this file, so both are siblings.
+    expect(writers.map(({ path }) => path).sort()).toEqual([
+      './legacy-local-storage.ts',
+      './theme-mirror.ts',
+    ]);
+    const byPath = new Map(writers.map(({ path, hits }) => [path, hits]));
+    // The mirror WRITES and never removes; the legacy module REMOVES and never writes. Each file's
+    // full hit list is asserted, so a second operation appearing in either one fails here.
+    expect(byPath.get('./theme-mirror.ts')).toEqual(['localStorage.setItem']);
+    expect(byPath.get('./legacy-local-storage.ts')).toEqual(['localStorage.removeItem']);
   });
 
-  it('has no removeItem and no clear anywhere', () => {
-    // `tab.state.ts:465` — and Task 4's port of it — called `removeItem` on an Angular-owned key.
-    // Nothing may do that again while the Angular renderer is still reading it.
-    const destructive = filesMatching(/localStorage\s*\.\s*(removeItem|clear)\b/);
-    expect(destructive).toEqual([]);
+  it('confines removeItem to the module that owns the six key names', () => {
+    // `tab.state.ts:465` — and Task 4's port of it — called `removeItem` on an Angular-owned key
+    // from a store that had no business deciding the key was disposable. The removal now lives
+    // next to the reads, behind `migration.ts`'s "written and acknowledged" precondition.
+    const destructive = filesMatching(/localStorage\s*\.\s*removeItem\b/);
+    expect(destructive.map(({ path }) => path)).toEqual(['./legacy-local-storage.ts']);
+  });
+
+  it('has no clear() anywhere, which would take keys this package does not own', () => {
+    expect(filesMatching(/localStorage\s*\.\s*clear\b/)).toEqual([]);
   });
 
   it('has no computed localStorage access, which would sidestep the check above', () => {
@@ -85,15 +112,23 @@ describe('no code path may write a localStorage key', () => {
     expect(filesMatching(ALIASING)).toEqual([]);
   });
 
-  it('keeps the pre-mount script in index.html a reader', () => {
-    // It runs before any module and is the one place the mirror-then-Angular fallback is duplicated,
-    // so it is outside the glob above and would otherwise never be checked at all.
+  it('keeps the pre-mount script in index.html a reader, of the mirror only', () => {
+    // It runs before any module and duplicates the mirror read, so it is outside the glob above and
+    // would otherwise never be checked at all.
     expect(preMountScript).toHaveLength(1);
     const html = preMountScript[0] ?? '';
     expect(html).toMatch(/localStorage\s*\.\s*getItem/);
     expect(html).not.toMatch(WRITE_CALL);
     expect(html).not.toMatch(COMPUTED_ACCESS);
     expect(html).not.toMatch(ALIASING);
+
+    // The cutover ruling, asserted rather than described: the script reads the React-owned mirror
+    // and no longer falls back to Angular's settings object — a key the migration now deletes.
+    // Both halves matter; a script still naming `joinery-settings` would be reading a key that is
+    // gone by the second boot.
+    const read = (key: string): boolean => html.includes(`'${key}'`);
+    expect(read(THEME_MIRROR_KEY)).toBe(true);
+    expect(read('joinery-settings')).toBe(false);
   });
 
   it('writes a React-owned key, not one of the Angular six', () => {

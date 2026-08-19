@@ -5,8 +5,8 @@
  * Read in this order:
  *
  *   renderer-state.ts       the one `AppState` key this renderer owns, and its only writer
- *   legacy-local-storage.ts the six Angular keys, read-only
- *   migration.ts            the one-shot lift, idempotent via a marker in AppState
+ *   legacy-local-storage.ts the six Angular keys: read them, and remove the ones that were lifted
+ *   migration.ts            the one-shot lift-then-remove, idempotent via a marker in AppState
  *   theme-mirror.ts         the one localStorage key React writes, for the pre-mount FOUC script
  *   layout.ts               Decision C — the `LayoutConfig` shape the React app writes
  *   hydrate.ts              the startup path that ties the above to the Task 4 stores
@@ -25,6 +25,7 @@ export {
 
 export {
   LEGACY_KEYS,
+  clearLegacyLocalStorage,
   readLegacyLocalStorage,
   type LegacyLocalStorageReading,
 } from './legacy-local-storage';
@@ -65,7 +66,6 @@ export {
 } from './renderer-state';
 
 export {
-  ANGULAR_SETTINGS_KEY,
   readMirroredThemePreference,
   THEME_MIRROR_KEY,
   writeMirroredThemePreference,

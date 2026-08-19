@@ -16,18 +16,25 @@
  * global still is not available to a `<head>` script that runs before preload's world is
  * consulted for anything.
  *
- * So: a mirror. It is deliberately NOT the Angular `joinery-settings` key.
+ * So: a mirror. It is deliberately NOT the Angular `joinery-settings` key — writing that would have
+ * meant the React renderer overwriting Angular's whole settings object on every settings change.
+ * A separate key holding ONE string kept "React reads Angular's localStorage, never writes it" true
+ * literally, and it is why this key survived the cutover when the six Angular ones did not.
  *
- * Writing `joinery-settings` would mean the React renderer overwrites the Angular renderer's whole
- * settings object every time a setting changes — clobbering any change made in Angular after the
- * one-shot migration ran. A separate key that holds ONE string means the React renderer never
- * writes an Angular-owned key at all, and the coexistence rule "React reads Angular's localStorage,
- * never writes it" holds literally.
+ * ── The ruling at cutover (Task 24, PLAN.md §3.1) ────────────────────────────────────────────
  *
- * Reads are mirror-first with the Angular key as fallback, so a user whose migration has not run
- * yet still gets their real theme on the first React launch instead of a flash of `system`. That
- * exact two-step is duplicated, in ten lines of inline ES5, in `index.html` — it must be, since it
- * runs before any module exists. The duplication is the point of the comment there.
+ * **The mirror stays.** The pre-mount script in `index.html` has no other synchronous source: the
+ * alternative — main injecting the theme via a query parameter or a `contextBridge` global — is not
+ * available to a `<head>` script that runs before preload's world is consulted.
+ *
+ * **Its `joinery-settings` fallback goes.** Reads used to be mirror-first with the Angular settings
+ * object behind it, so a user whose migration had not run yet still got their real theme. With
+ * Angular deleted the migration removes that key on the first React boot, so the fallback would be
+ * dead from the second boot on. The cost of dropping it is one boot: a profile migrating from the
+ * Angular app paints the default canvas until `hydrate()` writes the mirror (`state/settings.ts`),
+ * and every boot after that is flash-free. Keeping a read of a key the same PR deletes, to buy one
+ * frame once, is not worth the second source of truth. `index.html`'s inline copy of this read was
+ * shortened to match.
  */
 
 import type { ThemePreference } from '@joinery/shared';
@@ -36,39 +43,19 @@ import { diagnostics } from '../state/diagnostics';
 /** React-owned. One value: `'system' | 'light' | 'dark'`, unquoted. */
 export const THEME_MIRROR_KEY = 'joinery:theme-preference';
 
-/** Angular-owned, read-only fallback. `settings.service.ts:5`. */
-export const ANGULAR_SETTINGS_KEY = 'joinery-settings';
-
 function isThemePreference(value: unknown): value is ThemePreference {
   return value === 'system' || value === 'light' || value === 'dark';
 }
 
 /**
- * The preference the pre-mount script would have found: the mirror, else the theme field of the
- * Angular settings object, else `'system'`.
+ * The preference the pre-mount script would have found: the mirror, else `'system'`.
  *
  * Never throws. Storage can be blocked outright (some Electron sandboxes, some privacy modes) and
  * a theme is not worth failing a boot over.
  */
 export function readMirroredThemePreference(): ThemePreference {
   const mirrored = readKey(THEME_MIRROR_KEY);
-  if (isThemePreference(mirrored)) return mirrored;
-
-  const angular = readKey(ANGULAR_SETTINGS_KEY);
-  if (angular !== null) {
-    try {
-      const parsed: unknown = JSON.parse(angular);
-      const theme: unknown =
-        typeof parsed === 'object' && parsed !== null ? Reflect.get(parsed, 'theme') : null;
-      if (isThemePreference(theme)) return theme;
-    } catch (error) {
-      diagnostics.warn(
-        'could not parse the Angular settings object while reading the theme',
-        error
-      );
-    }
-  }
-  return 'system';
+  return isThemePreference(mirrored) ? mirrored : 'system';
 }
 
 /** Keeps the pre-mount script's source in step. Called on every settings write and on hydration. */

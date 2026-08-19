@@ -3,6 +3,11 @@
  * the stores hold what the user had — then do it again against a wiped browser profile, which is the
  * "second boot" the gate asks for.
  *
+ * Since Task 24 the migration also REMOVES the keys it lifted, so the round trip below is the
+ * cutover's no-data-loss proof: a profile that has only ever run the Angular app gets its data on
+ * the first React launch, the keys are empty afterwards, and the marker keeps a second boot from
+ * lifting anything a second time.
+ *
  * The stores here are fresh instances rather than the app singletons, so a failure names one store
  * and the specs do not leak state into each other.
  */
@@ -124,23 +129,57 @@ describe('hydrateRendererState — first launch after Angular', () => {
     expect(window.localStorage.getItem(THEME_MIRROR_KEY)).toBe('light');
   });
 
-  it('never writes an Angular key', async () => {
+  it('never WRITES an Angular key — the only thing it does to one is remove it', async () => {
     seedAngularLocalStorage();
-    const before = window.localStorage.getItem(LEGACY_KEYS.settings);
 
-    const renderer = await (async () => {
-      const r = makeRenderer();
-      await hydrateRendererState(r);
-      return r;
-    })();
+    const renderer = makeRenderer();
+    await hydrateRendererState(renderer);
     // A settings change after hydration is the dangerous case: it must reach AppState and the
-    // mirror, and leave the Angular object alone.
+    // mirror, and it must not resurrect an Angular-owned key with React's idea of its contents.
     renderer.settings.getState().updateEditorSetting('fontSize', 21);
     await renderer.persistence.read();
 
-    expect(window.localStorage.getItem(LEGACY_KEYS.settings)).toBe(before);
+    expect(window.localStorage.getItem(LEGACY_KEYS.settings)).toBeNull();
     expect(window.localStorage.getItem(THEME_MIRROR_KEY)).toBe('light');
     expect(bridge.snapshot().reactRendererState?.settings?.editor?.fontSize).toBe(21);
+  });
+
+  /*
+   * The cutover's no-data-loss invariant, end to end and in one test, because it is the one thing
+   * this PR could get wrong that a user would never recover from.
+   *
+   * The profile it describes is the real one: Craig's packaged app ships Angular today, so his
+   * snippet library exists in `joinery-snippets` and NOWHERE else. It has never run the React
+   * renderer, so there is no marker and nothing in `AppState` to fall back on.
+   */
+  it('lifts a virgin profile, empties the keys, and does not lift twice', async () => {
+    seedAngularLocalStorage();
+
+    // Boot 1 — the first React launch this profile has ever had.
+    const first = await hydrateRendererState(makeRenderer());
+
+    expect(first.migration.outcome).toBe('migrated');
+    expect(first.snippets.map(s => s.id)).toEqual(['snip-1', 'snip-2']);
+    expect([...first.migration.keysCleared].sort()).toEqual([...Object.values(LEGACY_KEYS)].sort());
+    for (const key of Object.values(LEGACY_KEYS)) {
+      expect(window.localStorage.getItem(key), key).toBeNull();
+    }
+
+    // Boot 2 — a fresh process against the same AppState. The data is still there, the marker stops
+    // a second lift, and no write is issued: nothing has changed to write.
+    const rebooted = bridge.reboot();
+    removeJoineryMock();
+    teardowns.push(installJoineryMock({ app: rebooted.app }));
+
+    const second = await hydrateRendererState(makeRenderer());
+
+    expect(second.migration.outcome).toBe('already-migrated');
+    expect(second.migration.keysCleared).toEqual([]);
+    expect(second.snippets.map(s => s.id)).toEqual(['snip-1', 'snip-2']);
+    expect(second.completedTours).toEqual(['welcome']);
+    expect(second.confirmedCtrlEExecute).toBe(true);
+    expect(second.flywayPlaceholderValues).toEqual({ schema: 'dbo' });
+    expect(rebooted.calls.setState).toBe(0);
   });
 });
 
