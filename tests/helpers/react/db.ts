@@ -9,6 +9,120 @@
 import { Client as PgClient } from 'pg';
 import { TEST_PG } from './app';
 
+/** The database `ensureWideSchema` builds. Named so `dropDatabasesMatching` cannot sweep it up. */
+export const WIDE_SCHEMA_DATABASE = 'joinery_wide_schema';
+
+/**
+ * Builds (once) a PostgreSQL database holding `tableCount` tables joined by real foreign keys, for
+ * the ERD's 200-table gate (PLAN.md Task 23).
+ *
+ * ── Why this is generated rather than added to `tests/fixtures/postgres/schema.sql` ───────────
+ *
+ * That file is the seed EVERY tier shares. Two hundred extra tables in it would appear under the
+ * `public` schema of `joinery_test`, where the explorer specs count tree rows, the object-search
+ * specs rank results, and the ERD's own functional spec asserts that a whole-database diagram draws
+ * exactly the four seeded tables. A separate database keeps the load where only this gate sees it.
+ *
+ * ── The shape, and why it is a tree rather than a chain ───────────────────────────────────────
+ *
+ * `t000 … t{n-1}`, each (except the root) with a foreign key to `t{floor(index / 4)}` — a 4-ary
+ * tree, so `tableCount - 1` edges over about four ranks. A chain would give dagre a 200-rank layout
+ * that no real schema has; a tree is the shape a schema this size actually takes, and it is the one
+ * whose layout cost is worth bounding.
+ *
+ * ── Idempotent, and it checks rather than assumes ─────────────────────────────────────────────
+ *
+ * The database survives between runs (building it is the slow part), so the fast path is a table
+ * count. A database that exists with the WRONG count — an interrupted build, or a changed
+ * `tableCount` — is dropped and rebuilt rather than used, because a gate that silently ran against
+ * 37 tables would still be green.
+ */
+export async function ensureWideSchema(tableCount: number): Promise<void> {
+  if (!Number.isInteger(tableCount) || tableCount < 2) {
+    throw new Error(`[db] ensureWideSchema needs at least 2 tables, got ${String(tableCount)}`);
+  }
+
+  const admin = new PgClient({ ...TEST_PG });
+  await admin.connect();
+  try {
+    const existing = await countTablesIn(WIDE_SCHEMA_DATABASE);
+    if (existing === tableCount) return;
+    if (existing !== null) {
+      await admin.query(`DROP DATABASE IF EXISTS "${WIDE_SCHEMA_DATABASE}" WITH (FORCE)`);
+    }
+    await admin.query(`CREATE DATABASE "${WIDE_SCHEMA_DATABASE}"`);
+  } finally {
+    await admin.end();
+  }
+
+  const target = new PgClient({ ...TEST_PG, database: WIDE_SCHEMA_DATABASE });
+  await target.connect();
+  try {
+    // One transaction: a half-built schema is worse than none, because the count check above would
+    // then drop and rebuild it on every run and the "slow part happens once" property is lost.
+    await target.query('BEGIN');
+    for (let index = 0; index < tableCount; index += 1) {
+      await target.query(createTableSql(index));
+    }
+    await target.query('COMMIT');
+  } catch (error) {
+    await target.query('ROLLBACK');
+    throw error;
+  } finally {
+    await target.end();
+  }
+
+  const built = await countTablesIn(WIDE_SCHEMA_DATABASE);
+  if (built !== tableCount) {
+    throw new Error(
+      `[db] built ${String(built)} tables in ${WIDE_SCHEMA_DATABASE}, want ${tableCount}`
+    );
+  }
+}
+
+/** `CREATE TABLE` for one node of the tree. Index 0 is the root and has no parent. */
+function createTableSql(index: number): string {
+  const name = tableNameFor(index);
+  const columns = [
+    'id serial PRIMARY KEY',
+    'label text NOT NULL',
+    'amount numeric(12,2)',
+    'created_at timestamptz NOT NULL DEFAULT now()',
+  ];
+  if (index > 0) {
+    columns.push(`parent_id integer REFERENCES "${tableNameFor(Math.floor(index / 4))}" (id)`);
+  }
+  return `CREATE TABLE "${name}" (${columns.join(', ')})`;
+}
+
+/** `t000`, `t001`, … — zero-padded so the ERD's node ids sort the way a reader expects. */
+export function tableNameFor(index: number): string {
+  return `t${String(index).padStart(3, '0')}`;
+}
+
+/** How many user tables `database` holds, or `null` when the database does not exist. */
+async function countTablesIn(database: string): Promise<number | null> {
+  const admin = new PgClient({ ...TEST_PG });
+  await admin.connect();
+  try {
+    const found = await admin.query('SELECT 1 FROM pg_database WHERE datname = $1', [database]);
+    if (found.rowCount === 0) return null;
+  } finally {
+    await admin.end();
+  }
+
+  const target = new PgClient({ ...TEST_PG, database });
+  await target.connect();
+  try {
+    const counted = await target.query<{ count: string }>(
+      "SELECT count(*)::text AS count FROM information_schema.tables WHERE table_schema = 'public'"
+    );
+    return Number(counted.rows[0]?.count ?? '0');
+  } finally {
+    await target.end();
+  }
+}
+
 /**
  * Drops every database on the seeded PostgreSQL container whose name starts with `prefix`.
  *

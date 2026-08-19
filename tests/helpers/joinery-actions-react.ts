@@ -222,7 +222,12 @@ export {
   workspaceTabs,
 } from './react/workbench';
 
-export { dropDatabasesMatching } from './react/db';
+export {
+  WIDE_SCHEMA_DATABASE,
+  dropDatabasesMatching,
+  ensureWideSchema,
+  tableNameFor,
+} from './react/db';
 
 export {
   AG_GRID_EXEMPTION,
