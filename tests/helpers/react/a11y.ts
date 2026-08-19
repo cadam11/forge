@@ -60,8 +60,11 @@ export interface FocusStop {
   readonly outlineColor: string;
   readonly boxShadow: string;
   /**
-   * Which element paints the indicator: the focused one, an ancestor styling itself with
-   * `:has(:focus-visible)` (the `ui/switch.tsx` / `ui/field.tsx` pattern), or nothing at all.
+   * Which element paints the indicator: the focused one, an ancestor that paints it **because of**
+   * this focus (the `ui/switch.tsx` / `ui/field.tsx` `has-focus-visible:` pattern), or nothing.
+   *
+   * `ancestor` is decided differentially — see `resolveAncestorCredits`. An ancestor that paints the
+   * same thing whether or not the stop is focused earns nothing.
    */
   readonly indicatedOn: 'self' | 'ancestor' | 'none';
   /** The verdict: an outline or a ring a user can actually see, wherever it is drawn. */
@@ -70,6 +73,15 @@ export interface FocusStop {
 
 /** The cap on any single walk. Well above the longest surface measured (the connected shell). */
 const MAX_STOPS = 120;
+
+/**
+ * How far up the tree an ancestor may be and still be credited with drawing a stop's indicator.
+ *
+ * Four is what `ui/switch.tsx` and `ui/field.tsx` need (control → label grid → field wrapper), with
+ * one to spare. The bound is a house rule, but it is not what makes the credit safe — see
+ * `resolveAncestorCredits` for the part that does.
+ */
+const MAX_ANCESTOR_LEVELS = 4;
 
 /**
  * Why a walk ended. Four distinct things, and conflating any two of them hides a bug.
@@ -124,35 +136,152 @@ export async function walkTabOrder(window: Page, startFrom?: Locator): Promise<F
   if (startFrom !== undefined) await startFrom.focus();
   await clearWalkMarkers(window);
 
-  const stops: FocusStop[] = [];
-  const end = (outcome: WalkOutcome, stuckAt: FocusStop | null = null): FocusWalk => ({
-    stops,
-    outcome,
-    stuckAt,
-  });
+  const measured: MeasuredStop[] = [];
+  let outcome: WalkOutcome = 'cap';
 
   try {
     for (let index = 0; index < MAX_STOPS; index += 1) {
       await window.keyboard.press('Tab');
-      const measured = await measureActiveElement(window, index);
+      const stop = await measureActiveElement(window, index);
       // Focus left the document — Electron hands it to the window chrome at the end of the order.
       // Not a stop, and not an error; the walk is over.
-      if (measured === null) return end('left-document');
-
-      if (measured.visitedAt !== null) {
-        const stop = { ...measured, order: stops.length + 1 };
-        // The element we were already on. Tab did not move focus at all — a trap, not a cycle.
-        return measured.visitedAt === index - 1 ? end('stuck', stop) : end('cycled');
+      if (stop === null) {
+        outcome = 'left-document';
+        break;
       }
-      stops.push({ ...measured, order: stops.length + 1 });
+
+      if (stop.visitedAt !== null) {
+        // Back on an element already visited. If it is the one we were *just* on, Tab did not move
+        // focus at all — a trap, not a cycle.
+        outcome = stop.visitedAt === index - 1 ? 'stuck' : 'cycled';
+        break;
+      }
+      measured.push(stop);
     }
 
-    return end('cap');
+    // The differential half of the ancestor credit. It runs here, after the Tab walk, because it
+    // has to move focus off each candidate — doing that mid-walk would change where the next Tab
+    // starts from and corrupt the order being measured.
+    const credited = await resolveAncestorCredits(window, measured);
+
+    const stops = measured.map((stop, position) => finalise(stop, position, credited));
+    return {
+      stops,
+      outcome,
+      // `stuck` means the repeat was the element we were on last, which is by definition the stop
+      // pushed most recently.
+      stuckAt: outcome === 'stuck' ? (stops[stops.length - 1] ?? null) : null,
+    };
   } finally {
     // Always, including on a thrown assertion: a stray `data-a11y-walk` on a live element would
     // outlive this walk and be the next one's phantom cycle.
     await clearWalkMarkers(window);
   }
+}
+
+/** Turns a raw measurement into the `FocusStop` a caller sees, once the credit is known. */
+function finalise(stop: MeasuredStop, position: number, credited: ReadonlySet<number>): FocusStop {
+  const indicatedOn = stop.selfDraws ? 'self' : credited.has(stop.marker) ? 'ancestor' : 'none';
+  return { ...stop, order: position + 1, indicatedOn, indicated: indicatedOn !== 'none' };
+}
+
+/**
+ * Decides which stops are legitimately indicated by an ANCESTOR, by measuring the difference the
+ * focus itself makes.
+ *
+ * ── Why the obvious test does not work ────────────────────────────────────────────────────────
+ *
+ * The first version of this credit asked `ancestor.matches(':has(:focus-visible)') && draws(ancestor)`
+ * and claimed the `:has()` gate meant it "cannot excuse an arbitrary shadow somewhere up the tree".
+ * **That gate does no work at all.** `:has(:focus-visible)` is true for *every* ancestor of a
+ * focused element that matches `:focus-visible` — which is every ancestor of virtually every stop —
+ * so the only surviving discriminator was "does this ancestor paint anything, for any reason".
+ *
+ * The re-review caught it live, twice, on the first run: `palette-input` and the settings dialog's
+ * `TabsList` were both credited to `ui/dialog.tsx`'s `DialogContent`, one to three levels up, whose
+ * `shadow-overlay` is **unconditional** in both themes. Seven of the thirteen walked surfaces are
+ * built on that dialog, so the walk's core guarantee — the one that catches a `tree.tsx`-shaped
+ * missing ring — was quietly off for the majority of its own surfaces.
+ *
+ * ── What this does instead ────────────────────────────────────────────────────────────────────
+ *
+ * It compares each candidate ancestor's painted outline and box-shadow **while the stop is focused**
+ * against the same ancestor **after focus has left**, and credits only a level that both paints and
+ * CHANGES. An always-on shadow reads identically in both samples and earns nothing; the switch
+ * track's `has-focus-visible:` ring appears in one sample and not the other, which is exactly the
+ * signal the pattern is made of.
+ *
+ * ── Why the focused sample is taken during the walk ───────────────────────────────────────────
+ *
+ * Because re-focusing an element afterwards cannot reproduce the state being measured. `:focus-visible`
+ * on a programmatic `focus()` depends on a keyboard-modality heuristic, and a Radix roving-focus root
+ * forwards focus away the moment it receives it — so a second-pass re-focus would silently
+ * under-credit exactly the elements this exists for. The focused half is therefore captured by
+ * `measureActiveElement` under the walk's own real Tab press, and only the blurred half is taken
+ * here, which needs no focus at all.
+ */
+async function resolveAncestorCredits(
+  window: Page,
+  measured: readonly MeasuredStop[]
+): Promise<ReadonlySet<number>> {
+  // Only stops with no ring of their own can be credited to an ancestor, and most stops have one —
+  // so this is usually a handful of elements and often none.
+  const candidates = measured.filter(stop => !stop.selfDraws).map(stop => stop.marker);
+  if (candidates.length === 0) return new Set();
+
+  const blurredSignatures = await window.evaluate(
+    ([attribute, wanted, levels]) => {
+      // Focus off everything first: the whole point is to read these ancestors with no descendant
+      // of theirs focus-visible.
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+
+      const readings: Record<number, string[]> = {};
+      for (const marker of wanted) {
+        const element = document.querySelector(`[${attribute}="${marker}"]`);
+        // Gone from the DOM since the walk — nothing to compare, so nothing is credited.
+        if (element === null) continue;
+        readings[marker] = ancestorPaintSignature(element, levels);
+      }
+      return readings;
+
+      /**
+       * One string per ancestor level: whether it paints, and what with. Declared as a hoisted
+       * function so the identical code runs in both samples — `measureActiveElement` inlines the
+       * same body, and the two must agree character for character or every level looks changed.
+       */
+      function ancestorPaintSignature(start: Element, maxLevels: number): string[] {
+        const signature: string[] = [];
+        let node: Element | null = start.parentElement;
+        for (let level = 0; level < maxLevels && node !== null; level += 1) {
+          const computed = getComputedStyle(node);
+          const width = Number.parseFloat(computed.outlineWidth) || 0;
+          const invisible =
+            computed.outlineColor === 'transparent' || /,\s*0\s*\)$/.test(computed.outlineColor);
+          const outlined = computed.outlineStyle !== 'none' && width >= 1 && !invisible;
+          const shadowed = computed.boxShadow !== 'none' && computed.boxShadow !== '';
+          signature.push(
+            `${outlined || shadowed ? 'D' : '-'}|${computed.outlineStyle} ${computed.outlineWidth} ${computed.outlineColor}|${computed.boxShadow}`
+          );
+          node = node.parentElement;
+        }
+        return signature;
+      }
+    },
+    [WALK_MARKER, candidates, MAX_ANCESTOR_LEVELS] as const
+  );
+
+  const credited = new Set<number>();
+  for (const stop of measured) {
+    const blurred = blurredSignatures[stop.marker];
+    if (blurred === undefined) continue;
+    // A level counts only if it PAINTS while focused (`D`) and reads differently once focus is
+    // gone. Either half alone is what let the dialog's permanent shadow through.
+    const changed = stop.ancestorPaintsFocused.some(
+      (reading, level) => reading.startsWith('D') && reading !== blurred[level]
+    );
+    if (changed) credited.add(stop.marker);
+  }
+  return credited;
 }
 
 /** Removes every `WALK_MARKER` from the document. */
@@ -165,18 +294,30 @@ async function clearWalkMarkers(window: Page): Promise<void> {
 }
 
 /**
+ * A raw measurement: everything `FocusStop` has except the two fields the walk can only decide once
+ * it is over, plus the three it needs to decide them.
+ */
+type MeasuredStop = Omit<FocusStop, 'order' | 'indicatedOn' | 'indicated'> & {
+  /** The `WALK_MARKER` value stamped on this element, so the blurred pass can find it again. */
+  readonly marker: number;
+  /** The marker of an earlier visit, or `null` on the first. Drives `cycled` vs `stuck`. */
+  readonly visitedAt: number | null;
+  /** Whether the focused element paints its own indicator. */
+  readonly selfDraws: boolean;
+  /** Ancestor paint signatures taken WHILE FOCUSED — half of the differential credit. */
+  readonly ancestorPaintsFocused: string[];
+};
+
+/**
  * Reads `document.activeElement`. `null` when focus is on `<body>` or nowhere.
  *
  * All of the DOM reading happens in one `evaluate` rather than in a locator chain per field: a walk
  * is dozens of stops long and each round trip is a real cost, but more importantly the element must
  * be measured while it still has focus, and interleaving Playwright calls invites it to move.
  */
-async function measureActiveElement(
-  window: Page,
-  index: number
-): Promise<(Omit<FocusStop, 'order'> & { visitedAt: number | null }) | null> {
+async function measureActiveElement(window: Page, index: number): Promise<MeasuredStop | null> {
   return window.evaluate(
-    ([attribute, step]) => {
+    ([attribute, step, levels]) => {
       // `Element`, not `HTMLElement`: the ERD canvas is SVG, and an SVG element is perfectly capable
       // of being a focus stop. Narrowing to HTMLElement made the walk read a real stop as "focus left
       // the document" and stop early — the ERD table said "6 stops, did NOT cycle" and everything
@@ -190,47 +331,36 @@ async function measureActiveElement(
       const visitedAt = stamped === null ? null : Number(stamped);
       if (stamped === null) element.setAttribute(attribute, String(step));
 
-      /** Whether `node` paints something a user would read as a focus indicator. */
-      const draws = (node: Element): boolean => {
+      const style = getComputedStyle(element);
+      const outlineWidthPx = Number.parseFloat(style.outlineWidth) || 0;
+      // `rgba(…, 0)` and the keyword both mean the outline is drawn in nothing.
+      const invisibleOutline =
+        style.outlineColor === 'transparent' || /,\s*0\s*\)$/.test(style.outlineColor);
+      const selfDraws =
+        (style.outlineStyle !== 'none' && outlineWidthPx >= 1 && !invisibleOutline) ||
+        (style.boxShadow !== 'none' && style.boxShadow !== '');
+
+      /**
+       * The FOCUSED half of the ancestor differential.
+       *
+       * Taken here, under the walk's own real Tab press, because it is the only moment the state
+       * being measured actually exists — see `resolveAncestorCredits` for why re-focusing later
+       * cannot reproduce it. The blurred half is taken there, and the two signatures are compared
+       * level by level, so this body and that one must stay character-identical.
+       */
+      const ancestorPaintsFocused: string[] = [];
+      let node: Element | null = element.parentElement;
+      for (let level = 0; level < levels && node !== null; level += 1) {
         const computed = getComputedStyle(node);
         const width = Number.parseFloat(computed.outlineWidth) || 0;
-        // `rgba(…, 0)` and the keyword both mean the outline is drawn in nothing.
         const invisible =
           computed.outlineColor === 'transparent' || /,\s*0\s*\)$/.test(computed.outlineColor);
         const outlined = computed.outlineStyle !== 'none' && width >= 1 && !invisible;
-        return outlined || (computed.boxShadow !== 'none' && computed.boxShadow !== '');
-      };
-
-      const style = getComputedStyle(element);
-      const outlineWidthPx = Number.parseFloat(style.outlineWidth) || 0;
-
-      /**
-       * Where the indicator is drawn: on the focused element, or on an ancestor styling itself for
-       * this focus.
-       *
-       * ── The ancestor case is a first-class pattern here, not a workaround ──────────────────────
-       *
-       * Tailwind's `has-focus-visible:` variant compiles to `:has(:focus-visible)`, and this app uses
-       * it wherever the focusable element is deliberately invisible: `ui/switch.tsx` puts
-       * `focus:outline-hidden` on a transparent `<input>` and the ring on the TRACK, and `ui/field.tsx`
-       * does the same for its controls. The focused element genuinely has no ring, and genuinely
-       * should not — the user sees the track light up.
-       *
-       * A measurement that only looked at `document.activeElement` calls that a failure. Task 23's
-       * first version did, which is why the three settings switches read `outline: none 0px` in a walk
-       * where they are, on screen, plainly ringed.
-       *
-       * Bounded at four levels (house rule) and gated on `:has(:focus-visible)` so this cannot excuse
-       * an arbitrary shadow somewhere up the tree — the ancestor has to be styling itself *because of*
-       * this focus.
-       */
-      const MAX_ANCESTORS = 4;
-      let indicatedOn: 'self' | 'ancestor' | 'none' = draws(element) ? 'self' : 'none';
-      let ancestor: Element | null = element.parentElement;
-      for (let level = 0; level < MAX_ANCESTORS && indicatedOn === 'none'; level += 1) {
-        if (ancestor === null) break;
-        if (ancestor.matches(':has(:focus-visible)') && draws(ancestor)) indicatedOn = 'ancestor';
-        ancestor = ancestor.parentElement;
+        const shadowed = computed.boxShadow !== 'none' && computed.boxShadow !== '';
+        ancestorPaintsFocused.push(
+          `${outlined || shadowed ? 'D' : '-'}|${computed.outlineStyle} ${computed.outlineWidth} ${computed.outlineColor}|${computed.boxShadow}`
+        );
+        node = node.parentElement;
       }
 
       const testId = element.getAttribute('data-testid');
@@ -250,7 +380,10 @@ async function measureActiveElement(
         tag: element.tagName.toLowerCase(),
         role,
         classes,
+        marker: step,
         visitedAt,
+        selfDraws,
+        ancestorPaintsFocused,
         // `:focus-visible` is what the plan row actually names, so it is asserted as well as the
         // visible-indicator check — see `unindicatedStops`.
         focusVisible: element.matches(':focus-visible'),
@@ -259,11 +392,9 @@ async function measureActiveElement(
         outlineWidthPx,
         outlineColor: style.outlineColor,
         boxShadow: style.boxShadow === 'none' ? 'none' : style.boxShadow.slice(0, 60),
-        indicatedOn,
-        indicated: indicatedOn !== 'none',
       };
     },
-    [WALK_MARKER, index] as const
+    [WALK_MARKER, index, MAX_ANCESTOR_LEVELS] as const
   );
 }
 

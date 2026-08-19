@@ -31,9 +31,12 @@
  * vendor sheet lacks, so its tabs pass the ordinary check.
  *
  * Separately, the measurement understands the `has-focus-visible:` pattern — `ui/switch.tsx` and
- * `ui/field.tsx` put the ring on an ancestor of a deliberately invisible control — and credits the
- * ancestor that is styling itself for this focus. That is not an exemption; it is where the ring
- * genuinely is.
+ * `ui/field.tsx` put the ring on an ancestor of a deliberately invisible control. That is not an
+ * exemption; it is where the ring genuinely is. The credit is **differential**: an ancestor earns it
+ * only by painting something while the stop is focused that it does not paint once focus has left.
+ * "Some ancestor draws" is not enough and was not always rejected —
+ * `'the ancestor credit is differential'` below is the negative control, using the case that caught
+ * it (a ringless-by-design field three levels under a dialog whose shadow is permanent).
  *
  * Out of scope, per PLAN.md §8: a screen-reader audit beyond focus, contrast and keyboard.
  */
@@ -74,6 +77,7 @@ import {
   withJoineryReact,
   workspaceTabs,
   type FocusExemption,
+  type FocusStop,
   type FocusWalk,
   type SettingsGroup,
 } from '../helpers/joinery-actions-react';
@@ -199,6 +203,68 @@ test.describe('focus is visible everywhere a Tab press can land', () => {
       // roving model), so the TAB order is one stop by design, and that stop passes through
       // `COMMAND_OVERLAY_INPUT_EXEMPTION` — whose `verify` checks the claim the design rests on.
       assertEveryStopRinged(palette, 'command palette');
+
+      // ── The one place `stuck` does not mean "trap" ──────────────────────────────────────────
+      //
+      // Asserted rather than left unexamined, because an unasserted label is a label free to drift.
+      // The classifier cannot tell "this surface intentionally has one stop" from "focus got caught
+      // here", and on this surface it is the former: Tab stays on the field ON PURPOSE, which is the
+      // very claim `COMMAND_OVERLAY_INPUT_EXEMPTION.verify` re-measures. One stop plus `stuck` is
+      // therefore the correct reading of a correct surface — and if the palette ever grows a second
+      // Tab stop, this line fails and the exemption's rationale needs revisiting with it.
+      expect(palette.stops.length, 'the command palette grew a second Tab stop').toBe(1);
+      expect(
+        palette.outcome,
+        'the palette field stopped holding focus — the ringless-field exemption rests on it doing so'
+      ).toBe('stuck');
+    });
+  });
+
+  test('the ancestor credit is differential, not "something up there draws"', async () => {
+    await withJoineryReact(async ({ app, window }) => {
+      // ── Both controls in one test, because each is meaningless without the other ─────────────
+      //
+      // The credit exists so `ui/switch.tsx`'s deliberate pattern — a transparent `<input>` with the
+      // ring on its TRACK, via `has-focus-visible:` — is not reported as a missing ring. Its danger
+      // is that a mechanism loose enough to allow that also allows any ancestor that happens to
+      // paint: the re-review found `palette-input` and a `TabsList` both credited to
+      // `ui/dialog.tsx`'s `DialogContent`, whose `shadow-overlay` is unconditional, one to three
+      // levels up and well inside the four-level bound. Seven of this file's thirteen walks are
+      // built on that dialog.
+      //
+      // So: the switch MUST be credited and the palette field MUST NOT. A mechanism that gets either
+      // one wrong fails here.
+      await openSettings(app, window);
+      await openSettingsGroup(window, 'editor');
+      const settings = await walkTabOrder(window, settingsDialog(window));
+
+      const wordWrap = settings.stops.find(stop => stop.id === 'settings-editor-word-wrap');
+      expect(
+        wordWrap,
+        'the editor group no longer has a word-wrap switch to measure'
+      ).toBeDefined();
+      expect(
+        wordWrap?.indicatedOn,
+        'the switch draws no ring of its own and its track ring was not credited — the ' +
+          '`has-focus-visible:` pattern is no longer recognised'
+      ).toBe('ancestor');
+
+      await window.keyboard.press('Escape');
+      await expect(settingsDialog(window)).toBeHidden({ timeout: UI_TIMEOUT_MS });
+
+      await openPalette(window);
+      const palette = await walkTabOrder(window, overlay(window, 'palette'));
+
+      const input = palette.stops.find(stop => stop.id === 'palette-input');
+      expect(input, 'the palette walk did not reach its field').toBeDefined();
+      expect(
+        input?.indicatedOn,
+        "the palette field was credited with an ancestor's indicator. It has none of its own by " +
+          'design, and the nearest ancestor that paints is DialogContent, whose shadow is on ' +
+          'whether or not anything is focused — the credit is not differential'
+      ).toBe('none');
+      // And therefore it passes only through its exemption, which is the honest route.
+      expect(COMMAND_OVERLAY_INPUT_EXEMPTION.matches(input as FocusStop)).toBe(true);
     });
   });
 

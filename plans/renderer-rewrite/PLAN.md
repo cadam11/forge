@@ -659,9 +659,25 @@ than that sentence and stronger than it sounds**, and both halves are worth stat
 from the focused element's own computed style: Monaco and AG Grid draw their indicator on a
 different element; the command overlay's field is its surface's only focus stop, so the caret is the
 indicator; and a Radix roving-focus group root (`TabsList`) cannot hold focus at all — `.focus()` on
-it leaves `document.activeElement` on the selected tab. A fifth case is handled in the measurement
-rather than excused: `has-focus-visible:` puts the ring on an ancestor (`ui/switch.tsx`,
-`ui/field.tsx`), and the walk credits an ancestor that matches `:has(:focus-visible)` and draws.
+it leaves `document.activeElement` on the selected tab.
+
+A fifth case is handled in the measurement rather than excused: `has-focus-visible:` puts the ring on
+an ancestor (`ui/switch.tsx`, `ui/field.tsx`). **That credit is differential**, and getting it wrong
+once is worth recording. The first version asked `ancestor.matches(':has(:focus-visible)') && draws`
+— but `:has(:focus-visible)` is true for _every_ ancestor of a focused element, so the only real test
+left was "does anything up there paint". `ui/dialog.tsx`'s `DialogContent` carries an unconditional
+`shadow-overlay`, and **seven of the thirteen walked surfaces are built on it**, so a genuinely
+ringless control in any of them would have been waved through — the exact defect class this sweep
+exists to catch. The credit now compares each candidate ancestor's painted outline and box-shadow
+**while the stop is focused** against the same ancestor **after focus leaves**, and counts only a
+level that both paints and changes. The focused half is captured during the walk itself, under a real
+Tab press, because a later programmatic re-focus cannot reproduce `:focus-visible` reliably and a
+roving-focus root forwards focus away the instant it gets it.
+
+Measured across the 203 stops: **163 self-indicated, 10 ancestor-credited** (every one a `Switch`
+track), **30 uncredited** — 28 AG Grid cells and headers, the palette field, and a `TabsList`, all
+four of which are exemption-covered. Under the loose version the palette field and the `TabsList`
+read as ancestor-credited, which is what hid them.
 
 ```bash
 pnpm run test:harness:up      # Docker DBs
