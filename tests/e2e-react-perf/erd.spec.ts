@@ -134,7 +134,7 @@ test.describe(`the ERD at ${TABLES} tables`, () => {
       expect(await erdTransform(window)).toMatch(/translate\(/);
 
       // ── Gate 1: culling is on ────────────────────────────────────────────────────────────────
-      const renderedAtFit = await nodeCount(window);
+      const renderedAtFit = await fittedNodeCount(window);
       // `nodeCount` parses `data-erd-node-count`, which is React's own culled array length
       // (`erd-canvas.tsx:155`) — a self-report. The grid spec counts real elements, and this closes
       // the asymmetry: the number the canvas claims has to equal the number of nodes in the DOM.
@@ -204,7 +204,7 @@ test.describe(`the ERD at ${TABLES} tables`, () => {
       await openPalette(window);
       await runPaletteCommand(window, 'command:open-erd');
       await expect(erdNodes(window).first()).toBeVisible({ timeout: DRAW_BUDGET_MS });
-      const firstRender = await nodeCount(window);
+      const firstRender = await fittedNodeCount(window);
 
       // Running the command again focuses the existing tab rather than opening a second one, so this
       // is the cost of RE-ACTIVATING a 200-node diagram — the operation a user repeats all day.
@@ -218,7 +218,7 @@ test.describe(`the ERD at ${TABLES} tables`, () => {
       // schema and re-ran dagre would empty the canvas first and settle on a different fit. Same
       // node count from the same viewport is what "the cache held" looks like from outside.
       expect(
-        await nodeCount(window),
+        await fittedNodeCount(window),
         'the diagram was torn down and rebuilt when its tab was re-activated'
       ).toBe(firstRender);
       // And it really was a re-ACTIVATION: a second command that had opened a second diagram would
@@ -246,4 +246,28 @@ async function nodeCount(window: Page): Promise<number> {
   const attribute = await erdCanvas(window).getAttribute('data-erd-node-count');
   expect(attribute, 'the ERD canvas is not reporting a node count').not.toBeNull();
   return Number(attribute);
+}
+
+/**
+ * The node count **after fit-on-load has settled** — the only reading of it worth comparing.
+ *
+ * ── The flake this closes, with the number ────────────────────────────────────────────────────
+ *
+ * `erdNodes(window).first()` becoming visible means the canvas has painted SOME nodes, not that it
+ * has finished. The diagram mounts, measures its viewport through a `ResizeObserver`, fits, and
+ * re-culls — and the count climbs across those frames. Sampling on `first()` therefore samples a
+ * number in flight: the re-review's run recorded **12**, and the same spec's second reading a moment
+ * later recorded **176**, so "the diagram was torn down and rebuilt" fired on a diagram that had done
+ * nothing of the sort.
+ *
+ * Waiting for the count to exceed half the schema is the settle signal AND a real assertion — it is
+ * the same floor `lays out all 200 tables` gates on, for the same reason: at this size the fitted
+ * viewport plus its cull margin holds most of the diagram, so anything less is mid-flight or broken.
+ * Bounded by `expect.poll`'s own timeout, no sleep.
+ */
+async function fittedNodeCount(window: Page): Promise<number> {
+  await expect
+    .poll(async () => nodeCount(window), { timeout: UI_TIMEOUT_MS })
+    .toBeGreaterThan(TABLES / 2);
+  return nodeCount(window);
 }
