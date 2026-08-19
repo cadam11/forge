@@ -23,20 +23,40 @@
  */
 
 import { useCallback, useState } from 'react';
-import type { IDockviewPanelHeaderProps } from 'dockview-react';
-import { ArrowRightToLine, Copy, ListX, Pencil, Pin, PinOff, X } from 'lucide-react';
+import type { DockviewGroupPanel, IDockviewPanelHeaderProps } from 'dockview-react';
+import {
+  ArrowRightToLine,
+  Copy,
+  ListX,
+  Pencil,
+  Pin,
+  PinOff,
+  SquareSplitHorizontal,
+  X,
+} from 'lucide-react';
 
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
   ContextMenuTrigger,
   Icon,
   cn,
 } from '../../ui';
 import { tabStore, useTabStore } from '../../state/tab';
 import { logStore } from '../../state/logs';
+import { diagnostics, notify } from '../../state/diagnostics';
+import {
+  DOCKING_BINDINGS,
+  applyDockingMove,
+  bindingFor,
+  refusalMessage,
+  type DockingBinding,
+} from './panel-docking';
 import { OUTPUT_PANEL_ICON, iconForTab } from './tab-icons';
 
 /** Shared by the tab and the reserved-panel header so both close buttons look identical. */
@@ -79,10 +99,114 @@ export function ReservedPanelTab({ api }: IDockviewPanelHeaderProps) {
   );
 }
 
+/** What `aria-keyshortcuts` advertises on the tab. Built from the table, so it cannot go stale. */
+const DOCKING_KEYSHORTCUTS = DOCKING_BINDINGS.map(binding => binding.accelerator).join(' ');
+
+/**
+ * Wires the Option+Arrow docking keys to the element Dockview actually focuses.
+ *
+ * **This cannot be a React `onKeyDown` on the tab's own markup, and the reason is worth stating.**
+ * A tab renderer's element is appended INSIDE Dockview's `.dv-tab` (`Tab.setContent`,
+ * dockview-core 8.1.0), and `.dv-tab` is what carries `role="tab"`, `aria-selected` and the roving
+ * `tabIndex` — so it, not anything this component renders, is what has focus when a key is pressed.
+ * React events propagate from the event TARGET upward, and this component's subtree is *below* that
+ * target, so a handler here would never run. The listener therefore goes on the ancestor, natively.
+ *
+ * `aria-keyshortcuts` goes on the same element for the same reason: it belongs on the thing the
+ * user focuses, which is how the shortcuts are discoverable without opening the menu.
+ *
+ * `.dv-tab` is a vendor class name, which this codebase otherwise avoids. It is the third of the
+ * three documented Dockview exemptions (`shell/dockview-theme.css` already styles `.dv-tab` for the
+ * same reason: it is the focusable element and the vendor gives it no focus treatment). If it ever
+ * disappears, this logs and does nothing — the tab still renders and the menu still offers all six
+ * moves.
+ *
+ * A **ref callback with a cleanup** (React 19) rather than a `useEffect` reading a ref: the wiring
+ * belongs to the NODE, and this component has a render path that produces no node at all — the
+ * one-frame fallback for a tab that has left the store. An effect keyed on anything but the node
+ * would either miss the node arriving or run against a stale one. `useCallback` keeps the identity
+ * stable, so a re-render does not detach and reattach.
+ */
+function useDockingKeys(
+  dock: (move: DockingBinding['move']) => void
+): (node: HTMLDivElement | null) => (() => void) | undefined {
+  return useCallback(
+    (node: HTMLDivElement | null) => {
+      if (node === null) return undefined;
+
+      const tabElement = node.closest<HTMLElement>('.dv-tab');
+      if (tabElement === null) {
+        diagnostics.warn(
+          'workspace tab: no .dv-tab ancestor, so keyboard docking is unavailable on this tab',
+          new Error('dockview tab element not found')
+        );
+        return undefined;
+      }
+
+      const onKeyDown = (event: KeyboardEvent): void => {
+        // ── The editable-target bail, and it is a regression fix ──────────────────────────────
+        //
+        // The rename `<input>` renders INSIDE `.dv-tab`, and its own React handler ends with
+        // `event.stopPropagation()`. That is a SYNTHETIC stopPropagation: React 19 attaches its
+        // listeners at the root container, so this native listener — on a descendant of that root —
+        // has already run by the time React dispatches the input's handler. Measured order:
+        // `['native-ancestor', 'react-child']`.
+        //
+        // Without this line, `⌥→` in the rename field — the standard macOS "move by word" — was
+        // caught here instead: the caret did not move, the panel split into a new group, and the
+        // blur that followed committed a half-typed name.
+        //
+        // The check is on the event TARGET rather than on `draft === null`, one layer less magic
+        // and it also covers anything editable Dockview grows later.
+        if (
+          event.target instanceof Element &&
+          event.target.closest('input, textarea, [contenteditable]') !== null
+        ) {
+          return;
+        }
+
+        const binding = bindingFor(event);
+        if (binding === undefined) return;
+        // Only reached for a key this component claims, so everything else still reaches Dockview's
+        // own tab navigation (`ctrl+[`, `ctrl+]`, F6) and the shell's shortcuts.
+        event.preventDefault();
+        event.stopPropagation();
+        dock(binding.move);
+      };
+
+      tabElement.setAttribute('aria-keyshortcuts', DOCKING_KEYSHORTCUTS);
+      tabElement.addEventListener('keydown', onKeyDown);
+      return () => {
+        tabElement.removeEventListener('keydown', onKeyDown);
+        tabElement.removeAttribute('aria-keyshortcuts');
+      };
+    },
+    [dock]
+  );
+}
+
 export function PanelTab(props: IDockviewPanelHeaderProps) {
   const tabId = props.api.id;
   const tab = useTabStore(state => state.tabs.find(t => t.id === tabId));
   const [draft, setDraft] = useState<string | null>(null);
+
+  /**
+   * Runs a docking move and reports a refusal. The single side-effecting call this component makes
+   * into Dockview's arrangement, shared by the key handler and the six menu items so neither can
+   * drift from the other.
+   */
+  const dock = useCallback(
+    (move: DockingBinding['move']): void => {
+      // The type argument is stated rather than inferred: `moveTo` is a contravariant inference
+      // site, so leaving it out lets TypeScript settle on the module's structural default and the
+      // real api stops being assignable. Naming `DockviewGroupPanel` here is also what makes this
+      // line the compile-time check that `panel-docking.ts`'s four-field view of Dockview is true.
+      if (applyDockingMove<DockviewGroupPanel>(props.api, props.containerApi, move)) return;
+      notify.info(refusalMessage(move));
+    },
+    [props.api, props.containerApi]
+  );
+  const dockKeyboardRef = useDockingKeys(dock);
 
   /** Focus + select the rename field the moment it attaches. See its `ref` below. */
   const focusRename = useCallback((node: HTMLInputElement | null): void => {
@@ -118,6 +242,7 @@ export function PanelTab(props: IDockviewPanelHeaderProps) {
           data-tab-type={tab.type}
           data-dirty={tab.isDirty === true}
           data-pinned={tab.isPinned === true}
+          ref={dockKeyboardRef}
           onDoubleClick={startRename}
         >
           <Icon icon={iconForTab(tab)} size="sm" className="stroke-fg-muted" />
@@ -231,6 +356,27 @@ export function PanelTab(props: IDockviewPanelHeaderProps) {
             Duplicate tab
           </ContextMenuItem>
         ) : null}
+        {/* Docking, by menu. The same six moves the Option+Arrow keys perform, from the same
+            table — so the accelerators shown here cannot claim a key that does nothing. Radix opens
+            this menu on Shift+F10 and the Menu key as well as on right-click, which is what makes
+            the whole set reachable without a pointer (PLAN.md Task 23). */}
+        <ContextMenuSub>
+          <ContextMenuSubTrigger icon={SquareSplitHorizontal} data-testid="workspace-tab-menu-move">
+            Move tab
+          </ContextMenuSubTrigger>
+          <ContextMenuSubContent data-testid={`workspace-tab-move-menu-${tabId}`}>
+            {DOCKING_BINDINGS.map(binding => (
+              <ContextMenuItem
+                key={binding.testIdSuffix}
+                shortcut={binding.accelerator}
+                data-testid={`workspace-tab-menu-move-${binding.testIdSuffix}`}
+                onSelect={() => dock(binding.move)}
+              >
+                {binding.label}
+              </ContextMenuItem>
+            ))}
+          </ContextMenuSubContent>
+        </ContextMenuSub>
         <ContextMenuSeparator />
         <ContextMenuItem
           icon={X}

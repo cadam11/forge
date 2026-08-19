@@ -251,6 +251,29 @@ export interface LaunchOptions {
    * mattering — is a `packages/` change and is recorded in `plans/renderer-rewrite/PLAN.md`.
    */
   macScrollBarStyle?: MacScrollBarStyle;
+  /**
+   * Write files into the launch's isolated user-data directory before Electron starts.
+   *
+   * **Omitted by default**, like the two options above, so a launch that does not ask for it is
+   * byte-identical to what it always was. The directory is a fresh `mkdtemp` per launch and is the
+   * one `--user-data-dir` points at, so anything written here is thrown away with it.
+   *
+   * ── What it is for, and why nothing else would do ──────────────────────────────────────────
+   *
+   * Some state the app reads at STARTUP has no IPC channel to write it through. `ChatService` loads
+   * `<userData>/chat-history/*.json` in its constructor, so a conversation that already contains 50
+   * messages and one still streaming — the state Task 23's chat benchmark needs before it injects a
+   * single chunk — can only be produced by putting the file there first. Driving the UI to build one
+   * would mean calling an LLM, which no tier does.
+   *
+   * The alternative was for the perf tier to fork the launcher, which would have made "the app under
+   * test" mean something different in that tier than in every other one. A four-line, opt-in hook on
+   * the one launcher is the smaller price.
+   *
+   * Runs synchronously, before `electron.launch`, so the files are there when the main process reads
+   * them. A throw propagates and no app is started.
+   */
+  seedUserData?: (userDataDir: string) => void;
 }
 
 export async function launchJoinery(options: LaunchOptions = {}): Promise<LaunchedApp> {
@@ -296,6 +319,10 @@ export async function launchJoinery(options: LaunchOptions = {}): Promise<Launch
   // The --user-data-dir flag is honored by Electron and routes both
   // electron-store and the keychain credential namespace into the temp dir.
   const userDataDir = mkdtempSync(join(tmpdir(), 'joinery-test-userdata-'));
+
+  // Before the app exists, because the state this writes is read at startup. A throw here leaves a
+  // temp directory behind and no Electron process, which is the safe half of the two.
+  options.seedUserData?.(userDataDir);
 
   // Both spreads are empty unless the caller asked, so an unpinned launch's argv is byte-identical
   // to what it was. See each option's own documentation for the defect it prevents.
@@ -418,6 +445,12 @@ export async function withJoinery<T>(
   try {
     return await fn(launched);
   } finally {
+    /* eslint-disable no-console --
+       Cleanup failures in a `finally` cannot be rethrown: doing so would replace whatever the test
+       actually failed with, and the message a reader needs would be gone. They cannot be swallowed
+       either (house rule), so they are printed. `console` is the only reporting channel a Playwright
+       helper has — there is no logger in this process and no test context to attach to at this
+       point in the teardown. */
     try {
       await launched.app.close();
     } catch (err) {
@@ -428,5 +461,6 @@ export async function withJoinery<T>(
     } catch (err) {
       console.error('[electron-app] failed to clean userData dir:', err);
     }
+    /* eslint-enable no-console */
   }
 }

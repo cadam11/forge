@@ -342,6 +342,83 @@ describe('every interactive primitive has a :focus-visible treatment', () => {
   }
 });
 
+describe('no primitive suppresses the outline it then tries to draw', () => {
+  /**
+   * The Tailwind v4 trap Task 23's keyboard walk found in `tree.tsx`, closed here so it cannot come
+   * back anywhere in the set.
+   *
+   * `outline-hidden` compiles to `--tw-outline-style: none`, and every `outline-<width>` utility
+   * compiles to `outline-style: var(--tw-outline-style)`. So `outline-hidden` and
+   * `focus-visible:outline-2` on the same element produce a 2px outline drawn in style `none` —
+   * nothing at all — and every source scan in this file, plus the `:focus-visible` scan above,
+   * happily calls that a pass. Only `focus-visible:outline-solid` puts the style back.
+   *
+   * `--tw-outline-style` is registered `inherits: false`, so the trap is strictly SAME-ELEMENT —
+   * which is why the unit scanned is one `cn(…)` argument list rather than a line or a file. Per
+   * line would miss it (this codebase splits a `cn` across several), and per file would falsely
+   * accuse `switch.tsx`, which puts `focus:outline-hidden` on its hidden `<input>` and the ring on
+   * the track in a *different* `cn` — two elements, not this bug.
+   */
+  const SUPPRESSES = /outline-hidden/;
+  const DRAWS = /focus-visible:outline-\d/;
+  const RESTORES = /focus-visible:outline-solid/;
+
+  /**
+   * Every `cn(` argument list in `source`, as raw text.
+   *
+   * A paren counter rather than a regex, because the arguments contain parentheses of their own
+   * (`h-(--tree-row-height)`, ternaries, nested calls) and a lazy `\(([^)]*)\)` would cut the list
+   * off at the first one — silently shortening exactly the strings this check reads.
+   */
+  function cnCalls(source: string): string[] {
+    const calls: string[] = [];
+    // Bounded by the source length; a call that never closes ends the scan rather than looping.
+    for (
+      let start = source.indexOf('cn(');
+      start !== -1;
+      start = source.indexOf('cn(', start + 3)
+    ) {
+      let depth = 0;
+      let end = start + 2;
+      for (; end < source.length; end += 1) {
+        if (source[end] === '(') depth += 1;
+        else if (source[end] === ')') {
+          depth -= 1;
+          if (depth === 0) break;
+        }
+      }
+      if (depth !== 0) break;
+      calls.push(source.slice(start, end + 1));
+    }
+    return calls;
+  }
+
+  function offendingCalls(source: string): string[] {
+    return cnCalls(source).filter(
+      call => SUPPRESSES.test(call) && DRAWS.test(call) && !RESTORES.test(call)
+    );
+  }
+
+  it('holds across src/ui', () => {
+    const offenders = Object.entries(SOURCES).flatMap(([file, source]) =>
+      offendingCalls(source).map(() => file)
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it('sees a multi-line cn as one element, and catches the combination inside it', () => {
+    // Guards both halves: the paren walk must reach past a line break and past a nested paren, and
+    // all three regexes must fire, or the check above is vacuous.
+    const bad = `cn(\n  'h-(--x) outline-hidden',\n  'focus-visible:outline-2 focus-visible:outline-focus'\n)`;
+    expect(offendingCalls(bad)).toHaveLength(1);
+    expect(
+      offendingCalls(bad.replace('outline-2', 'outline-2 focus-visible:outline-solid'))
+    ).toEqual([]);
+    // Two separate calls are two elements, and must not be conflated.
+    expect(offendingCalls(`cn('outline-hidden')\ncn('focus-visible:outline-2')`)).toEqual([]);
+  });
+});
+
 /** The modules whose source matches `pattern`, ignoring any listed as allowed. */
 function filesMatching(pattern: RegExp, allowed: ReadonlySet<string> = new Set()): string[] {
   return Object.entries(SOURCES)

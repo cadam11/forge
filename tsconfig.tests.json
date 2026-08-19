@@ -1,0 +1,50 @@
+{
+  // The test tree's typecheck, and it exists because nothing else covered it.
+  //
+  // `pnpm run typecheck` is `turbo run typecheck`, which runs one task per package. No package's
+  // tsconfig includes `tests/`, and the root `tsconfig.json` is never compiled by anything — so
+  // every Playwright spec and helper in this repo was typechecked by NOTHING in CI. Task 23 added
+  // ~1,600 lines there and the review (Minor 14) is what noticed.
+  //
+  // Separate from `tsconfig.json` rather than folded into it: that file is the shared base every
+  // package extends, and giving it an `include` would change what each package compiles. This one
+  // is standalone, has `noEmit`, and is invoked by the root `typecheck` script after turbo.
+  //
+  // `moduleResolution: bundler` because the specs use extensionless relative imports; `DOM` in
+  // `lib` because helpers run code inside `page.evaluate`, where `document` and `getComputedStyle`
+  // are real; `types: ["node"]` for `node:fs`, `node:path` and `process`.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "strict": true,
+    "noImplicitReturns": true,
+    "noImplicitOverride": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    // The integration tier imports main-process modules through these aliases; vitest resolves them
+    // via `vite-tsconfig-paths` off the root config, so a typecheck that did not restate them would
+    // fail on twelve `TS2307`s that are not real.
+    "baseUrl": ".",
+    "paths": {
+      "@joinery/main": ["packages/main/src/index.ts"],
+      "@joinery/main/*": ["packages/main/src/*"],
+      "@joinery/renderer": ["packages/renderer/src/index.ts"],
+      "@joinery/renderer/*": ["packages/renderer/src/*"],
+      "@joinery/preload": ["packages/preload/src/index.ts"],
+      "@joinery/preload/*": ["packages/preload/src/*"],
+      "@joinery/shared": ["packages/shared/src/index.ts"],
+      "@joinery/shared/*": ["packages/shared/src/*"]
+    }
+  },
+  "include": ["tests/**/*.ts"],
+  "exclude": ["node_modules", "tests/reports/.cache"]
+}
