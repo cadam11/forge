@@ -4,10 +4,11 @@
 // to tests/reports/.
 //
 // Usage:
-//   node tests/reporter/build-report.mjs            # default: brings harness up, runs unit + integration + e2e, leaves harness running
+//   node tests/reporter/build-report.mjs            # default: brings harness up, runs every tier, leaves harness running
 //   node tests/reporter/build-report.mjs --teardown # tear down harness when done
 //   node tests/reporter/build-report.mjs --no-harness  # skip integration tier
-//   node tests/reporter/build-report.mjs --no-e2e      # skip Playwright E2E tier
+//   node tests/reporter/build-report.mjs --no-e2e      # skip every Playwright tier
+//   node tests/reporter/build-report.mjs --no-perf     # skip the slow performance tier only
 //
 // Exit code is 0 only if every executed tier passed.
 
@@ -62,26 +63,28 @@ async function main() {
     });
   }
 
-  // Tier 3: E2E (Playwright + Electron)
-  if (ARGS.e2e) {
-    tiers.push(await runPlaywrightTier({ label: 'E2E (Playwright + Electron)', project: 'e2e', cacheName: 'e2e.json' }));
-  } else {
-    tiers.push({
-      label: 'E2E (Playwright + Electron)',
-      status: 'pending',
-      note: 'Skipped via --no-e2e.',
-    });
-  }
-
-  // Tier 4: Visual regression
-  if (ARGS.e2e) {
-    tiers.push(await runPlaywrightTier({ label: 'Visual regression', project: 'visual', cacheName: 'visual.json' }));
-  } else {
-    tiers.push({
-      label: 'Visual regression',
-      status: 'pending',
-      note: 'Skipped via --no-e2e.',
-    });
+  // Tiers 3-5: the Playwright projects, in ascending order of how long they take.
+  //
+  // These named the Angular projects (`e2e`, `visual`) until Task 24 deleted them, which made
+  // `test:full` a report on two tiers that no longer existed. They are the survivors, and the perf
+  // tier — which had never been wired in here at all — joins them.
+  const playwrightTiers = [
+    { label: 'E2E (Playwright + Electron)', project: 'e2e-react', cacheName: 'e2e.json', slow: false },
+    { label: 'Visual regression', project: 'visual-react', cacheName: 'visual.json', slow: false },
+    // Slow by construction: a 100k-row grid, a 200-table schema built from scratch, and a
+    // 600-chunk stream injected in real time. `--no-perf` is for the runs that cannot pay for it.
+    { label: 'Performance', project: 'perf-react', cacheName: 'perf.json', slow: true },
+  ];
+  for (const tier of playwrightTiers) {
+    if (!ARGS.e2e) {
+      tiers.push({ label: tier.label, status: 'pending', note: 'Skipped via --no-e2e.' });
+      continue;
+    }
+    if (tier.slow && !ARGS.perf) {
+      tiers.push({ label: tier.label, status: 'pending', note: 'Skipped via --no-perf.' });
+      continue;
+    }
+    tiers.push(await runPlaywrightTier(tier));
   }
 
   const durationMs = Date.now() - startedAt;
@@ -106,13 +109,14 @@ async function main() {
 // ---- args ----
 
 function parseArgs(argv) {
-  const args = { harness: true, teardown: false, e2e: true };
+  const args = { harness: true, teardown: false, e2e: true, perf: true };
   for (const a of argv) {
     if (a === '--no-harness') args.harness = false;
     else if (a === '--no-e2e') args.e2e = false;
+    else if (a === '--no-perf') args.perf = false;
     else if (a === '--teardown') args.teardown = true;
     else if (a === '--help' || a === '-h') {
-      console.log('Usage: node tests/reporter/build-report.mjs [--no-harness] [--no-e2e] [--teardown]');
+      console.log('Usage: node tests/reporter/build-report.mjs [--no-harness] [--no-e2e] [--no-perf] [--teardown]');
       process.exit(0);
     } else {
       console.error(`unknown flag: ${a}`);
@@ -215,6 +219,8 @@ async function runVitestTier({ label, configFlag, cacheFile }) {
 
 // ---- playwright tier ----
 
+// The tier gate: no built app, no Playwright run. The path survived the cutover unchanged, because
+// the React renderer reproduces the Angular artifact contract exactly (`dist/browser`, PLAN.md §3.1).
 const RENDERER_INDEX = join(REPO_ROOT, 'packages', 'renderer', 'dist', 'browser', 'index.html');
 const MAIN_ENTRY = join(REPO_ROOT, 'packages', 'main', 'dist', 'index.js');
 

@@ -34,7 +34,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(HERE, '..', '..');
 const CACHE_DIR = join(REPO_ROOT, 'tests', 'reports', '.cache');
 const REPORTER_PATH = join(REPO_ROOT, 'tests', 'reporter', 'vitest-live-reporter.mjs');
-const SNAPSHOTS_DIR = join(REPO_ROOT, 'tests', '__snapshots__', 'visual');
+const SNAPSHOTS_DIR = join(REPO_ROOT, 'tests', '__snapshots__', 'visual-react');
 const ATTACHMENTS_DIR = join(REPO_ROOT, 'tests', 'reports', '.cache', 'playwright-results');
 const PERSISTED_STATE_FILE = join(REPO_ROOT, 'tests', 'reports', '.cache', 'dashboard-state.json');
 
@@ -55,11 +55,11 @@ const state = {
     unit: makeTier('Unit', 'Initializing — first run in progress…'),
     integration: makeTier('Integration', 'Initializing — first run in progress…'),
     // E2E + Visual are passive — populated when the user fires the Run
-    // button on the tier or runs the matching `pnpm run test:e2e:live` /
-    // `test:visual:live` command in another terminal. Neither has a
+    // button on the tier or runs the matching `pnpm run test:e2e:react:live` /
+    // `test:visual:react:live` command in another terminal. Neither has a
     // dashboard-managed watcher (too heavy to rerun on every save).
-    e2e:    makeTier('E2E (Playwright + Electron)', 'Run via the Run button (or `pnpm run test:e2e:live`).'),
-    visual: makeTier('Visual regression',           'Run via the Run button (or `pnpm run test:visual:live`).'),
+    e2e:    makeTier('E2E (Playwright + Electron)', 'Run via the Run button (or `pnpm run test:e2e:react:live`).'),
+    visual: makeTier('Visual regression',           'Run via the Run button (or `pnpm run test:visual:react:live`).'),
   },
   // Per-tier opt-out for the file-watch auto-rerun. Only the slow tiers
   // (e2e/visual) get a toggle — unit + integration are sub-second so the
@@ -129,9 +129,13 @@ let infraTimer = null;
 // directories and trigger a tier rerun after a long debounce — long enough
 // that the user is clearly done editing before the run kicks off.
 const E2E_WATCH_PATHS = [
-  join(REPO_ROOT, 'tests', 'e2e'),
+  join(REPO_ROOT, 'tests', 'e2e-react'),
+  join(REPO_ROOT, 'tests', 'e2e-react-visual'),
   join(REPO_ROOT, 'tests', 'helpers'),
 ];
+
+/** Dashboard tier key -> the Playwright project it drives. See `spawnOneShotPlaywright`. */
+const PLAYWRIGHT_PROJECTS = { e2e: 'e2e-react', visual: 'visual-react' };
 const PLAYWRIGHT_WATCH_DEBOUNCE_MS = 30_000;
 let e2eDebounceTimer = null;
 let visualDebounceTimer = null;
@@ -660,13 +664,13 @@ function startPlaywrightWatchers() {
     try {
       watcher = fsWatch(dir, { recursive: true }, (_event, filename) => {
         if (!filename || !filename.endsWith('.ts')) return;
-        // Treat tests/e2e/visual/** changes as visual; everything else under
-        // tests/e2e or tests/helpers as e2e. Helpers are shared so a helper
-        // change reruns BOTH (since either tier could be affected).
-        const isVisualSpec = filename.includes('visual/') && filename.endsWith('.spec.ts');
+        // The three watched directories are siblings, so which tier a change belongs to is the
+        // directory it arrived under: tests/e2e-react-visual -> visual, tests/e2e-react -> e2e.
+        // Helpers are shared, so a helper change reruns BOTH.
         const isHelper = dir.endsWith('helpers');
-        if (isVisualSpec || isHelper) scheduleTierRerun('visual');
-        if (!isVisualSpec || isHelper) scheduleTierRerun('e2e');
+        const isVisual = dir.endsWith('e2e-react-visual');
+        if (isVisual || isHelper) scheduleTierRerun('visual');
+        if (!isVisual || isHelper) scheduleTierRerun('e2e');
       });
       playwrightWatchers.push(watcher);
       console.log(`▶ watching ${dir} for spec / helper changes (rerun on 30s quiet)`);
@@ -693,7 +697,12 @@ function spawnOneShotPlaywright(tier, files = []) {
     console.log(`▶ skipping one-shot playwright (${tier}): already in flight (pid ${playwrightChildren[tier].child.pid})`);
     return;
   }
-  const args = ['playwright', 'test', `--project=${tier}`, ...files];
+  // The dashboard's tier KEYS are 'e2e' / 'visual'; the Playwright projects they drive are
+  // 'e2e-react' / 'visual-react'. The names diverged at Task 24, which deleted the Angular tiers
+  // and kept the survivors' `-react` suffixes (the committed baseline tree is keyed by them).
+  // Mapping here rather than renaming the tier keys keeps every event, badge and cancel path in
+  // this file — and the dashboard HTML — untouched.
+  const args = ['playwright', 'test', `--project=${PLAYWRIGHT_PROJECTS[tier]}`, ...files];
   console.log(`▶ spawning one-shot playwright (${tier}): pnpm exec ${args.join(' ')}`);
   const child = spawn('pnpm', ['exec', ...args], {
     stdio: 'inherit',

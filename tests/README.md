@@ -52,7 +52,7 @@ pnpm run test:harness:down     # tear down when done
 - **Hero counters** — passed / failed / skipped / duration
 - **Synopsis** — one-line business-language summary
 - **Failure focus list** — every failed test surfaced at the top with full error + stack
-- **Tier sections** — collapsible per-tier (Unit, Integration, E2E placeholder, Visual placeholder)
+- **Tier sections** — collapsible per-tier (Unit, Integration, E2E, Visual, Performance)
 - **Suite sections** — collapsible per-spec-file with pass/fail counts
 - **Copy for LLM** — every section has its own button. Click it on a failed test to grab a token-efficient markdown summary (file path, test name, git context, error + truncated stack) ready to paste into a Claude session along with your fix request.
 
@@ -77,6 +77,8 @@ pnpm run test:harness:down     # tear down when done
 `test:full` accepts flags via `pnpm run test:full -- <flag>`:
 
 - `--no-harness` skip the integration tier (unit-only run)
+- `--no-e2e` skip every Playwright tier
+- `--no-perf` skip the slow performance tier only
 - `--teardown` tear the harness down at the end
 
 ## What's running in the test network
