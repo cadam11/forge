@@ -22,6 +22,19 @@ import { cn } from './cn';
 
 export const Tabs = RadixTabs.Root;
 
+/**
+ * The strip itself, and it deliberately has **no** focus ring.
+ *
+ * Radix builds `Tabs.List` on `RovingFocusGroup`, whose root takes `tabIndex: 0` whenever it has
+ * focusable items (`@radix-ui/react-roving-focus/dist/index.mjs:92`) — so Tab does route through
+ * here. But it cannot HOLD focus: the root's own focus handler forwards immediately to the current
+ * item. Measured, not assumed (Task 23): calling `.focus()` on this element leaves
+ * `document.activeElement` on the selected `role="tab"`, which carries the ring.
+ *
+ * A ring here would therefore paint for at most a frame, on an element the user never sees focused.
+ * `tests/helpers/react/a11y.ts` carries the matching `ROVING_TABLIST_EXEMPTION`, whose `verify`
+ * re-runs that measurement — so this omission is checked rather than merely asserted.
+ */
 export function TabsList({ className, ...rest }: ComponentPropsWithRef<typeof RadixTabs.List>) {
   return (
     <RadixTabs.List

@@ -18,8 +18,15 @@
  *     off) and not on a change of weather. Each one records the median it was sized from, so the
  *     next person can see how much headroom they are inside.
  *
- * Bounded waits and no sleeps, per the house rule: every wait here is an `expect(...).toPass` or a
- * Playwright assertion with an explicit timeout.
+ * Bounded waits and no sleeps, per the house rule: every WAIT in this tier is an `expect(…).toPass`
+ * or a Playwright assertion with an explicit timeout.
+ *
+ * **One `setTimeout` exists and it is not a wait.** `chat-stream.spec.ts`'s `injectChunks` sleeps
+ * `CHUNK_INTERVAL_MS` between sends — that is the STIMULUS, the thing that makes the load 100
+ * chunks a second instead of 3,000 chunks instantly, and removing it would change what is being
+ * measured rather than make the test faster. The rule the house has is about waiting for a
+ * condition by guessing how long it takes; pacing a generator is the opposite of that. The
+ * condition that follows the stream is still a bounded assertion.
  */
 
 import { writeFile } from 'node:fs/promises';

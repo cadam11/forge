@@ -234,9 +234,12 @@ export {
   AG_GRID_EXEMPTION,
   COMMAND_OVERLAY_INPUT_EXEMPTION,
   MONACO_EXEMPTION,
+  ROVING_TABLIST_EXEMPTION,
   attachFocusTable,
   unindicatedStops,
   walkTabOrder,
   type FocusExemption,
   type FocusStop,
+  type FocusWalk,
+  type WalkOutcome,
 } from './react/a11y';

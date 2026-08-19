@@ -90,12 +90,24 @@ const DRAW_BUDGET_MS = 20_000;
 const BLOCKING_BUDGET_MS = 5_000;
 
 test.beforeAll(async () => {
+  // Drop FIRST, so the tier is self-healing. `afterAll` covers a failed test — Playwright runs it
+  // whenever `beforeAll` ran — but a hard worker kill skips it, and what it leaves behind is exactly
+  // the state that turned two visual baselines red. Nothing else sweeps this database:
+  // `dropDatabasesMatching` is called by other specs with their own prefixes. One extra second at
+  // the top of the slowest tier in the suite is the right price for that not mattering.
+  await dropWideSchema();
   await ensureWideSchema(TABLES);
 });
 
 // Not tidiness — see `ensureWideSchema`'s header. A 201st database on the shared container turns
 // the visual tier's two `shell-connected` baselines red, because the explorer lists every database
 // on the server and those screenshots include the explorer.
+//
+// Ordering between the two tiers is not left to luck either, but it is currently IMPLICIT and worth
+// naming: `playwright.config.ts` runs `workers: 1` and lists `perf-react` before `visual-react`, so
+// a single `playwright test` invocation with no `--project` filter finishes this tier's cleanup
+// before the first baseline is captured. The `beforeAll` drop above is what makes the guarantee not
+// depend on that.
 test.afterAll(dropWideSchema);
 
 test.describe(`the ERD at ${TABLES} tables`, () => {
@@ -123,6 +135,13 @@ test.describe(`the ERD at ${TABLES} tables`, () => {
 
       // ── Gate 1: culling is on ────────────────────────────────────────────────────────────────
       const renderedAtFit = await nodeCount(window);
+      // `nodeCount` parses `data-erd-node-count`, which is React's own culled array length
+      // (`erd-canvas.tsx:155`) — a self-report. The grid spec counts real elements, and this closes
+      // the asymmetry: the number the canvas claims has to equal the number of nodes in the DOM.
+      expect(
+        await erdNodes(window).count(),
+        'the canvas reports a node count that does not match the SVG it drew'
+      ).toBe(renderedAtFit);
       expect(
         renderedAtFit,
         'the diagram is empty, so nothing below means anything'

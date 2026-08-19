@@ -144,6 +144,27 @@ function useDockingKeys(
       }
 
       const onKeyDown = (event: KeyboardEvent): void => {
+        // ── The editable-target bail, and it is a regression fix ──────────────────────────────
+        //
+        // The rename `<input>` renders INSIDE `.dv-tab`, and its own React handler ends with
+        // `event.stopPropagation()`. That is a SYNTHETIC stopPropagation: React 19 attaches its
+        // listeners at the root container, so this native listener — on a descendant of that root —
+        // has already run by the time React dispatches the input's handler. Measured order:
+        // `['native-ancestor', 'react-child']`.
+        //
+        // Without this line, `⌥→` in the rename field — the standard macOS "move by word" — was
+        // caught here instead: the caret did not move, the panel split into a new group, and the
+        // blur that followed committed a half-typed name.
+        //
+        // The check is on the event TARGET rather than on `draft === null`, one layer less magic
+        // and it also covers anything editable Dockview grows later.
+        if (
+          event.target instanceof Element &&
+          event.target.closest('input, textarea, [contenteditable]') !== null
+        ) {
+          return;
+        }
+
         const binding = bindingFor(event);
         if (binding === undefined) return;
         // Only reached for a key this component claims, so everything else still reaches Dockview's

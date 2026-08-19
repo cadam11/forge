@@ -1,22 +1,39 @@
 /**
- * The a11y sweep: **every element a Tab press can reach shows a focus indicator, and every docking
- * move a drag can make is also reachable from the keyboard.**
+ * The a11y sweep: **on the surfaces walked here, every element a Tab press can reach matches
+ * `:focus-visible` and draws a visible indicator — and every docking move a drag can make is also
+ * reachable from the keyboard.**
  *
- * PLAN.md Task 23. The inventory is taken by walking the real tab order in the shipped bundle —
- * `tests/helpers/react/a11y.ts` explains why a source scan is the weaker instrument. Each test
- * attaches its walk as a markdown table, so a run of this file IS the inventory: open the
- * attachment on any test to see every stop, its role, whether it matched `:focus-visible`, and what
- * it was drawn with.
+ * PLAN.md Task 23. Note the scope in that first sentence: it says "the surfaces walked here", not
+ * "every interactive element". The honest claim is **runtime-verified on the walked surfaces,
+ * statically verified elsewhere** — see the PLAN.md Task 23 appendix for the static half and its
+ * evidence. Overstating it was the review's I3 finding, and the list of what IS walked is the list
+ * of `test()` blocks below:
  *
- * ── The three vendor surfaces ────────────────────────────────────────────────────────────────
+ *   connected shell · connection editor · all four settings groups · command palette ·
+ *   backup dialog · restore dialog · query tab (both halves) · chat side panel · ERD tab
  *
- * Dockview, AG Grid and Monaco each own DOM this app does not write. Dockview needed a rule of its
- * own (`shell/dockview-theme.css` styles `.dv-tab:focus-visible` — the vendor sheet has none) and
- * so passes the ordinary check. The other two draw their indicator somewhere `getComputedStyle` on
- * the FOCUSED element cannot see it — Monaco on an ancestor, AG Grid on the cell rather than the
- * focus sink — so each has an exemption that carries its own positive assertion. Both are asserted
- * non-vacuous below: an exemption that stopped matching anything would quietly excuse whatever grew
- * that shape next.
+ * The inventory is taken by walking the real tab order in the shipped bundle —
+ * `tests/helpers/react/a11y.ts` explains why a source scan is the weaker instrument. Each walk is
+ * attached as a markdown table, so a run of this file IS the inventory: open any attachment to see
+ * every stop, its role, whether it matched `:focus-visible`, and what it was drawn with.
+ *
+ * ── The four exemptions ──────────────────────────────────────────────────────────────────────
+ *
+ * Four kinds of stop cannot be judged by reading the focused element's own computed style, and each
+ * carries a positive assertion of its own — an exemption without one would be a hole rather than a
+ * documented edge. `tests/helpers/react/a11y.ts` states each rationale in full; in short: Monaco and
+ * AG Grid draw their indicator on a different element from the one that takes focus, the command
+ * overlay's field is its surface's only focus stop (the caret is the indicator), and a Radix
+ * roving-focus group root cannot hold focus at all. The last test in this file runs all four
+ * `verify`s directly, so none of them can rot into a rubber stamp.
+ *
+ * Dockview is NOT among them: `shell/dockview-theme.css` gives `.dv-tab` a `:focus-visible` rule the
+ * vendor sheet lacks, so its tabs pass the ordinary check.
+ *
+ * Separately, the measurement understands the `has-focus-visible:` pattern — `ui/switch.tsx` and
+ * `ui/field.tsx` put the ring on an ancestor of a deliberately invisible control — and credits the
+ * ancestor that is styling itself for this focus. That is not an exemption; it is where the ring
+ * genuinely is.
  *
  * Out of scope, per PLAN.md §8: a screen-reader audit beyond focus, contrast and keyboard.
  */
@@ -25,6 +42,7 @@ import {
   AG_GRID_EXEMPTION,
   COMMAND_OVERLAY_INPUT_EXEMPTION,
   MONACO_EXEMPTION,
+  ROVING_TABLIST_EXEMPTION,
   UI_TIMEOUT_MS,
   connectFromSidebar,
   connectionEditor,
@@ -35,12 +53,15 @@ import {
   expandTreeRow,
   attachFocusTable,
   gridRows,
+  openBackupDialog,
   openConnectionEditor,
   openChatPanel,
   openQueryTab,
   openPalette,
   openRelationships,
+  openRestoreDialog,
   openSettings,
+  openSettingsGroup,
   overlay,
   queryEditor,
   selectDatabase,
@@ -53,6 +74,8 @@ import {
   withJoineryReact,
   workspaceTabs,
   type FocusExemption,
+  type FocusWalk,
+  type SettingsGroup,
 } from '../helpers/joinery-actions-react';
 import type { Page } from '@playwright/test';
 
@@ -62,18 +85,40 @@ const PROFILE = 'A11y PG';
 const DATABASE = 'joinery_test';
 
 /**
- * The three surfaces whose focus indicator `getComputedStyle` on the focused element cannot see.
- * Each carries its own positive check; the last test in this file runs all three of them.
+ * The four stops whose focus treatment `getComputedStyle` on the focused element cannot see, each
+ * for a different reason and each carrying its own positive check. The exemptions test below runs
+ * all four of them.
  */
 const EXEMPTIONS: readonly FocusExemption[] = [
   MONACO_EXEMPTION,
   AG_GRID_EXEMPTION,
   COMMAND_OVERLAY_INPUT_EXEMPTION,
+  ROVING_TABLIST_EXEMPTION,
 ];
+
+/** Every group the settings dialog offers (`features/settings/settings-dialog.tsx:63`). */
+const SETTINGS_GROUPS: readonly SettingsGroup[] = ['appearance', 'editor', 'query', 'grid'];
 
 test.beforeAll(async () => {
   await ensureJoineryTestSeeded();
 });
+
+/**
+ * The gate, applied to one walk: **every stop matches `:focus-visible` AND draws a visible
+ * indicator**, minus the three documented exemptions.
+ *
+ * A function rather than three copied lines, because the failure message is the thing a reader will
+ * meet first and it should say the same thing on every surface.
+ */
+function assertEveryStopRinged(walk: FocusWalk, surface: string): void {
+  const missing = unindicatedStops(walk.stops, EXEMPTIONS);
+  expect(
+    missing.map(
+      stop => `${stop.id} (focus-visible: ${stop.focusVisible}, ring: ${stop.indicated})`
+    ),
+    `${surface}: these focus stops fail the :focus-visible + visible-indicator gate`
+  ).toEqual([]);
+}
 
 test.describe('focus is visible everywhere a Tab press can land', () => {
   test('the shell — sidebar, tab strip, splitters and status bar', async () => {
@@ -83,23 +128,24 @@ test.describe('focus is visible everywhere a Tab press can land', () => {
       await selectDatabase(window, DATABASE);
       await dismissToasts(window);
 
-      const walk = await walkTabOrder(window);
-      const { stops } = walk;
+      // From a named anchor, like every other walk here: without one the walk begins wherever
+      // `dismissToasts` happened to leave focus, and the longest table in the suite would be the
+      // one least reproducible between runs.
+      const walk = await walkTabOrder(window, window.getByTestId('sidebar-tree'));
       await attachFocusTable('shell-tab-order.md', 'Connected shell', walk);
 
       // Non-vacuous: a walk that found three stops would pass the assertion below and mean nothing.
       // The connected shell has the sidebar's controls, the tab strip, two splitters and the status
       // bar in its order; 12 is comfortably under that and well over an accidental early exit.
       expect(
-        stops.length,
+        walk.stops.length,
         'the tab order walk found too few stops to be meaningful'
       ).toBeGreaterThan(12);
+      expect(walk.outcome, 'the shell walk should end by wrapping to its first stop').toBe(
+        'cycled'
+      );
 
-      const missing = unindicatedStops(stops, EXEMPTIONS);
-      expect(
-        missing.map(stop => stop.id),
-        'these focus stops draw no visible indicator'
-      ).toEqual([]);
+      assertEveryStopRinged(walk, 'connected shell');
     });
   });
 
@@ -108,29 +154,40 @@ test.describe('focus is visible everywhere a Tab press can land', () => {
       await openConnectionEditor(window);
 
       const walk = await walkTabOrder(window, connectionEditor(window));
-      const { stops, cycled } = walk;
       await attachFocusTable('connection-editor-tab-order.md', 'Connection editor dialog', walk);
 
       // A modal's order MUST cycle: Radix traps focus, so Tab from the last control returns to the
-      // first. A walk that ran to the cap instead would mean focus escaped the dialog, which is the
-      // failure a keyboard user experiences as "I fell out of the form into the app behind it".
-      expect(cycled, 'focus escaped the connection editor rather than cycling inside it').toBe(
-        true
-      );
-      expect(stops.length).toBeGreaterThan(5);
+      // first. `cycled` specifically, not "did not hit the cap" — `stuck` would mean Tab stopped
+      // moving at all, which is a different bug that used to be reported as this one.
+      expect(
+        walk.outcome,
+        'focus escaped the connection editor rather than cycling inside it'
+      ).toBe('cycled');
+      expect(walk.stops.length).toBeGreaterThan(5);
 
-      const missing = unindicatedStops(stops, EXEMPTIONS);
-      expect(missing.map(stop => stop.id)).toEqual([]);
+      assertEveryStopRinged(walk, 'connection editor');
     });
   });
 
-  test('the settings dialog and the command palette', async () => {
+  test('every settings group, and the command palette', async () => {
     await withJoineryReact(async ({ app, window }) => {
       await openSettings(app, window);
-      const settings = await walkTabOrder(window, settingsDialog(window));
-      await attachFocusTable('settings-tab-order.md', 'Settings dialog', settings);
-      expect(settings.cycled, 'focus escaped the settings dialog').toBe(true);
-      expect(unindicatedStops(settings.stops, EXEMPTIONS).map(stop => stop.id)).toEqual([]);
+
+      // ALL FOUR groups (`settings-dialog.tsx:63`), not just the one the dialog opens on. Each is a
+      // separate panel of controls that a Tab press can reach and that nothing else in this suite
+      // walks — the review's I3 finding was that "the settings dialog" meant `appearance` only.
+      for (const group of SETTINGS_GROUPS) {
+        await openSettingsGroup(window, group);
+        const walk = await walkTabOrder(window, settingsDialog(window));
+        await attachFocusTable(`settings-${group}-tab-order.md`, `Settings — ${group}`, walk);
+        expect(walk.outcome, `focus escaped the settings dialog on the ${group} group`).toBe(
+          'cycled'
+        );
+        // Non-vacuous per group: the close button and the four tab triggers alone are five stops,
+        // so a group whose own controls were never reached would fall under this.
+        expect(walk.stops.length, `the ${group} group contributed no controls`).toBeGreaterThan(5);
+        assertEveryStopRinged(walk, `settings/${group}`);
+      }
 
       await window.keyboard.press('Escape');
       await expect(settingsDialog(window)).toBeHidden({ timeout: UI_TIMEOUT_MS });
@@ -139,9 +196,37 @@ test.describe('focus is visible everywhere a Tab press can land', () => {
       const palette = await walkTabOrder(window, overlay(window, 'palette'));
       await attachFocusTable('palette-tab-order.md', 'Command palette', palette);
       // The palette is a search overlay: its rows are driven by arrow keys off the input (cmdk's
-      // roving model), so the TAB order is short by design. What matters is that whatever it does
-      // reach is visibly focused.
-      expect(unindicatedStops(palette.stops, EXEMPTIONS).map(stop => stop.id)).toEqual([]);
+      // roving model), so the TAB order is one stop by design, and that stop passes through
+      // `COMMAND_OVERLAY_INPUT_EXEMPTION` — whose `verify` checks the claim the design rests on.
+      assertEveryStopRinged(palette, 'command palette');
+    });
+  });
+
+  test('the backup and restore dialogs', async () => {
+    await withJoineryReact(async ({ window }) => {
+      await createPostgresProfile(window, PROFILE);
+      await connectFromSidebar(window, PROFILE);
+      await selectDatabase(window, DATABASE);
+      await dismissToasts(window);
+
+      // Two of the largest forms in the app, and neither was walked before the review's I3. Both
+      // open on a host-tool probe, which the helpers already wait out.
+      const backup = await openBackupDialog(window);
+      const backupWalk = await walkTabOrder(window, backup);
+      await attachFocusTable('backup-tab-order.md', 'Backup dialog', backupWalk);
+      expect(backupWalk.outcome, 'focus escaped the backup dialog').toBe('cycled');
+      expect(backupWalk.stops.length).toBeGreaterThan(3);
+      assertEveryStopRinged(backupWalk, 'backup dialog');
+
+      await window.keyboard.press('Escape');
+      await expect(backup).toBeHidden({ timeout: UI_TIMEOUT_MS });
+
+      const restore = await openRestoreDialog(window);
+      const restoreWalk = await walkTabOrder(window, restore);
+      await attachFocusTable('restore-tab-order.md', 'Restore dialog', restoreWalk);
+      expect(restoreWalk.outcome, 'focus escaped the restore dialog').toBe('cycled');
+      expect(restoreWalk.stops.length).toBeGreaterThan(3);
+      assertEveryStopRinged(restoreWalk, 'restore dialog');
     });
   });
 
@@ -157,15 +242,67 @@ test.describe('focus is visible everywhere a Tab press can land', () => {
       await executeQuery(window);
       await expect(gridRows(window).first()).toBeVisible({ timeout: UI_TIMEOUT_MS });
 
-      // From the top of the shell rather than from the editor: the query panel's own controls sit
-      // between the sidebar and the status bar in DOM order, so a walk that starts inside Monaco
-      // sees two stops and proves nothing about the surface around it.
-      const walk = await walkTabOrder(window, window.getByTestId('sidebar-tree'));
-      const { stops } = walk;
-      await attachFocusTable('query-tab-order.md', 'Query tab with results', walk);
+      // ── TWO segments, and the reason is a real property of the surface ──────────────────────
+      //
+      // Monaco binds Tab to "insert a tab character", so a walk that reaches the editor cannot
+      // leave it: focus stays put and the walk reports `stuck`. That is asserted here rather than
+      // worked around, because it is exactly the trap the old descriptor-keyed walk mistook for a
+      // clean cycle — and mistaking it cost this test the whole results half of the panel, in the
+      // test named for the two vendor surfaces.
+      const upToEditor = await walkTabOrder(window, window.getByTestId('sidebar-tree'));
+      await attachFocusTable(
+        'query-tab-order-1-editor.md',
+        'Query tab — sidebar through the editor',
+        upToEditor
+      );
+      expect(upToEditor.outcome, 'the walk was expected to be trapped by Monaco').toBe('stuck');
+      // Through the exemption's own predicate rather than a class name spelled out here, so the two
+      // cannot disagree about what "Monaco's focus sink" is — they already did once, which is how
+      // `native-edit-context` was found.
+      expect(
+        upToEditor.stuckAt !== null && MONACO_EXEMPTION.matches(upToEditor.stuckAt),
+        `the walk got stuck on ${upToEditor.stuckAt?.id ?? '?'}, not on Monaco — a new finding`
+      ).toBe(true);
 
-      const missing = unindicatedStops(stops, EXEMPTIONS);
-      expect(missing.map(stop => stop.id)).toEqual([]);
+      // Segment two starts on the far side of the trap, at the results pane's own tab strip — the
+      // first focusable thing below the editor — and runs all the way round: the results controls,
+      // AG Grid's headers and cells, the status bar, the titlebar, the sidebar, the workspace tab
+      // strip, and finally back into Monaco, where it is trapped again. `stuck` is therefore the
+      // honest ending for this segment too, and it is the SECOND time round that proves the loop
+      // closed rather than a `cycled` that never happens.
+      //
+      // (Monaco's own ⌃M `toggleTabFocusMode` would give a single continuous walk and was tried
+      // first; the keystroke does not reach the editor through Electron here, so the walk stayed
+      // trapped. Recorded so nobody spends the same hour on it.)
+      const pastEditor = await walkTabOrder(window, window.getByTestId('query-results-tabs'));
+      await attachFocusTable(
+        'query-tab-order-2-results.md',
+        'Query tab — results pane, grid and status bar',
+        pastEditor
+      );
+      expect(
+        pastEditor.stops.some(stop => stop.id.startsWith('status-')),
+        'the resumed walk never reached the status bar'
+      ).toBe(true);
+      expect(
+        pastEditor.stops.some(stop => stop.id === 'sidebar-tree'),
+        'the resumed walk never wrapped round to the sidebar'
+      ).toBe(true);
+
+      assertEveryStopRinged(upToEditor, 'query tab (editor half)');
+      assertEveryStopRinged(pastEditor, 'query tab (results half)');
+
+      // Both vendor surfaces really were reached — which is what this test's name claims and what
+      // the single truncated walk never delivered.
+      const stops = [...upToEditor.stops, ...pastEditor.stops];
+      expect(
+        stops.some(stop => MONACO_EXEMPTION.matches(stop)),
+        'the walk never reached Monaco'
+      ).toBe(true);
+      expect(
+        stops.some(stop => AG_GRID_EXEMPTION.matches(stop)),
+        'the walk never reached AG Grid'
+      ).toBe(true);
     });
   });
 
@@ -181,7 +318,8 @@ test.describe('focus is visible everywhere a Tab press can land', () => {
       await openChatPanel(window);
       const chat = await walkTabOrder(window, window.getByTestId('sidebar-tree'));
       await attachFocusTable('chat-tab-order.md', 'Shell with the chat panel open', chat);
-      expect(unindicatedStops(chat.stops, EXEMPTIONS).map(stop => stop.id)).toEqual([]);
+      expect(chat.outcome).toBe('cycled');
+      assertEveryStopRinged(chat, 'chat side panel');
       // Non-vacuous: the panel's composer and conversation controls have to be IN the walk for it to
       // say anything about the chat surface at all.
       expect(chat.stops.some(stop => stop.id.startsWith('chat-'))).toBe(true);
@@ -204,13 +342,21 @@ test.describe('focus is visible everywhere a Tab press can land', () => {
 
       const erd = await walkTabOrder(window, window.getByTestId('sidebar-tree'));
       await attachFocusTable('erd-tab-order.md', 'ERD tab', erd);
-      expect(unindicatedStops(erd.stops, EXEMPTIONS).map(stop => stop.id)).toEqual([]);
+      expect(erd.outcome).toBe('cycled');
+      assertEveryStopRinged(erd, 'ERD tab');
       expect(erd.stops.some(stop => stop.id.startsWith('erd-'))).toBe(true);
+      // The details rail emits `erd-relationship-row` once per relationship, which is what the old
+      // descriptor-keyed walk mistook for a cycle at stop 11. Reaching the status bar past it is the
+      // observable proof that identity-keyed termination fixed it.
+      expect(
+        erd.stops.some(stop => stop.id.startsWith('status-')),
+        'the ERD walk stopped before the status bar — the duplicate-testid truncation is back'
+      ).toBe(true);
     });
   });
 
-  test('all three exemptions draw the indicator they claim for themselves', async () => {
-    await withJoineryReact(async ({ window }) => {
+  test('all four exemptions hold up the claim they make for themselves', async () => {
+    await withJoineryReact(async ({ app, window }) => {
       await createPostgresProfile(window, PROFILE);
       await connectFromSidebar(window, PROFILE);
       await selectDatabase(window, DATABASE);
@@ -230,6 +376,10 @@ test.describe('focus is visible everywhere a Tab press can land', () => {
 
       await openPalette(window);
       await COMMAND_OVERLAY_INPUT_EXEMPTION.verify(window);
+      await window.keyboard.press('Escape');
+
+      await openSettings(app, window);
+      await ROVING_TABLIST_EXEMPTION.verify(window);
     });
   });
 });
@@ -288,6 +438,46 @@ test.describe('docking is operable from the keyboard', () => {
 
       await expect(window.getByTestId('query-panel')).toBeHidden({ timeout: UI_TIMEOUT_MS });
       await expect(welcomePanel(window)).toBeVisible({ timeout: UI_TIMEOUT_MS });
+    });
+  });
+
+  test('the docking keys keep out of the tab-rename field', async () => {
+    await withJoineryReact(async ({ window }) => {
+      await createPostgresProfile(window, PROFILE);
+      await connectFromSidebar(window, PROFILE);
+      await selectDatabase(window, DATABASE);
+      await dismissToasts(window);
+      await openWelcome(window);
+      await openQueryTab(window);
+
+      // Two tabs in one group, so a split IS available — which is what makes the assertion below
+      // mean "the keys declined" rather than "there was nothing they could have done".
+      await expect(welcomePanel(window)).toBeHidden({ timeout: UI_TIMEOUT_MS });
+
+      const activeTab = window.locator('.dv-tab.dv-active-tab').first();
+      await activeTab.dblclick();
+      const rename = window.locator('[data-testid^="workspace-tab-rename-"]');
+      await expect(rename).toBeVisible({ timeout: UI_TIMEOUT_MS });
+      await rename.fill('renamed tab');
+
+      // ⌥→ is macOS's "move by word". The docking listener is NATIVE on `.dv-tab`, an ancestor of
+      // this input, and React 19 dispatches synthetic events from the root — so the input's own
+      // `stopPropagation` runs AFTER this listener and cannot protect it. Before the target check in
+      // `useDockingKeys`, this keystroke split the panel and the blur committed a half-typed name.
+      await window.keyboard.press('Alt+ArrowRight');
+      await window.keyboard.press('Alt+ArrowLeft');
+
+      // Nothing docked: still one group, so the inactive panel is still detached.
+      await expect(welcomePanel(window)).toBeHidden({ timeout: UI_TIMEOUT_MS });
+      // And the field is still open, still focused, still holding what was typed — i.e. the keys
+      // reached the input as ordinary caret motion rather than being eaten.
+      await expect(rename).toBeVisible();
+      await expect(rename).toBeFocused();
+      await expect(rename).toHaveValue('renamed tab');
+
+      // Escape abandons the rename, which is the pre-existing behaviour this must not have changed.
+      await window.keyboard.press('Escape');
+      await expect(rename).toBeHidden({ timeout: UI_TIMEOUT_MS });
     });
   });
 

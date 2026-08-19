@@ -75,7 +75,17 @@ export async function ensureWideSchema(tableCount: number): Promise<void> {
     }
     await target.query('COMMIT');
   } catch (error) {
-    await target.query('ROLLBACK');
+    // The ROLLBACK gets its own try/catch because on a dead connection it throws too — and an
+    // unguarded `await` here would replace the CREATE TABLE failure with a connection error,
+    // losing the only message that says what actually went wrong. Same house rule the
+    // `withJoinery` teardown follows.
+    try {
+      await target.query('ROLLBACK');
+    } catch (rollbackError) {
+      // Reported, not swallowed, and not rethrown: `error` is the one worth propagating.
+      // eslint-disable-next-line no-console
+      console.error('[db] ROLLBACK failed while unwinding a failed schema build:', rollbackError);
+    }
     throw error;
   } finally {
     await target.end();

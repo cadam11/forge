@@ -38,7 +38,7 @@
  * measures the same three things at the memo boundary and runs on every unit run.
  */
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ElectronApplication, Page } from '@playwright/test';
 
@@ -76,9 +76,20 @@ const CHUNK_INTERVAL_MS = 10;
 
 /**
  * The renderer's coalescing window (`features/chat/use-stream-tail.ts` exports `STREAM_FLUSH_MS`).
- * Restated rather than imported: this file cannot import from the renderer package's source.
+ *
+ * Restated rather than imported, because a Playwright spec and a Vite-bundled renderer do not share
+ * a module graph — and `assertFlushWindowMatchesRenderer` below reads the renderer's source at run
+ * time so the restatement cannot go stale in silence. It is load-bearing in both directions:
+ *
+ *  - **window ↑** (50 → 100): `MAX_TAIL_MUTATIONS` keeps deriving from 50, so the mutation budget
+ *    doubles. The gate loosens and stays green — the dangerous direction.
+ *  - **window ↓** (50 → 20): the real flush count overshoots the derivation and this spec goes red
+ *    for a reason that is not a regression.
  */
 const FLUSH_MS = 50;
+
+/** Where the renderer keeps the value `FLUSH_MS` mirrors. Read as text; see the constant's note. */
+const STREAM_TAIL_SOURCE = 'packages/renderer-react/src/features/chat/use-stream-tail.ts';
 
 /**
  * Ceiling on DOM mutations under the STREAMING message.
@@ -96,8 +107,32 @@ const MAX_TAIL_MUTATIONS = Math.ceil((CHUNKS * CHUNK_INTERVAL_MS) / FLUSH_MS) * 
 
 test.beforeAll(ensureJoineryTestSeeded);
 
+/**
+ * Fails if the renderer's `STREAM_FLUSH_MS` and this file's `FLUSH_MS` have drifted apart.
+ *
+ * Reading the source is the only channel available — see `FLUSH_MS`. The same read-the-source
+ * pattern `ui/contract.spec.tsx` uses, and for the same reason: two files have to agree on a number
+ * with no type connecting them. It cannot live on the renderer side, because that package compiles
+ * with no `@types/node` on purpose and a vitest spec there cannot open a file.
+ */
+function assertFlushWindowMatchesRenderer(): void {
+  const source = readFileSync(STREAM_TAIL_SOURCE, 'utf8');
+  const declared = /export const STREAM_FLUSH_MS = (\d+);/.exec(source);
+  // Guards the assertion below: a renamed constant would otherwise make it vacuous rather than red.
+  expect(
+    declared,
+    `no \`export const STREAM_FLUSH_MS = <n>;\` in ${STREAM_TAIL_SOURCE}`
+  ).not.toBeNull();
+  expect(
+    Number(declared?.[1]),
+    `the renderer's coalescing window moved; this spec still derives its budget from ${FLUSH_MS}ms`
+  ).toBe(FLUSH_MS);
+}
+
 test.describe('chat streaming', () => {
   test('a streamed token touches the tail and nothing else', async () => {
+    assertFlushWindowMatchesRenderer();
+
     await withJoineryReact({ seedUserData: seedStreamingConversation }, async ({ app, window }) => {
       await waitForShell(window);
       await createPostgresProfile(window, PROFILE);
@@ -126,6 +161,21 @@ test.describe('chat streaming', () => {
       await injectChunks(app);
       const streamMs = Date.now() - startedAt;
 
+      // ── Wait for the final flush BEFORE reading the probes ──────────────────────────────────
+      //
+      // `injectChunks` returns when the main process has SENT the last chunk and the `done: true`
+      // that follows it. Neither is ordered against the renderer's coalescer, which is holding up
+      // to `FLUSH_MS` of text, nor against the React commit that paints it. Reading the counters
+      // first therefore undercounted `tail` by whatever the last flush was about to do, and the
+      // lossless check below raced the same commit — it was a plain `textContent()` compared with a
+      // non-retrying `toContain`, so a late final flush would fail it for the wrong reason.
+      //
+      // A bounded Playwright assertion, not a sleep: the last token appearing IS the flush landing.
+      await expect(
+        chatPanel(window),
+        'the last streamed token never reached the transcript'
+      ).toContainText(tokenMarker(CHUNKS - 1), { timeout: UI_TIMEOUT_MS });
+
       const counts = await readProbes(window);
 
       // ── The three zeros: R3, stated ────────────────────────────────────────────────────────
@@ -146,11 +196,14 @@ test.describe('chat streaming', () => {
         'the streaming tail mutated far more than its coalescing window allows'
       ).toBeLessThan(MAX_TAIL_MUTATIONS);
 
-      // Lossless: the first and last token are both in the transcript, so coalescing dropped
-      // nothing. A window that swallowed chunks would still produce a clean mutation count.
-      const transcript = (await chatPanel(window).textContent()) ?? '';
-      expect(transcript, 'the first streamed token is missing').toContain(tokenMarker(0));
-      expect(transcript, 'the last streamed token is missing').toContain(tokenMarker(CHUNKS - 1));
+      // Lossless: the FIRST token is still there too, so coalescing dropped nothing at either end.
+      // (The last one was asserted above, as the gate that says the stream had finished landing.) A
+      // window that swallowed chunks would still produce a clean mutation count, which is why this
+      // check exists at all.
+      await expect(chatPanel(window), 'the first streamed token is missing').toContainText(
+        tokenMarker(0),
+        { timeout: UI_TIMEOUT_MS }
+      );
 
       await attachMeasurements('chat-stream.json', {
         chunks: CHUNKS,
