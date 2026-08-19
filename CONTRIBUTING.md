@@ -66,12 +66,15 @@ joinery/
 │   │           ├── docker/# Container detection (dockerode)
 │   │           ├── keychain/ # Credential storage (keytar)
 │   │           └── config/   # App state persistence (electron-store)
-│   └── renderer/      # Angular 18 application
-│       └── src/app/
-│           ├── core/      # Services, state (signals), IPC service
-│           ├── features/  # Chat, ERD, query, explorer, welcome
-│           ├── shared/    # Settings dialogs, reusable components
-│           └── layout/    # App shell, sidebar, GoldenLayout container
+│   └── renderer/      # React 19 + Tailwind v4 application (Vite)
+│       └── src/
+│           ├── state/     # Zustand stores
+│           ├── ipc/       # Typed window.joinery wrappers, TanStack Query cache
+│           ├── persistence/ # AppState bridge, legacy migration, theme mirror
+│           ├── features/  # Chat, ERD, query, explorer, backup, welcome
+│           ├── ui/        # Radix + Tailwind primitives
+│           ├── commands/  # Command bus, palette catalogue, menu registry
+│           └── shell/     # App shell, sidebar, Dockview workspace
 ├── .github/workflows/ # CI/CD
 ├── scripts/           # Build helpers
 ├── resources/         # App icons
@@ -80,12 +83,12 @@ joinery/
 
 ### Package Overview
 
-| Package             | Purpose                                                         |
-| ------------------- | --------------------------------------------------------------- |
-| `@joinery/shared`   | Type definitions, IPC channel constants, AI vendor config       |
-| `@joinery/preload`  | Electron preload script with typed contextBridge API            |
-| `@joinery/main`     | Main process: SQL, AI, Docker, Keychain services + IPC handlers |
-| `@joinery/renderer` | Angular 18 UI with standalone components, signals, OnPush CD    |
+| Package             | Purpose                                                            |
+| ------------------- | ------------------------------------------------------------------ |
+| `@joinery/shared`   | Type definitions, IPC channel constants, AI vendor config          |
+| `@joinery/preload`  | Electron preload script with typed contextBridge API               |
+| `@joinery/main`     | Main process: SQL, AI, Docker, Keychain services + IPC handlers    |
+| `@joinery/renderer` | React 19 + Tailwind v4 UI (Vite), Zustand stores, Radix primitives |
 
 ## Making Changes
 
@@ -120,7 +123,7 @@ If you're working on AI features, follow these rules:
 
 4. **Model/vendor config** lives in `packages/shared/src/config/ai-vendors.json`. User preferences are stored in app state.
 
-5. **Use `<app-markdown>`** (`packages/renderer/src/app/shared/markdown/`) for rendering AI-generated content in the renderer. It sanitizes with DOMPurify — never bind an unsanitized string to `[innerHTML]`.
+5. **Use `src/markdown/`** (`renderMarkdown`, `<Markdown>`) for rendering AI-generated content in the renderer. It parses with `marked` and sanitizes with DOMPurify; `dangerouslySetInnerHTML` is banned by ESLint everywhere else in the package.
 
 ## Commit Guidelines
 
@@ -147,7 +150,7 @@ type(scope): description
 feat(chat): add image attachment support
 fix(query): handle timeout on large result sets
 docs(readme): update AI provider setup instructions
-refactor(explorer): migrate to Angular signals
+refactor(explorer): move the tree state into its own Zustand store
 ```
 
 ## Pull Request Process
@@ -169,12 +172,12 @@ Same as commit format: `type(scope): description`
 - Use interfaces for object shapes, type guards for narrowing
 - Static imports only — no dynamic `require()` or `import()`
 
-### Angular (Renderer)
+### React (Renderer)
 
-- **Standalone components** — no NgModules
-- **Angular signals** for reactive state
-- **OnPush** change detection on all components
-- **Smart/dumb pattern** — containers handle logic, presentational components receive inputs
+- **Function components and hooks** — no class components
+- **Zustand stores** for shared state, `useState` for local
+- **TanStack Query** for anything fetched over IPC
+- **Smart/dumb pattern** — containers handle logic, presentational components take props
 
 ### Electron (Main Process)
 
@@ -197,7 +200,7 @@ Same as commit format: `type(scope): description`
 - `eval()` or `new Function()`
 - Dynamic `require()` or `import()`
 - Storing credentials outside Keychain
-- Direct DOM manipulation in Angular
+- Direct DOM manipulation outside a ref/effect
 - `console.log` in production (use the logger service)
 - Direct HTTP calls to LLM APIs (use the provider abstraction)
 - Synchronous IPC (`ipcRenderer.sendSync`)

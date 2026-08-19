@@ -2,14 +2,14 @@
 
 ## Overview
 
-Joinery is a native desktop database IDE supporting SQL Server and PostgreSQL. Built with **Electron** (desktop shell), **Angular 18+** (UI), and **Node.js** (backend services).
+Joinery is a native desktop database IDE supporting SQL Server and PostgreSQL. Built with **Electron** (desktop shell), **React 19 + Tailwind v4** (UI), and **Node.js** (backend services).
 
 ```
                  ┌──────────────────────────────────────────┐
                  │              Electron Shell              │
                  │  ┌────────────────┐ ┌─────────────────┐ │
                  │  │  Main Process  │ │ Renderer Process │ │
-                 │  │  (Node.js)     │ │ (Angular)        │ │
+                 │  │  (Node.js)     │ │ (React)          │ │
                  │  │                │ │                  │ │
                  │  │  SQL Providers │ │  Query Editor    │ │
                  │  │  AI Services   │ │  Object Explorer │ │
@@ -61,19 +61,18 @@ packages/
 │           ├── logger.ts          # Structured logging
 │           └── singleton.ts       # Singleton base class
 │
-├── renderer/             # Angular application
-│   └── src/app/
-│       ├── core/                  # Singleton services and state
-│       │   ├── services/          # IPC service, menu, notifications
-│       │   └── state/             # Angular signals for app state
-│       ├── features/              # Feature modules (lazy-loaded)
+├── renderer/             # React application (Vite)
+│   └── src/
+│       ├── state/                 # Zustand stores
+│       ├── ipc/                   # Typed window.joinery wrappers, TanStack Query cache
+│       ├── persistence/           # AppState bridge, legacy migration, theme mirror
+│       ├── commands/              # Command bus, palette catalogue, menu registry
+│       ├── features/              # Feature areas
 │       │   ├── query/             # Query editor tab
 │       │   ├── connections/       # Connection management page
 │       │   └── chat/              # AI chat panel
-│       ├── shared/                # Shared components
-│       │   ├── components/        # Results grid, connection dialog, etc.
-│       │   └── ...
-│       └── layout/                # Shell, sidebar, tab bar
+│       ├── ui/                    # Radix + Tailwind primitives (buttons, dialogs, fields)
+│       └── shell/                 # Shell, sidebar, Dockview workspace
 │
 ├── shared/               # Shared types between main/renderer
 │   └── src/
@@ -154,11 +153,11 @@ All renderer↔main communication uses typed IPC channels defined in `shared/con
 **Pattern:** `ipcRenderer.invoke(channel, ...args)` → `ipcMain.handle(channel, handler)`
 
 ```
-Renderer (Angular)                    Main (Node.js)
-┌─────────────┐                       ┌──────────────┐
-│ IpcService   │ ─── invoke ────────→ │ IPC Handlers │
-│ (Observable) │ ←── result ────────  │ (safeHandle) │
-└─────────────┘                       └──────────────┘
+Renderer (React)                      Main (Node.js)
+┌──────────────┐                      ┌──────────────┐
+│ src/ipc/*    │ ─── invoke ────────→ │ IPC Handlers │
+│ (Promise)    │ ←── result ────────  │ (safeHandle) │
+└──────────────┘                      └──────────────┘
 ```
 
 Channel naming: `domain:action` (e.g., `query:execute`, `connection:test`)
@@ -167,15 +166,21 @@ The preload script (`packages/preload/src/index.ts`) bridges the IPC channels us
 
 ## State Management
 
-The renderer uses **Angular signals** for reactive state:
+The renderer uses **Zustand stores**, one per domain, under `packages/renderer/src/state/`:
 
-| Service                    | Purpose                                | Key Signals                                   |
-| -------------------------- | -------------------------------------- | --------------------------------------------- |
-| `ConnectionStateService`   | Active connection, profiles, databases | `activeConnectionId`, `profiles`, `databases` |
-| `TabStateService`          | Open tabs, active tab, tab content     | `tabs`, `activeTab`                           |
-| `QueryHistoryStateService` | Query execution history                | `entries`, `isLoading`                        |
-| `QueryResultsStateService` | Cached result snapshots                | `snapshots`                                   |
-| `AIStateService`           | AI model/vendor configuration          | `settings`, `vendors`                         |
+| Store              | Purpose                                | Key state                                     |
+| ------------------ | -------------------------------------- | --------------------------------------------- |
+| `connection.ts`    | Active connection, profiles, databases | `activeConnectionId`, `profiles`, `databases` |
+| `tab.ts`           | Open tabs, active tab, tab content     | `tabs`, `activeTabId`                         |
+| `query-history.ts` | Query execution history                | `entries`, `isLoading`                        |
+| `query-results.ts` | Cached result snapshots                | `snapshots`                                   |
+| `ai.ts`            | AI model/vendor configuration          | `settings`, `vendors`                         |
+| `settings.ts`      | App settings + the resolved theme      | `settings`, `nativeTheme`                     |
+
+Anything fetched over IPC (schema metadata, Docker containers) goes through TanStack Query in
+`src/ipc/` instead, so caching and invalidation are not hand-rolled per store. Anything that must
+survive a quit is written to main-process `AppState` through `src/persistence/`; the renderer writes
+exactly one `localStorage` key of its own, the pre-mount theme mirror.
 
 ## AI Integration
 
