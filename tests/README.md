@@ -1,13 +1,18 @@
 # Joinery Regression Test Harness
 
-Three-tier test pyramid for catching regressions across all supported engines and the full Electron app.
+Test pyramid for catching regressions across all supported engines and the full Electron app.
 
-| Tier           | Runner                  | Scope                             | Lives in                             |
-| -------------- | ----------------------- | --------------------------------- | ------------------------------------ |
-| 1. Unit        | Vitest                  | Pure logic, no I/O                | `packages/*/src/**/*.{test,spec}.ts` |
-| 2. Integration | Vitest + Docker Compose | Real DBs, SSH tunnel, AI plumbing | `tests/integration/**`               |
-| 3. E2E         | Playwright + Electron   | Functional E2E specs              | `tests/e2e/*.spec.ts`                |
-| 4. Visual      | Playwright + Electron   | Pixel-diff baselines, macOS-only  | `tests/e2e/visual/**`                |
+| Tier           | Runner                  | Scope                             | Lives in                                   |
+| -------------- | ----------------------- | --------------------------------- | ------------------------------------------ |
+| 1. Unit        | Vitest                  | Pure logic, no I/O                | `packages/*/src/**/*.{test,spec}.{ts,tsx}` |
+| 2. Integration | Vitest + Docker Compose | Real DBs, SSH tunnel, AI plumbing | `tests/integration/**`                     |
+| 3. E2E         | Playwright + Electron   | Functional E2E specs              | `tests/e2e-react/**`                       |
+| 4. Visual      | Playwright + Electron   | Pixel-diff baselines, macOS-only  | `tests/e2e-react-visual/**`                |
+| 5. Performance | Playwright + Electron   | Slow-by-construction budget gates | `tests/e2e-react-perf/**`                  |
+
+The `-react` suffixes are historical — they told these tiers apart from the Angular ones while the
+two renderers coexisted. Task 24 deleted the Angular renderer and its tiers; the names stay because
+the committed baseline tree (`tests/__snapshots__/visual-react/`) is keyed by them.
 
 ## Quick start
 
@@ -60,12 +65,11 @@ pnpm run test:harness:down     # tear down when done
 | `pnpm run test:integration:watch` | Integration in watch mode for active dev                                 |
 | `pnpm run test:full`              | All tiers + HTML report. Brings harness up automatically.                |
 | `pnpm run test:dashboard`         | Live HTML dashboard at http://127.0.0.1:5188, vitest watch on both tiers |
-| `pnpm run test:visual`            | Capture/compare visual regression baselines (one-shot)                   |
-| `pnpm run test:visual:live`       | Same, but stream events to the dashboard                                 |
-| `pnpm run test:visual:update`     | Re-capture all visual baselines (use after intentional UI changes)       |
-| `pnpm run test:e2e:react`         | React renderer's functional tier (`tests/e2e-react/`)                    |
-| `pnpm run test:visual:react`      | React renderer's visual baselines (`tests/e2e-react-visual/`) — macOS    |
-| `pnpm run test:perf:react`        | React renderer's performance gates (`tests/e2e-react-perf/`) — slow      |
+| `pnpm run test:e2e:react`         | Functional E2E tier (`tests/e2e-react/`)                                 |
+| `pnpm run test:e2e:react:live`    | Same, but stream events to the dashboard                                 |
+| `pnpm run test:visual:react`      | Visual baselines (`tests/e2e-react-visual/`) — macOS only                |
+| `pnpm run test:visual:react:live` | Same, but stream events to the dashboard                                 |
+| `pnpm run test:perf:react`        | Performance gates (`tests/e2e-react-perf/`) — slow                       |
 | `pnpm run test:harness:up`        | Start docker-compose network, generate SSH keypair if needed             |
 | `pnpm run test:harness:down`      | Stop network and remove volumes                                          |
 | `pnpm run test:harness:status`    | Show compose service health                                              |
@@ -131,7 +135,7 @@ Helper for this is coming in Phase 2.
 - **Phase 2** — Real integration specs: dialect smoke per engine, query-executor across engines, SSH tunnel happy path.
 - **Phase 3** — LLM mock + cassette replay for deterministic AI tests.
 - **Phase 4** — Playwright E2E suite covering everything from `regression-suite.md` (the legacy MSSQL audit) plus PG, MySQL, AI chat.
-- **Phase 5** ✓ — Visual regression baselines under `tests/__snapshots__/visual/` (macOS-only by design — re-capture with `test:visual:update` if the host machine changes).
+- **Phase 5** ✓ — Visual regression baselines under `tests/__snapshots__/visual-react/` (macOS-only by design; the device pixel ratio and the macOS scroller style are pinned per launch so a re-capture is not a property of the host — see `playwright.config.ts`'s `visual-react` project).
 - **Phase 6** — `pnpm run test:full` (one-shot CI-style) ✓ and `pnpm run test:smoke` (fast subset for the agent loop) — pending.
 
 ## Troubleshooting

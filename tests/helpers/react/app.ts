@@ -18,22 +18,76 @@
  *    except the three documented vendor exemptions (Monaco, AG Grid, Dockview), each of which is
  *    confined to the one module that owns that surface and carries its own rationale.
  *
- * The seeded database fixtures are shared with the Angular tier — they are about the *container*,
- * not the UI — so `TEST_PG` and `ensureJoineryTestSeeded` are re-exported from the old helper
- * rather than duplicated. **Task 24 note:** these two are the only symbols the Angular helper still
- * owes this tier; move them before deleting `tests/helpers/joinery-actions.ts`.
+ * The seeded database fixtures below — `TEST_PG` and `ensureJoineryTestSeeded` — are about the
+ * *container*, not the UI. They lived in `tests/helpers/joinery-actions.ts` while that file existed
+ * and moved here unchanged at Task 24, when the Angular tier and its Material-coupled helper were
+ * deleted.
  */
 
 import { expect, type ElectronApplication, type Page } from '@playwright/test';
+import { Client as PgClient } from 'pg';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   withJoinery,
   type LaunchOptions,
   type LaunchedApp,
   type RendererTarget,
 } from '../electron-app';
-import { TEST_PG, ensureJoineryTestSeeded } from '../joinery-actions';
 
-export { TEST_PG, ensureJoineryTestSeeded };
+// Test PG container connection details (matches docker-compose.test.yml).
+export const TEST_PG = {
+  host: '127.0.0.1',
+  port: 15432,
+  user: 'joinery',
+  password: 'joinery',
+  database: 'joinery_test',
+} as const;
+
+/**
+ * Idempotently seed the default `joinery_test` database with the synthetic
+ * schema + data so functional / visual specs that connect via the UI find
+ * a populated database. The integration tier uses isolated per-test DBs
+ * via `withFreshDatabase` and never touches `joinery_test`.
+ *
+ * Two distinct schemas are seeded:
+ *   - `public.*` — synthetic e-commerce (products / customers / orders /
+ *     order_items). Used by everyday spec/visual tests.
+ *   - `app_meta.*` — minimal app-metadata shape (user / application / entity)
+ *     in a non-public schema. Used by the cross-schema-query regression
+ *     tests; row counts chosen to match the legacy 31-suite expectations
+ *     (11 applications, 24 entities).
+ *
+ * Each schema's presence is checked independently so adding either to an
+ * existing seeded database doesn't redo the other.
+ */
+export async function ensureJoineryTestSeeded(): Promise<void> {
+  const client = new PgClient({ ...TEST_PG });
+  await client.connect();
+  try {
+    const fixturesRoot = join(__dirname, '..', '..', 'fixtures', 'postgres');
+
+    // Public e-commerce schema.
+    const ecomSeeded = await client.query(
+      "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'products'"
+    );
+    if (!(ecomSeeded.rowCount && ecomSeeded.rowCount > 0)) {
+      await client.query(readFileSync(join(fixturesRoot, 'schema.sql'), 'utf8'));
+      await client.query(readFileSync(join(fixturesRoot, 'seed.sql'), 'utf8'));
+    }
+
+    // app_meta schema.
+    const appMetaSeeded = await client.query(
+      "SELECT 1 FROM information_schema.tables WHERE table_schema = 'app_meta' AND table_name = 'entity'"
+    );
+    if (!(appMetaSeeded.rowCount && appMetaSeeded.rowCount > 0)) {
+      await client.query(readFileSync(join(fixturesRoot, 'app-meta-schema.sql'), 'utf8'));
+      await client.query(readFileSync(join(fixturesRoot, 'app-meta-seed.sql'), 'utf8'));
+    }
+  } finally {
+    await client.end();
+  }
+}
 
 /** How long a real connect to the seeded container is allowed to take. */
 export const CONNECT_TIMEOUT_MS = 20_000;
