@@ -103,15 +103,16 @@ export default defineConfig({
     //
     // Separate from `e2e-react` rather than tagged inside it because these
     // specs are SLOW BY CONSTRUCTION — a 100k-row result set, a 200-table
-    // schema, and a 3,000-chunk stream — and their cost should not be paid by
-    // every run of the functional suite. `pnpm run test:perf:react` invokes
-    // them on their own.
+    // schema built from scratch, and a 600-chunk stream injected in real time —
+    // and their cost should not be paid by every run of the functional suite.
+    // `pnpm run test:perf:react` invokes them on their own.
     //
-    // `timeout` is raised from the root's 60s: building the 200-table fixture
-    // and streaming 3,000 chunks at 100/s are minutes of real work before any
-    // assertion runs. The thresholds the specs assert are their own, stated
-    // next to each measurement with the median it was sized from — this number
-    // is only the outer bound on a test that has hung.
+    // `timeout` is raised from the root's 60s because a single test here does
+    // minutes of real work before its first assertion: the chat spec spends
+    // six seconds streaming alone, and the ERD spec's fixture is 200 CREATE
+    // TABLEs. The thresholds the specs assert are their own, stated next to
+    // each measurement with the median it was sized from — this number is only
+    // the outer bound on a test that has hung.
     {
       name: 'perf-react',
       testDir: './tests/e2e-react-perf',
