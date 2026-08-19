@@ -136,14 +136,32 @@ test.describe('Joinery — the settings panel', () => {
       await readyEditor(window);
       await typeSql(window, 'SELECT 1;');
       const minimap = window.getByTestId('query-editor').locator('.minimap');
-      // Monaco's own element, located structurally under the vendor exemption. Default is on.
-      await expect(minimap).toBeVisible();
+
+      // Monaco's own element, located structurally under the vendor exemption.
+      //
+      // **The shipped default is OFF.** This assertion used to read `toBeVisible()` with the comment
+      // "Default is on", which was true when the spec was written (94fd4ba) and stopped being true
+      // fourteen hours later when `25f9a2d fix(shared): default the editor minimap off for shipped
+      // visual parity (J-44)` flipped `settings.types.ts` without updating the test. It has been RED
+      // on `main` ever since; Task 23 is only the run that noticed.
+      //
+      // Corrected in the stronger direction rather than the cheap one: the toggle is now driven BOTH
+      // ways from the real default, so the test covers adding the minimap as well as removing it —
+      // which is what its own title claims and what the old version never did.
+      await expect(
+        minimap,
+        'the minimap is on at rest, but the shipped default is off'
+      ).toBeHidden();
+
+      await withSettings(app, window, 'editor', async page => {
+        await setToggleSetting(page, 'settings-editor-minimap', true);
+      });
+      await expect(minimap, 'turning the minimap on did not reach the editor').toBeVisible();
 
       await withSettings(app, window, 'editor', async page => {
         await setToggleSetting(page, 'settings-editor-minimap', false);
       });
-
-      await expect(minimap).toBeHidden();
+      await expect(minimap, 'turning the minimap off did not reach the editor').toBeHidden();
     });
   });
 
