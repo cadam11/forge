@@ -10,9 +10,10 @@
  *
  * ── The fixture ───────────────────────────────────────────────────────────────────────────────
  *
- * `ensureWideSchema` builds a separate PostgreSQL database of 200 FK-joined tables, once, and
- * explains there why it is not in the shared seed. It is left in place between runs: building it is
- * the slow part, and the helper's fast path is a table count rather than a rebuild.
+ * `ensureWideSchema` builds a separate PostgreSQL database of 200 FK-joined tables and explains
+ * there why it is not in the shared seed — and why this file drops it again in `afterAll` rather
+ * than leaving it to be rebuilt lazily. Building it costs about a second; leaving it behind costs
+ * the visual tier two baselines.
  *
  * ── "Draws 200 tables" is not "200 nodes in the DOM", and the difference is a FINDING ─────────
  *
@@ -43,6 +44,7 @@ import {
   connectFromSidebar,
   createPostgresProfile,
   dismissToasts,
+  dropWideSchema,
   ensureWideSchema,
   erdCanvas,
   erdNodes,
@@ -90,6 +92,11 @@ const BLOCKING_BUDGET_MS = 5_000;
 test.beforeAll(async () => {
   await ensureWideSchema(TABLES);
 });
+
+// Not tidiness — see `ensureWideSchema`'s header. A 201st database on the shared container turns
+// the visual tier's two `shell-connected` baselines red, because the explorer lists every database
+// on the server and those screenshots include the explorer.
+test.afterAll(dropWideSchema);
 
 test.describe(`the ERD at ${TABLES} tables`, () => {
   test('lays out all 200 tables, and culls to the viewport until asked not to', async () => {

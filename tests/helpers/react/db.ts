@@ -30,12 +30,21 @@ export const WIDE_SCHEMA_DATABASE = 'joinery_wide_schema';
  * that no real schema has; a tree is the shape a schema this size actually takes, and it is the one
  * whose layout cost is worth bounding.
  *
+ * ── It must be dropped again, and that is not tidiness ────────────────────────────────────────
+ *
+ * **Measured the hard way**: leaving it behind turns the React visual tier's two `shell-connected`
+ * baselines RED. The explorer lists every database on the server, so a 201st one appears in the
+ * sidebar of a screenshot taken by a completely different tier — 416 differing pixels reading
+ * `joinery_wide_schema` where `postgres` used to be. It is the same hazard `dropDatabasesMatching`
+ * was written for, one step further: a fixture that outlives its own tier is a fixture every other
+ * tier now shares. So `dropWideSchema` runs in the perf tier's `afterAll`, and building it takes
+ * about a second, which is the right price.
+ *
  * ── Idempotent, and it checks rather than assumes ─────────────────────────────────────────────
  *
- * The database survives between runs (building it is the slow part), so the fast path is a table
- * count. A database that exists with the WRONG count — an interrupted build, or a changed
- * `tableCount` — is dropped and rebuilt rather than used, because a gate that silently ran against
- * 37 tables would still be green.
+ * A database left behind by an interrupted run is reused when its table count is right and dropped
+ * and rebuilt when it is wrong, because a gate that silently ran against 37 tables would still be
+ * green.
  */
 export async function ensureWideSchema(tableCount: number): Promise<void> {
   if (!Number.isInteger(tableCount) || tableCount < 2) {
@@ -77,6 +86,24 @@ export async function ensureWideSchema(tableCount: number): Promise<void> {
     throw new Error(
       `[db] built ${String(built)} tables in ${WIDE_SCHEMA_DATABASE}, want ${tableCount}`
     );
+  }
+}
+
+/**
+ * Drops the wide-schema database. Safe to call when it was never built.
+ *
+ * `WITH (FORCE)` for the reason `dropDatabasesMatching` gives: the app under test leaves a pooled
+ * session on the database it was last pointed at, and without the clause `DROP DATABASE` refuses
+ * and the cleanup silently does nothing — which is precisely the failure this function exists to
+ * prevent.
+ */
+export async function dropWideSchema(): Promise<void> {
+  const admin = new PgClient({ ...TEST_PG });
+  await admin.connect();
+  try {
+    await admin.query(`DROP DATABASE IF EXISTS "${WIDE_SCHEMA_DATABASE}" WITH (FORCE)`);
+  } finally {
+    await admin.end();
   }
 }
 

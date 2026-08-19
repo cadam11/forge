@@ -225,6 +225,7 @@ export {
 export {
   WIDE_SCHEMA_DATABASE,
   dropDatabasesMatching,
+  dropWideSchema,
   ensureWideSchema,
   tableNameFor,
 } from './react/db';
