@@ -471,7 +471,16 @@ export function Tree({
         // The tree owns one tabstop, so the ring belongs to the container. The focused row
         // marks itself with `group-focus-visible/tree:` below, which is what makes the
         // activedescendant visible — HOUSE-RULES: focus styling is not optional.
-        'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus',
+        //
+        // `outline-solid` is doing real work here and is not redundant with `outline-2`. Tailwind
+        // v4 compiles `outline-hidden` to `--tw-outline-style: none` and `outline-2` to
+        // `outline-style: var(--tw-outline-style); outline-width: 2px` — so the two on one element
+        // produce a 2px outline drawn in style `none`, i.e. NOTHING, and the ring silently does not
+        // exist. Task 23's keyboard walk caught it: `outline: none 0px` on the focused tree,
+        // reported by `tests/e2e-react/a11y.spec.ts`. `outline-solid` restores the custom property
+        // under `:focus-visible` only, so the resting state keeps the suppression it wanted.
+        'focus-visible:outline-2 focus-visible:outline-solid',
+        'focus-visible:-outline-offset-2 focus-visible:outline-focus',
         className
       )}
     >

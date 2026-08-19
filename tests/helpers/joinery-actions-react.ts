@@ -223,3 +223,16 @@ export {
 } from './react/workbench';
 
 export { dropDatabasesMatching } from './react/db';
+
+export {
+  AG_GRID_EXEMPTION,
+  COMMAND_OVERLAY_INPUT_EXEMPTION,
+  MONACO_EXEMPTION,
+  attachFocusTable,
+  exemptedStops,
+  focusTable,
+  unindicatedStops,
+  walkTabOrder,
+  type FocusExemption,
+  type FocusStop,
+} from './react/a11y';

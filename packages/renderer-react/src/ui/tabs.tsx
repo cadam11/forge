@@ -52,13 +52,39 @@ export function TabsTrigger({
 }
 
 /**
- * `min-h-0` so a scrolling panel inside a flex column actually scrolls, and `outline-hidden`
- * because Radix makes the panel focusable for the arrow-key model — an outline on the whole
- * panel after a tab change is noise, and the focus ring lives on the trigger.
+ * `min-h-0` so a scrolling panel inside a flex column actually scrolls.
+ *
+ * ── The panel has a focus ring after all (Task 23) ────────────────────────────────────────
+ *
+ * This used to be `outline-hidden` alone, on the reasoning that "an outline on the whole panel
+ * after a tab change is noise, and the focus ring lives on the trigger". The trigger's ring is
+ * still where a tab change is announced — but Radix gives the panel `tabIndex={0}`, so a Tab press
+ * from the trigger lands ON the panel, and Task 23's keyboard walk found that stop showing nothing
+ * at all: `tests/e2e-react/a11y.spec.ts` recorded the settings dialog's appearance panel as a focus
+ * stop with no indicator. "Where am I?" going unanswerable for one Tab press is a worse cost than
+ * the noise the suppression was avoiding.
+ *
+ * The resting state is unchanged, and so is a tab change made with the mouse: `:focus-visible` does
+ * not match a pointer-driven focus, so this ring appears only when a keyboard put focus here. The
+ * ring is inset (`-outline-offset-2`) because a panel usually fills its dialog and an outer ring
+ * would be clipped.
+ *
+ * `outline-solid` is required, not decorative — see the same note in `tree.tsx`: without it,
+ * `outline-hidden`'s `--tw-outline-style: none` is what `outline-2` renders with.
  */
 export function TabsContent({
   className,
   ...rest
 }: ComponentPropsWithRef<typeof RadixTabs.Content>) {
-  return <RadixTabs.Content className={cn('min-h-0 outline-hidden', className)} {...rest} />;
+  return (
+    <RadixTabs.Content
+      className={cn(
+        'min-h-0 outline-hidden',
+        'focus-visible:outline-2 focus-visible:outline-solid',
+        'focus-visible:-outline-offset-2 focus-visible:outline-focus',
+        className
+      )}
+      {...rest}
+    />
+  );
 }
