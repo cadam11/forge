@@ -78,6 +78,21 @@ const MAIN_ENTRY = join(REPO_ROOT, 'packages', 'main', 'dist', 'index.js');
 /** Which renderer package a launch should show. */
 export type RendererTarget = 'angular' | 'react';
 
+/**
+ * macOS's three scroller-style settings, spelled as Cocoa's `AppleShowScrollBars` preference does.
+ *
+ * `Always` is legacy (space-taking) scrollbars, `WhenScrolling` is overlay, and `Automatic` — the
+ * system default — resolves to one of the two from the attached pointing device. See
+ * `LaunchOptions.macScrollBarStyle` for why a test would pin it.
+ */
+export type MacScrollBarStyle = 'Always' | 'Automatic' | 'WhenScrolling';
+
+const MAC_SCROLL_BAR_STYLES: readonly MacScrollBarStyle[] = [
+  'Always',
+  'Automatic',
+  'WhenScrolling',
+];
+
 const RENDERER_INDEXES: Record<RendererTarget, string> = {
   angular: join(REPO_ROOT, 'packages', 'renderer', 'dist', 'browser', 'index.html'),
   react: join(REPO_ROOT, 'packages', 'renderer-react', 'dist', 'browser', 'index.html'),
@@ -159,9 +174,106 @@ export interface LaunchOptions {
   envOverrides?: Record<string, string>;
   /** Renderer package to show. Defaults to `$JOINERY_E2E_RENDERER`, then `angular`. */
   renderer?: RendererTarget;
+  /**
+   * Pin the window's device pixel ratio, in device pixels per CSS pixel.
+   *
+   * **Omitted by default, and that is deliberate: the functional tiers launch exactly as they always
+   * did.** Only the visual tier passes it (`tests/e2e-react-visual/fixtures.ts`), because only a
+   * screenshot cares.
+   *
+   * ── The defect this exists to prevent (J-21, ledger Ruling 5) ──────────────────────────────
+   *
+   * The Angular visual tier is RED for two reasons, and the second one is not about pixels at all:
+   * its baselines were captured on a display that reported `devicePixelRatio: 2`, so every PNG is
+   * 2800×1800 for a 1400×900 window. A run whose window reports `1` produces a 1400×900 image, and
+   * `toHaveScreenshot` compares SIZES before it compares content — so the tier fails with a
+   * geometry mismatch on a machine where the UI is byte-identical, and the failure says nothing
+   * about the UI. Nothing in that tier states a DPR anywhere, so which of the two a developer gets
+   * is a property of the display they happen to be on.
+   *
+   * **Playwright's own `use.deviceScaleFactor` cannot fix it here.** That option is applied by
+   * `browser.newContext`, and this suite has no browser context: `_electron.launch` starts a real
+   * Electron whose windows are created by `packages/main/src/window.ts`. Setting it in the config
+   * would type-check, do nothing, and read as though the tier were pinned. The honest lever is
+   * Chromium's own `--force-device-scale-factor`, which Electron passes through to the compositor —
+   * the same mechanism `--user-data-dir` above is honoured by. It scales rasterization only:
+   * `BrowserWindow`'s width/height are CSS pixels either way, so the layout under test is unchanged
+   * and only the image's pixel dimensions move.
+   *
+   * The visual tier asserts `window.devicePixelRatio` equals what it asked for, so a switch that
+   * ever stopped being honoured fails there rather than silently re-introducing the trap.
+   */
+  deviceScaleFactor?: number;
+  /**
+   * Pin macOS's scroller style for this process, as the `AppleShowScrollBars` preference names it.
+   *
+   * **Omitted by default, exactly like `deviceScaleFactor` above: absent, the argv is byte-identical
+   * to what it always was**, so the functional tiers launch as they always did. Only the visual tier
+   * passes it, because only a screenshot cares.
+   *
+   * ── The defect this exists to prevent ─────────────────────────────────────────────────────────
+   *
+   * macOS has two scroller styles. *Legacy* scrollbars take layout space — a scrolling container is
+   * 15 CSS px narrower inside than out — while *overlay* scrollbars float above the content and take
+   * none. The React renderer ships no `::-webkit-scrollbar` rules, so the platform's choice is the
+   * app's layout: every scrolling panel's content reflows by 15px between the two modes.
+   *
+   * The system default is `Automatic`, and macOS resolves *that* from the pointing device attached
+   * at the time — plug in a mouse and it becomes legacy, unplug it and it becomes overlay. So which
+   * mode a baseline is captured in, and which one it is later compared in, is a property of what was
+   * on the developer's desk. Measured on this tier: baselines captured in legacy mode fail 3 of 22
+   * outright in overlay mode, with a fourth passing only inside the pixel tolerance — a red tier that
+   * says nothing about the UI, which is the same class of defect as the DPR trap above.
+   *
+   * ── Why argv, and the probe that says it is honoured ──────────────────────────────────────────
+   *
+   * Cocoa builds an `NSArgumentDomain` from the process's own argv: a `-key value` pair becomes a
+   * `NSUserDefaults` entry for this process only, and it outranks every persisted domain. So this is
+   * a *per-launch* pin that never touches the user's settings — no `defaults write`, nothing to clean
+   * up, nothing that can leak into another app or survive a crashed run.
+   *
+   * That Electron/Chromium actually honours it was verified rather than assumed (throwaway probe,
+   * measuring `offsetWidth - clientWidth` of a scrolling div inside a CSS-free iframe):
+   *
+   * | launch | scrollbar gutter |
+   * | --- | --- |
+   * | no pin (host resolves `Automatic`) | **0 px** (overlay) |
+   * | `-AppleShowScrollBars Always` | **15 px** (legacy) |
+   * | `-AppleShowScrollBars WhenScrolling` | 0 px |
+   * | `-AppleShowScrollBars Automatic` | 0 px |
+   *
+   * The visual tier measures that same gutter after launch and asserts the mode it asked for, so an
+   * Electron that stopped honouring the argument domain fails there instead of quietly re-arming the
+   * trap. macOS-only by nature; the visual tier is macOS-only anyway (its fixture paths are POSIX
+   * literals).
+   *
+   * The long-term structural alternative — styling the app's scrollbars so the platform mode stops
+   * mattering — is a `packages/` change and is recorded in `plans/renderer-rewrite/PLAN.md`.
+   */
+  macScrollBarStyle?: MacScrollBarStyle;
 }
 
 export async function launchJoinery(options: LaunchOptions = {}): Promise<LaunchedApp> {
+  // Argument preconditions first, before anything is created — a throw below the `mkdtemp` would
+  // leak the user-data dir it had already made (Task 22 review, M1).
+  //
+  // Both checks are opt-in: an option that was not passed contributes no argv at all, so an
+  // unpinned launch's command line is byte-identical to what it was before either existed.
+  if (options.deviceScaleFactor !== undefined && !(options.deviceScaleFactor > 0)) {
+    throw new Error(
+      `[electron-app] deviceScaleFactor must be a positive number, got ${String(options.deviceScaleFactor)}`
+    );
+  }
+  if (
+    options.macScrollBarStyle !== undefined &&
+    !MAC_SCROLL_BAR_STYLES.includes(options.macScrollBarStyle)
+  ) {
+    throw new Error(
+      `[electron-app] macScrollBarStyle must be one of ${MAC_SCROLL_BAR_STYLES.join(', ')}, ` +
+        `got ${JSON.stringify(options.macScrollBarStyle)}`
+    );
+  }
+
   const renderer = resolveRendererTarget(options.renderer);
   const rendererIndex = RENDERER_INDEXES[renderer];
 
@@ -185,8 +297,21 @@ export async function launchJoinery(options: LaunchOptions = {}): Promise<Launch
   // electron-store and the keychain credential namespace into the temp dir.
   const userDataDir = mkdtempSync(join(tmpdir(), 'joinery-test-userdata-'));
 
+  // Both spreads are empty unless the caller asked, so an unpinned launch's argv is byte-identical
+  // to what it was. See each option's own documentation for the defect it prevents.
+  const scaleFactorArgs =
+    options.deviceScaleFactor === undefined
+      ? []
+      : [`--force-device-scale-factor=${options.deviceScaleFactor}`];
+  // A Cocoa `-key value` pair, not a Chromium `--switch`: it lands in this process's
+  // NSArgumentDomain and is read from there by AppKit. Two argv entries, deliberately.
+  const scrollBarArgs =
+    options.macScrollBarStyle === undefined
+      ? []
+      : ['-AppleShowScrollBars', options.macScrollBarStyle];
+
   const app = await electron.launch({
-    args: [MAIN_ENTRY, `--user-data-dir=${userDataDir}`],
+    args: [MAIN_ENTRY, `--user-data-dir=${userDataDir}`, ...scaleFactorArgs, ...scrollBarArgs],
     cwd: REPO_ROOT,
     env: {
       ...process.env,

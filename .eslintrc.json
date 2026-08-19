@@ -32,8 +32,8 @@
   },
   "overrides": [
     {
-      "files": ["tests/e2e-react/**/*.ts"],
-      "excludedFiles": ["tests/e2e-react/fixtures.ts"],
+      "files": ["tests/e2e-react/**/*.ts", "tests/e2e-react-visual/**/*.ts"],
+      "excludedFiles": ["tests/e2e-react/fixtures.ts", "tests/e2e-react-visual/fixtures.ts"],
       "rules": {
         "no-restricted-imports": [
           "error",
