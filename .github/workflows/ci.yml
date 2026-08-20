@@ -81,3 +81,49 @@ jobs:
           name: coverage-report
           path: coverage/
           retention-days: 30
+
+  # The other half of the docs staleness guard.
+  #
+  # `docs-site/scripts/generate-reference.mjs --check` fails when the committed reference pages no
+  # longer match `packages/renderer/src/commands/catalogue.ts` or
+  # `packages/shared/src/config/ai-vendors.json`. `.github/workflows/docs.yml` runs it for changes
+  # under `docs-site/` and for changes to those two inputs; this job runs it for every CI trigger,
+  # so a renderer change that also touches something else still cannot merge with a stale table.
+  #
+  # A separate job rather than a step in `test` above, for one reason: `docs-site/` is outside the
+  # app's pnpm workspace, with its own lockfile, its own `pnpm-workspace.yaml` and its own
+  # `packageManager` — installing it inside the app job would need a second pnpm setup and a second
+  # cache path in a job whose `node_modules` is the app's. Kept parallel and cheap: no app install,
+  # no build, one script.
+  docs-reference-drift:
+    name: Docs reference drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Reads the version from docs-site/package.json, NOT the root manifest.
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: docs-site/package.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          # Astro 7 requires >= 22.12, and docs-site/package.json says so in `engines`.
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: docs-site/pnpm-lock.yaml
+
+      - name: Install docs dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: docs-site
+
+      # The generator formats what it emits with Prettier, so this needs the install above; it
+      # does NOT need Astro to run, and deliberately does not build the site — docs.yml owns that.
+      - name: Check the generated reference pages against the app
+        run: pnpm run check:reference
+        working-directory: docs-site

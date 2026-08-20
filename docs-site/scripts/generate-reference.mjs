@@ -25,12 +25,16 @@
  * that arrangement needs is the `--check` mode above, which is stricter than regeneration: a
  * regenerating build cannot fail, and therefore cannot tell anyone that the app moved.
  *
- * ── The gap this cannot close from inside docs-site ─────────────────────────────────────────
+ * ── Where CI runs this ──────────────────────────────────────────────────────────────────────
  *
- * `.github/workflows/docs.yml` is path-filtered to `docs-site/**`, so a commit that changes ONLY
- * `packages/renderer/src/commands/catalogue.ts` does not run this check at all. That workflow's own
- * header records the fix — add the generator's input files to the two path filters — and it is a
- * change to a file outside this directory.
+ * Two workflows, because one path filter could not cover both sides:
+ *
+ *  - `.github/workflows/docs.yml` runs `pnpm run check` and `pnpm run build`, and its push and
+ *    pull_request filters carry `docs-site/**` plus this generator's two INPUT paths
+ *    (`packages/renderer/src/commands/**`, `packages/shared/src/config/ai-vendors.json`), so a
+ *    catalogue-only commit both fails the check and redeploys the corrected site.
+ *  - `.github/workflows/ci.yml`'s `docs-reference-drift` job runs `pnpm run check:reference` on
+ *    every CI trigger, which catches a renderer change bundled with anything else.
  */
 
 import { readFile, writeFile } from 'node:fs/promises';

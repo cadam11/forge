@@ -10,25 +10,31 @@ name: Docs site
 # fewer third-party action inside the job that holds `pages: write` and `id-token: write`.
 #
 # Path-filtered on purpose (§3.3). A Pages deploy on a renderer-only commit is minutes spent
-# republishing identical bytes, so only changes under `docs-site/` — or to this file — trigger
-# one. `workflow_dispatch` covers a manual redeploy, including the first one after Pages was
-# switched to the GitHub Actions source.
+# republishing identical bytes, so only changes under `docs-site/` — or to the generator's inputs,
+# or to this file — trigger one. `workflow_dispatch` covers a manual redeploy, including the first
+# one after Pages was switched to the GitHub Actions source.
 #
-# Phase 2 note: the generated reference pages will read
-# `packages/renderer/src/commands/catalogue.ts` and
-# `packages/shared/src/config/ai-vendors.json`, so those two paths must join the push filter
-# below when the generator lands. Forgetting is how generated pages silently go stale.
+# The two `packages/` entries are the reference generator's INPUTS
+# (`docs-site/scripts/generate-reference.mjs`): the command catalogue, from which the keyboard
+# shortcut and command pages are written, and the AI vendor configuration, from which the provider
+# page is. `pnpm run check` and `pnpm run build` both run the generator in `--check` mode and fail
+# on drift, so those paths must trigger this workflow or a catalogue change ships a reference page
+# that quietly disagrees with the app — and the redeployed site would keep serving the old table.
 
 on:
   push:
     branches: [main]
     paths:
       - 'docs-site/**'
+      - 'packages/renderer/src/commands/**'
+      - 'packages/shared/src/config/ai-vendors.json'
       - '.github/workflows/docs.yml'
   pull_request:
     branches: [main]
     paths:
       - 'docs-site/**'
+      - 'packages/renderer/src/commands/**'
+      - 'packages/shared/src/config/ai-vendors.json'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
 
