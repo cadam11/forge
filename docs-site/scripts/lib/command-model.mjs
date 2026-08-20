@@ -19,6 +19,41 @@ const WINDOWS_MODIFIER_NAMES = { CmdOrCtrl: 'Ctrl', CommandOrControl: 'Ctrl', Co
 /** Modifiers that cannot appear in a Windows binding. Their presence means the mapping is wrong. */
 const MAC_ONLY_MODIFIERS = new Set(['Cmd', 'Command', 'Super', 'Meta', 'Option']);
 
+/**
+ * The modifiers each platform spells differently for the same physical key. Used to decide whether
+ * a `{ mac, other }` accelerator is really a DIFFERENT key or the same one under local names —
+ * ⌥⌘S and `Ctrl+Alt+S` are one binding written twice; ⌘. and `Alt+Break` are two bindings.
+ */
+const EQUIVALENT_MODIFIERS = {
+  Cmd: 'Ctrl',
+  Command: 'Ctrl',
+  CmdOrCtrl: 'Ctrl',
+  CommandOrControl: 'Ctrl',
+  Control: 'Ctrl',
+  Option: 'Alt',
+};
+
+/** One accelerator spec as a set of parts, with platform-specific modifier names folded together. */
+function normalizedParts(spec) {
+  return spec
+    .split('+')
+    .map(part => EQUIVALENT_MODIFIERS[part] ?? part)
+    .sort()
+    .join('+');
+}
+
+/** Whether a spec asks for a different key on the two platforms, rather than a renamed modifier. */
+function isDifferentKeyOffMac(keys) {
+  if (typeof keys === 'string') return false;
+  return normalizedParts(keys.mac) !== normalizedParts(keys.other);
+}
+
+/** Every binding of one accelerator — the primary and its alternates — as raw specs. */
+function acceleratorSpecs(accelerator) {
+  if (accelerator === null) return [];
+  return [accelerator.keys, ...(accelerator.alternates ?? [])];
+}
+
 /** The catalogue's palette preconditions, in the words a reference table wants. */
 const REQUIREMENT_LABELS = {
   connection: 'a live connection',
@@ -101,11 +136,10 @@ export function commandRows({ mac, windows }) {
       hint: macEntry.hint,
       group: macEntry.group,
       source: macEntry.accelerator === null ? null : macEntry.accelerator.source,
-      // `AcceleratorKeys` is a plain string when both platforms press the same key, and a
-      // `{ mac, other }` pair when `menu.ts` branches — which is the exact set of commands whose
-      // Windows binding is a different key rather than the same key with a different modifier.
-      platformSpecific:
-        macEntry.accelerator !== null && typeof macEntry.accelerator.keys !== 'string',
+      // Not "does the catalogue branch on platform" — six accelerators do, and one of those six
+      // (the snippet library's ⌥⌘S / Ctrl+Alt+S) is the same key written in each platform's own
+      // modifier names. This is the set a reader has to relearn off macOS.
+      differentKeyOffMac: acceleratorSpecs(macEntry.accelerator).some(isDifferentKeyOffMac),
       keysMac: mac.catalogue.formatAcceleratorList(macEntry.accelerator),
       keysWindows: windows.catalogue
         .formatAcceleratorList(windowsEntry.accelerator)
@@ -124,7 +158,9 @@ export function surfaceShortcutRows({ mac, windows }) {
   return mac.paletteActions.SURFACE_SHORTCUTS.map((shortcut, index) => {
     const windowsShortcut = windows.paletteActions.SURFACE_SHORTCUTS[index];
     const format = (module, keys) =>
-      keys.flatMap(key => module.catalogue.formatAcceleratorList({ source: 'renderer', keys: key }));
+      keys.flatMap(key =>
+        module.catalogue.formatAcceleratorList({ source: 'renderer', keys: key })
+      );
 
     return {
       id: null,
@@ -134,7 +170,7 @@ export function surfaceShortcutRows({ mac, windows }) {
       source: 'renderer',
       keysMac: format(mac, shortcut.keys),
       keysWindows: format(windows, windowsShortcut.keys).map(windowsKeystroke),
-      platformSpecific: shortcut.keys.some(key => typeof key !== 'string'),
+      differentKeyOffMac: shortcut.keys.some(isDifferentKeyOffMac),
       palette: { inPalette: false, note: 'opens the palette itself' },
     };
   });

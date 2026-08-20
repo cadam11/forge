@@ -90,9 +90,12 @@ function unreachable(what) {
  *
  * `shell/status-bar.tsx` is a React component module — executing it means React, Radix and a DOM.
  * But `palette-actions.ts` needs exactly one constant from it (`THEME_OPTIONS`, the three theme
- * names), read at module scope. So the initializer expression is compiled on its own, with free
- * identifiers (the icons) supplied. An unsupported reference is a `ReferenceError` here, not a
- * wrong value downstream.
+ * names), read at module scope. So the initializer expression is compiled on its own, with the
+ * only free names a data constant may legitimately carry supplied: the icons the file imports
+ * from `lucide-react`. Anything else it reaches for is a `ReferenceError` here — which is the
+ * point. A constant that grew a call, a spread of another module's value, or a computed key is a
+ * constant this slice-and-evaluate trick can no longer read honestly, and it must fail rather
+ * than resolve to a plausible-looking object.
  */
 function evaluateExportedConst(file, name) {
   const source = readSource(file);
@@ -104,14 +107,15 @@ function evaluateExportedConst(file, name) {
   const expression = ts.transpileModule(`(${initializer.getText()})`, {
     compilerOptions: { target: ts.ScriptTarget.ES2022 },
   }).outputText;
-  return vm.runInNewContext(expression, iconMarkersFor(initializer));
+  return vm.runInNewContext(expression, iconMarkersFrom(sourceFile));
 }
 
 /** The `<expr>` of a top-level `export const NAME = <expr>`, or null. */
 function findExportedConstInitializer(sourceFile, name) {
   for (const statement of sourceFile.statements) {
     if (!ts.isVariableStatement(statement)) continue;
-    const exported = statement.modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword) ?? false;
+    const exported =
+      statement.modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword) ?? false;
     if (!exported) continue;
     for (const declaration of statement.declarationList.declarations) {
       if (ts.isIdentifier(declaration.name) && declaration.name.text === name) {
@@ -123,17 +127,25 @@ function findExportedConstInitializer(sourceFile, name) {
 }
 
 /**
- * Every bare identifier inside a sliced initializer, bound to an icon marker — the only free names
- * a data constant may legitimately carry. A name that means something else resolves to a marker
- * object, which is visible in the output rather than silently `undefined`.
+ * The names a file imports from `lucide-react`, each bound to an inert marker — and nothing else.
+ *
+ * Binding every identifier the slice mentions would make the evaluation total: a reference to a
+ * store, a helper or another module's constant would quietly become `{ lucideIcon: 'thing' }`
+ * instead of throwing. Only the icons are legitimately free in a data constant, so only the icons
+ * are supplied, and the sandbox has no globals to fall back on.
  */
-function iconMarkersFor(node) {
+function iconMarkersFrom(sourceFile) {
   const names = {};
-  const walk = child => {
-    if (ts.isIdentifier(child)) names[child.text] = { lucideIcon: child.text };
-    child.forEachChild(walk);
-  };
-  node.forEachChild(walk);
+  for (const statement of sourceFile.statements) {
+    if (!ts.isImportDeclaration(statement)) continue;
+    if (statement.moduleSpecifier.text !== 'lucide-react') continue;
+    const bindings = statement.importClause?.namedBindings;
+    if (bindings === undefined || !ts.isNamedImports(bindings)) continue;
+    for (const element of bindings.elements) {
+      if (element.isTypeOnly) continue;
+      names[element.name.text] = { lucideIcon: element.name.text };
+    }
+  }
   return names;
 }
 

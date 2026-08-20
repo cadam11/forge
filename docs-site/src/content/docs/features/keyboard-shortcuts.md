@@ -42,7 +42,7 @@ File ▸ Save Query As, so a window-level listener on it would never have run.
 
 ## On Windows
 
-Most bindings swap ⌘ for Ctrl and are otherwise the same. **Six are genuinely different keys:**
+Most bindings swap ⌘ for Ctrl and are otherwise the same. **Five are genuinely different keys:**
 
 | Command           | macOS | Elsewhere      |
 | ----------------- | ----- | -------------- |
@@ -51,7 +51,9 @@ Most bindings swap ⌘ for Ctrl and are otherwise the same. **Six are genuinely 
 | Cancel query      | ⌘.    | Alt+Break      |
 | Next tab          | ⇧⌘]   | Ctrl+Tab       |
 | Previous tab      | ⇧⌘[   | Ctrl+Shift+Tab |
-| Snippet library   | ⌥⌘S   | Ctrl+Alt+S     |
+
+A sixth binding is written per platform without being a different key: the snippet library is ⌥⌘S on
+macOS and `Ctrl+Alt+S` elsewhere — the same S, with each platform's own name for the two modifiers.
 
 The sheet always shows the bindings for the platform you are running on. On macOS it renders them as
 glyphs, in the macOS modifier order — ⌃ ⌥ ⇧ ⌘ — no matter how the binding was written. Elsewhere it
@@ -82,7 +84,8 @@ way; the [reference table](../../reference/keyboard-shortcuts/) prints it that w
 | The palette's opener is rendered under App as well, as a fourth row              | `packages/renderer/src/features/shortcuts-dialog/shortcuts-dialog.tsx:95-105`, `features/command-palette/palette-actions.ts:112-121` |
 | ⌘E is declared in the menu with `registerAccelerator: false` and bound by Monaco | `packages/main/src/menu.ts:210-213`, `packages/renderer/src/editor/sql-editor.tsx:345-349`                                           |
 | ⌥⌘S rather than ⇧⌘S, because ⇧⌘S is Save Query As                                | `packages/renderer/src/commands/catalogue.ts:637-639`, `packages/main/src/menu.ts:101`                                               |
-| The six commands with a genuinely different non-macOS binding                    | `packages/renderer/src/commands/catalogue.ts:349, 413, 421, 574, 582, 639`                                                           |
+| The five commands with a genuinely different non-macOS binding                   | `packages/renderer/src/commands/catalogue.ts:349, 413, 421, 574, 582`                                                                |
+| The sixth per-platform binding is the same key: `Cmd+Option+S` / `Ctrl+Alt+S`    | `packages/renderer/src/commands/catalogue.ts:639`                                                                                    |
 | Accelerators are formatted for the running platform, with macOS modifier order   | `packages/renderer/src/commands/catalogue.ts:849-884`                                                                                |
 | Off macOS the formatter prints the binding's own spelling, `CmdOrCtrl` included  | `packages/renderer/src/commands/catalogue.ts:871-873`                                                                                |
 | Electron maps `CmdOrCtrl` to Command on macOS and Control elsewhere              | [Electron accelerator reference](https://www.electronjs.org/docs/latest/api/accelerator)                                             |

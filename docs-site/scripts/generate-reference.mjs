@@ -10,6 +10,11 @@
  * build rather than shipping a page that quietly disagrees with the app
  * (plans/docs-site/PROPOSAL.md §5.3, §7 Phase 2).
  *
+ * The check hangs off those two scripts, not off Astro: `npx astro build` or `astro dev` invoked
+ * directly bypasses it, and so would a CI step that called Astro rather than the package script.
+ * `.github/workflows/docs.yml` runs `pnpm run check` and `pnpm run build`, which is why it is
+ * covered.
+ *
  * ── Two things this deliberately does not do ────────────────────────────────────────────────
  *
  * It does not import the renderer: see `lib/app-source.mjs` for the isolated loader and why.
@@ -67,6 +72,12 @@ async function readVendorConfig() {
  * Format exactly as the repository does. The root `.prettierrc` covers `docs-site/**\/*.md`
  * (`package.json`'s `format:check` glob), so a generated page that is not Prettier-clean fails a
  * gate somewhere else. `resolveConfig` reads that same file rather than restating its options.
+ *
+ * The OPTIONS come from the root config; the FORMATTER is docs-site's own dependency, pinned to
+ * `3.9.6` — the version the root lockfile resolves today, while the root manifest floats on
+ * `^3.3.1`. A root Prettier bump that changes Markdown output would put the two gates in
+ * disagreement: this generator would emit the old shape and the root `format:check` would want
+ * the new one. If that happens, move this pin to the new version and regenerate.
  */
 async function formatMarkdown(markdown, filePath) {
   const options = await prettier.resolveConfig(filePath);
@@ -138,7 +149,9 @@ async function main() {
 
   const drifted = await driftedPages(pages);
   if (drifted.length === 0) {
-    console.log(`reference pages match ${RENDERER_SRC.replace(/.*\/packages/, 'packages')} (${pages.length} pages)`);
+    console.log(
+      `reference pages match ${RENDERER_SRC.replace(/.*\/packages/, 'packages')} (${pages.length} pages)`
+    );
     return;
   }
 

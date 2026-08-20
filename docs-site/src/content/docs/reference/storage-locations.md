@@ -23,8 +23,12 @@ Electron's per-application data directory, named after the app:
 
 | Platform | Folder                                  |
 | -------- | --------------------------------------- |
-| macOS    | `~/Library/Application Support/Joinery` |
-| Windows  | `%APPDATA%\Joinery`                     |
+| macOS    | `~/Library/Application Support/joinery` |
+| Windows  | `%APPDATA%\joinery`                     |
+
+**Lowercase**, even though the application itself is called Joinery. Electron names the folder after
+the packaged app's name, and nothing sets a display name for that purpose — so it is the package
+name, `joinery`, while the macOS bundle is `Joinery.app`. Look for the lowercase folder.
 
 ## The files
 
@@ -39,8 +43,10 @@ Electron's per-application data directory, named after the app:
 | `chat-history/`       | One `<conversation-id>.json` per assistant conversation                                                                                                                                          |
 
 Snapshots are pruned: at most 50 per tab, at most 50,000 rows kept from one result, and a 500 MB
-ceiling. A retention pass runs at most once a day and drops snapshots older than 30 days — except
-pinned ones, and except the five most recent for each tab.
+ceiling. A retention pass runs at most once a day and drops every snapshot older than 30 days that
+you have not pinned. **Pinning is the only thing that keeps an old snapshot** — the "keep the five
+most recent per tab" floor the app also asks for applies only to a purge aimed at one named tab,
+which the daily pass is not.
 
 ## Credentials
 
@@ -84,27 +90,28 @@ resolving those is the AWS connector's job.
 <details>
 <summary>Where this page's facts come from</summary>
 
-| Claim                                                                                 | Source                                                                                                                                              |
-| ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Secrets go to the OS credential store via `keytar`, as one JSON vault entry read once | `packages/main/src/services/keychain/credential-store.ts:1-4, 12-14, 20-56`                                                                         |
-| The keychain service name is the app id `ca.adam11.joinery`                           | `packages/main/src/services/keychain/credential-store.ts:12`, `packages/shared/src/constants/index.ts:5`                                            |
-| The app is named Joinery, which names the user-data folder                            | `electron-builder.yml:1-2`                                                                                                                          |
-| Persistence happens in the main process, through `electron-store`                     | `packages/main/src/services/config/app-state.ts:6, 38-44`, `packages/main/src/ipc/settings.ipc.ts:1-4`                                              |
-| `app-state.json`, and what `AppState` holds                                           | `packages/main/src/services/config/app-state.ts:38-43`, `packages/shared/src/types/app-state.types.ts:19-49`                                        |
-| `connections.json` holds profiles without passwords                                   | `packages/main/src/services/config/connection-profiles.ts:3, 26-32, 138-148`                                                                        |
-| `query-history.json`                                                                  | `packages/main/src/services/config/query-history.ts:32-38`                                                                                          |
-| `window-state.json`                                                                   | `packages/main/src/window.ts:18-24`                                                                                                                 |
-| Snapshots live in `query-results-data/` as an index plus one file each                | `packages/main/src/services/config/snapshot-file-store.ts:1-18, 43`, `query-results-store.ts:82`                                                    |
-| The single-blob format is migrated and emptied on first launch                        | `packages/main/src/services/config/query-results-store.ts:67-93`                                                                                    |
-| Snapshot limits: 50 per tab, 50,000 rows, 500 MB                                      | `packages/main/src/services/config/query-results-store.ts:38-45, 118-122, 156-161`                                                                  |
-| Retention: daily at most, 30 days, pinned skipped, five most recent per tab kept      | `packages/main/src/services/config/query-results-store.ts:443-451`                                                                                  |
-| Chat conversations are one JSON file each under `chat-history/`                       | `packages/main/src/services/ai/chat-service.ts:87, 102, 123`                                                                                        |
-| Passwords, SSH secrets and AI keys are separate entries inside the vault              | `packages/main/src/services/config/connection-profiles.ts:138-148`, `services/ai/ai-service.ts:136-138`, `services/ssh/ssh-tunnel-manager.ts:88-97` |
-| The Entra ID token cache is persisted to the same store                               | `packages/main/src/services/azure/entra-auth.ts:12-13, 57`                                                                                          |
-| Deleting a profile deletes its password and SSH credentials                           | `packages/main/src/services/config/connection-profiles.ts:191-193`                                                                                  |
-| Only two renderer modules may touch `localStorage`, enforced by a source-reading test | `packages/renderer/src/persistence/no-local-storage-writes.spec.ts:1-30`                                                                            |
-| The theme mirror key, and why a synchronous source is needed before mount             | `packages/renderer/src/persistence/theme-mirror.ts:44, 64`, `no-local-storage-writes.spec.ts:12-16`                                                 |
-| Six legacy keys are migrated then removed, only after main acknowledges the write     | `packages/renderer/src/persistence/legacy-local-storage.ts:2, 225-228`, `no-local-storage-writes.spec.ts:17-24`                                     |
-| AWS profile names only are read from `~/.aws/config` and `~/.aws/credentials`         | `packages/main/src/services/config/aws-profiles.ts:1-12`                                                                                            |
+| Claim                                                                                                                                                                   | Source                                                                                                                                              |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Secrets go to the OS credential store via `keytar`, as one JSON vault entry read once                                                                                   | `packages/main/src/services/keychain/credential-store.ts:1-4, 12-14, 20-56`                                                                         |
+| The keychain service name is the app id `ca.adam11.joinery`                                                                                                             | `packages/main/src/services/keychain/credential-store.ts:12`, `packages/shared/src/constants/index.ts:5`                                            |
+| The folder is the lowercase package name: no `productName` in the root manifest, no `app.setName` in the main process, and `electron-builder.yml` names the bundle only | `package.json:2`, `electron-builder.yml:1-2`, and the live path recorded in `plans/perf-baselines.md:19`                                            |
+| Persistence happens in the main process, through `electron-store`                                                                                                       | `packages/main/src/services/config/app-state.ts:6, 38-44`, `packages/main/src/ipc/settings.ipc.ts:1-4`                                              |
+| `app-state.json`, and what `AppState` holds                                                                                                                             | `packages/main/src/services/config/app-state.ts:38-43`, `packages/shared/src/types/app-state.types.ts:19-49`                                        |
+| `connections.json` holds profiles without passwords                                                                                                                     | `packages/main/src/services/config/connection-profiles.ts:3, 26-32, 138-148`                                                                        |
+| `query-history.json`                                                                                                                                                    | `packages/main/src/services/config/query-history.ts:32-38`                                                                                          |
+| `window-state.json`                                                                                                                                                     | `packages/main/src/window.ts:18-24`                                                                                                                 |
+| Snapshots live in `query-results-data/` as an index plus one file each                                                                                                  | `packages/main/src/services/config/snapshot-file-store.ts:1-18, 43`, `query-results-store.ts:82`                                                    |
+| The single-blob format is migrated and emptied on first launch                                                                                                          | `packages/main/src/services/config/query-results-store.ts:67-93`                                                                                    |
+| Snapshot limits: 50 per tab, 50,000 rows, 500 MB                                                                                                                        | `packages/main/src/services/config/query-results-store.ts:38-45, 118-122, 156-161`                                                                  |
+| Retention: at most daily, 30 days, pinned skipped                                                                                                                       | `packages/main/src/services/config/query-results-store.ts:432-451`                                                                                  |
+| The per-tab floor is only consulted for a purge with a `tabId`, which the daily pass does not pass                                                                      | `packages/main/src/services/config/query-results-store.ts:302-333` (`keepMinPerTab` is read inside `if (options.tabId)` at :318-320)                |
+| Chat conversations are one JSON file each under `chat-history/`                                                                                                         | `packages/main/src/services/ai/chat-service.ts:87, 102, 123`                                                                                        |
+| Passwords, SSH secrets and AI keys are separate entries inside the vault                                                                                                | `packages/main/src/services/config/connection-profiles.ts:138-148`, `services/ai/ai-service.ts:136-138`, `services/ssh/ssh-tunnel-manager.ts:88-97` |
+| The Entra ID token cache is persisted to the same store                                                                                                                 | `packages/main/src/services/azure/entra-auth.ts:12-13, 57`                                                                                          |
+| Deleting a profile deletes its password and SSH credentials                                                                                                             | `packages/main/src/services/config/connection-profiles.ts:191-193`                                                                                  |
+| Only two renderer modules may touch `localStorage`, enforced by a source-reading test                                                                                   | `packages/renderer/src/persistence/no-local-storage-writes.spec.ts:1-30`                                                                            |
+| The theme mirror key, and why a synchronous source is needed before mount                                                                                               | `packages/renderer/src/persistence/theme-mirror.ts:44, 64`, `no-local-storage-writes.spec.ts:12-16`                                                 |
+| Six legacy keys are migrated then removed, only after main acknowledges the write                                                                                       | `packages/renderer/src/persistence/legacy-local-storage.ts:2, 225-228`, `no-local-storage-writes.spec.ts:17-24`                                     |
+| AWS profile names only are read from `~/.aws/config` and `~/.aws/credentials`                                                                                           | `packages/main/src/services/config/aws-profiles.ts:1-12`                                                                                            |
 
 </details>

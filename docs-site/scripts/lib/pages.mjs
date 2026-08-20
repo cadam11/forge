@@ -11,7 +11,15 @@
 import { createHash } from 'node:crypto';
 
 import { byGroup, commandRows, paletteActionRows, surfaceShortcutRows } from './command-model.mjs';
-import { callout, cell, claimsTable, frontmatter, keystrokes, paragraph, table } from './markdown.mjs';
+import {
+  callout,
+  cell,
+  claimsTable,
+  frontmatter,
+  keystrokes,
+  paragraph,
+  table,
+} from './markdown.mjs';
 
 /** The renderer files the command pages are derived from, for their provenance blocks. */
 const COMMAND_SOURCES = [
@@ -101,7 +109,7 @@ function shortcutsPage(sources) {
   const bound = commandRows(sources).filter(row => row.keysMac.length > 0);
   const surface = surfaceShortcutRows(sources);
   const rows = [...bound, ...surface];
-  const splitBindings = bound.filter(row => row.platformSpecific);
+  const relearn = bound.filter(row => row.differentKeyOffMac);
 
   const groups = byGroup(sources, rows).map(([label, groupRows]) =>
     [
@@ -152,7 +160,10 @@ function shortcutsPage(sources) {
       ['Bound by', 'What holds the keystroke'],
       [
         ['**Menu**', 'An Electron menu item. The keystroke never reaches the page at all.'],
-        ['**App**', 'A key listener in the window. It must avoid every registered menu accelerator.'],
+        [
+          '**App**',
+          'A key listener in the window. It must avoid every registered menu accelerator.',
+        ],
         ['**Editor**', 'Monaco. The menu shows the key but deliberately does not bind it.'],
       ]
     ),
@@ -169,9 +180,9 @@ function shortcutsPage(sources) {
     '## On Windows',
     '',
     paragraph(
-      'Most bindings are the macOS binding with Ctrl in place of ⌘.',
-      `**${splitBindings.length}** are a different key entirely — the rows above where the two`,
-      'columns do not match key for key.'
+      'Most bindings are the macOS binding with Ctrl in place of ⌘, and ⌥⌘S becomes `Ctrl+Alt+S`',
+      `by the same rule. **${relearn.length}** are a different key entirely — the rows above where`,
+      'the two columns name different keys rather than the same key in local modifier names.'
     ),
     '',
     callout(
@@ -206,11 +217,15 @@ function shortcutsPage(sources) {
         '`packages/renderer/src/commands/catalogue.ts:134-157`',
       ],
       [
-        'Keystrokes are formatted by the app\'s own formatter, per platform',
-        '`packages/renderer/src/commands/catalogue.ts:853-896`, `utils/platform.ts:19`',
+        "Keystrokes are formatted by the app's own formatter, per platform",
+        '`packages/renderer/src/commands/catalogue.ts:853-896`, `utils/platform.ts:18`',
       ],
       [
-        'The non-macOS branch prints the accelerator\'s own spelling, `CmdOrCtrl` included',
+        'Five bindings name a different key off macOS; the sixth platform-specific one is ⌥⌘S / Ctrl+Alt+S',
+        '`packages/renderer/src/commands/catalogue.ts:349, 413, 421, 574, 582` and `:639`',
+      ],
+      [
+        "The non-macOS branch prints the accelerator's own spelling, `CmdOrCtrl` included",
         '`packages/renderer/src/commands/catalogue.ts:871-873`',
       ],
       [
@@ -301,8 +316,11 @@ function commandsPage(sources) {
     ),
     '',
     table(
-      ['Commands affected', 'Why'],
-      reasons.map(([reason, count]) => [String(count), cell(reason)])
+      ['How many', 'Why the palette does not list them'],
+      reasons.map(([reason, count]) => [
+        count === 1 ? '1 command' : `${count} commands`,
+        cell(reason),
+      ])
     ),
     '',
     '## Palette-only actions',
@@ -338,11 +356,11 @@ function commandsPage(sources) {
         '`packages/renderer/src/features/command-palette/palette-model.ts:11-25, 131-154`',
       ],
       [
-        'The palette\'s local actions, and why they are not commands',
+        "The palette's local actions, and why they are not commands",
         '`packages/renderer/src/features/command-palette/palette-actions.ts:1-32, 72-95`',
       ],
       [
-        'Theme names come from the status bar\'s own table, so both surfaces say Ink and Ivory',
+        "Theme names come from the status bar's own table, so both surfaces say Ink and Ivory",
         '`packages/renderer/src/shell/status-bar.tsx:124-131`',
       ],
     ]),
@@ -357,10 +375,30 @@ function tokens(value) {
   return value === undefined ? '—' : value.toLocaleString('en-US');
 }
 
+/**
+ * The model chat opens a new conversation on, when the user has pinned none for this vendor.
+ *
+ * A mirror of `packages/main/src/services/ai/chat-service.ts:46-58` — the nominated default if
+ * there is one, otherwise the highest-ranked stable model among those that may be auto-selected.
+ * Four of the six shipping vendors nominate nothing, so "the vendor default" is not an answer this
+ * page can give for most of them, and the fallback is what a reader actually gets.
+ */
+function autoSelectedModel(vendor) {
+  const candidates = vendor.models.filter(model => model.excludeFromAutoSelect !== true);
+  if (candidates.length === 0) return null;
+  const nominated = candidates.find(model => model.default === true);
+  if (nominated !== undefined) return nominated;
+  const stable = candidates
+    .filter(model => !model.apiName.includes('preview'))
+    .sort((left, right) => (right.powerRank ?? 0) - (left.powerRank ?? 0));
+  return stable[0] ?? candidates[0];
+}
+
 /** What the configuration says about a model beyond its numbers. */
-function modelNotes(model) {
+function modelNotes(model, chatDefault) {
   const notes = [];
-  if (model.default === true) notes.push('vendor default');
+  if (model.default === true) notes.push('nominated default');
+  if (model === chatDefault) notes.push('chat starts here');
   if (model.excludeFromAutoSelect === true) notes.push('never auto-selected');
   if (model.supportsStreaming !== true) notes.push('no streaming');
   return notes.length === 0 ? '—' : notes.join('; ');
@@ -372,8 +410,11 @@ function aiProvidersPage(vendorConfig) {
   const modelCount = vendors.reduce((total, vendor) => total + vendor.models.length, 0);
   const keyless = vendors.filter(vendor => vendor.requiresApiKey !== true);
 
-  const sections = vendors.map(vendor =>
-    [
+  const nominating = vendors.filter(vendor => vendor.models.some(model => model.default === true));
+
+  const sections = vendors.map(vendor => {
+    const chatDefault = autoSelectedModel(vendor);
+    return [
       `### ${cell(vendor.name)}`,
       '',
       `API base URL: \`${cell(vendor.baseUrl)}\`` +
@@ -387,11 +428,11 @@ function aiProvidersPage(vendorConfig) {
           cell(model.costTier),
           tokens(model.maxContextTokens),
           tokens(model.maxOutputTokens),
-          modelNotes(model),
+          modelNotes(model, chatDefault),
         ])
       ),
-    ].join('\n')
-  );
+    ].join('\n');
+  });
 
   const markdown = [
     frontmatter({
@@ -442,9 +483,18 @@ function aiProvidersPage(vendorConfig) {
         ['Max output', 'Maximum tokens in one reply, as the configuration records them.'],
         [
           'Notes',
-          '_Vendor default_ is the model used when you have not chosen one. _Never auto-selected_ marks the routers, whose capability is whatever they route to.',
+          '_Nominated default_ is a flag in the file. _Chat starts here_ is the model a new conversation actually opens on. _Never auto-selected_ marks the routers, whose capability is whatever they route to.',
         ],
       ]
+    ),
+    '',
+    paragraph(
+      'The two default notes are not the same thing, and most vendors show only the second.',
+      `**${nominating.length}** of the **${vendors.length}** nominate a default model in the file.`,
+      'For the rest, a conversation you have not pinned a model for opens on the **highest-ranked',
+      'stable model** the vendor offers — preview models lose to a stable sibling, and routers are',
+      'not eligible at all. Either way you can pin a preferred model per provider in AI setup, and',
+      'override it for a single message in the composer.'
     ),
     '',
     paragraph(
@@ -469,8 +519,16 @@ function aiProvidersPage(vendorConfig) {
         '`packages/shared/src/types/ai.types.ts:75-81`, `packages/main/src/services/ai/ai-service.ts:335-339`',
       ],
       [
-        'The vendor default is preferred, and a stable model beats a preview one otherwise',
-        '`packages/main/src/services/ai/chat-service.ts:48-58`',
+        'Chat opens on the nominated default, else the highest-ranked stable auto-selectable model',
+        '`packages/main/src/services/ai/chat-service.ts:35-58`',
+      ],
+      [
+        'Four of the six vendors nominate no default, so the fallback is the usual path',
+        '`packages/shared/src/config/ai-vendors.json`, `packages/main/src/services/ai/chat-service.ts:38-41`',
+      ],
+      [
+        'A preferred model can be pinned per provider, and overridden for one message',
+        '`packages/renderer/src/features/ai-setup/ai-setup-dialog.tsx:315-325`, `features/chat/chat-composer.tsx:272-320`',
       ],
       [
         'The AI setup dialog lists the vendors and models from this file, showing model names',
