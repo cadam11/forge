@@ -228,7 +228,11 @@ export interface CommandPayloads {
   'restore-database': { connectionId: string; databaseName?: string };
   /** Sidebar ▸ database node ▸ Rename… */
   'rename-database': { connectionId: string; databaseName: string };
-  /** Sidebar ▸ database node ▸ Delete… (the confirm step belongs to the handler). */
+  /**
+   * A drop-database confirmation (the confirm step belongs to the handler). Registered, unowned,
+   * and — since J-104 — with no producer either: the sidebar's database-node Delete… item was
+   * removed because nothing subscribes to this id.
+   */
   'delete-database': { connectionId: string; databaseName: string };
   /**
    * Sidebar ▸ database node ▸ Compare schemas… — the targeted twin of `open-schema-diff` (Task 19b).
@@ -238,7 +242,12 @@ export interface CommandPayloads {
    * focused connection instead, exactly as the backup pair does.
    */
   'compare-database-schemas': { connectionId: string; databaseName: string };
-  /** Sidebar ▸ table/view/procedure/function ▸ Properties… (⌥↩). */
+  /**
+   * An object-properties surface for a table, view, procedure or function. Registered, unowned and
+   * producerless, as its database twin above: J-104 removed the Properties… item from all four
+   * sidebar object menus. The ⌥↩ the Angular menus advertised for it was never bound by anything
+   * (`shell/sidebar/node-menu.tsx`), so it is not claimed here either.
+   */
   'show-object-properties': {
     connectionId: string;
     databaseName: string;

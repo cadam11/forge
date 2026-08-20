@@ -311,8 +311,9 @@ function commandsPage(sources) {
     paragraph(
       `**${rows.length - inPalette.length}** commands are absent from the palette, for`,
       `**${reasons.length}** reasons, each stated in the app's source beside the commands it covers.`,
-      "Most of them carry a target the palette cannot supply: those are the object explorer's",
-      'right-click commands, and each has a target-free twin the palette offers instead.'
+      'Most of them carry a target the palette cannot supply — a palette entry is a phrase, not a',
+      'node. Most of those have a target-free twin the palette offers instead; the rest are',
+      'registered for surfaces that have not shipped, and have no entry point anywhere yet.'
     ),
     '',
     table(

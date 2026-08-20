@@ -251,10 +251,16 @@ const NEEDS_QUERY_TAB: ShownInPalette = { show: true, requires: 'query-tab' };
 /**
  * The reason every *payload-carrying* command is absent, stated once.
  *
- * A palette entry has no target: the user typed a phrase, not a node. `backup-database` and its seven
+ * A palette entry has no target: the user typed a phrase, not a node. `backup-database` and its
  * siblings exist precisely to carry a target the sidebar knows and the menu does not
- * (`registry.ts`'s sidebar section), and each of them has a payload-free twin the palette uses
+ * (`registry.ts`'s sidebar section), and most of them have a payload-free twin the palette uses
  * instead — `open-backup-dialog` resolves the target from `mostRecentConnectionId()`.
+ *
+ * Two do not, and the `because` text below is worded to stay true of them: J-104 removed the
+ * sidebar items that produced `delete-database` and `show-object-properties`, so those two have
+ * neither a producer nor a twin until their surfaces ship. The reason the palette skips them is
+ * unchanged and is the one stated here — a phrase cannot name a node — which is why the entries
+ * stay put rather than being reworded per id.
  *
  * This is a *reason*, not the enforcement: `CatalogueEntry` is what makes any other answer for these
  * ids fail to compile.
@@ -262,8 +268,8 @@ const NEEDS_QUERY_TAB: ShownInPalette = { show: true, requires: 'query-tab' };
 const NEEDS_A_TARGET: HiddenFromPalette = {
   show: false,
   because:
-    'carries a target the palette cannot supply — the sidebar produces it; the palette uses the ' +
-    'payload-free twin instead',
+    'carries a target the palette cannot supply — a palette entry is a phrase the user typed, ' +
+    'not a node',
 };
 
 /** Not a user action at all: a notification between two surfaces. */
