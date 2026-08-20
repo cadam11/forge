@@ -57,9 +57,9 @@ macOS and `Ctrl+Alt+S` elsewhere — the same S, with each platform's own name f
 
 The sheet always shows the bindings for the platform you are running on. On macOS it renders them as
 glyphs, in the macOS modifier order — ⌃ ⌥ ⇧ ⌘ — no matter how the binding was written. Elsewhere it
-prints the binding's own spelling, which for the six above is `Ctrl+Shift+E`-style words but for the
-rest is the cross-platform `CmdOrCtrl+N` form rather than `Ctrl+N`. The key you press is Ctrl either
-way; the [reference table](../../reference/keyboard-shortcuts/) prints it that way.
+prints them as words, and resolves the cross-platform `CmdOrCtrl` spelling to the key you actually
+press: a binding written `CmdOrCtrl+N` reads as `Ctrl+N`. The
+[reference table](../../reference/keyboard-shortcuts/) prints the same thing.
 
 > **Note** — the [keyboard shortcuts reference](../../reference/keyboard-shortcuts/) is the same
 > list on this site, generated from the same table, with the macOS and Windows bindings side by
@@ -75,7 +75,7 @@ way; the [reference table](../../reference/keyboard-shortcuts/) prints it that w
 | A test compares those accelerators with what `menu.ts` registers                 | `packages/renderer/src/commands/catalogue.ts:31-45`, `commands/catalogue.spec.ts`                                                    |
 | 27 commands carry a binding, and the palette opener adds one row                 | `packages/renderer/src/commands/catalogue.ts:272-803`, `features/command-palette/palette-actions.ts:112-121`                         |
 | Rows are grouped the same eight ways, and empty groups are not drawn             | `packages/renderer/src/features/shortcuts-dialog/shortcuts-dialog.tsx:110-115`                                                       |
-| Every binding is shown, not just the primary                                     | `packages/renderer/src/features/shortcuts-dialog/shortcuts-dialog.tsx:79-93`, `commands/catalogue.ts:886-896`                        |
+| Every binding is shown, not just the primary                                     | `packages/renderer/src/features/shortcuts-dialog/shortcuts-dialog.tsx:79-93`, `commands/catalogue.ts:904-914`                        |
 | New connection is ⇧⌘N and ⇧⌘C                                                    | `packages/renderer/src/commands/catalogue.ts:274-283`, `packages/main/src/menu.ts:58, 254`                                           |
 | The three sources and their meanings                                             | `packages/renderer/src/commands/catalogue.ts:144-157`                                                                                |
 | 23 menu-sourced commands, 3 renderer-sourced, 1 editor-sourced                   | `packages/renderer/src/commands/catalogue.ts:239-242, 272-803`                                                                       |
@@ -86,8 +86,8 @@ way; the [reference table](../../reference/keyboard-shortcuts/) prints it that w
 | ⌥⌘S rather than ⇧⌘S, because ⇧⌘S is Save Query As                                | `packages/renderer/src/commands/catalogue.ts:637-639`, `packages/main/src/menu.ts:101`                                               |
 | The five commands with a genuinely different non-macOS binding                   | `packages/renderer/src/commands/catalogue.ts:349, 413, 421, 574, 582`                                                                |
 | The sixth per-platform binding is the same key: `Cmd+Option+S` / `Ctrl+Alt+S`    | `packages/renderer/src/commands/catalogue.ts:639`                                                                                    |
-| Accelerators are formatted for the running platform, with macOS modifier order   | `packages/renderer/src/commands/catalogue.ts:849-884`                                                                                |
-| Off macOS the formatter prints the binding's own spelling, `CmdOrCtrl` included  | `packages/renderer/src/commands/catalogue.ts:871-873`                                                                                |
+| Accelerators are formatted for the running platform, with macOS modifier order   | `packages/renderer/src/commands/catalogue.ts:849-902`                                                                                |
+| Off macOS the formatter prints `Ctrl` for the cross-platform spellings           | `packages/renderer/src/commands/catalogue.ts:852-863, 884-891`                                                                       |
 | Electron maps `CmdOrCtrl` to Command on macOS and Control elsewhere              | [Electron accelerator reference](https://www.electronjs.org/docs/latest/api/accelerator)                                             |
 
 </details>

@@ -102,8 +102,8 @@ keys rather than the same key in local modifier names.
 
 > **Note** — the Windows column is the key you press. The app writes its accelerators with the
 > `CmdOrCtrl` modifier, which Electron resolves to Control on Windows and Linux and to Command on
-> macOS. The in-app cheat sheet does not make that substitution when it prints a binding on Windows,
-> so a key written `CmdOrCtrl+N` reads there as `CmdOrCtrl+N` rather than `Ctrl+N`.
+> macOS; the in-app cheat sheet makes the same substitution when it prints a binding, so a key
+> written `CmdOrCtrl+N` reads there as `Ctrl+N` off macOS, exactly as it does here.
 
 ## How this page is generated
 
@@ -129,16 +129,16 @@ Regenerate from `docs-site/` with `pnpm run generate:reference`.
 <details>
 <summary>Where this page's facts come from</summary>
 
-| Claim                                                                                             | Source                                                                                                       |
-| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Every row is derived from the command table and the surface-shortcut list                         | `packages/renderer/src/commands/catalogue.ts:272-803`, `features/command-palette/palette-actions.ts:112-121` |
-| The in-app cheat sheet is ⇧⌘/ and renders the same two lists                                      | `packages/renderer/src/features/shortcuts-dialog/shortcuts-dialog.tsx:69-108, 117-125`                       |
-| A test compares these accelerators with what `menu.ts` registers                                  | `packages/renderer/src/commands/catalogue.ts:31-45`, `commands/catalogue.spec.ts`                            |
-| Alternates are real bindings, and New connection has two                                          | `packages/renderer/src/commands/catalogue.ts:158-172, 274-283`                                               |
-| What Menu, App and Editor mean, and that App bindings must dodge menu accelerators                | `packages/renderer/src/commands/catalogue.ts:134-157`                                                        |
-| Keystrokes are formatted by the app's own formatter, per platform                                 | `packages/renderer/src/commands/catalogue.ts:853-896`, `utils/platform.ts:18`                                |
-| Five bindings name a different key off macOS; the sixth platform-specific one is ⌥⌘S / Ctrl+Alt+S | `packages/renderer/src/commands/catalogue.ts:349, 413, 421, 574, 582` and `:639`                             |
-| The non-macOS branch prints the accelerator's own spelling, `CmdOrCtrl` included                  | `packages/renderer/src/commands/catalogue.ts:871-873`                                                        |
-| Electron maps `CmdOrCtrl` to Command on macOS and Control elsewhere                               | [Electron accelerator reference](https://www.electronjs.org/docs/latest/api/accelerator)                     |
+| Claim                                                                                                                            | Source                                                                                                       |
+| -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Every row is derived from the command table and the surface-shortcut list                                                        | `packages/renderer/src/commands/catalogue.ts:272-803`, `features/command-palette/palette-actions.ts:112-121` |
+| The in-app cheat sheet is ⇧⌘/ and renders the same two lists                                                                     | `packages/renderer/src/features/shortcuts-dialog/shortcuts-dialog.tsx:69-108, 117-125`                       |
+| A test compares these accelerators with what `menu.ts` registers                                                                 | `packages/renderer/src/commands/catalogue.ts:31-45`, `commands/catalogue.spec.ts`                            |
+| Alternates are real bindings, and New connection has two                                                                         | `packages/renderer/src/commands/catalogue.ts:158-172, 274-283`                                               |
+| What Menu, App and Editor mean, and that App bindings must dodge menu accelerators                                               | `packages/renderer/src/commands/catalogue.ts:134-157`                                                        |
+| Keystrokes are formatted by the app's own formatter, per platform                                                                | `packages/renderer/src/commands/catalogue.ts:865-914`, `utils/platform.ts:18`                                |
+| Five bindings name a different key off macOS; the sixth platform-specific one is ⌥⌘S / Ctrl+Alt+S                                | `packages/renderer/src/commands/catalogue.ts:349, 413, 421, 574, 582` and `:639`                             |
+| The non-macOS branch prints `Ctrl` for `CmdOrCtrl`, `CommandOrControl` and `Control`; bare `Cmd` is left alone, being macOS-only | `packages/renderer/src/commands/catalogue.ts:852-863, 884-891`                                               |
+| Electron maps `CmdOrCtrl` to Command on macOS and Control elsewhere                                                              | [Electron accelerator reference](https://www.electronjs.org/docs/latest/api/accelerator)                     |
 
 </details>

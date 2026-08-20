@@ -103,26 +103,28 @@ describe('shortcutRows', () => {
       row => row.label === COMMAND_CATALOGUE['open-connection-dialog'].label
     );
     expect(newConnection?.keys).toHaveLength(2);
-    expect(newConnection?.keys).toEqual(['CmdOrCtrl+Shift+N', 'CmdOrCtrl+Shift+C']);
+    // jsdom is not a Mac, so `CmdOrCtrl` resolves to the key this platform actually presses (J-114).
+    expect(newConnection?.keys).toEqual(['Ctrl+Shift+N', 'Ctrl+Shift+C']);
   });
 
   it('does not advertise the six shortcuts the Angular sheet got wrong', () => {
-    const printed = new Set(shortcutRows().flatMap(row => row.keys));
+    const rows = shortcutRows();
+    const printed = new Set(rows.flatMap(row => row.keys));
     // ⌘G "Go to Line", ⌘D "Select Word", ⌘L "Select Line", F5 "Execute (Alt)" and ⌘Return "Execute
-    // (Alt)" were bindings this app has never had; ⌘H "Query History" was wrong (it is ⇧⌘H).
-    for (const invented of [
-      'CmdOrCtrl+G',
-      'CmdOrCtrl+D',
-      'CmdOrCtrl+L',
-      'F5',
-      'CmdOrCtrl+Return',
-      'CmdOrCtrl+H',
-    ]) {
+    // (Alt)" were bindings this app has never had.
+    for (const invented of ['Ctrl+G', 'Ctrl+D', 'Ctrl+L', 'F5', 'Ctrl+Return']) {
       expect(printed, `the sheet advertises ${invented}`).not.toContain(invented);
     }
+    // The sixth, ⌘H "Query History", was wrong rather than invented — it is ⇧⌘H. `Ctrl+H` IS printed
+    // off macOS, but for Find and replace (`catalogue.ts`'s `{ mac: 'Cmd+Option+F', other: 'Ctrl+H' }`),
+    // so this one has to be asserted against the row and not the flat key list.
+    const history = rows.find(row => row.label === COMMAND_CATALOGUE['open-query-history'].label);
+    expect(history?.keys).toEqual(['Ctrl+Shift+H']);
+    const replace = rows.find(row => row.label === COMMAND_CATALOGUE['editor-replace'].label);
+    expect(replace?.keys).toEqual(['Ctrl+H']);
     // And the one it advertised for the snippet library, which was Save Query As.
-    expect(printed).toContain('CmdOrCtrl+Shift+S');
-    const saveAs = shortcutRows().find(row => row.keys.includes('CmdOrCtrl+Shift+S'));
+    expect(printed).toContain('Ctrl+Shift+S');
+    const saveAs = shortcutRows().find(row => row.keys.includes('Ctrl+Shift+S'));
     expect(saveAs?.label).toBe(COMMAND_CATALOGUE['save-query-as'].label);
   });
 });

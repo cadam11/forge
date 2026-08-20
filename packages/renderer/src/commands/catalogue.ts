@@ -849,6 +849,19 @@ const MAC_GLYPHS: Record<string, string> = {
 /** The macOS modifier order, so ⇧⌘K never renders as ⌘⇧K. */
 const MAC_MODIFIER_ORDER = ['⌃', '⌥', '⇧', '⌘'];
 
+/**
+ * The Electron modifiers that really are Ctrl off macOS. Accelerators are written in Electron's
+ * vocabulary, but a cheat-sheet row must print the key the user presses, not the spelling the
+ * binding happens to use — `CmdOrCtrl+Shift+N` is a Windows keystroke nobody can type.
+ *
+ * Bare `Cmd` and `Command` are deliberately absent. They are macOS-only: off macOS Electron does not
+ * register them at all, so printing `Ctrl` for one would advertise a key that does nothing — the
+ * same class of lie this mapping exists to remove. A binding that needs a real non-macOS key says so
+ * with a `{ mac, other }` split, and `docs-site/scripts/lib/command-model.mjs` throws if one reaches
+ * the Windows column without it.
+ */
+const NON_MAC_CTRL_ALIASES = new Set(['CmdOrCtrl', 'CommandOrControl', 'Control', 'Ctrl']);
+
 /** The keys for this platform, out of a spec that may branch. */
 export function acceleratorKeysForPlatform(keys: AcceleratorKeys): string {
   if (typeof keys === 'string') return keys;
@@ -869,7 +882,12 @@ export function formatAccelerator(accelerator: Accelerator | null): string | nul
   if (parts.length === 0) return null;
 
   if (!IS_MAC) {
-    return parts.map(part => (part.length === 1 ? part.toUpperCase() : part)).join('+');
+    return parts
+      .map(part => {
+        if (NON_MAC_CTRL_ALIASES.has(part)) return 'Ctrl';
+        return part.length === 1 ? part.toUpperCase() : part;
+      })
+      .join('+');
   }
 
   const glyphs = parts.map(

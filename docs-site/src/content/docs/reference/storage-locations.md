@@ -43,10 +43,10 @@ name, `joinery`, while the macOS bundle is `Joinery.app`. Look for the lowercase
 | `chat-history/`       | One `<conversation-id>.json` per assistant conversation                                                                                                                                          |
 
 Snapshots are pruned: at most 50 per tab, at most 50,000 rows kept from one result, and a 500 MB
-ceiling. A retention pass runs at most once a day and drops every snapshot older than 30 days that
-you have not pinned. **Pinning is the only thing that keeps an old snapshot** — the "keep the five
-most recent per tab" floor the app also asks for applies only to a purge aimed at one named tab,
-which the daily pass is not.
+ceiling. A retention pass runs at most once a day and drops snapshots older than 30 days. Two things
+survive it: anything you have **pinned**, and each tab's **five most recent** snapshots, however old
+they are — so a tab you have not opened in months still has its last few results waiting in it. The
+floor is counted per tab over all of that tab's snapshots, pinned ones included.
 
 ## Credentials
 
@@ -104,9 +104,9 @@ resolving those is the AWS connector's job.
 | `window-state.json`                                                                                                                                                     | `packages/main/src/window.ts:18-24`                                                                                                                 |
 | Snapshots live in `query-results-data/` as an index plus one file each                                                                                                  | `packages/main/src/services/config/snapshot-file-store.ts:1-18, 43`, `query-results-store.ts:82`                                                    |
 | The single-blob format is migrated and emptied on first launch                                                                                                          | `packages/main/src/services/config/query-results-store.ts:67-93`                                                                                    |
-| Snapshot limits: 50 per tab, 50,000 rows, 500 MB                                                                                                                        | `packages/main/src/services/config/query-results-store.ts:38-45, 118-122, 156-161`                                                                  |
-| Retention: at most daily, 30 days, pinned skipped                                                                                                                       | `packages/main/src/services/config/query-results-store.ts:432-451`                                                                                  |
-| The per-tab floor is only consulted for a purge with a `tabId`, which the daily pass does not pass                                                                      | `packages/main/src/services/config/query-results-store.ts:302-333` (`keepMinPerTab` is read inside `if (options.tabId)` at :318-320)                |
+| Snapshot limits: 50 per tab, 50,000 rows, 500 MB                                                                                                                        | `packages/main/src/services/config/query-results-store.ts:39-46, 147-151, 185-190`                                                                  |
+| Retention: at most daily, 30 days, pinned skipped                                                                                                                       | `packages/main/src/services/config/query-results-store.ts:461-491`                                                                                  |
+| The five-per-tab floor is honoured on the daily pass too, counted per tab over pinned and unpinned alike                                                                | `packages/main/src/services/config/query-results-store.ts:48-75` (`floorProtectedIds`), `:339-349` (applied in the `olderThan` branch)              |
 | Chat conversations are one JSON file each under `chat-history/`                                                                                                         | `packages/main/src/services/ai/chat-service.ts:87, 102, 123`                                                                                        |
 | Passwords, SSH secrets and AI keys are separate entries inside the vault                                                                                                | `packages/main/src/services/config/connection-profiles.ts:138-148`, `services/ai/ai-service.ts:136-138`, `services/ssh/ssh-tunnel-manager.ts:88-97` |
 | The Entra ID token cache is persisted to the same store                                                                                                                 | `packages/main/src/services/azure/entra-auth.ts:12-13, 57`                                                                                          |
