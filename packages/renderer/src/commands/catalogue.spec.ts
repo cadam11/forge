@@ -498,14 +498,23 @@ describe('formatAccelerator', () => {
     expect(formatAccelerator({ source: 'menu', keys: 'CmdOrCtrl+Shift+n' })).toBe('Ctrl+Shift+N');
   });
 
-  it('resolves every Electron Cmd alias to Ctrl off macOS', () => {
-    // Electron accepts several spellings of the same modifier; off macOS they all mean Ctrl, and a
-    // cheat-sheet row that prints the accelerator's spelling instead of the key is a lie (J-114).
-    for (const alias of ['CmdOrCtrl', 'CommandOrControl', 'Cmd', 'Command', 'Control', 'Ctrl']) {
+  it('resolves the cross-platform Ctrl spellings off macOS', () => {
+    // Electron accepts several spellings of the modifier that IS Ctrl off macOS, and a cheat-sheet
+    // row that prints the accelerator's spelling instead of the key is a lie (J-114).
+    for (const alias of ['CmdOrCtrl', 'CommandOrControl', 'Control', 'Ctrl']) {
       expect(formatAccelerator({ source: 'menu', keys: `${alias}+k` }), alias).toBe('Ctrl+K');
     }
-    // Modifiers that are not aliases of Ctrl keep their own names.
+    // Modifiers that are not that one keep their own names.
     expect(formatAccelerator({ source: 'menu', keys: 'Alt+Shift+k' })).toBe('Alt+Shift+K');
+  });
+
+  it('leaves the macOS-only Cmd spellings alone off macOS', () => {
+    // Bare `Cmd`/`Command` are macOS-only: off macOS Electron does not register them at all, so
+    // printing `Ctrl` for one would advertise a key that does nothing. They stay unmapped on
+    // purpose, and the odd-looking output is the point — it is how a binding that forgot its
+    // `{ mac, other }` split gets noticed instead of silently reading as a working Windows key.
+    expect(formatAccelerator({ source: 'menu', keys: 'Cmd+k' })).toBe('Cmd+K');
+    expect(formatAccelerator({ source: 'menu', keys: 'Command+k' })).toBe('Command+K');
   });
 
   it('returns null when there is no binding', () => {

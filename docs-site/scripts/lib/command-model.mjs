@@ -12,14 +12,16 @@
  * Modifiers that cannot appear in a Windows binding. Electron resolves `CmdOrCtrl` to Command on
  * macOS and Control everywhere else (https://www.electronjs.org/docs/latest/api/accelerator), and
  * since J-114 the app's own `formatAccelerator` makes that substitution too on its non-Mac branch
- * (`catalogue.ts:857-864`) — so a Windows keystroke reaching this file is already spelled the way a
- * Windows reader presses it. Anything left in it that only exists on a Mac keyboard means a
- * catalogue entry needs a `{ mac, other }` split.
+ * (`catalogue.ts:852-863`) — so the `CmdOrCtrl` family reaching this file is already spelled the way
+ * a Windows reader presses it, and this file no longer has to rewrite it.
  *
- * `Cmd` and `Command` are deliberately NOT listed: the app folds them into `Ctrl` before this file
- * sees them, so checking for them here would be a check that can never fire.
+ * What the app deliberately does NOT rewrite is bare `Cmd` / `Command`, because those are macOS-only:
+ * Electron never registers them off macOS, so printing `Ctrl` for one would advertise a dead key.
+ * That is what makes this set a tripwire rather than a formatter — anything in a Windows keystroke
+ * that only exists on a Mac keyboard means a catalogue entry gained a macOS accelerator without the
+ * `{ mac, other }` split it needs, and the build should stop rather than publish it.
  */
-const MAC_ONLY_MODIFIERS = new Set(['Super', 'Meta', 'Option']);
+const MAC_ONLY_MODIFIERS = new Set(['Cmd', 'Command', 'Super', 'Meta', 'Option']);
 
 /**
  * The modifiers each platform spells differently for the same physical key. Used to decide whether
