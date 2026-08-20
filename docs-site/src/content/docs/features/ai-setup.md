@@ -121,7 +121,7 @@ field either way.
 | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
 | The macOS app menu's "AI Setup...", beside Settings...                         | `packages/main/src/menu.ts:14-38`                                                                                    |
 | The second copy in the Edit menu, beside Preferences...                        | `packages/main/src/menu.ts:123, 186-202`                                                                             |
-| Both send `menu:open-ai-setup`, which dispatches `open-ai-setup`               | `packages/renderer/src/shell/menu-bridge.tsx:98`                                                                     |
+| Both send `menu:open-ai-setup`, which dispatches `open-ai-setup`               | `packages/renderer/src/shell/menu-bridge.tsx:100`                                                                    |
 | The palette entry "Set up AI", with no accelerator                             | `packages/renderer/src/commands/catalogue.ts:605-613`                                                                |
 | The settings dialog's AI group carries "Open AI setup"                         | `packages/renderer/src/features/settings/settings-groups.tsx:530-540`, `settings-dialog.tsx:113`                     |
 | The assistant's empty state carries a "Set up AI" button                       | `packages/renderer/src/features/chat/chat-transcript.tsx:72-81`                                                      |

@@ -105,6 +105,11 @@ const SCHEMAS: ObjectMetadata[] = [
   { name: 'app_meta', type: 'schema', schema: '' },
 ] as unknown as ObjectMetadata[];
 
+/** One object of a given kind, for the tests that need an object node's own context menu. */
+function objectMetadata(name: string, type: string): ObjectMetadata[] {
+  return [{ name, type, schema: 'public' }] as unknown as ObjectMetadata[];
+}
+
 interface BridgeSpies {
   readonly listDatabases: ReturnType<typeof vi.fn>;
   readonly getChildren: ReturnType<typeof vi.fn>;
@@ -414,6 +419,27 @@ async function expandFirstServer(): Promise<void> {
   await waitFor(() => expect(screen.getAllByTestId('tree-row')).toHaveLength(4));
 }
 
+/**
+ * Expand database → schema, leaving the four object folders on screen. Call after
+ * `expandFirstServer`.
+ *
+ * Only the database expand hits the bridge; the schema's folders are built locally from
+ * `schemaFolderDefs`, which is why the default `getChildren` (schemas) is enough here.
+ */
+async function expandSchema(): Promise<void> {
+  await userEvent.click(within(rowByLabel('joinery_test')).getByTestId('tree-row-twisty'));
+  await waitFor(() => expect(rowByLabel('public')).toBeTruthy());
+  await userEvent.click(within(rowByLabel('public')).getByTestId('tree-row-twisty'));
+  await waitFor(() => expect(rowByLabel('Tables')).toBeTruthy());
+}
+
+/** Expand one object folder onto a single object of the given kind. Call after `expandSchema`. */
+async function expandFolder(folder: string, name: string, type: string): Promise<void> {
+  bridge.getChildren.mockResolvedValueOnce(objectMetadata(name, type));
+  await userEvent.click(within(rowByLabel(folder)).getByTestId('tree-row-twisty'));
+  await waitFor(() => expect(rowByLabel(name)).toBeTruthy());
+}
+
 describe('Refresh, and the caches it is expected to clear', () => {
   /**
    * The fix: both Refresh affordances now drop the MAIN process's metadata caches first.
@@ -504,7 +530,7 @@ describe('context menus', () => {
     expect(ariaDisabled(within(menu).getByTestId('sidebar-menu-restore'))).toBeNull();
   });
 
-  it('refuses to rename or drop a system database whatever the engine says', async () => {
+  it('refuses to rename a system database whatever the engine says', async () => {
     connectionStore.setState({
       profiles: [profile(PG_ONE, 'PG One')],
       connectedProfileIds: new Set([PG_ONE]),
@@ -520,7 +546,81 @@ describe('context menus', () => {
     const menu = await screen.findByTestId('sidebar-node-menu');
 
     expect(ariaDisabled(within(menu).getByTestId('sidebar-menu-rename-database'))).toBe('true');
-    expect(ariaDisabled(within(menu).getByTestId('sidebar-menu-delete-database'))).toBe('true');
+  });
+
+  /**
+   * J-104. `delete-database` and `show-object-properties` have no subscriber, and
+   * `commands/bus.ts:warnUnhandled` only warns under `import.meta.env.DEV` — so while these items
+   * existed, clicking them in a packaged build did nothing, silently. The ids stay registered; the
+   * affordances do not. These two tests are the guard that keeps them gone until a handler exists.
+   *
+   * Each asserts a sibling item is still present, so it cannot pass by finding no menu at all.
+   */
+  it('offers no Delete… on a database menu, because nothing handles delete-database', async () => {
+    seedTwoOpenConnections();
+    mountSidebar();
+    await expandFirstServer();
+
+    fireEvent.contextMenu(rowByLabel('joinery_test'));
+    const menu = await screen.findByTestId('sidebar-node-menu');
+
+    expect(within(menu).getByTestId('sidebar-menu-rename-database')).toBeTruthy();
+    expect(within(menu).queryByTestId('sidebar-menu-delete-database')).toBeNull();
+  });
+
+  /**
+   * All four object menus, not just the table's.
+   *
+   * `PropertiesItem` was one shared component rendered by TableMenu, ViewMenu and RoutineMenu
+   * (procedure and function), so a regression would come back on all four at once — but "would" is
+   * the wrong word to build a guard on, and checking one menu leaves three unwatched.
+   *
+   * One mount for all four rather than four parametrised cases: the setup is four folder expands
+   * inside the SAME tree, so a case-per-menu would re-mount the sidebar and re-walk the same
+   * ancestors four times over for no extra coverage. Each menu asserts a sibling item it carries
+   * before asserting the absence, so none of them can pass against a menu that failed to render.
+   */
+  it('offers no Properties… on any of the four object menus', async () => {
+    seedTwoOpenConnections();
+    mountSidebar();
+    await expandFirstServer();
+    await expandSchema();
+
+    const objects = [
+      { folder: 'Tables', name: 'customers', type: 'table', sibling: 'sidebar-menu-relationships' },
+      {
+        folder: 'Views',
+        name: 'active_users',
+        type: 'view',
+        sibling: 'sidebar-menu-script-select',
+      },
+      {
+        folder: 'Stored Procedures',
+        name: 'sp_rebuild',
+        type: 'procedure',
+        sibling: 'sidebar-menu-execute',
+      },
+      {
+        folder: 'Functions',
+        name: 'fn_total',
+        type: 'function',
+        sibling: 'sidebar-menu-script-alter',
+      },
+    ] as const;
+
+    for (const object of objects) {
+      await expandFolder(object.folder, object.name, object.type);
+
+      fireEvent.contextMenu(rowByLabel(object.name));
+      const menu = await screen.findByTestId('sidebar-node-menu');
+      expect(within(menu).getByTestId(object.sibling), object.type).toBeTruthy();
+      expect(within(menu).queryByTestId('sidebar-menu-properties'), object.type).toBeNull();
+
+      // Close it before opening the next: Radix keeps one open menu, and a stale portal would make
+      // the next `findByTestId` resolve against the previous node's content.
+      await userEvent.keyboard('{Escape}');
+      await waitFor(() => expect(screen.queryByTestId('sidebar-node-menu')).toBeNull());
+    }
   });
 
   it('routes Backup at the node’s own connection, not the focused one', async () => {

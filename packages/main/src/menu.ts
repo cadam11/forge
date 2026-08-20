@@ -276,14 +276,12 @@ export function createMenu(): void {
             win?.webContents.send('menu:refresh');
           },
         },
-        { type: 'separator' },
-        {
-          label: 'Server Properties...',
-          click: () => {
-            const win = BrowserWindow.getFocusedWindow();
-            win?.webContents.send('menu:server-properties');
-          },
-        },
+        // No "Server Properties..." item. J-104: it sent `menu:server-properties`, which the
+        // renderer routes to `show-server-properties` — a command nothing subscribes to, and the
+        // unowned-command warning is DEV-only, so the click did nothing at all in a packaged
+        // build. The command stays registered and the palette lists it as visibly not-wired
+        // (`features/command-palette`); a native menu item has no such affordance, so it is gone
+        // until the properties surface ships.
       ],
     },
 
@@ -313,14 +311,7 @@ export function createMenu(): void {
             win?.webContents.send('menu:restore');
           },
         },
-        { type: 'separator' },
-        {
-          label: 'Database Properties...',
-          click: () => {
-            const win = BrowserWindow.getFocusedWindow();
-            win?.webContents.send('menu:database-properties');
-          },
-        },
+        // No "Database Properties..." item either, for the reason given under Server above.
       ],
     },
 

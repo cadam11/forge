@@ -120,15 +120,16 @@ reference](../keyboard-shortcuts/).
 ## Not in the palette
 
 **13** commands are absent from the palette, for **4** reasons, each stated in the app's source
-beside the commands it covers. Most of them carry a target the palette cannot supply: those are the
-object explorer's right-click commands, and each has a target-free twin the palette offers instead.
+beside the commands it covers. Most of them carry a target the palette cannot supply — a palette
+entry is a phrase, not a node. Most of those have a target-free twin the palette offers instead; the
+rest are registered for surfaces that have not shipped, and have no entry point anywhere yet.
 
 | How many    | Why the palette does not list them                                                                                                           |
 | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1 command   | a claim protocol for the ⌘C keystroke, not an action — the palette cannot be the thing with the selection, because opening it took the focus |
 | 1 command   | a notification from the editor to the status bar                                                                                             |
 | 1 command   | carries the SQL to insert — the snippet library is the surface that chooses which, and the palette opens THAT (`open-snippets`)              |
-| 10 commands | carries a target the palette cannot supply — the sidebar produces it; the palette uses the payload-free twin instead                         |
+| 10 commands | carries a target the palette cannot supply — a palette entry is a phrase the user typed, not a node                                          |
 
 ## Palette-only actions
 
@@ -160,7 +161,7 @@ pulling the app's dependency tree into the docs build. The command table is load
 a macOS user agent and once with a Windows one, so both keystroke columns come from the app's own
 formatter rather than from a second table kept here.
 
-Data digest: `c5c87cbff45e` — a fingerprint of exactly the values rendered above. It changes when
+Data digest: `5ff4b67fb600` — a fingerprint of exactly the values rendered above. It changes when
 what the app ships changes, and not when an unrelated comment in one of those files does.
 
 Regenerate from `docs-site/` with `pnpm run generate:reference`.

@@ -22,11 +22,15 @@
  *
  * ── The channel count ─────────────────────────────────────────────────────────────────────
  *
- * **32.** It was 31 at Task 24 — not the 34 that task's brief said — counted in
+ * **30.** It was 31 at Task 24 — not the 34 that task's brief said — counted in
  * `packages/preload/src/index.ts` (the `menu` block) and cross-checked against `menu.service.ts`,
  * which had exactly 31 `menu.on*` calls. J-92 added the thirty-second, `onOpenAiSetup`, for the
- * `AI Setup…` item beside Settings in both menus that carry Settings. The type above is what makes
- * the number checkable rather than asserted.
+ * `AI Setup…` item beside Settings in both menus that carry Settings. J-104 then took two away —
+ * `onServerProperties` and `onDatabaseProperties` — because the commands they routed to have no
+ * subscriber, and a native menu item cannot render itself as visibly not-wired the way a palette
+ * row can. Those two channels, and the Server / Database ▸ Properties items that sent them, are
+ * gone from `packages/preload` and `packages/main/src/menu.ts` in the same change. The type above
+ * is what makes the number checkable rather than asserted.
  *
  * ── `menu-copy` is the one channel with logic ─────────────────────────────────────────────
  *
@@ -75,13 +79,11 @@ export const MENU_COMMANDS: Record<IpcEventName<'menu'>, PayloadlessCommandId> =
   // Server
   onDisconnect: 'disconnect-connection',
   onRefresh: 'refresh-explorer',
-  onServerProperties: 'show-server-properties',
 
   // Database
   onNewDatabase: 'create-database',
   onBackup: 'open-backup-dialog',
   onRestore: 'open-restore-dialog',
-  onDatabaseProperties: 'show-database-properties',
 
   // View
   onShowWelcome: 'show-welcome',

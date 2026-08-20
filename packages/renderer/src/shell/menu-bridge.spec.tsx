@@ -92,16 +92,20 @@ describe('the native-menu bridge', () => {
     recorder.stop();
   });
 
-  it('covers all 32 channels the preload bridge exposes', () => {
+  it('covers all 30 channels the preload bridge exposes', () => {
     // 31 at Task 24 — not the 34 that brief stated — cross-checked two ways: the `menu` block in
     // `packages/preload/src/index.ts`, and the 31 `menu.on*` subscriptions in the Angular
-    // `menu.service.ts`. J-92 added `onOpenAiSetup` for the `AI Setup…` item, making it 32. The type
-    // of `MENU_COMMANDS` is what keeps this honest — it is a `Record` over `IpcEventName<'menu'>`,
-    // so a channel added to preload and not routed here is a compile error, and this assertion is
-    // the count that goes with it.
-    expect(MENU_CHANNELS).toHaveLength(32);
-    expect(new Set(MENU_CHANNELS).size).toBe(32);
+    // `menu.service.ts`. J-92 added `onOpenAiSetup` for the `AI Setup…` item, making it 32; J-104
+    // removed `onServerProperties` and `onDatabaseProperties` with the dead Server / Database ▸
+    // Properties items that sent them, making it 30. The type of `MENU_COMMANDS` is what keeps
+    // this honest — it is a `Record` over `IpcEventName<'menu'>`, so a channel added to preload and
+    // not routed here is a compile error, and this assertion is the count that goes with it.
+    expect(MENU_CHANNELS).toHaveLength(30);
+    expect(new Set(MENU_CHANNELS).size).toBe(30);
     expect(MENU_CHANNELS).toContain('onOpenAiSetup');
+    // The two J-104 took out. Re-adding either without a subscriber is what this guards.
+    expect(MENU_CHANNELS).not.toContain('onServerProperties');
+    expect(MENU_CHANNELS).not.toContain('onDatabaseProperties');
   });
 
   it('names a registered command for every channel, with no duplicates but menu-copy', () => {

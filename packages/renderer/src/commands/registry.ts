@@ -33,9 +33,10 @@
 export interface CommandPayloads {
   // ── The native menu (Task 7) ───────────────────────────────────────────────────────────────
   //
-  // `packages/preload/src/index.ts` exposes 31 `menu.on*` channels (counted in the file and
-  // cross-checked against the 31 subscriptions in the Angular `menu.service.ts`; the task brief's
-  // "34" is a miscount, recorded in the Task 7 report). Every one of them is subscribed by
+  // `packages/preload/src/index.ts` exposes 30 `menu.on*` channels (31 at Task 7, counted in the
+  // file and cross-checked against the 31 subscriptions in the Angular `menu.service.ts` — the
+  // task brief's "34" is a miscount, recorded in the Task 7 report; J-92 added one and J-104
+  // removed the two dead Properties channels). Every one of them is subscribed by
   // `shell/menu-bridge.tsx` and routed to exactly one command below, so the bridge is a
   // translation table and the question "what does this menu item do?" is answered by grepping one
   // id. `menu-copy` is the only channel with logic in the bridge, because it is the only one with
@@ -117,7 +118,11 @@ export interface CommandPayloads {
   'disconnect-connection': void;
   /** Server ▸ Refresh (⌘R). */
   'refresh-explorer': void;
-  /** Server ▸ Properties. */
+  /**
+   * The server-properties surface. Registered, unowned, and — since J-104 — with no producer
+   * either: Server ▸ Properties… was removed from the native menu because nothing subscribes to
+   * this id. The palette still offers it as a visibly not-wired row.
+   */
   'show-server-properties': void;
 
   /** Database ▸ New Database. */
@@ -126,7 +131,7 @@ export interface CommandPayloads {
   'open-backup-dialog': void;
   /** Database ▸ Restore. The third of 0.1's three broken items. */
   'open-restore-dialog': void;
-  /** Database ▸ Properties. */
+  /** The database-properties surface. Registered, unowned and producerless, as its server twin. */
   'show-database-properties': void;
 
   /** View ▸ Welcome. */
@@ -223,7 +228,11 @@ export interface CommandPayloads {
   'restore-database': { connectionId: string; databaseName?: string };
   /** Sidebar ▸ database node ▸ Rename… */
   'rename-database': { connectionId: string; databaseName: string };
-  /** Sidebar ▸ database node ▸ Delete… (the confirm step belongs to the handler). */
+  /**
+   * A drop-database confirmation (the confirm step belongs to the handler). Registered, unowned,
+   * and — since J-104 — with no producer either: the sidebar's database-node Delete… item was
+   * removed because nothing subscribes to this id.
+   */
   'delete-database': { connectionId: string; databaseName: string };
   /**
    * Sidebar ▸ database node ▸ Compare schemas… — the targeted twin of `open-schema-diff` (Task 19b).
@@ -233,7 +242,12 @@ export interface CommandPayloads {
    * focused connection instead, exactly as the backup pair does.
    */
   'compare-database-schemas': { connectionId: string; databaseName: string };
-  /** Sidebar ▸ table/view/procedure/function ▸ Properties… (⌥↩). */
+  /**
+   * An object-properties surface for a table, view, procedure or function. Registered, unowned and
+   * producerless, as its database twin above: J-104 removed the Properties… item from all four
+   * sidebar object menus. The ⌥↩ the Angular menus advertised for it was never bound by anything
+   * (`shell/sidebar/node-menu.tsx`), so it is not claimed here either.
+   */
   'show-object-properties': {
     connectionId: string;
     databaseName: string;
@@ -384,7 +398,12 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
   'refresh-explorer':
     'Task 7 shell (the three-step refresh of menu.service.ts:356-386: database list, server ' +
     'node, selected node).',
-  'show-server-properties': 'Task 19 server-properties surface.',
+  'show-server-properties':
+    'Task 19 server-properties surface. No producer: J-104 removed Server ▸ Properties… from ' +
+    'the native menu (`packages/main/src/menu.ts`) and its `onServerProperties` channel with it, ' +
+    'because it dispatched into a handler that never shipped and `bus.ts:warnUnhandled` is ' +
+    'DEV-only. The palette still lists this id, disabled, naming this task — which is the ' +
+    'affordance a native menu item cannot offer.',
 
   'create-database':
     'Task 19a features/databases/DatabaseDialogs, mounted by the shell. Like the backup twin it ' +
@@ -401,7 +420,9 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
     'mostRecentConnectionId() — not focus — because the native menu carries no payload, and it needs ' +
     'no database name at all: a restore creates its target (PLAN.md 0.1 item 3 — the last of the ' +
     'three silent router no-ops, and no longer the Task 7 placeholder either).',
-  'show-database-properties': 'Task 19 database-properties surface.',
+  'show-database-properties':
+    'Task 19 database-properties surface. No producer: J-104 removed Database ▸ Properties… and ' +
+    'its `onDatabaseProperties` channel, for the reason given under show-server-properties.',
 
   'show-welcome': 'Task 7 shell (tabStore.showWelcome).',
   'toggle-sidebar': 'Task 7 shell (workbenchStore.toggleSidebar).',
@@ -470,13 +491,17 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
     'better. Producer: Task 8 sidebar database menu.',
   'delete-database':
     'Task 19 delete-database confirmation, which owns the in-use warning and the tab/node ' +
-    'teardown. Producer: Task 8 sidebar database menu.',
+    'teardown. No producer: J-104 removed the sidebar database menu’s Delete… item, because it ' +
+    'dispatched into a handler that never shipped and `bus.ts:warnUnhandled` is DEV-only, so the ' +
+    'click was silent in a packaged build. Give this id a producer in the same change as its ' +
+    'handler, never before.',
   'compare-database-schemas':
     'Task 19b features/schema-diff/SchemaDiffHost, with the payload database pre-selected as the ' +
     'comparison SOURCE rather than resolved from focus. Producer: Task 8 sidebar database menu.',
   'show-object-properties':
     'Task 19 object-properties surface (the wired table-properties container, not the dead ' +
-    'panel clone of PLAN.md 0.2). Producer: Task 8 sidebar object context menus.',
+    'panel clone of PLAN.md 0.2). No producer: J-104 removed the Properties… item from all four ' +
+    'sidebar object context menus for the same reason it removed Delete… above.',
 
   'menu-copy':
     'Task 11 results grid (claims it when focus is inside the grid and there is no text selection); ' +

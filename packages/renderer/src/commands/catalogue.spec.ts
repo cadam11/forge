@@ -151,13 +151,15 @@ function keySet(keys: readonly ParsedKeys[]): string[] {
 
 describe('the source scan found what it is checking', () => {
   it('parsed the menu definition', () => {
-    // 32 channels, and most of them carry an accelerator. A parse that degraded to nothing would make
+    // 30 channels, and most of them carry an accelerator. A parse that degraded to nothing would make
     // every comparison below pass silently.
     //
     // It was 31 until J-92 added `menu:open-ai-setup`. That channel is registered by TWO items — the
     // macOS app menu's and the Edit menu's, exactly as Settings is — and this map is keyed by
-    // CHANNEL, so it contributes one entry with an empty accelerator list, asserted below.
-    expect(MENU_ACCELERATORS.size).toBe(32);
+    // CHANNEL, so it contributes one entry with an empty accelerator list, asserted below. J-104
+    // then took `menu:server-properties` and `menu:database-properties` out of `menu.ts` along with
+    // the dead Properties items that sent them, leaving 30.
+    expect(MENU_ACCELERATORS.size).toBe(30);
     expect([...MENU_ACCELERATORS.values()].filter(keys => keys.length > 0).length).toBeGreaterThan(
       20
     );

@@ -1,6 +1,6 @@
 ---
 title: Databases
-description: Creating and renaming a database — the name rule, the recovery model, what refreshes afterwards, and why Delete… does nothing yet.
+description: Creating and renaming a database — the name rule, the recovery model, what refreshes afterwards, and why there is no Delete… item.
 sidebar:
   order: 13
 ---
@@ -97,33 +97,34 @@ already right:
 
 ## Where it is not offered
 
-On a server that does not support database management, **New Database…**, **Rename…** and
-**Delete…** are all greyed out in the explorer's menus, and the palette and menu-bar entries refuse
-with _… does not support creating or renaming databases._
+On a server that does not support database management, **New Database…** and **Rename…** are greyed
+out in the explorer's menus, and the palette and menu-bar entries refuse with _… does not support
+creating or renaming databases._
 
-**Rename…** and **Delete…** are also greyed out on a **system database**, whatever the engine says.
+**Rename…** is also greyed out on a **system database**, whatever the engine says.
 
-## Delete
+## Deleting one
 
-> **Note** — **Delete…** has not shipped. The item is in the database's right-click menu, it is
-> enabled on a manageable, non-system database, and clicking it does nothing at all: no handler is
-> subscribed to the command it dispatches. There is no confirmation, and no database is dropped.
-> Drop a database with a `DROP DATABASE` statement in a query tab until the surface lands.
+> **Note** — Joinery has **no delete-database surface**, and no menu item for one. A **Delete…** row
+> used to sit under _Rename…_ in the database's right-click menu; it dispatched a command nothing
+> listens for, so it never dropped anything and never asked for confirmation — in a released build
+> it did nothing at all, silently. It was removed rather than left there to mislead. Until the
+> surface ships, drop a database with a `DROP DATABASE` statement in a query tab.
 
 <details>
 <summary>Where this page's facts come from</summary>
 
 | Claim                                                                               | Source                                                                                                            |
 | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| The server menu's "New Database…", capability-gated                                 | `packages/renderer/src/shell/sidebar/node-menu.tsx:187-194`                                                       |
+| The server menu's "New Database…", capability-gated                                 | `packages/renderer/src/shell/sidebar/node-menu.tsx:184-191`                                                       |
 | The database picker's "New Database…", capability-gated                             | `packages/renderer/src/shell/sidebar/database-picker.tsx:86-94`                                                   |
-| The menu bar's Database ▸ New Database...                                           | `packages/main/src/menu.ts:294-300`                                                                               |
+| The menu bar's Database ▸ New Database...                                           | `packages/main/src/menu.ts:292-298`                                                                               |
 | The palette entry "New database"                                                    | `packages/renderer/src/commands/catalogue.ts:481-488`                                                             |
 | Targetless entries resolve the most recent connection; the sidebar names its server | `packages/renderer/src/features/databases/database-dialogs.tsx:100-111`                                           |
 | The dialog's title, description and single Name field                               | `packages/renderer/src/features/databases/create-database-dialog.tsx:47-55`, `database-name-dialog.tsx:136-155`   |
 | The three recovery models and their labels, with Simple as the default              | `packages/renderer/src/features/databases/create-database-dialog.tsx:18-25`                                       |
 | The picker is not rendered off SQL Server, and why                                  | `packages/renderer/src/features/databases/create-database-dialog.tsx:1-10, 56-74`, `database-dialogs.tsx:74-98`   |
-| The database menu's "Rename…", capability- and system-gated                         | `packages/renderer/src/shell/sidebar/node-menu.tsx:227-233, 275-282`                                              |
+| The database menu's "Rename…", capability- and system-gated                         | `packages/renderer/src/shell/sidebar/node-menu.tsx:224-230, 271-281`                                              |
 | The rename dialog shows and pre-fills the current name and refuses it               | `packages/renderer/src/features/databases/rename-database-dialog.tsx:31-45`, `database-name.ts:64-66`             |
 | Its description states that open connections are closed                             | `packages/renderer/src/features/databases/rename-database-dialog.tsx:35`, `database-dialogs.tsx:143`              |
 | Tabs on the old name follow the rename                                              | `packages/renderer/src/features/databases/database-invalidation.ts:82-119`                                        |
@@ -139,7 +140,7 @@ with _… does not support creating or renaming databases._
 | The invalidation is awaited before the dialog closes                                | `packages/renderer/src/features/databases/database-dialogs.tsx:130-137`                                           |
 | DDL run in a query tab produces no signal                                           | `packages/renderer/src/features/databases/database-invalidation.ts:31-46`                                         |
 | The palette/menu refusal on an engine without database management                   | `packages/renderer/src/features/databases/database-dialogs.tsx:92-96`                                             |
-| Rename and Delete are greyed out on a system database                               | `packages/renderer/src/shell/sidebar/node-menu.tsx:230-233`                                                       |
-| Delete… dispatches `delete-database`, and nothing is subscribed to it               | `packages/renderer/src/shell/sidebar/node-menu.tsx:283-291`, `packages/renderer/src/commands/registry.ts:471-473` |
+| Rename is greyed out on a system database                                           | `packages/renderer/src/shell/sidebar/node-menu.tsx:228-230`                                                       |
+| There is no Delete… item, and nothing subscribes to `delete-database`               | `packages/renderer/src/shell/sidebar/node-menu.tsx:271-273`, `packages/renderer/src/commands/registry.ts:483-488` |
 
 </details>

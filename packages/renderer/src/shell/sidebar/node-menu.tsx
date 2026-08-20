@@ -19,16 +19,16 @@
  *    and only then, which is what makes it the right hook: the menu content is portalled and
  *    mounted on open, while this component's own element exists for every visible row.
  *
- * ── The eight not-yet-owned dispatches ────────────────────────────────────────────────────
+ * ── Every item here reaches a handler (J-104) ─────────────────────────────────────────────
  *
- * Backup, Restore, New Database, Rename, Delete, Properties, Edit Connection and Manage
- * Connections dispatch commands that Tasks 9 / 12 / 13 / 19 will handle. Until they do, the
- * dispatch warns in DEV naming the owning task (`commands/bus.ts:warnUnhandled`) and nothing
- * else happens. That is the designed state for a not-yet-shipped surface in this renderer, and
- * it is deliberately NOT patched here with a local placeholder dialog: the menu's final shape is
- * what those tasks need to find, and a second placeholder beside Task 7's three would be a second
- * thing to delete. The native menu's Backup / Restore / New Connection items keep Task 7's
- * placeholders, so no existing entry point regresses.
+ * This file once carried eight dispatches whose owning task had not shipped; seven of those tasks
+ * since did. The two that never got an owner — **Delete…** on the database menu
+ * (`delete-database`) and **Properties…** on all four object menus (`show-object-properties`) —
+ * were removed by J-104 rather than left enabled: `commands/bus.ts:warnUnhandled` is
+ * `import.meta.env.DEV`-gated, so in a packaged build the click was silent. The two ids stay
+ * registered (`commands/registry.ts`, `catalogue.ts`) so a future properties/drop surface finds its
+ * channel already typed, but nothing in this menu dispatches them. Add an item here only once
+ * something subscribes to what it sends.
  */
 
 import { useEffect } from 'react';
@@ -38,7 +38,6 @@ import {
   Eye,
   GitCompare,
   HardDriveDownload,
-  Info,
   Network,
   Pencil,
   Play,
@@ -46,7 +45,6 @@ import {
   RefreshCw,
   Rows3,
   SquareTerminal,
-  Trash2,
   Unplug,
 } from 'lucide-react';
 
@@ -71,7 +69,6 @@ import {
   openSelectScript,
   openTableScript,
   refreshNode,
-  showObjectProperties,
   type ObjectTarget,
 } from './node-actions';
 import { isSystemDatabase } from './sql-text';
@@ -228,9 +225,9 @@ function DatabaseMenu({ node, capabilities }: MenuProps) {
   const { connectionId, databaseName } = node;
   if (connectionId === undefined || databaseName === undefined) return null;
   const target = { connectionId, databaseName };
-  // A system database cannot be renamed or dropped whatever the engine says, so the two reasons
-  // are combined rather than checked in sequence — a disabled item has one state, not two.
-  const manageable = capabilities.supportsDatabaseManagement && !isSystemDatabase(databaseName);
+  // A system database cannot be renamed whatever the engine says, so the two reasons are combined
+  // rather than checked in sequence — a disabled item has one state, not two.
+  const renameable = capabilities.supportsDatabaseManagement && !isSystemDatabase(databaseName);
 
   return (
     <>
@@ -272,21 +269,15 @@ function DatabaseMenu({ node, capabilities }: MenuProps) {
       <ContextMenuSeparator />
       <RefreshItem node={node} />
       <ContextMenuSeparator />
+      {/* No Delete… twin. J-104 removed it: `delete-database` has no subscriber, so the item was a
+          silent no-op in a packaged build. It comes back when a drop-database surface ships. */}
       <ContextMenuItem
         icon={Pencil}
-        disabled={!manageable}
+        disabled={!renameable}
         data-testid="sidebar-menu-rename-database"
         onSelect={() => dispatchCommand('rename-database', target)}
       >
         Rename…
-      </ContextMenuItem>
-      <ContextMenuItem
-        icon={Trash2}
-        disabled={!manageable}
-        data-testid="sidebar-menu-delete-database"
-        onSelect={() => dispatchCommand('delete-database', target)}
-      >
-        Delete…
       </ContextMenuItem>
     </>
   );
@@ -314,27 +305,15 @@ function RowItems({ target }: { readonly target: ObjectTarget }) {
   );
 }
 
-function PropertiesItem({
-  target,
-  objectType,
-}: {
-  readonly target: ObjectTarget;
-  readonly objectType: string;
-}) {
-  return (
-    // No shortcut hint. All four Angular copies of this item advertised `Alt+Enter`
-    // (`sidebar.component.ts:1364,1492,1573,1675`) and **nothing in the app bound it** — not
-    // `main/src/menu.ts`, not a renderer keydown handler. A hint for a binding that does not exist
-    // is worse than no hint, so it is gone until something registers the accelerator.
-    <ContextMenuItem
-      icon={Info}
-      data-testid="sidebar-menu-properties"
-      onSelect={() => showObjectProperties(target, objectType)}
-    >
-      Properties…
-    </ContextMenuItem>
-  );
-}
+/*
+ * There is no shared `PropertiesItem` any more.
+ *
+ * All four Angular copies of that item advertised `Alt+Enter` (`sidebar.component.ts:1364,1492,
+ * 1573,1675`) and nothing in the app bound it, so the React port dropped the hint but kept the item.
+ * J-104 dropped the item too: it dispatched `show-object-properties`, which nothing subscribes to,
+ * and the unowned-command warning is DEV-only — so on the four object menus it was an enabled row
+ * that did nothing at all in a packaged build.
+ */
 
 function TableMenu({ node }: MenuProps) {
   const target = objectTargetOf(node);
@@ -373,7 +352,6 @@ function TableMenu({ node }: MenuProps) {
       >
         Show Relationships
       </ContextMenuItem>
-      <PropertiesItem target={target} objectType="table" />
       <ContextMenuSeparator />
       <RefreshItem node={node} />
     </>
@@ -410,8 +388,6 @@ function ViewMenu({ node }: { readonly node: TreeNode }) {
         Script View as SELECT
       </ContextMenuItem>
       <ContextMenuSeparator />
-      <PropertiesItem target={target} objectType="view" />
-      <ContextMenuSeparator />
       <RefreshItem node={node} />
     </>
   );
@@ -420,7 +396,7 @@ function ViewMenu({ node }: { readonly node: TreeNode }) {
 /**
  * Stored procedures and functions. One component for both, because the Angular pair differed in
  * exactly two places: the procedure menu leads with "Execute Stored Procedure…" and the labels
- * name the object type. Everything else — CREATE, ALTER, Properties, Refresh — was duplicated.
+ * name the object type. Everything else — CREATE, ALTER, Refresh — was duplicated.
  */
 function RoutineMenu({
   node,
@@ -461,8 +437,6 @@ function RoutineMenu({
       >
         Script {label} as ALTER
       </ContextMenuItem>
-      <ContextMenuSeparator />
-      <PropertiesItem target={target} objectType={objectType} />
       <ContextMenuSeparator />
       <RefreshItem node={node} />
     </>
