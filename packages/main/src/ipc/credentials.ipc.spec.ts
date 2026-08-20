@@ -9,6 +9,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IPC_CHANNELS } from '@joinery/shared';
 // Resolved to packages/main/src/__mocks__/keytar.ts via the vitest alias.
 import * as keytar from 'keytar';
+// Safe as static imports: vitest hoists the `vi.mock` below above every import, so both of
+// these see the fake electron. (`await import(…)` would say the same thing and would not
+// compile — this package emits CommonJS, which has no top-level await.)
+import { CredentialStore } from '../services/keychain/credential-store';
+import { registerCredentialHandlers } from './credentials.ipc';
 
 interface SentMessage {
   readonly channel: string;
@@ -39,9 +44,6 @@ vi.mock('electron', () => ({
   },
   BrowserWindow: { getAllWindows: () => electron.windows },
 }));
-
-const { CredentialStore } = await import('../services/keychain/credential-store');
-const { registerCredentialHandlers } = await import('./credentials.ipc');
 
 function makeWindow(): FakeWindow {
   const sent: SentMessage[] = [];
