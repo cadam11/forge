@@ -112,7 +112,7 @@ Docker and why the answer can differ from your terminal's.
 
 | Claim                                                                  | Source                                                                                                                |
 | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| The pip lives in the status bar and anchors the panel                  | `packages/renderer/src/shell/status-bar.tsx:355-361`, `features/docker/docker-pip.tsx:57-102`                         |
+| The pip lives in the status bar and anchors the panel                  | `packages/renderer/src/shell/status-bar.tsx:410-414`, `features/docker/docker-pip.tsx:57-102`                         |
 | The five pip states and their exact tooltips                           | `packages/renderer/src/features/docker/docker-model.ts:111-172`                                                       |
 | The colour per state, with no brand colours                            | `packages/renderer/src/features/docker/docker-pip.tsx:34-41`                                                          |
 | The count renders only above zero                                      | `packages/renderer/src/features/docker/docker-pip.tsx:67-73`                                                          |

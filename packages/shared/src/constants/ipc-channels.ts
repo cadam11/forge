@@ -165,6 +165,13 @@ export const IPC_CHANNELS = {
     CHANGED: 'theme:changed',
   },
 
+  // Credential store availability. Availability only — no credential, and no part of one,
+  // is ever carried on these channels (J-118).
+  CREDENTIALS: {
+    GET_KEYCHAIN_STATUS: 'credentials:get-keychain-status',
+    KEYCHAIN_STATUS_CHANGED: 'credentials:keychain-status-changed',
+  },
+
   // App
   APP: {
     GET_VERSION: 'app:get-version',

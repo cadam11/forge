@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ipcKeys } from './keys';
 import type { IpcNamespace } from './surface';
 
-// The 16 namespaces `JoineryAPI` declares. Written out rather than derived from `ipcKeys`
+// The 17 namespaces `JoineryAPI` declares. Written out rather than derived from `ipcKeys`
 // so the test is an independent statement of the surface: if preload gains a namespace,
 // `keys.ts` fails to compile (the Record annotation) *and* this length assertion fails.
 const EXPECTED_NAMESPACES: readonly IpcNamespace[] = [
@@ -11,6 +11,7 @@ const EXPECTED_NAMESPACES: readonly IpcNamespace[] = [
   'backup',
   'chat',
   'connection',
+  'credentials',
   'database',
   'docker',
   'explorer',

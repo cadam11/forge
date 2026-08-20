@@ -134,7 +134,7 @@ field either way.
 | Saving turns the master switch on                                              | `packages/renderer/src/features/ai-setup/ai-setup-dialog.tsx:190-192`                                                |
 | A vendor with no entry is created switched on                                  | `packages/renderer/src/state/ai.ts:151-156`, `packages/main/src/services/ai/ai-service.ts:140-150`                   |
 | "… has a key in the keychain" and "No key saved for …"                         | `packages/renderer/src/features/ai-setup/ai-setup-dialog.tsx:293-306`                                                |
-| The key is written to the OS keychain through keytar                           | `packages/main/src/services/ai/ai-service.ts:136-139`, `services/keychain/credential-store.ts:6, 13, 96`             |
+| The key is written to the OS keychain through keytar                           | `packages/main/src/services/ai/ai-service.ts:136-139`, `services/keychain/credential-store.ts:6, 13, 105`            |
 | The renderer never stores the key — only a boolean                             | `packages/renderer/src/state/ai.ts:10-11`, `features/ai-setup/ai-setup-dialog.tsx:8-25`                              |
 | Remove key deletes it and clears the boolean                                   | `packages/main/src/services/ai/ai-service.ts:154-163`                                                                |
 | The preferred-model picker and its "Provider default" placeholder              | `packages/renderer/src/features/ai-setup/ai-setup-dialog.tsx:309-324`                                                |

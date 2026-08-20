@@ -361,7 +361,7 @@ function commandsPage(sources) {
       ],
       [
         "Theme names come from the status bar's own table, so both surfaces say Ink and Ivory",
-        '`packages/renderer/src/shell/status-bar.tsx:124-131`',
+        '`packages/renderer/src/shell/status-bar.tsx:127-134`',
       ],
     ]),
     '',

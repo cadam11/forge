@@ -99,6 +99,11 @@ column while a query editor is focused, the output toggle, the assistant toggle,
 container control, the theme menu, and the app version. A connection with a colour tag paints a
 thin strip in its colour along the top of the bar.
 
+One more item appears only when something is wrong: an amber **Keychain unavailable** button,
+ahead of the tab count, when the OS credential store has refused Joinery and passwords will not
+be saved this session. [Credential and keychain problems](../../troubleshooting/credentials-and-keychain/)
+explains it.
+
 ## Finding things without the mouse
 
 | Keys       |                                                                                    |
@@ -147,10 +152,11 @@ and System. These docs follow the same default.
 | ⌘. cancels                                                                                   | `packages/renderer/src/commands/catalogue.ts:416-424`                                                                                                                                                                       |
 | ⇧⌘\ toggles the results panel                                                                | `packages/renderer/src/commands/catalogue.ts:551-556`                                                                                                                                                                       |
 | Output panel: Log/Errors filter with counts, reveal-file, clear                              | `packages/renderer/src/shell/workspace/output-panel.tsx:179-229`                                                                                                                                                            |
-| ⌘J toggles it; the status-bar control mirrors it and badges unseen errors                    | `packages/renderer/src/commands/catalogue.ts:559-565`, `packages/renderer/src/shell/status-bar.tsx:319-340`                                                                                                                 |
-| The assistant: ⇧⌘I, status-bar sparkle, sidebar toggle, persisted width, and the tab variant | `packages/renderer/src/commands/catalogue.ts:533-547`, `packages/renderer/src/shell/status-bar.tsx:342-355`, `packages/renderer/src/shell/sidebar/sidebar.tsx:216-227`, `packages/renderer/src/shell/app-shell.tsx:208-225` |
-| Status-bar contents, in order                                                                | `packages/renderer/src/shell/status-bar.tsx:281-372`                                                                                                                                                                        |
-| The connection colour strip                                                                  | `packages/renderer/src/shell/status-bar.tsx:290-299`                                                                                                                                                                        |
+| ⌘J toggles it; the status-bar control mirrors it and badges unseen errors                    | `packages/renderer/src/commands/catalogue.ts:559-565`, `packages/renderer/src/shell/status-bar.tsx:372-393`                                                                                                                 |
+| The assistant: ⇧⌘I, status-bar sparkle, sidebar toggle, persisted width, and the tab variant | `packages/renderer/src/commands/catalogue.ts:533-547`, `packages/renderer/src/shell/status-bar.tsx:395-408`, `packages/renderer/src/shell/sidebar/sidebar.tsx:216-227`, `packages/renderer/src/shell/app-shell.tsx:208-225` |
+| Status-bar contents, in order                                                                | `packages/renderer/src/shell/status-bar.tsx:329-424`                                                                                                                                                                        |
+| The connection colour strip                                                                  | `packages/renderer/src/shell/status-bar.tsx:337-347`                                                                                                                                                                        |
+| The keychain item renders only while degraded, ahead of the tab count                        | `packages/renderer/src/shell/status-bar.tsx:269-295, 355-361`                                                                                                                                                               |
 | ⌘K / ⇧⌘P, ⌘P, ⇧⌘/, ⌘,, ⌘N, ⇧⌘H                                                               | `packages/renderer/src/features/command-palette/command-palette.tsx:79-90`, `packages/renderer/src/commands/catalogue.ts:284-289, 425-430, 587-592, 614-628`                                                                |
 | Ink is the default theme, with Ink / Ivory / System offered                                  | `packages/renderer/src/features/settings/settings-groups.tsx:76-78`                                                                                                                                                         |
 | Six commands carry a per-platform binding                                                    | `packages/renderer/src/commands/catalogue.ts:349, 413, 421, 574, 582, 639`                                                                                                                                                  |

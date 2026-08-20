@@ -67,6 +67,12 @@ beforeEach(() => {
       query: { getHistory: vi.fn(() => Promise.resolve(HISTORY)) },
       backup: { onProgress: () => () => undefined },
       restore: { onProgress: () => () => undefined },
+      // The status bar's keychain indicator (J-118) subscribes on mount, and an `on*` member
+      // that is missing from the mock is a call on `undefined` inside an effect.
+      credentials: {
+        getKeychainStatus: () => Promise.resolve({ available: true }),
+        onKeychainStatusChanged: () => () => undefined,
+      },
     })
   );
 });

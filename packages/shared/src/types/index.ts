@@ -33,3 +33,6 @@ export * from './cli-deps.types';
 
 // Diagnostics / logging types
 export * from './log.types';
+
+// Keychain availability types
+export * from './keychain.types';
