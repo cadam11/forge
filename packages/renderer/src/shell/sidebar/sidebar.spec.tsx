@@ -105,6 +105,11 @@ const SCHEMAS: ObjectMetadata[] = [
   { name: 'app_meta', type: 'schema', schema: '' },
 ] as unknown as ObjectMetadata[];
 
+/** What the "Tables" folder returns, for the one test that needs an object node's menu. */
+const TABLES: ObjectMetadata[] = [
+  { name: 'customers', type: 'table', schema: 'public' },
+] as unknown as ObjectMetadata[];
+
 interface BridgeSpies {
   readonly listDatabases: ReturnType<typeof vi.fn>;
   readonly getChildren: ReturnType<typeof vi.fn>;
@@ -504,7 +509,7 @@ describe('context menus', () => {
     expect(ariaDisabled(within(menu).getByTestId('sidebar-menu-restore'))).toBeNull();
   });
 
-  it('refuses to rename or drop a system database whatever the engine says', async () => {
+  it('refuses to rename a system database whatever the engine says', async () => {
     connectionStore.setState({
       profiles: [profile(PG_ONE, 'PG One')],
       connectedProfileIds: new Set([PG_ONE]),
@@ -520,7 +525,48 @@ describe('context menus', () => {
     const menu = await screen.findByTestId('sidebar-node-menu');
 
     expect(ariaDisabled(within(menu).getByTestId('sidebar-menu-rename-database'))).toBe('true');
-    expect(ariaDisabled(within(menu).getByTestId('sidebar-menu-delete-database'))).toBe('true');
+  });
+
+  /**
+   * J-104. `delete-database` and `show-object-properties` have no subscriber, and
+   * `commands/bus.ts:warnUnhandled` only warns under `import.meta.env.DEV` — so while these items
+   * existed, clicking them in a packaged build did nothing, silently. The ids stay registered; the
+   * affordances do not. These two tests are the guard that keeps them gone until a handler exists.
+   *
+   * Each asserts a sibling item is still present, so it cannot pass by finding no menu at all.
+   */
+  it('offers no Delete… on a database menu, because nothing handles delete-database', async () => {
+    seedTwoOpenConnections();
+    mountSidebar();
+    await expandFirstServer();
+
+    fireEvent.contextMenu(rowByLabel('joinery_test'));
+    const menu = await screen.findByTestId('sidebar-node-menu');
+
+    expect(within(menu).getByTestId('sidebar-menu-rename-database')).toBeTruthy();
+    expect(within(menu).queryByTestId('sidebar-menu-delete-database')).toBeNull();
+  });
+
+  it('offers no Properties… on an object menu, because nothing handles show-object-properties', async () => {
+    seedTwoOpenConnections();
+    mountSidebar();
+    await expandFirstServer();
+
+    // server → database → schema → "Tables" → table. Only the database and folder expands hit the
+    // bridge; the schema's folders are built locally from `schemaFolderDefs`.
+    await userEvent.click(within(rowByLabel('joinery_test')).getByTestId('tree-row-twisty'));
+    await waitFor(() => expect(rowByLabel('public')).toBeTruthy());
+    await userEvent.click(within(rowByLabel('public')).getByTestId('tree-row-twisty'));
+    await waitFor(() => expect(rowByLabel('Tables')).toBeTruthy());
+    bridge.getChildren.mockResolvedValueOnce(TABLES);
+    await userEvent.click(within(rowByLabel('Tables')).getByTestId('tree-row-twisty'));
+    await waitFor(() => expect(rowByLabel('customers')).toBeTruthy());
+
+    fireEvent.contextMenu(rowByLabel('customers'));
+    const menu = await screen.findByTestId('sidebar-node-menu');
+
+    expect(within(menu).getByTestId('sidebar-menu-relationships')).toBeTruthy();
+    expect(within(menu).queryByTestId('sidebar-menu-properties')).toBeNull();
   });
 
   it('routes Backup at the node’s own connection, not the focused one', async () => {

@@ -470,13 +470,17 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
     'better. Producer: Task 8 sidebar database menu.',
   'delete-database':
     'Task 19 delete-database confirmation, which owns the in-use warning and the tab/node ' +
-    'teardown. Producer: Task 8 sidebar database menu.',
+    'teardown. No producer: J-104 removed the sidebar database menu’s Delete… item, because it ' +
+    'dispatched into a handler that never shipped and `bus.ts:warnUnhandled` is DEV-only, so the ' +
+    'click was silent in a packaged build. Give this id a producer in the same change as its ' +
+    'handler, never before.',
   'compare-database-schemas':
     'Task 19b features/schema-diff/SchemaDiffHost, with the payload database pre-selected as the ' +
     'comparison SOURCE rather than resolved from focus. Producer: Task 8 sidebar database menu.',
   'show-object-properties':
     'Task 19 object-properties surface (the wired table-properties container, not the dead ' +
-    'panel clone of PLAN.md 0.2). Producer: Task 8 sidebar object context menus.',
+    'panel clone of PLAN.md 0.2). No producer: J-104 removed the Properties… item from all four ' +
+    'sidebar object context menus for the same reason it removed Delete… above.',
 
   'menu-copy':
     'Task 11 results grid (claims it when focus is inside the grid and there is no text selection); ' +

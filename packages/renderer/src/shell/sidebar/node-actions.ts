@@ -19,7 +19,6 @@
  */
 
 import type { DatabaseEngine } from '@joinery/shared';
-import { dispatchCommand } from '../../commands';
 import { dropMainMetadataCaches, ipc } from '../../ipc';
 import {
   connectionStore,
@@ -236,17 +235,6 @@ export function openRelationships(target: ObjectTarget): void {
   tabStore
     .getState()
     .openErdTab(target.connectionId, target.databaseName, target.name, target.schema);
-}
-
-/** "Properties…" — Task 19's surface, reached by command. */
-export function showObjectProperties(target: ObjectTarget, objectType: string): void {
-  dispatchCommand('show-object-properties', {
-    connectionId: target.connectionId,
-    databaseName: target.databaseName,
-    schema: target.schema,
-    objectName: target.name,
-    objectType,
-  });
 }
 
 /**
