@@ -98,7 +98,8 @@ A conversation is titled from the **first 50 characters of your first message**,
 when it was longer. You can rename one in place from its row, and delete it — **delete asks twice**:
 the first click arms the row, the second commits.
 
-Conversations are held by the main process, so they survive a restart.
+Conversations are held by the main process, one JSON file each in the app's own data directory, so
+they survive a restart.
 
 ## What the assistant can open for you
 
@@ -159,7 +160,7 @@ message that would be refused.
 | The conversation list toggle and the new-conversation button           | `packages/renderer/src/features/chat/chat-surface.tsx:229-260`                                 |
 | The title is the first 50 characters of the first message              | `packages/renderer/src/state/chat.ts:39-40, 389-398`                                           |
 | Rename in place, and delete asks twice                                 | `packages/renderer/src/features/chat/conversation-list.tsx:20, 66-92`                          |
-| Conversations are held by the main process                             | `packages/renderer/src/state/chat.ts:334-357`                                                  |
+| Conversations are held by the main process, one JSON file each         | `packages/main/src/services/ai/chat-service.ts:99-137`                                         |
 | The five UI actions the model can ask for                              | `packages/renderer/src/state/chat.ts:169-200`, `features/chat/chat-surface.tsx:186-193`        |
 | A query tab opened this way does not auto-execute unless asked         | `packages/renderer/src/state/chat.ts:180-190`                                                  |
 | Each surface consumes its own parked action                            | `packages/renderer/src/features/chat/chat-surface.tsx:26-31`                                   |
