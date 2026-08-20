@@ -188,9 +188,9 @@ function shortcutsPage(sources) {
     callout(
       '**Note** — the Windows column is the key you press. The app writes its accelerators with',
       'the `CmdOrCtrl` modifier, which Electron resolves to Control on Windows and Linux and to',
-      'Command on macOS. The in-app cheat sheet does not make that substitution when it prints a',
-      'binding on Windows, so a key written `CmdOrCtrl+N` reads there as `CmdOrCtrl+N` rather than',
-      '`Ctrl+N`.'
+      'Command on macOS; the in-app cheat sheet makes the same substitution when it prints a',
+      'binding, so a key written `CmdOrCtrl+N` reads there as `Ctrl+N` off macOS, exactly as it',
+      'does here.'
     ),
     '',
     provenance(COMMAND_SOURCES, COMMAND_MECHANISM, digest(rows)),
@@ -218,15 +218,15 @@ function shortcutsPage(sources) {
       ],
       [
         "Keystrokes are formatted by the app's own formatter, per platform",
-        '`packages/renderer/src/commands/catalogue.ts:853-896`, `utils/platform.ts:18`',
+        '`packages/renderer/src/commands/catalogue.ts:866-915`, `utils/platform.ts:18`',
       ],
       [
         'Five bindings name a different key off macOS; the sixth platform-specific one is ⌥⌘S / Ctrl+Alt+S',
         '`packages/renderer/src/commands/catalogue.ts:349, 413, 421, 574, 582` and `:639`',
       ],
       [
-        "The non-macOS branch prints the accelerator's own spelling, `CmdOrCtrl` included",
-        '`packages/renderer/src/commands/catalogue.ts:871-873`',
+        'The non-macOS branch resolves every Cmd alias to `Ctrl` before printing',
+        '`packages/renderer/src/commands/catalogue.ts:857-864, 885-892`',
       ],
       [
         'Electron maps `CmdOrCtrl` to Command on macOS and Control elsewhere',

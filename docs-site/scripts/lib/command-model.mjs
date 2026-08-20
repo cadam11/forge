@@ -9,15 +9,17 @@
  */
 
 /**
- * Electron resolves `CmdOrCtrl` to Command on macOS and Control everywhere else
- * (https://www.electronjs.org/docs/latest/api/accelerator). The app's own `formatAccelerator`
- * only rewrites single characters on the non-Mac branch, so it prints the literal spelling —
- * these pages print the key the reader actually presses, and say so.
+ * Modifiers that cannot appear in a Windows binding. Electron resolves `CmdOrCtrl` to Command on
+ * macOS and Control everywhere else (https://www.electronjs.org/docs/latest/api/accelerator), and
+ * since J-114 the app's own `formatAccelerator` makes that substitution too on its non-Mac branch
+ * (`catalogue.ts:857-864`) — so a Windows keystroke reaching this file is already spelled the way a
+ * Windows reader presses it. Anything left in it that only exists on a Mac keyboard means a
+ * catalogue entry needs a `{ mac, other }` split.
+ *
+ * `Cmd` and `Command` are deliberately NOT listed: the app folds them into `Ctrl` before this file
+ * sees them, so checking for them here would be a check that can never fire.
  */
-const WINDOWS_MODIFIER_NAMES = { CmdOrCtrl: 'Ctrl', CommandOrControl: 'Ctrl', Control: 'Ctrl' };
-
-/** Modifiers that cannot appear in a Windows binding. Their presence means the mapping is wrong. */
-const MAC_ONLY_MODIFIERS = new Set(['Cmd', 'Command', 'Super', 'Meta', 'Option']);
+const MAC_ONLY_MODIFIERS = new Set(['Super', 'Meta', 'Option']);
 
 /**
  * The modifiers each platform spells differently for the same physical key. Used to decide whether
@@ -63,16 +65,16 @@ const REQUIREMENT_LABELS = {
 
 /** One accelerator as pressed on Windows, from the accelerator as the app prints it there. */
 function windowsKeystroke(printed) {
-  const parts = printed.split('+').map(part => WINDOWS_MODIFIER_NAMES[part] ?? part);
+  const parts = printed.split('+');
   const macOnly = parts.find(part => MAC_ONLY_MODIFIERS.has(part));
   if (macOnly !== undefined) {
     throw new Error(
       `The non-macOS binding \`${printed}\` carries the macOS-only modifier \`${macOnly}\`. ` +
         `Either the catalogue gained a platform-specific accelerator that needs a { mac, other } ` +
-        `split, or WINDOWS_MODIFIER_NAMES in docs-site/scripts/lib/command-model.mjs is out of date.`
+        `split, or MAC_ONLY_MODIFIERS in docs-site/scripts/lib/command-model.mjs is out of date.`
     );
   }
-  return parts.join('+');
+  return printed;
 }
 
 /**
