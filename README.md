@@ -234,7 +234,7 @@ pnpm run dev          # Development mode with hot reload
 
 Once Joinery launches:
 
-1. Click **"Detect Docker Containers"** or **"Add Connection"**
+1. Click **"Fit a connection"** on the welcome tab (or **"See how it joins"** for a guided tour first)
 2. Pick your engine (SQL Server / PostgreSQL / MySQL) and start querying
 
 ### Build Installers

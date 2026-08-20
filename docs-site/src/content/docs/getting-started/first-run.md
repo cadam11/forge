@@ -67,11 +67,9 @@ when it ends.
 **The assistant**, two steps: the assistant toggle (⇧⌘I), and schema-aware completions in the
 editor.
 
-> **Note** — the tour's second step says "⌘↩ runs the statement your caret is in". That is true
-> when **Settings ▸ Query ▸ Execute scope** is set to _The statement at the caret_; the shipped
-> default is _The whole editor_. See [A tour of the
-> workspace](../workspace-tour/#running-sql) for the three execute keystrokes and what each
-> one does.
+**Execute scope.** The tour's second step mentions that ⌘↩ runs the whole editor by default. See
+[A tour of the workspace](../workspace-tour/#running-sql) for all three execute keystrokes,
+what each does, and how to switch the scope to _The statement at the caret_ instead.
 
 ## Setting up AI, later
 

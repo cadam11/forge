@@ -51,7 +51,7 @@ export const TOURS: Readonly<Record<string, Tour>> = {
         title: 'The workspace',
         description:
           'Query editors, diagrams and object tabs live here, and they dock: drag a tab to split the ' +
-          'pane. ⌘↩ runs the statement your caret is in.',
+          'pane. ⌘↩ runs the whole editor by default — change the scope in Settings ▸ Query.',
         placement: 'bottom',
       },
       {
