@@ -26,7 +26,7 @@ Thank you for your interest in contributing to Joinery! This document provides g
 - **Node.js** 20 or later
 - **pnpm** 11 or later (`corepack enable pnpm`)
 - **Xcode Command Line Tools** (macOS, for native modules)
-- **Docker** (optional, for local SQL Server testing)
+- **Docker** (optional, for local SQL Server/PostgreSQL/MySQL testing)
 
 ### Installation
 
