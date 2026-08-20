@@ -45,6 +45,35 @@ const CONFIG = {
   AUTO_CLEANUP_INTERVAL_HOURS: 24,
 };
 
+/**
+ * The ids a `keepMinPerTab` floor protects: the N most recent snapshots of every tab it sees.
+ *
+ * Pinned snapshots occupy floor slots like any other, which is how the tab-scoped branch of
+ * {@link QueryResultsStore.purge} has always counted them. Pure: it reads metadata and returns ids,
+ * and deletes nothing.
+ */
+function floorProtectedIds(snapshots: readonly SnapshotMeta[], keepMinPerTab: number): Set<string> {
+  // A floor that is absent, zero, negative or not a number protects nothing — `keepMinPerTab`
+  // arrives over IPC, so it is not trusted to be a sane count.
+  if (!Number.isFinite(keepMinPerTab) || keepMinPerTab <= 0) return new Set();
+
+  const byTab = new Map<string, SnapshotMeta[]>();
+  for (const snapshot of snapshots) {
+    const existing = byTab.get(snapshot.tabId);
+    if (existing) existing.push(snapshot);
+    else byTab.set(snapshot.tabId, [snapshot]);
+  }
+
+  const keep = new Set<string>();
+  for (const tabSnapshots of byTab.values()) {
+    const newestFirst = [...tabSnapshots].sort(
+      (a, b) => new Date(b.executedAt).getTime() - new Date(a.executedAt).getTime()
+    );
+    for (const snapshot of newestFirst.slice(0, keepMinPerTab)) keep.add(snapshot.id);
+  }
+  return keep;
+}
+
 export class QueryResultsStore extends BaseSingleton {
   private files: SnapshotFileStore;
 
@@ -309,8 +338,12 @@ export class QueryResultsStore extends BaseSingleton {
 
     if (options.olderThan) {
       const cutoff = new Date(options.olderThan);
+      // The floor is honored tab by tab, so the automatic (tab-less) daily pass cannot age out a
+      // tab's whole history: each tab's N most recent survive whatever the cutoff says (J-116).
+      const floorKeeps = floorProtectedIds(snapshots, options.keepMinPerTab ?? 0);
       toDelete = snapshots.filter(s => {
         if (options.skipPinned && s.isPinned) return false;
+        if (floorKeeps.has(s.id)) return false;
         return new Date(s.executedAt) < cutoff;
       });
     }
@@ -440,7 +473,8 @@ export class QueryResultsStore extends BaseSingleton {
   }
 
   private runCleanup(): void {
-    // Remove snapshots older than retention period
+    // Remove snapshots older than the retention period, except the pinned ones and each tab's
+    // MIN_SNAPSHOTS_PER_TAB most recent — a tab you have not opened in a month keeps its last few.
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - CONFIG.DEFAULT_RETENTION_DAYS);
 

@@ -73,6 +73,75 @@ describe('QueryResultsStore (file-backed)', () => {
     expect(store.getStorageStats().totalSnapshots).toBe(0);
   });
 
+  it('purge olderThan honors the keepMinPerTab floor tab by tab', () => {
+    // Exactly the automatic daily pass: a cutoff in the future (so every snapshot is age-eligible),
+    // no tabId, and the floor the store asks for. Before J-116 the floor was read only inside the
+    // `tabId` branch, so this pass deleted every snapshot of every tab.
+    for (const tab of ['tab-1', 'tab-2']) {
+      for (let i = 0; i < 8; i++) {
+        store.saveSnapshot(tab, `SELECT ${i}`, 'conn-1', 'db', makeResult(1));
+      }
+    }
+    const before = store.getSnapshots();
+
+    const result = store.purge({
+      olderThan: new Date(Date.now() + 60_000).toISOString(),
+      skipPinned: true,
+      keepMinPerTab: 5,
+    });
+
+    expect(result.deletedCount).toBe(6); // 3 aged out of each of the two tabs
+    for (const tab of ['tab-1', 'tab-2']) {
+      expect(store.getSnapshots({ tabId: tab }), tab).toHaveLength(5);
+    }
+    // And the survivors are the RECENT ones: no kept snapshot predates a deleted sibling in its tab.
+    const keptIds = new Set(store.getSnapshots().map(s => s.id));
+    for (const tab of ['tab-1', 'tab-2']) {
+      const tabbed = before.filter(s => s.tabId === tab);
+      const oldestKept = Math.min(
+        ...tabbed.filter(s => keptIds.has(s.id)).map(s => new Date(s.executedAt).getTime())
+      );
+      const newestDeleted = Math.max(
+        ...tabbed.filter(s => !keptIds.has(s.id)).map(s => new Date(s.executedAt).getTime())
+      );
+      expect(oldestKept, tab).toBeGreaterThanOrEqual(newestDeleted);
+    }
+  });
+
+  it('purge olderThan still spares pinned snapshots under skipPinned, floor or no floor', () => {
+    const pinned = store.saveSnapshot('tab-1', 'SELECT pinned', 'conn-1', 'db', makeResult(1));
+    store.pinSnapshot(pinned.id);
+    for (let i = 0; i < 9; i++) {
+      store.saveSnapshot('tab-1', `SELECT ${i}`, 'conn-1', 'db', makeResult(1));
+    }
+
+    store.purge({
+      olderThan: new Date(Date.now() + 60_000).toISOString(),
+      skipPinned: true,
+      keepMinPerTab: 5,
+    });
+
+    // The pinned one is the OLDEST of the ten, so the floor does not protect it — `skipPinned` does.
+    expect(store.getSnapshot(pinned.id)).not.toBeNull();
+    // Floor slots are counted over all of a tab's snapshots, pinned included, exactly as the
+    // tab-scoped branch counts them: 5 recent + the pinned survivor.
+    expect(store.getSnapshots({ tabId: 'tab-1' })).toHaveLength(6);
+  });
+
+  it('purge with a tabId still trims that tab down to the floor', () => {
+    for (let i = 0; i < 7; i++) {
+      store.saveSnapshot('tab-1', `SELECT ${i}`, 'conn-1', 'db', makeResult(1));
+    }
+    store.saveSnapshot('tab-2', 'SELECT other', 'conn-1', 'db', makeResult(1));
+
+    const result = store.purge({ tabId: 'tab-1', keepMinPerTab: 3 });
+
+    expect(result.deletedCount).toBe(4);
+    expect(store.getSnapshots({ tabId: 'tab-1' })).toHaveLength(3);
+    // An untargeted tab is not touched by a tab-scoped purge.
+    expect(store.getSnapshots({ tabId: 'tab-2' })).toHaveLength(1);
+  });
+
   it('pin, label, delete round-trip', () => {
     const s = store.saveSnapshot('tab-1', 'SELECT 1', 'conn-1', 'db', makeResult(1));
 
