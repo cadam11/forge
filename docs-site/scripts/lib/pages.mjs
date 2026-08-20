@@ -44,8 +44,25 @@ function generatedBanner() {
   );
 }
 
+/** How the command pages get their data — the part a reader might not believe without being told. */
+const COMMAND_MECHANISM = paragraph(
+  'It does not import the renderer. Each module is compiled with the TypeScript compiler and run',
+  'inside an isolated `node:vm` context whose module resolver is declared up front: the files it',
+  'may reach are resolved for real, `lucide-react` resolves to an inert marker, and anything else',
+  "throws rather than pulling the app's dependency tree into the docs build. The command table is",
+  'loaded twice, once with a macOS user agent and once with a Windows one, so both keystroke',
+  "columns come from the app's own formatter rather than from a second table kept here."
+);
+
+/** The same, for the page that reads one JSON file. */
+const VENDOR_MECHANISM = paragraph(
+  'That is the same file the app loads at startup. The generator asserts its shape before',
+  'rendering anything, so a restructured configuration fails the docs build rather than emitting',
+  'an empty table.'
+);
+
 /** The provenance section: what was read, what came out, and how to regenerate it. */
-function provenance(sources, dataDigest) {
+function provenance(sources, mechanism, dataDigest) {
   return [
     '## How this page is generated',
     '',
@@ -53,20 +70,12 @@ function provenance(sources, dataDigest) {
     '',
     sources.map(source => `- \`${source}\``).join('\n'),
     '',
-    paragraph(
-      'It does not import the renderer. Each module is compiled with the TypeScript compiler and',
-      'run inside an isolated `node:vm` context whose module resolver is declared up front: the',
-      'files it may reach are resolved for real, `lucide-react` resolves to an inert marker, and',
-      "anything else throws rather than pulling the app's dependency tree into the docs build. The",
-      'command table is loaded twice, once with a macOS user agent and once with a Windows one, so',
-      "both keystroke columns come from the app's own formatter rather than from a second table",
-      'kept here.'
-    ),
+    mechanism,
     '',
     paragraph(
-      `Data digest: \`${dataDigest}\`. It covers the values rendered above, so a comment-only edit`,
-      'to a source file does not churn this page — but any change to a label, a description, a',
-      'group, a keystroke or a palette rule does.'
+      `Data digest: \`${dataDigest}\` — a fingerprint of exactly the values rendered above. It`,
+      'changes when what the app ships changes, and not when an unrelated comment in one of those',
+      'files does.'
     ),
     '',
     'Regenerate from `docs-site/` with `pnpm run generate:reference`.',
@@ -173,7 +182,7 @@ function shortcutsPage(sources) {
       '`Ctrl+N`.'
     ),
     '',
-    provenance(COMMAND_SOURCES, digest(rows)),
+    provenance(COMMAND_SOURCES, COMMAND_MECHANISM, digest(rows)),
     '',
     claimsTable([
       [
@@ -309,7 +318,7 @@ function commandsPage(sources) {
       actions.map(action => [cell(action.label), cell(action.hint), cell(action.groupLabel)])
     ),
     '',
-    provenance(COMMAND_SOURCES, digest({ rows, actions })),
+    provenance(COMMAND_SOURCES, COMMAND_MECHANISM, digest({ rows, actions })),
     '',
     claimsTable([
       [
@@ -447,7 +456,7 @@ function aiProvidersPage(vendorConfig) {
     '',
     sections.join('\n\n'),
     '',
-    provenance([VENDOR_SOURCE], digest(vendorConfig)),
+    provenance([VENDOR_SOURCE], VENDOR_MECHANISM, digest(vendorConfig)),
     '',
     claimsTable([
       ['The vendors, models, versions and key links', `\`${VENDOR_SOURCE}\``],

@@ -120,9 +120,8 @@ pulling the app's dependency tree into the docs build. The command table is load
 a macOS user agent and once with a Windows one, so both keystroke columns come from the app's own
 formatter rather than from a second table kept here.
 
-Data digest: `4cd75c329e31`. It covers the values rendered above, so a comment-only edit to a source
-file does not churn this page — but any change to a label, a description, a group, a keystroke or a
-palette rule does.
+Data digest: `4cd75c329e31` — a fingerprint of exactly the values rendered above. It changes when
+what the app ships changes, and not when an unrelated comment in one of those files does.
 
 Regenerate from `docs-site/` with `pnpm run generate:reference`.
 

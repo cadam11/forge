@@ -120,16 +120,11 @@ API base URL: `https://openrouter.ai/api/v1` · [Get a key](https://openrouter.a
 
 - `packages/shared/src/config/ai-vendors.json`
 
-It does not import the renderer. Each module is compiled with the TypeScript compiler and run inside
-an isolated `node:vm` context whose module resolver is declared up front: the files it may reach are
-resolved for real, `lucide-react` resolves to an inert marker, and anything else throws rather than
-pulling the app's dependency tree into the docs build. The command table is loaded twice, once with
-a macOS user agent and once with a Windows one, so both keystroke columns come from the app's own
-formatter rather than from a second table kept here.
+That is the same file the app loads at startup. The generator asserts its shape before rendering
+anything, so a restructured configuration fails the docs build rather than emitting an empty table.
 
-Data digest: `bb66c87c9001`. It covers the values rendered above, so a comment-only edit to a source
-file does not churn this page — but any change to a label, a description, a group, a keystroke or a
-palette rule does.
+Data digest: `bb66c87c9001` — a fingerprint of exactly the values rendered above. It changes when
+what the app ships changes, and not when an unrelated comment in one of those files does.
 
 Regenerate from `docs-site/` with `pnpm run generate:reference`.
 
