@@ -114,10 +114,11 @@ thin strip in its colour along the top of the bar.
 | ⌘N         | New query tab                                                                      |
 | ⇧⌘H        | Query history                                                                      |
 
-On Windows, Ctrl replaces ⌘ for most of these — but not all of them. Seven commands are bound to
+On Windows, Ctrl replaces ⌘ for most of these — but not all of them. Six commands are bound to
 a genuinely different key outside macOS, including _Execute selection_ (Ctrl+Shift+E),
 _Find and replace_ (Ctrl+H) and _Cancel query_ (Alt+Break). The in-app cheat sheet (⇧⌘/)
-always shows the bindings for the platform you are on.
+always shows the bindings for the platform you are on; all six are listed on
+[Keyboard shortcuts](../../features/keyboard-shortcuts/#on-windows).
 
 ## Ink and ivory
 
@@ -150,7 +151,7 @@ and System. These docs follow the same default.
 | The connection colour strip                                                                  | `packages/renderer/src/shell/status-bar.tsx:290-299`                                                                                                                                                                        |
 | ⌘K / ⇧⌘P, ⌘P, ⇧⌘/, ⌘,, ⌘N, ⇧⌘H                                                               | `packages/renderer/src/features/command-palette/command-palette.tsx:79-90`, `packages/renderer/src/commands/catalogue.ts:284-289, 425-430, 587-592, 614-628`                                                                |
 | Ink is the default theme, with Ink / Ivory / System offered                                  | `packages/renderer/src/features/settings/settings-groups.tsx:76-78`                                                                                                                                                         |
-| Seven commands carry a different non-macOS binding                                           | `packages/renderer/src/commands/catalogue.ts:280, 349, 413, 421, 574, 582, 639`                                                                                                                                             |
+| Six commands carry a different non-macOS binding                                             | `packages/renderer/src/commands/catalogue.ts:349, 413, 421, 574, 582, 639`                                                                                                                                                  |
 | The cheat sheet formats accelerators for the running platform                                | `packages/renderer/src/commands/catalogue.ts:853-885`                                                                                                                                                                       |
 | The chat panel's width persists                                                              | `README.md:125`                                                                                                                                                                                                             |
 

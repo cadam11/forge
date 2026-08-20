@@ -113,10 +113,27 @@ export default defineConfig({
             { slug: 'getting-started/workspace-tour' },
           ],
         },
+        {
+          label: 'Features',
+          // The section overview first, then the guides in the order the section page groups
+          // them. Batch 2 (ERD, schema diff, backup/restore, databases, Docker, dialect
+          // conversion, the assistant and AI setup) appends here as those pages land.
+          items: [
+            { slug: 'features' },
+            { slug: 'features/query-editor' },
+            { slug: 'features/results-grid' },
+            { slug: 'features/execution-plans' },
+            { slug: 'features/object-explorer' },
+            { slug: 'features/find-a-database-object' },
+            { slug: 'features/command-palette' },
+            { slug: 'features/keyboard-shortcuts' },
+            { slug: 'features/snippets' },
+            { slug: 'features/query-history' },
+          ],
+        },
         // Single links, not groups: each of these sections holds exactly one page today, and a
-        // group whose only child repeats its own label reads as a bug. Phase 2 turns the first
-        // three back into groups as their pages land.
-        { slug: 'features' },
+        // group whose only child repeats its own label reads as a bug. They become groups as
+        // their pages land.
         { slug: 'reference' },
         { slug: 'troubleshooting' },
         { slug: 'about' },
