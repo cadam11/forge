@@ -2,6 +2,16 @@
 title: Joinery
 description: A desktop database workbench for SQL Server, PostgreSQL and MySQL, with an assistant that reads your schema and shows its work.
 template: splash
+# Starlight builds every page's `<title>` as "<frontmatter title> <delimiter> <site title>", which
+# on this page — whose title IS the site title — renders "Joinery | Joinery". A `title` entry in a
+# page's `head` replaces that default outright rather than adding a second one: `getHead` merges
+# the frontmatter head last, and its `hasTag` treats any `title` as matching any other, so the
+# default is filtered out (`@astrojs/starlight/utils/head.ts`, `createHead` / `mergeHead` /
+# `hasTag`). Verified against the built `dist/index.html`. `og:title` is unaffected — it is built
+# from the frontmatter title, and "Joinery" is the right value there.
+head:
+  - tag: title
+    content: Joinery — a desktop database workbench
 hero:
   tagline: Your database, fitted to the way you work.
   actions:
@@ -35,9 +45,22 @@ the app performs on your behalf.
   [MySQL](./getting-started/connect-mysql/), or
   [over an SSH tunnel](./getting-started/connect-ssh/).
 
-## Still being written
+## Then keep going
 
-The Getting Started section above is complete. Feature guides, the generated command and
-keyboard-shortcut reference, and troubleshooting are being written next — see
-[Features](./features/), [Reference](./reference/) and
-[Troubleshooting](./troubleshooting/) for what each section will hold.
+- **[Features](./features/)** — a guide per shipped surface: the editor, the results grid, the
+  explorer, diagrams, schema comparison, backup and restore, containers, and the assistant.
+- **[Reference](./reference/)** — the tables the guides link to rather than repeat: every
+  [keyboard shortcut](./reference/keyboard-shortcuts/) and [command](./reference/commands/),
+  generated from the app's own source, plus settings, supported engines, AI providers, and where
+  Joinery keeps your data.
+
+## When something goes wrong
+
+- **[Troubleshooting](./troubleshooting/)** — Docker detection, the keychain, the backup
+  command-line tools, Python for SQL conversion, and connections that fail or drop. Each page
+  starts from the sentence the app showed you.
+
+## Open source
+
+Joinery is open source under the **MIT license**. The source is on
+[GitHub](https://github.com/cadam11/joinery).

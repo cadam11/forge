@@ -76,6 +76,11 @@ export default defineConfig({
        * Canvas and border only. Retheming the six syntax roles against the app's Monaco palette
        * is Phase 3; the stock token colours clear AA on both canvases below (measured), so this
        * is the whole of the brand defect.
+       *
+       * One §2.5 violation therefore survives — the light theme's #3B61B0 keyword/string blue,
+       * which `styleOverrides` structurally cannot reach. `src/styles/brand.css` carries the
+       * tracked note: what it is, where it renders, what it measures, and why it needs the Phase 3
+       * theme work rather than another line here.
        */
       expressiveCode: {
         styleOverrides: {
@@ -89,6 +94,13 @@ export default defineConfig({
       // from plans/ui-overhaul/PROPOSAL.md D2. Both files are needed, not just the provider —
       // their headers explain why. If a Starlight major breaks them, the documented fallback
       // is to delete both and accept Starlight's `auto`.
+      //
+      // TRACKED: these two `.astro` files are the only source in the repository that no format
+      // gate covers. The root `format:check` glob was widened to `.mdx` in Phase 2; `.astro`
+      // was NOT added, because Prettier has no built-in Astro parser and errors with "No parser
+      // could be inferred" on both files. Covering them needs `prettier-plugin-astro` in the
+      // ROOT devDependencies plus a `plugins` entry in `.prettierrc.json` — a root dependency
+      // and root lockfile change, which is a separate piece of work from the docs content.
       components: {
         ThemeProvider: './src/components/ThemeProvider.astro',
         ThemeSelect: './src/components/ThemeSelect.astro',
@@ -118,12 +130,70 @@ export default defineConfig({
             { slug: 'getting-started/workspace-tour' },
           ],
         },
-        // Single links, not groups: each of these sections holds exactly one page today, and a
-        // group whose only child repeats its own label reads as a bug. Phase 2 turns the first
-        // three back into groups as their pages land.
-        { slug: 'features' },
-        { slug: 'reference' },
-        { slug: 'troubleshooting' },
+        {
+          label: 'Features',
+          // The section overview first, then all seventeen guides in the order
+          // plans/docs-site/PROPOSAL.md §4 lists them. The section page groups the same set by
+          // task rather than by that order — the one divergence is SQL dialect conversion, which
+          // the proposal lists late and the section page files with the editor, where it belongs.
+          items: [
+            { slug: 'features' },
+            { slug: 'features/query-editor' },
+            { slug: 'features/results-grid' },
+            { slug: 'features/execution-plans' },
+            { slug: 'features/object-explorer' },
+            { slug: 'features/find-a-database-object' },
+            { slug: 'features/command-palette' },
+            { slug: 'features/keyboard-shortcuts' },
+            { slug: 'features/snippets' },
+            { slug: 'features/query-history' },
+            { slug: 'features/erd' },
+            { slug: 'features/schema-diff' },
+            { slug: 'features/backup-and-restore' },
+            { slug: 'features/databases' },
+            { slug: 'features/docker-containers' },
+            { slug: 'features/sql-dialect-conversion' },
+            { slug: 'features/ai-assistant' },
+            { slug: 'features/ai-setup' },
+          ],
+        },
+        {
+          label: 'Reference',
+          // Section page first, then the six pages. This array IS the order — an explicit `items`
+          // list overrides `sidebar.order`, which the pages carry anyway so that a page moved out
+          // of this list still sorts sensibly. Three of them are written
+          // by `scripts/generate-reference.mjs` from the app's own source — do not hand-edit
+          // `reference/keyboard-shortcuts.md`, `reference/commands.md` or
+          // `reference/ai-providers.md`; `pnpm run check` and `pnpm run build` verify them.
+          items: [
+            { slug: 'reference' },
+            { slug: 'reference/keyboard-shortcuts' },
+            { slug: 'reference/commands' },
+            { slug: 'reference/settings' },
+            { slug: 'reference/supported-engines' },
+            { slug: 'reference/ai-providers' },
+            { slug: 'reference/storage-locations' },
+          ],
+        },
+        {
+          label: 'Troubleshooting',
+          // Section page first, then the five pages in the order plans/docs-site/PROPOSAL.md §1
+          // lists them, which is also roughly the order a new user hits them. This array IS the
+          // order — an explicit `items` list overrides `sidebar.order`, which the pages carry
+          // anyway so that a page moved out of this list still sorts sensibly.
+          items: [
+            { slug: 'troubleshooting' },
+            { slug: 'troubleshooting/docker-not-detected' },
+            { slug: 'troubleshooting/credentials-and-keychain' },
+            { slug: 'troubleshooting/missing-cli-tools' },
+            { slug: 'troubleshooting/sql-conversion-and-python' },
+            { slug: 'troubleshooting/connections-and-tunnels' },
+          ],
+        },
+        // About stays a single link rather than a group, on the Phase 1 rule that a group whose
+        // only child repeats its own label reads as a bug: it still holds exactly one page.
+        // Features became a group the moment it held ten, and Reference and Troubleshooting
+        // above did the same.
         { slug: 'about' },
       ],
       plugins: [

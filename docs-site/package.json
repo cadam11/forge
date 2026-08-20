@@ -11,9 +11,11 @@
   "packageManager": "pnpm@11.21.0",
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "build": "node scripts/generate-reference.mjs --check && astro build",
     "preview": "astro preview",
-    "check": "astro check"
+    "check": "node scripts/generate-reference.mjs --check && astro check",
+    "check:reference": "node scripts/generate-reference.mjs --check",
+    "generate:reference": "node scripts/generate-reference.mjs"
   },
   "dependencies": {
     "@astrojs/starlight": "0.41.7",
@@ -26,6 +28,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "0.9.10",
+    "prettier": "3.9.6",
     "typescript": "5.9.3"
   }
 }

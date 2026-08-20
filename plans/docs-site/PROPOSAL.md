@@ -63,7 +63,7 @@ Straight from the docs report, in the order a first-time user hits them:
    `python3` (`packages/main/src/services/sql/sqlglot/sqlglot-client.ts:56`), needing
    `pip install sqlglot fastapi uvicorn pydantic`. Undocumented anywhere end-user-facing; [J-29]
    calls it a v1 release blocker.
-6. Keyboard shortcuts — 61 commands across 8 groups, written down nowhere outside the app.
+6. Keyboard shortcuts — 58 commands across 8 groups, written down nowhere outside the app.
 
 Items 4 and 5 are the same shape of problem and get **one** home (§5.5), not two.
 
@@ -259,7 +259,7 @@ pin — check before adopting, do not assume. Otherwise a `lychee` or `linkinato
 ## 4. Information architecture
 
 Full tree, one line of content per page. Derived from what ships: the twenty directories in
-`packages/renderer/src/features/` and the 61 commands in `packages/renderer/src/commands/catalogue.ts`.
+`packages/renderer/src/features/` and the 58 commands in `packages/renderer/src/commands/catalogue.ts`.
 
 ### Home — 1 page
 
@@ -289,7 +289,7 @@ Full tree, one line of content per page. Derived from what ships: the twenty dir
 | Execution plans                   | The plan view, on all three engines.                                                                                                                                                                                                                                               |
 | Object explorer                   | Lazy-loaded tree, refresh, object properties, reveal-in-explorer, server and database properties.                                                                                                                                                                                  |
 | Find a database object            | ⌘P fuzzy search over tables, views, procedures, functions (`features/object-search/`).                                                                                                                                                                                             |
-| Command palette                   | ⌘K (and ⇧⌘P — `command-palette.tsx:85`), the 61 commands, the eight groups, and how the palette relates to the menus.                                                                                                                                                              |
+| Command palette                   | ⌘K (and ⇧⌘P — `command-palette.tsx:85`), the 58 commands, the eight groups, and how the palette relates to the menus.                                                                                                                                                              |
 | Keyboard shortcuts (feature page) | The ⇧⌘/ cheat-sheet, and a pointer at the generated full table in Reference.                                                                                                                                                                                                       |
 | Snippets                          | The snippet library, insert-snippet, ⌥⌘S (**not** ⇧⌘S — the catalogue comment at `catalogue.ts:637` records that mistake).                                                                                                                                                         |
 | Query history                     | ⇧⌘H, what is retained, how to re-run.                                                                                                                                                                                                                                              |
@@ -310,7 +310,7 @@ Phase 2 if it earns nothing on its own — that would make it 16.)
 | Page                           | Content                                                                                                                                                      |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Keyboard shortcuts             | **Generated** from `commands/catalogue.ts` (§5.3).                                                                                                           |
-| Command reference              | **Generated** — all 61 commands by group, with labels, descriptions and accelerators.                                                                        |
+| Command reference              | **Generated** — all 58 commands by group, with labels, descriptions and accelerators.                                                                        |
 | Settings                       | Appearance / Editor / Query / Grid / AI, from `features/settings/settings-groups.tsx` — which also names the one control that ships disabled and why (J-54). |
 | Supported engines and versions | MSSQL 2017+, PG 12+, MySQL 5.7/8.0+, Azure SQL; what is tested (the compose harness pins `mssql/server:2022-latest`, `postgres:16-alpine`, `mysql:8`).       |
 | AI providers and models        | **Generated** from `packages/shared/src/config/ai-vendors.json`, including its `version` and `lastUpdated`.                                                  |
@@ -386,7 +386,7 @@ Two hard requirements on the generator:
   into the docs build. Read and parse the data, the way `catalogue.spec.ts` reads `menu.ts`.
 
 Cost, stated plainly: this couples the docs build to the repo's file layout. That is a real coupling,
-and it is worth it — the alternative is 61 hand-typed accelerators that go wrong the first time
+and it is worth it — the alternative is 58 hand-typed commands that go wrong the first time
 someone changes a menu.
 
 ### 5.4 AI-generated prose is allowed; unverified prose is not
