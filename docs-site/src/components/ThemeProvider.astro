@@ -1,0 +1,65 @@
+---
+/**
+ * Ink-first theme bootstrap — an override of Starlight's own `ThemeProvider`.
+ *
+ * plans/ui-overhaul/PROPOSAL.md D2 rules that ink is Joinery's default canvas, and the app
+ * ships that way: `packages/renderer/src/features/settings/settings-groups.tsx:77` labels the
+ * dark theme "Ink — the dark canvas, and Joinery's default". Starlight's default is `auto`,
+ * which paints ivory on any machine set to a light system theme. This file and its sibling
+ * `ThemeSelect.astro` are the two Starlight internals this site depends on
+ * (plans/docs-site/PROPOSAL.md §2.2 flags exactly this as a small upgrade risk; if a Starlight
+ * major breaks them, the documented fallback is to delete both overrides and accept `auto`).
+ *
+ * The single behavioural change from upstream: with no stored preference the resolved theme is
+ * `dark`, not `prefers-color-scheme`. Everything else — the inline script (no FOUC), the global
+ * `StarlightThemeProvider` contract the picker's script calls into, and the icon template —
+ * is upstream's, because the picker in `ThemeSelect.astro` depends on all three.
+ *
+ * Why the picker had to be overridden too: upstream's `ThemeSelect` stores "auto" as an EMPTY
+ * string, so "the user chose auto" and "the user has never chosen" are the same stored value.
+ * Ink-first is undecidable under that encoding. The sibling override writes the literal
+ * `'auto'` instead, which is what makes absence mean ink here.
+ */
+import { Icon } from '@astrojs/starlight/components';
+---
+
+{/* Intentionally inlined, as upstream is, to avoid a flash of the wrong canvas. */}
+<script is:inline>
+	window.StarlightThemeProvider = (() => {
+		const stored =
+			typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme');
+		/* Anything that is not one of the three known values — including upstream's empty
+		   string for "auto" and a corrupted entry — falls back to ink. */
+		const preference = stored === 'auto' || stored === 'light' || stored === 'dark' ? stored : 'dark';
+		const resolved =
+			preference === 'auto'
+				? window.matchMedia('(prefers-color-scheme: light)').matches
+					? 'light'
+					: 'dark'
+				: preference;
+		document.documentElement.dataset.theme = resolved;
+		return {
+			updatePickers(theme = preference) {
+				document.querySelectorAll('starlight-theme-select').forEach((picker) => {
+					const select = picker.querySelector('select');
+					if (select) select.value = theme;
+					/** @type {HTMLTemplateElement | null} */
+					const tmpl = document.querySelector(`#theme-icons`);
+					const newIcon = tmpl && tmpl.content.querySelector('.' + theme);
+					if (newIcon) {
+						const oldIcon = picker.querySelector('svg.label-icon');
+						if (oldIcon) {
+							oldIcon.replaceChildren(...newIcon.cloneNode(true).childNodes);
+						}
+					}
+				});
+			},
+		};
+	})();
+</script>
+
+<template id="theme-icons">
+	<Icon name="sun" class="light" />
+	<Icon name="moon" class="dark" />
+	<Icon name="laptop" class="auto" />
+</template>

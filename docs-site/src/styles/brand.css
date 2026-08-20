@@ -1,0 +1,217 @@
+/*
+ * Joinery brand binding for Starlight.
+ *
+ * Authority for every value below, in order of precedence:
+ *   docs/brand/tokens.css                 the 8 load-bearing brand colours
+ *   plans/ui-overhaul/PROPOSAL.md §2.2    the 4 derived contrast-safe colours
+ *   plans/ui-overhaul/PROPOSAL.md §2.3    the measured contrast pairs that forced them
+ *   packages/renderer/src/styles/theme.css the app's own resolved semantic palette,
+ *                                          whose per-token ratios are re-measured there
+ *   plans/docs-site/PROPOSAL.md §2.2       the Starlight-variable mapping table
+ *
+ * Nothing here is a new colour. plans/docs-site/PROPOSAL.md §2.2 says "reuse [the app's]
+ * derived values rather than re-deriving", so the ink and ivory columns below are the same
+ * numbers packages/renderer/src/styles/theme.css ships, with their measured ratios copied
+ * beside them. Oxide is the one place the docs site differs from a naive reading of the
+ * brand kit: raw #D6492F is 4.11:1 on ink and 3.77:1 on ivory, so body-weight links use the
+ * derived --j-oxide-lift (5.42:1 on ink) and --j-oxide-deep (4.93:1 on ivory) instead.
+ *
+ * Chartreuse stays scarce (docs/brand/README.md:53) and is never a light-mode foreground
+ * (1.14:1 on ivory): it appears only as a fill, on the "tip" aside's rule.
+ */
+
+/* Self-hosted, per plans/docs-site/PROPOSAL.md §2.2 — @fontsource ships woff2 plus the
+ * @font-face rules, so there is no third-party request on this site at all. Same packages
+ * and the same axis choices as the app (packages/renderer/src/styles/theme.css:40-45):
+ * archivo/wdth.css because Archivo Narrow itself ships only 400-700 and the display face
+ * needs wdth 75 + wght 800 to reproduce Archivo Narrow ExtraBold. */
+@import '@fontsource-variable/archivo/wdth.css';
+@import '@fontsource-variable/instrument-sans/wght.css';
+@import '@fontsource/ibm-plex-mono/latin-400.css';
+@import '@fontsource/ibm-plex-mono/latin-ext-400.css';
+@import '@fontsource/ibm-plex-mono/latin-500.css';
+@import '@fontsource/ibm-plex-mono/latin-ext-500.css';
+
+/* ── Layer 1: brand constants ──────────────────────────────────────────────────────── */
+
+:root {
+  --j-ivory: #f2efe7;
+  --j-paper: #fbfaf5;
+  --j-ink: #171817;
+  --j-charcoal: #272a27;
+  --j-oxide: #d6492f;
+  --j-chartreuse: #c8f04a;
+  --j-rule: #b9b8ae;
+  --j-amber: #e6a23c;
+
+  /* Derived, contrast-driven. See the header. */
+  --j-oxide-deep: #b83c22;
+  --j-oxide-lift: #e8654a;
+  --j-amber-deep: #8a5a10;
+  --j-verify-deep: #4d7811;
+
+  --sl-font: 'Instrument Sans Variable', 'Instrument Sans', 'Inter', sans-serif;
+  --sl-font-mono: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace;
+
+  /* PROPOSAL §2.1: corners stay restrained. */
+  --sl-border-radius: 0.375rem;
+}
+
+/* ── Layer 2: Starlight's variables, ink (the default — see ThemeProvider.astro) ───── */
+
+:root,
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --sl-color-accent-low: #4a1a10;
+  --sl-color-accent: var(--j-oxide);
+  --sl-color-accent-high: var(--j-oxide-lift); /* 5.42:1 on ink — body-weight links */
+
+  --sl-color-white: var(--j-ivory); /* 15.50:1 on ink */
+  --sl-color-gray-1: var(--j-ivory);
+  --sl-color-gray-2: #b4b3ab; /*  8.46:1 on ink */
+  --sl-color-gray-3: #85887f; /*  4.94:1 on ink — metadata, never prose */
+  --sl-color-gray-4: #4a4d48;
+  --sl-color-gray-5: #33362f;
+  --sl-color-gray-6: var(--j-charcoal);
+  --sl-color-black: var(--j-ink);
+
+  --sl-color-bg: var(--j-ink);
+  --sl-color-bg-nav: var(--j-charcoal);
+  --sl-color-bg-sidebar: var(--j-ink);
+  --sl-color-bg-inline-code: #272a27;
+  --sl-color-bg-accent: var(--j-oxide-deep);
+  --sl-color-text-accent: var(--j-oxide-lift);
+  --sl-color-text-invert: var(--j-ink);
+
+  --sl-color-hairline: rgb(242 239 231 / 0.12);
+  --sl-color-hairline-light: rgb(242 239 231 / 0.22);
+  --sl-color-hairline-shade: rgb(242 239 231 / 0.12);
+
+  /* PROPOSAL §2.1: no shadows at all under ink. Surfaces separate with a rule. */
+  --sl-shadow-sm: none;
+  --sl-shadow-md: none;
+  --sl-shadow-lg: none;
+
+  --sl-color-green: var(--j-chartreuse); /* 13.58:1 on ink */
+  --sl-color-orange: var(--j-amber); /*  8.14:1 on ink */
+  --sl-color-red: #f0715a; /*  6.12:1 on ink */
+  --sl-color-purple: var(--j-oxide-lift); /* PROPOSAL §2.5: no blue, no purple */
+  --sl-color-blue: var(--j-oxide-lift);
+
+  --sl-color-green-low: #23300b;
+  --sl-color-orange-low: #3a2a0d;
+  --sl-color-red-low: #3d1a14;
+  --sl-color-purple-low: #3d1a14;
+  --sl-color-blue-low: #3d1a14;
+
+  --sl-color-green-high: var(--j-chartreuse);
+  --sl-color-orange-high: var(--j-amber);
+  --sl-color-red-high: #f0715a;
+  --sl-color-purple-high: var(--j-oxide-lift);
+  --sl-color-blue-high: var(--j-oxide-lift);
+}
+
+/* ── Layer 2, ivory ────────────────────────────────────────────────────────────────── */
+
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --sl-color-accent-low: #f2d6cf;
+  --sl-color-accent: var(--j-oxide-deep); /* 4.93:1 on ivory */
+  --sl-color-accent-high: #8c2d19;
+
+  --sl-color-white: var(--j-ink); /* Starlight inverts the ramp under light */
+  --sl-color-gray-1: var(--j-ink);
+  --sl-color-gray-2: #5a5d57; /*  5.82:1 on ivory */
+  --sl-color-gray-3: #7a7d74; /*  3.65:1 — metadata only */
+  --sl-color-gray-4: #9a998f;
+  --sl-color-gray-5: #d8d5c9;
+  --sl-color-gray-6: #eae7dd;
+  --sl-color-gray-7: #f4f2ea;
+  --sl-color-black: var(--j-ivory);
+
+  --sl-color-bg: var(--j-ivory);
+  --sl-color-bg-nav: #e2ded2; /* MUST stay darker than the canvas — §1.6 */
+  --sl-color-bg-sidebar: var(--j-ivory);
+  --sl-color-bg-inline-code: #e2ded2;
+  --sl-color-bg-accent: var(--j-oxide-deep); /* paper-white text on it: 5.42:1 */
+  --sl-color-text-accent: var(--j-oxide-deep);
+  --sl-color-text-invert: var(--j-paper);
+
+  --sl-color-hairline: rgb(23 24 23 / 0.1);
+  --sl-color-hairline-light: var(--j-rule);
+  --sl-color-hairline-shade: rgb(23 24 23 / 0.1);
+
+  --sl-shadow-sm: 0 1px 2px rgb(23 24 23 / 0.06);
+  --sl-shadow-md: 0 2px 8px rgb(23 24 23 / 0.08);
+  --sl-shadow-lg: 0 8px 32px rgb(23 24 23 / 0.12);
+
+  /* Chartreuse is 1.14:1 on ivory and is never a light-mode foreground. */
+  --sl-color-green: var(--j-verify-deep); /* 4.56:1 on ivory */
+  --sl-color-orange: var(--j-amber-deep); /* 5.15:1 on ivory */
+  --sl-color-red: #a5271b; /* 6.29:1 on ivory */
+  --sl-color-purple: var(--j-oxide-deep);
+  --sl-color-blue: var(--j-oxide-deep);
+
+  --sl-color-green-low: #dfe8cd;
+  --sl-color-orange-low: #f0e2c6;
+  --sl-color-red-low: #f2d6cf;
+  --sl-color-purple-low: #f2d6cf;
+  --sl-color-blue-low: #f2d6cf;
+
+  --sl-color-green-high: #34520c;
+  --sl-color-orange-high: #5e3d0b;
+  --sl-color-red-high: #741b13;
+  --sl-color-purple-high: #8c2d19;
+  --sl-color-blue-high: #8c2d19;
+}
+
+/* ── Display type ──────────────────────────────────────────────────────────────────── */
+
+/*
+ * Archivo Narrow ExtraBold, reproduced from the variable family (PROPOSAL §2.4 — Archivo
+ * Narrow itself ships only 400-700, so both axes must be set through
+ * font-variation-settings rather than through font-weight).
+ *
+ * Scoped to the page title and to `h2`, not to every heading: the brand kit reserves the
+ * compressed editorial scale for display moments, and running four heading levels in a
+ * narrow ExtraBold makes a reference page unreadable.
+ */
+.content-panel h1,
+.content-panel h2,
+.hero h1,
+site-title {
+  font-family: 'Archivo Variable', 'Archivo Narrow', 'Arial Narrow', sans-serif;
+  font-variation-settings:
+    'wdth' 75,
+    'wght' 800;
+  letter-spacing: -0.03em;
+  line-height: 0.92;
+}
+
+/*
+ * Inline code. Starlight leaves this to the syntax theme, which under `github-light` resolves to
+ * #403f53 — a blue-grey, and PROPOSAL §2.5 is explicit that this palette has no blue. Pinned to
+ * the primary foreground instead: 15.50:1 in both themes, and the well behind it is already a
+ * brand token above.
+ */
+.sl-markdown-content code:not(:where(.expressive-code *)) {
+  color: var(--sl-color-white);
+}
+
+/* ── Rules over cards (PROPOSAL §2.1) ──────────────────────────────────────────────── */
+
+.sl-markdown-content :is(h2) {
+  border-top: 1px solid var(--sl-color-hairline);
+  padding-top: 1.5rem;
+}
+
+/*
+ * The "verified" signal, and the only chartreuse on the site. `:global` is not needed —
+ * Starlight's asides render a plain `<aside class="starlight-aside starlight-aside--tip">`.
+ * Fill-or-dark-canvas only: this paints a 2px rule, never text.
+ */
+.starlight-aside--tip {
+  border-inline-start-color: var(--j-chartreuse);
+}
