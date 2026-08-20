@@ -1,0 +1,124 @@
+name: Docs site
+
+# Astro's GitHub Pages recipe (plans/docs-site/PROPOSAL.md §3.1): build the site, then
+# `actions/upload-pages-artifact` → `actions/deploy-pages`.
+#
+# §3.1 names `withastro/action` for the build half. This file spells those steps out instead.
+# The action could do the job — it takes `path`, `package-manager` and `build-cmd`, and a
+# separate `astro check` step could sit beside it. The reasons are preference, not capability:
+# the sequence here is legible without opening a third-party action's source, and it is one
+# fewer third-party action inside the job that holds `pages: write` and `id-token: write`.
+#
+# Path-filtered on purpose (§3.3). A Pages deploy on a renderer-only commit is minutes spent
+# republishing identical bytes, so only changes under `docs-site/` — or to this file — trigger
+# one. `workflow_dispatch` covers a manual redeploy, including the first one after Pages was
+# switched to the GitHub Actions source.
+#
+# Phase 2 note: the generated reference pages will read
+# `packages/renderer/src/commands/catalogue.ts` and
+# `packages/shared/src/config/ai-vendors.json`, so those two paths must join the push filter
+# below when the generator lands. Forgetting is how generated pages silently go stale.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs-site/**'
+      - '.github/workflows/docs.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs-site/**'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+# Read-only by default; the deploy job below asks for the two extra scopes it needs.
+permissions:
+  contents: read
+
+jobs:
+  # Runs on every trigger, including pull requests. A PR gets exactly this and nothing else:
+  # GitHub Pages has one environment per repository, so there is no per-PR preview URL to give
+  # (§3.5). What a PR does get is proof that the site builds and that every internal link
+  # resolves under the `/joinery` base path — `starlight-links-validator` runs inside
+  # `astro build` and fails it, so a root-absolute link cannot reach main.
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Per-ref and cancelling, unlike the deploy job's: pushing twice to the same PR should
+    # abandon the first build rather than pay for it. Keyed on `github.ref` so two different
+    # PRs never cancel each other, and deliberately NOT the `pages` group — a superseded build
+    # must not interrupt a deploy that is already publishing.
+    concurrency:
+      group: docs-build-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # `docs-site/` is outside the app's pnpm workspace and has its own lockfile and its own
+      # `pnpm-workspace.yaml` (see that file's header). Everything here therefore runs with
+      # `docs-site` as the working directory, and the app's node_modules is never installed.
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: docs-site/package.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          # Astro 7 requires >= 22.12. 24 is what .github/workflows/ci.yml uses.
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: docs-site/pnpm-lock.yaml
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+        working-directory: docs-site
+
+      - name: Type-check
+        run: pnpm run check
+        working-directory: docs-site
+
+      # Builds AND validates links: starlight-links-validator runs in astro:build:done and
+      # throws, so a broken internal link fails this step.
+      - name: Build
+        run: pnpm run build
+        working-directory: docs-site
+
+      # Uploaded unconditionally so a PR reviewer can download the built site; the deploy job
+      # below is what actually consumes it, and only on main.
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs-site/dist
+
+  # main and manual runs only. A pull_request event never reaches this job, so a fork PR can
+  # never publish to the live site.
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # On the deploy job rather than at workflow level (which is where PROPOSAL §3.1 puts it), so
+    # a pull-request build never queues behind a live deploy. The property that matters is
+    # unchanged: two Pages deploys never overlap, and neither cancels the other.
+    concurrency:
+      group: 'pages'
+      cancel-in-progress: false
+    # A job-level `permissions` block REPLACES the workflow-level one rather than extending it,
+    # so `contents: read` is restated here. Without it this job would run with no `contents`
+    # scope at all.
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Joinery mark</title>
+  <desc id="desc">Three descending fitted bars in oxide, ink, and signal chartreuse.</desc>
+  <!--
+    One file, both variants. docs/brand/README.md: "On dark backgrounds, replace the ink bar
+    with drafting ivory." A browser tab strip picks its own background, so the middle bar
+    follows prefers-color-scheme rather than guessing. The other two bars are unchanged in
+    both variants, so nothing else may vary here.
+  -->
+  <style>
+    .bar-middle { fill: #171817; }
+    @media (prefers-color-scheme: dark) {
+      .bar-middle { fill: #F2EFE7; }
+    }
+  </style>
+  <path d="M14 8H56L51 19H9Z" fill="#D6492F" />
+  <path class="bar-middle" d="M14 26H46L41 37H9Z" />
+  <path d="M14 44H37L32 55H9Z" fill="#C8F04A" />
+</svg>

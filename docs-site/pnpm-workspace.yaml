@@ -1,0 +1,22 @@
+# This file exists to make `docs-site/` its own pnpm root, and that is its whole job.
+#
+# plans/docs-site/PROPOSAL.md §2.3 places the docs site OUTSIDE the app's pnpm workspace so
+# that turbo, `pnpm run package`, `verify:package` and CI's `packages/**` path filter never
+# see it. Declaring the directory is not enough on its own: pnpm resolves a workspace by
+# walking UP from the current directory until it finds a `pnpm-workspace.yaml`, so a bare
+# `pnpm install` run in here finds the repo root's file instead and installs the whole app
+# workspace — 1,300 packages hoisted into the root `node_modules`, which is precisely the
+# blast radius §2.3 exists to avoid.
+#
+# An empty `packages` list stops that walk. `docs-site/` is then a single-project root with
+# its own `pnpm-lock.yaml` and its own `node_modules`, and `pnpm install` behaves identically
+# whether it is run from here or from a clone of this directory alone.
+packages: []
+
+# pnpm does not run dependency lifecycle scripts unless they are listed here, so a new
+# install script arriving through a transitive bump fails loudly instead of running
+# silently. Same policy as the app's root workspace file.
+allowBuilds:
+  # esbuild links its platform binary; Vite (and therefore `astro build`) needs it.
+  esbuild: true
+
