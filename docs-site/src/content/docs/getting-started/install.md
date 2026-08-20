@@ -24,10 +24,9 @@ pnpm run dev
 `pnpm run dev` builds every package, then starts the Vite renderer and the Electron main process
 together with hot reload. The window opens on the welcome tab — see [First run](../first-run/).
 
-:::note
-`pnpm install` fetches an Electron binary and compiles native modules (`keytar` for the
-keychain, `ssh2` for tunnelling). The first install is therefore slower than the ones after it.
-:::
+> **Note** — `pnpm install` fetches an Electron binary and compiles native modules (`keytar` for
+> the keychain, `ssh2` for tunnelling). The first install is therefore slower than the ones after
+> it.
 
 ## Build a packaged app locally
 

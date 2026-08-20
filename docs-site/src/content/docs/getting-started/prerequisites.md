@@ -98,10 +98,8 @@ Download the
 Shell** and **Client only**; you do not need the full server. Then open a new Command Prompt or
 PowerShell window and run `mysqldump --version`.
 
-:::caution
-Restart Joinery after installing any of these. The app inherits its PATH from the process that
-launched it, so a shell change made after launch is invisible to it.
-:::
+> **Careful** — restart Joinery after installing any of these. The app inherits its PATH from
+> the process that launched it, so a shell change made after launch is invisible to it.
 
 ## Python and sqlglot, for SQL dialect conversion
 
@@ -119,11 +117,9 @@ python3 --version
 
 Everything else in Joinery works without Python. Only dialect conversion needs it.
 
-:::caution
-Joinery spawns the interpreter as `python3`. On Windows, where the launcher is usually `python`
-or `py`, that name may not resolve, and the failure is currently reported as a startup error
-rather than as "install Python" — a known rough edge tracked as J-29.
-:::
+> **Careful** — Joinery spawns the interpreter as `python3`. On Windows, where the launcher is
+> usually `python` or `py`, that name may not resolve, and the failure is currently reported as a
+> startup error rather than as "install Python" — a known rough edge tracked as J-29.
 
 ## Where credentials go
 

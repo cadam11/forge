@@ -88,6 +88,19 @@
   --sl-color-hairline-light: rgb(242 239 231 / 0.22);
   --sl-color-hairline-shade: rgb(242 239 231 / 0.12);
 
+  /*
+   * The fenced-code canvas. Read by `expressiveCode.styleOverrides.codeBackground` in
+   * astro.config.mjs, which is a per-theme value in Expressive Code's own output — routing it
+   * through one themed custom property here keeps both canvases in this file, next to every
+   * other colour decision, instead of splitting them across two config formats.
+   *
+   * Charcoal plane is the brand's own role for a raised dark surface (docs/brand/README.md:42),
+   * and it sits above the ink page and below the terminal frame's ink title bar, so a code block
+   * reads as a fitted panel rather than as a hole. It replaces Expressive Code's stock #23262F,
+   * a blue-slate that PROPOSAL §2.5 bans.
+   */
+  --j-code-bg: var(--j-charcoal);
+
   /* PROPOSAL §2.1: no shadows at all under ink. Surfaces separate with a rule. */
   --sl-shadow-sm: none;
   --sl-shadow-md: none;
@@ -143,6 +156,19 @@
   --sl-color-hairline-light: var(--j-rule);
   --sl-color-hairline-shade: rgb(23 24 23 / 0.1);
 
+  /*
+   * The light half. Deliberately `--sl-color-gray-7` (#F4F2EA) and not paper white: under the
+   * light theme Starlight paints `pre` with its own frame background, which resolves to gray-7
+   * and wins over `--ec-codeBg` — measured in the built page, where a paper-white token here
+   * still rendered rgb(244, 242, 234). Declaring the value that actually paints keeps this token
+   * honest instead of describing a colour the reader never sees.
+   *
+   * It is still an ivory-family surface one step off the canvas, and it still replaces Expressive
+   * Code's stock #F6F7F9 — the light half of the blue-slate pair — which no longer appears in the
+   * built CSS at all.
+   */
+  --j-code-bg: var(--sl-color-gray-7);
+
   --sl-shadow-sm: 0 1px 2px rgb(23 24 23 / 0.06);
   --sl-shadow-md: 0 2px 8px rgb(23 24 23 / 0.08);
   --sl-shadow-lg: 0 8px 32px rgb(23 24 23 / 0.12);
@@ -177,11 +203,15 @@
  * Scoped to the page title and to `h2`, not to every heading: the brand kit reserves the
  * compressed editorial scale for display moments, and running four heading levels in a
  * narrow ExtraBold makes a reference page unreadable.
+ *
+ * The header's own wordmark is deliberately absent from this list. `logo.replacesTitle` is on,
+ * so `.site-title` renders the lockup SVG and has no text to set — an earlier draft carried a
+ * bare `site-title` type selector here, which matched no element at all (Starlight emits
+ * `<a class="site-title …">`) and would have been dead even with the dot.
  */
 .content-panel h1,
 .content-panel h2,
-.hero h1,
-site-title {
+.hero h1 {
   font-family: 'Archivo Variable', 'Archivo Narrow', 'Arial Narrow', sans-serif;
   font-variation-settings:
     'wdth' 75,
@@ -208,10 +238,33 @@ site-title {
 }
 
 /*
- * The "verified" signal, and the only chartreuse on the site. `:global` is not needed —
- * Starlight's asides render a plain `<aside class="starlight-aside starlight-aside--tip">`.
- * Fill-or-dark-canvas only: this paints a 2px rule, never text.
+ * Callouts.
+ *
+ * Written as blockquotes with a bold lead word ("**Note** — …", "**Careful** — …") rather than as
+ * Starlight's `:::note` asides; astro.config.mjs records the measurement behind that choice.
+ * Styled here as a well with a rule down its leading edge, which is the same construction the app
+ * uses for its own advisory banners (`features/connections/password-hygiene-warning.tsx:53`) and
+ * the order of preference PROPOSAL §2.1 sets out — whitespace, then a hairline rule, then a well,
+ * and a card only as a last resort.
+ *
+ * Amber, because every callout on the site today is non-destructive caution, which is exactly the
+ * role PROPOSAL §2.5 assigns that colour. It is a 2px rule and never text: raw amber measures
+ * 1.90:1 on ivory, so it is fill-or-dark-canvas only, and the prose inside stays on the normal
+ * foreground tokens.
  */
-.starlight-aside--tip {
-  border-inline-start-color: var(--j-chartreuse);
+.sl-markdown-content blockquote {
+  border-inline-start: 2px solid var(--sl-color-orange);
+  border-block: 0;
+  border-inline-end: 0;
+  background: var(--sl-color-gray-6);
+  border-radius: var(--sl-border-radius);
+  padding: 0.75rem 1rem;
+}
+
+.sl-markdown-content blockquote > :first-child {
+  margin-block-start: 0;
+}
+
+.sl-markdown-content blockquote > :last-child {
+  margin-block-end: 0;
 }
