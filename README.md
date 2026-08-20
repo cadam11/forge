@@ -81,6 +81,7 @@ The AI uses an **agentic tool-calling loop** — it can chain multiple operation
 - **Multiple result sets** in a virtualized AG Grid (handles 100K+ rows)
 - **Find & Replace** across your queries
 - **Query history** — every execution saved, searchable, re-runnable
+- **Snippet library** — save, search, and insert reusable SQL snippets
 - **Export results** — CSV, JSON, clipboard (with hardened SAVE_TO_FILE IPC)
 - **Copy-as-JSON** for one-click structured paste into other tools
 - **Flyway / Skyway placeholder detection** — prompts for values before executing parameterized migration scripts
@@ -104,6 +105,7 @@ See exactly what the optimizer is doing — across **all three engines**. SQL Se
 - **Devicon brand icons** — instantly tell which engine a connection is
 - **Column details** — types, nullability, keys, defaults
 - **Quick actions** — script objects, view definitions
+- **Global schema search** — ⌘P fuzzy search across tables, views, procedures, and functions
 
 ### Database Operations
 
@@ -113,6 +115,7 @@ See exactly what the optimizer is doing — across **all three engines**. SQL Se
   - PostgreSQL — `pg_dump` / `pg_restore` with format options
   - MySQL — `mysqldump` (skip-opt by default for permission-friendly dumps, with GTID handling)
 - **Restore** with file relocation wizard (SQL Server)
+- **Schema diffing** — compare two databases and generate a comparison query in a new tab
 - **SQL transparency** — every operation shows the exact SQL/command being executed
 
 ### Professional UX
@@ -123,6 +126,7 @@ See exactly what the optimizer is doing — across **all three engines**. SQL Se
 - **Connection color coding** — visually distinguish Dev / Staging / Prod
 - **Status bar engine icon** — always know which engine you're on
 - **Keyboard shortcuts** — Cmd+Enter to execute, Cmd+N for new tab, and more
+- **Command palette** — ⌘K (or ⇧⌘P) for fuzzy search over every command and action
 - **Dockview tabs** — split, stack, and rearrange your workspace
 
 ---
@@ -385,15 +389,11 @@ joinery/
 
 - [ ] Schema-aware SQL autocomplete in the editor
 - [ ] AI "Fix this error" — one-click error resolution
-- [ ] Cmd+K command palette
-- [ ] Query snippets and templates
-- [ ] Global schema search
 - [ ] Result set export to Excel
 
 ### Future
 
 - [ ] Backup scheduling
-- [ ] Schema scripting and diffing
 - [ ] Connection groups and folders
 - [ ] Plugin system
 - [ ] Code signing & notarization
