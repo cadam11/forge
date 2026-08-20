@@ -255,6 +255,15 @@ describe('DockerPanel — the create form', () => {
     await waitFor(() => expect(screen.queryByTestId('docker-create-form')).not.toBeNull());
   }
 
+  /** Fills in a valid password and submits into a Docker that refuses. Returns once the toast lands. */
+  async function submitRefusedCreate() {
+    createContainer.mockResolvedValueOnce({ success: false, error: 'name already in use' });
+    await openForm();
+    await userEvent.type(screen.getByTestId('docker-create-password'), 'Strong!Pass123');
+    await userEvent.click(screen.getByTestId('docker-create-submit'));
+    await waitFor(() => expect(toasts).toContain('error:name already in use'));
+  }
+
   it('refuses a password SQL Server would reject, and says why before a submit', async () => {
     await openForm();
     await userEvent.type(screen.getByTestId('docker-create-password'), 'weak');
@@ -306,26 +315,21 @@ describe('DockerPanel — the create form', () => {
   it('passes Docker’s refusal through instead of reporting success', async () => {
     // The Angular panel checked `result.success`, but only after having already been able to report
     // "created and started" for a container that exits on a bad password — which is why the rule above
-    // exists as well as this arm.
-    createContainer.mockResolvedValueOnce({ success: false, error: 'name already in use' });
-    await openForm();
-    await userEvent.type(screen.getByTestId('docker-create-password'), 'Strong!Pass123');
-    await userEvent.click(screen.getByTestId('docker-create-submit'));
+    // exists as well as this arm. The toast is asserted inside `submitRefusedCreate`.
+    await submitRefusedCreate();
 
-    await waitFor(() => expect(toasts).toContain('error:name already in use'));
     // Still open, so the user can fix the name rather than starting over.
     expect(screen.queryByTestId('docker-create-form')).not.toBeNull();
   });
 
   it('forgets the password even when the create is refused', async () => {
-    // The refused form stays mounted so the user can fix the name — which is exactly why the secret
-    // must not stay mounted with it. The password is dropped as soon as it has been sent (J-110).
-    createContainer.mockResolvedValueOnce({ success: false, error: 'name already in use' });
-    await openForm();
-    await userEvent.type(screen.getByTestId('docker-create-password'), 'Strong!Pass123');
-    await userEvent.click(screen.getByTestId('docker-create-submit'));
+    // The refused form stays mounted (asserted above) so the user can fix the name — which is exactly
+    // why the secret must not stay mounted with it: the password is dropped as soon as it has been
+    // sent, worked or not (J-110).
+    await submitRefusedCreate();
 
-    await waitFor(() => expect(toasts).toContain('error:name already in use'));
+    // Restated here rather than leaned on: if the form ever unmounted on refusal, this test would
+    // pass for the wrong reason and stop guarding anything.
     expect(screen.queryByTestId('docker-create-form')).not.toBeNull();
     await waitFor(() =>
       expect((screen.getByTestId('docker-create-password') as HTMLInputElement).value).toBe('')
