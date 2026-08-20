@@ -59,24 +59,39 @@ import Select from '@astrojs/starlight/components/Select.astro';
 	const getPreferredColorScheme = (): Theme =>
 		matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
 
-	function onThemeChange(theme: Theme): void {
+	/**
+	 * Paint a theme and sync the picker to it. **Writes nothing.**
+	 *
+	 * Kept separate from `chooseTheme` because upstream's single `onThemeChange` persists on every
+	 * call, including the one its own constructor makes on first paint — which would write `'dark'`
+	 * into storage before the reader has chosen anything and collapse the never-chose / chose-dark
+	 * distinction this fork exists to keep. Only a real interaction may write.
+	 */
+	function applyTheme(theme: Theme): void {
 		StarlightThemeProvider.updatePickers(theme);
 		document.documentElement.dataset.theme = theme === 'auto' ? getPreferredColorScheme() : theme;
+	}
+
+	/** A deliberate choice: paint it, then remember it. */
+	function chooseTheme(theme: Theme): void {
+		applyTheme(theme);
 		storeTheme(theme);
 	}
 
-	// React to changes in system colour scheme, but only while 'auto' is the choice.
+	// React to changes in system colour scheme, but only while 'auto' is the stored choice — an
+	// unset preference means ink, not "follow the system". `applyTheme`, because the system moving
+	// is not the reader choosing.
 	matchMedia(`(prefers-color-scheme: light)`).addEventListener('change', () => {
-		if (loadTheme() === 'auto') onThemeChange('auto');
+		if (loadTheme() === 'auto') applyTheme('auto');
 	});
 
 	class StarlightThemeSelect extends HTMLElement {
 		constructor() {
 			super();
-			onThemeChange(loadTheme());
+			applyTheme(loadTheme());
 			this.querySelector('select')?.addEventListener('change', (e) => {
 				if (e.currentTarget instanceof HTMLSelectElement) {
-					onThemeChange(parseTheme(e.currentTarget.value));
+					chooseTheme(parseTheme(e.currentTarget.value));
 				}
 			});
 		}
