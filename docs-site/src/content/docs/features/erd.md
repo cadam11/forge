@@ -154,8 +154,8 @@ A failed read is logged with its cause as well as shown; it is never reported tw
 
 | Claim                                                                                         | Source                                                                                          |
 | --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| A table's menu carries "Show Relationships"                                                   | `packages/renderer/src/shell/sidebar/node-menu.tsx:370-375`                                     |
-| It opens a table-focused ERD tab and moves the database picker                                | `packages/renderer/src/shell/sidebar/node-actions.ts:233-239`                                   |
+| A table's menu carries "Show Relationships"                                                   | `packages/renderer/src/shell/sidebar/node-menu.tsx:348-354`                                     |
+| It opens a table-focused ERD tab and moves the database picker                                | `packages/renderer/src/shell/sidebar/node-actions.ts:232-238`                                   |
 | A table-focused tab is opened at `focusDepth: 2`                                              | `packages/renderer/src/state/tab.ts:446-458`                                                    |
 | The palette entry "Open ERD diagram", with no accelerator                                     | `packages/renderer/src/commands/catalogue.ts:666-674`                                           |
 | The palette entry resolves its own connection and database and opens a whole-database diagram | `packages/renderer/src/features/erd/erd-commands.tsx:24-39`                                     |

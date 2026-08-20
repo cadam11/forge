@@ -178,10 +178,10 @@ the form rather than letting the restore reject it after you have worked through
 | Per-step install commands with a copy button, and a Re-check that re-probes            | `packages/renderer/src/features/backup/missing-cli-tools.tsx:113-198`, `cli-deps.ts:52-64`        |
 | MSSQL skips the probe entirely                                                         | `packages/renderer/src/features/backup/backup-model.ts:53-62, 301-306`                            |
 | A failed probe opens the form and states the reason                                    | `packages/renderer/src/features/backup/backup-model.ts:296-305`, `backup-dialog.tsx:172-181`      |
-| The sidebar's database and server menus carry Backup / Restore Database…               | `packages/renderer/src/shell/sidebar/node-menu.tsx:195-205, 244-261`                              |
+| The sidebar's database and server menus carry Backup / Restore Database…               | `packages/renderer/src/shell/sidebar/node-menu.tsx:192-202, 241-258`                              |
 | The explorer footer's back-up and restore actions                                      | `packages/renderer/src/shell/sidebar/sidebar.tsx:146-228`                                         |
 | The palette entries "Back up database" and "Restore database"                          | `packages/renderer/src/commands/catalogue.ts:489-505`                                             |
-| The menu bar's Database ▸ Backup… / Restore…                                           | `packages/main/src/menu.ts:302-315`                                                               |
+| The menu bar's Database ▸ Backup… / Restore…                                           | `packages/main/src/menu.ts:300-313`                                                               |
 | Targetless entries resolve the most recent connection and its default database         | `packages/renderer/src/features/backup/backup-dialogs.tsx:1-20`                                   |
 | MSSQL's backup-type picker holds Full and Differential only                            | `packages/renderer/src/features/backup/backup-model.ts:79-85`                                     |
 | Which controls each engine gets, and the two format notes verbatim                     | `packages/renderer/src/features/backup/backup-model.ts:110-146`                                   |

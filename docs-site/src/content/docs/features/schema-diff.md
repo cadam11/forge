@@ -95,7 +95,7 @@ Comparing two **schemas inside one** PostgreSQL database is a different feature 
 | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
 | It generates a query and the server does the comparing                       | `packages/renderer/src/features/schema-diff/diff-query.ts:1-8`                                            |
 | The dialog's title, description and primary-action wording                   | `packages/renderer/src/features/schema-diff/schema-diff-dialog.tsx:81-86, 174-184`                        |
-| A database's menu carries "Compare Schemas…", on every engine                | `packages/renderer/src/shell/sidebar/node-menu.tsx:262-271`                                               |
+| A database's menu carries "Compare Schemas…", on every engine                | `packages/renderer/src/shell/sidebar/node-menu.tsx:259-268`                                               |
 | That entry pre-selects the clicked database as the source                    | `packages/renderer/src/features/schema-diff/schema-diff-host.tsx:88-91`                                   |
 | The palette entry "Compare database schemas" uses the focused tab's database | `packages/renderer/src/commands/catalogue.ts:675-686`, `schema-diff-host.tsx:81-86`                       |
 | The two pre-open refusals and their exact wording                            | `packages/renderer/src/features/schema-diff/schema-diff-host.tsx:56-79`                                   |

@@ -171,7 +171,7 @@ put through the Confirm-before-execute gate, because you asked for it by name.
 | ⌘S reuses the remembered path; ⇧⌘S always prompts; a cancelled dialog is silent               | `packages/renderer/src/features/query/query-files.ts:71-103`                                                            |
 | Saving marks the tab clean; opening a file does too                                           | `packages/renderer/src/features/query/query-files.ts:112-113, 136-150`                                                  |
 | An empty editor refuses to save                                                               | `packages/renderer/src/features/query/query-files.ts:84-87`                                                             |
-| Only "Select Top 1000 Rows" auto-executes among the explorer's items                          | `packages/renderer/src/shell/sidebar/node-actions.ts:11-18, 131-135`                                                    |
+| Only "Select Top 1000 Rows" auto-executes among the explorer's items                          | `packages/renderer/src/shell/sidebar/node-actions.ts:11-18, 130-134`                                                    |
 | An auto-executing tab is not put through the confirm gate                                     | `packages/renderer/src/features/query/query-panel.tsx:392-407`                                                          |
 
 </details>

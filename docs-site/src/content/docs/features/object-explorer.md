@@ -76,15 +76,15 @@ click: on a server that hosts one fixed database, _New Database…_ is disabled,
 the keyboard path too. The row itself does not say why — the [command
 palette](../command-palette/) is the surface that states reasons.
 
-| Node      | Menu                                                                                                                             |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Server    | New Query · New Database… · Restore Database… · Refresh · Edit Connection… · Disconnect                                          |
-| Database  | New Query · Backup Database… · Restore Database… · Compare Schemas… · Refresh · Rename… · Delete…                                |
-| Folder    | Refresh                                                                                                                          |
-| Table     | Select Top 1000 Rows · Edit Top 200 Rows · Script Table as CREATE / SELECT / INSERT · Show Relationships · Properties… · Refresh |
-| View      | Select Top 1000 Rows · Edit Top 200 Rows · Script View as CREATE / ALTER / SELECT · Properties… · Refresh                        |
-| Procedure | Execute Stored Procedure… · Script Procedure as CREATE / ALTER · Properties… · Refresh                                           |
-| Function  | Script Function as CREATE / ALTER · Properties… · Refresh                                                                        |
+| Node      | Menu                                                                                                               |
+| --------- | ------------------------------------------------------------------------------------------------------------------ |
+| Server    | New Query · New Database… · Restore Database… · Refresh · Edit Connection… · Disconnect                            |
+| Database  | New Query · Backup Database… · Restore Database… · Compare Schemas… · Refresh · Rename…                            |
+| Folder    | Refresh                                                                                                            |
+| Table     | Select Top 1000 Rows · Edit Top 200 Rows · Script Table as CREATE / SELECT / INSERT · Show Relationships · Refresh |
+| View      | Select Top 1000 Rows · Edit Top 200 Rows · Script View as CREATE / ALTER / SELECT · Refresh                        |
+| Procedure | Execute Stored Procedure… · Script Procedure as CREATE / ALTER · Refresh                                           |
+| Function  | Script Function as CREATE / ALTER · Refresh                                                                        |
 
 **Only _Select Top 1000 Rows_ runs on open.** _Edit Top 200 Rows_, every _Script as…_ item and
 _Execute Stored Procedure…_ all open a query tab with the statement in it and leave running it to
@@ -99,11 +99,16 @@ server while a tab on another has focus cannot route the operation to the wrong 
 query from a database node also moves the database picker to that database, so the footer's actions
 follow.
 
-> **Note** — **Properties…**, on all four object menus, dispatches to a surface that has not shipped:
-> it is clickable and nothing happens. **Delete…** is the same, on the databases where it is enabled
-> at all — it stays greyed out on a system database and on an engine that does not support database
-> management. The command palette is honest about the neighbouring gap: _Server properties_ and
-> _Database properties_ render greyed out there, naming what owns them.
+> **Note** — there is **no _Properties…_ item and no _Delete…_ item**. Both used to be offered and
+> neither ever worked: each sent a command no part of the app listens for, so clicking it did
+> nothing at all in a released build. Rather than leave a row that lies, they were removed until the
+> surfaces behind them ship. The commands are still registered, which is why the [command
+> palette](../command-palette/) can still list _Server properties_ and _Database properties_ — greyed
+> out, naming what owes them. The palette is the surface that can say "not wired yet"; a right-click
+> row cannot.
+>
+> _Rename…_ is unaffected, and is still greyed out on a system database and on an engine that does
+> not support database management.
 
 ## Refresh
 
@@ -154,29 +159,30 @@ stops and says so.
 | Click selects, twisty or double-click expands, Enter activates                                                                        | `packages/renderer/src/shell/sidebar/explorer-tree.tsx:17-23, 202-227`                                                                       |
 | Arrow / Home / End / Enter / Space behaviour, including "step into" and "jump to parent"                                              | `packages/renderer/src/ui/tree.tsx:396-449`                                                                                                  |
 | Focus and selection are separate                                                                                                      | `packages/renderer/src/ui/tree.tsx:32-37`                                                                                                    |
-| Right-click selects the row it opened on                                                                                              | `packages/renderer/src/shell/sidebar/node-menu.tsx:17-21, 115-130`                                                                           |
-| Double-clicking a table opens its object tab                                                                                          | `packages/renderer/src/shell/sidebar/explorer-tree.tsx:206-227`, `node-actions.ts:218-231`                                                   |
+| Right-click selects the row it opened on                                                                                              | `packages/renderer/src/shell/sidebar/node-menu.tsx:18-20, 112-127`                                                                           |
+| Double-clicking a table opens its object tab                                                                                          | `packages/renderer/src/shell/sidebar/explorer-tree.tsx:206-227`, `node-actions.ts:217-230`                                                   |
 | The object tab's sections, and that a table has no Definition section                                                                 | `packages/renderer/src/features/object-detail/object-panel.tsx:23-29, 106-116, 253-274`                                                      |
-| Seven node types have a menu; columns, indexes and keys have none                                                                     | `packages/renderer/src/shell/sidebar/node-menu.tsx:79-100`                                                                                   |
-| Unsupported actions are a plain `disabled` item, refused on the keyboard path too                                                     | `packages/renderer/src/shell/sidebar/node-menu.tsx:8-15, 187-194`                                                                            |
+| Seven node types have a menu; columns, indexes and keys have none                                                                     | `packages/renderer/src/shell/sidebar/node-menu.tsx:77-97`                                                                                    |
+| Unsupported actions are a plain `disabled` item, refused on the keyboard path too                                                     | `packages/renderer/src/shell/sidebar/node-menu.tsx:7-13, 184-191`                                                                            |
 | A context-menu row has no affordance for stating a reason                                                                             | `packages/renderer/src/ui/context-menu.tsx:54-68`                                                                                            |
-| The seven menus' items                                                                                                                | `packages/renderer/src/shell/sidebar/node-menu.tsx:159-470`                                                                                  |
-| Only "Select Top 1000 Rows" auto-executes                                                                                             | `packages/renderer/src/shell/sidebar/node-actions.ts:11-18, 45-47, 131-135`                                                                  |
-| "Execute Stored Procedure…" writes the call and does not run it                                                                       | `packages/renderer/src/shell/sidebar/node-actions.ts:146-153`                                                                                |
-| Generated SQL is per engine, including MySQL's missing schema layer                                                                   | `packages/renderer/src/shell/sidebar/node-actions.ts:56-95`, `features/object-search/object-model.ts:5-16`                                   |
-| A menu action carries its own node's target rather than "the focused connection"                                                      | `packages/renderer/src/shell/sidebar/node-menu.tsx:15-20`                                                                                    |
-| Opening a query from a database node moves the database picker                                                                        | `packages/renderer/src/shell/sidebar/node-actions.ts:96-111`                                                                                 |
-| Properties… on all four object menus dispatches to an unowned command                                                                 | `packages/renderer/src/shell/sidebar/node-actions.ts:241-250`, `commands/registry.ts:237-243`                                                |
-| No handler is subscribed to the properties or delete-database commands                                                                | `packages/renderer/src/commands/registry.ts:387, 404, 471-473`                                                                               |
-| Delete… is disabled on a system database and where management is unsupported                                                          | `packages/renderer/src/shell/sidebar/node-menu.tsx:227-291`                                                                                  |
+| The seven menus' items                                                                                                                | `packages/renderer/src/shell/sidebar/node-menu.tsx:157-444`                                                                                  |
+| Only "Select Top 1000 Rows" auto-executes                                                                                             | `packages/renderer/src/shell/sidebar/node-actions.ts:11-18, 44-46, 130-134`                                                                  |
+| "Execute Stored Procedure…" writes the call and does not run it                                                                       | `packages/renderer/src/shell/sidebar/node-actions.ts:145-152`                                                                                |
+| Generated SQL is per engine, including MySQL's missing schema layer                                                                   | `packages/renderer/src/shell/sidebar/node-actions.ts:55-94`, `features/object-search/object-model.ts:5-16`                                   |
+| A menu action carries its own node's target rather than "the focused connection"                                                      | `packages/renderer/src/shell/sidebar/node-menu.tsx:14-17`                                                                                    |
+| Opening a query from a database node moves the database picker                                                                        | `packages/renderer/src/shell/sidebar/node-actions.ts:95-110`                                                                                 |
+| No menu here offers Properties… or Delete… any more                                                                                   | `packages/renderer/src/shell/sidebar/node-menu.tsx:22-31, 224-284, 309-317`                                                                  |
+| Nothing subscribes to the properties or delete-database commands, and none of the four has a producer                                 | `packages/renderer/src/commands/registry.ts:392-397, 414-416, 483-488, 492-495`                                                              |
+| The commands stay registered, with their payload shapes                                                                               | `packages/renderer/src/commands/registry.ts:121-126, 134-135, 232, 242-248`                                                                  |
+| Rename… is disabled on a system database and where management is unsupported                                                          | `packages/renderer/src/shell/sidebar/node-menu.tsx:224-232, 271-281`                                                                         |
 | The palette greys out an unowned command and names its owner — but only lists Server / Database properties, not the sidebar-only pair | `packages/renderer/src/features/command-palette/palette-model.ts:17-25, 144-154`, `commands/catalogue.ts:462-469, 507-514, 762-769, 786-794` |
-| A menu Refresh drops main's caches first, then re-reads the node                                                                      | `packages/renderer/src/shell/sidebar/node-actions.ts:290-315`                                                                                |
-| The footer's refresh re-reads the database list and the selected node                                                                 | `packages/renderer/src/shell/sidebar/node-actions.ts:357-377`                                                                                |
-| ⌘R also refreshes the server node                                                                                                     | `packages/renderer/src/commands/catalogue.ts:453-461`, `shell/sidebar/node-actions.ts:358-363`                                               |
+| A menu Refresh drops main's caches first, then re-reads the node                                                                      | `packages/renderer/src/shell/sidebar/node-actions.ts:279-304`                                                                                |
+| The footer's refresh re-reads the database list and the selected node                                                                 | `packages/renderer/src/shell/sidebar/node-actions.ts:346-365`                                                                                |
+| ⌘R also refreshes the server node                                                                                                     | `packages/renderer/src/commands/catalogue.ts:453-461`, `shell/sidebar/node-actions.ts:347-352`                                               |
 | Main's list metadata is cached for 60 seconds, which is why the drop comes first                                                      | `packages/main/src/services/sql/metadata.ts:83-89`                                                                                           |
 | The footer's five actions and their disabled conditions                                                                               | `packages/renderer/src/shell/sidebar/sidebar.tsx:146-228`                                                                                    |
-| New query resolves the database in three stages                                                                                       | `packages/renderer/src/shell/sidebar/node-actions.ts:113-129`                                                                                |
-| Reveal expands ancestors one at a time, focuses the row, and reports a missing ancestor                                               | `packages/renderer/src/shell/sidebar/node-actions.ts:252-288`, `shell/sidebar/sidebar.tsx:68-88`                                             |
+| New query resolves the database in three stages                                                                                       | `packages/renderer/src/shell/sidebar/node-actions.ts:112-128`                                                                                |
+| Reveal expands ancestors one at a time, focuses the row, and reports a missing ancestor                                               | `packages/renderer/src/shell/sidebar/node-actions.ts:241-277`, `shell/sidebar/sidebar.tsx:68-88`                                             |
 | Reveal uncollapses the sidebar first, which is why it works from a collapsed pane                                                     | `packages/renderer/src/shell/shell-commands.tsx:162-169`                                                                                     |
 
 </details>
