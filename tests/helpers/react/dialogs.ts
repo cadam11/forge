@@ -20,7 +20,7 @@ import { openNodeMenu } from './explorer';
 import { openPalette, runPaletteCommand } from './overlays';
 
 /** The four groups, which are Radix tabs — an inactive one is not in the DOM. */
-export type SettingsGroup = 'appearance' | 'editor' | 'query' | 'grid';
+export type SettingsGroup = 'appearance' | 'editor' | 'query' | 'grid' | 'ai';
 
 /** The panel, if it is open. */
 export function settingsDialog(window: Page): Locator {

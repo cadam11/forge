@@ -1,5 +1,8 @@
 /**
- * The four settings groups, and the rule every control in them obeys.
+ * The settings groups, and the rule every control in them obeys.
+ *
+ * Four of them hold preferences; the fifth, `AiGroup`, holds a door to the AI setup dialog and no
+ * preference at all — see its own header for why the keychain-backed settings are not inlined here.
  *
  * ── The rule (J-44, and it is the whole point of this file) ─────────────────────────────────
  *
@@ -37,9 +40,11 @@
  */
 
 import { useEffect, useState } from 'react';
+import { Check, Sparkles } from 'lucide-react';
 import type { AppSettings, CopyFormat, ExecuteScope, ThemePreference } from '@joinery/shared';
 
-import { Button, Select, SelectItem, Switch, cn } from '../../ui';
+import { Button, Icon, Select, SelectItem, Switch, cn } from '../../ui';
+import { selectHasConfiguredVendors, useAIStore } from '../../state/ai';
 import {
   selectConfirmedCtrlEExecute,
   editorPrefsStore,
@@ -464,6 +469,77 @@ export function GridGroup() {
         disabled={grid.copyFormat === 'json'}
         onChange={next => update('copyIncludeHeaders', next)}
       />
+    </SettingsGroup>
+  );
+}
+
+export interface AiGroupProps {
+  /**
+   * Dismisses this dialog and opens AI setup. Owned by `SettingsDialog` rather than done here,
+   * because dismissing correctly means flushing the pending number drafts first — see that file.
+   */
+  readonly onOpenAiSetup: () => void;
+}
+
+/**
+ * The fifth group: a door to the AI setup dialog, and nothing else (J-92).
+ *
+ * ── Why a door rather than the controls ─────────────────────────────────────────────────────
+ *
+ * Every other row in this file writes a preference through `settingsStore`. AI configuration does
+ * not fit that shape: an API key is a **keychain write in the main process** validated against the
+ * provider first (`features/ai-setup/ai-setup-dialog.tsx` states the secrets discipline it keeps),
+ * and moving that here would either duplicate the discipline or spread it across two surfaces. So
+ * the group states where the settings are and takes the user there in one click.
+ *
+ * ── Why the group exists at all ─────────────────────────────────────────────────────────────
+ *
+ * Before this, the AI setup dialog's only *unconditional* entry point was the command palette. Its
+ * two visible affordances — the welcome tab's AI card and the chat panel's no-provider empty state
+ * — are both gated on NOT being configured yet, so a user who had already saved a key had exactly
+ * one route left, and it was the one that requires knowing the command's name. ⌘, is where a user
+ * looks first, so it is where the door belongs; the native `AI Setup…` item is the other half.
+ */
+export function AiGroup({ onOpenAiSetup }: AiGroupProps) {
+  const configured = useAIStore(selectHasConfiguredVendors);
+
+  return (
+    <SettingsGroup testId="settings-group-ai">
+      <SettingRow>
+        <div className="flex flex-col items-start gap-3">
+          <p className="text-sm text-fg-muted text-pretty">
+            Providers, API keys, the preferred model and the OpenRouter routing band live in their
+            own dialog — a key is a keychain write, not a preference.
+          </p>
+
+          <p
+            data-testid="settings-ai-state"
+            data-state={configured ? 'configured' : 'none'}
+            className="flex items-center gap-1.5 text-sm text-fg-muted"
+          >
+            {configured ? (
+              <>
+                <Icon icon={Check} size="sm" className="stroke-success" />A provider has a key and
+                is switched on.
+              </>
+            ) : (
+              'No provider is configured yet, so chat and the AI features stay off.'
+            )}
+          </p>
+
+          {/* `outline`, not `primary`: the footer's Reset is this dialog's other affordance and
+              HOUSE-RULES §5 allows one filled control per visible surface — which this is not. */}
+          <Button
+            variant="outline"
+            size="sm"
+            leadingIcon={Sparkles}
+            data-testid="settings-open-ai-setup"
+            onClick={onOpenAiSetup}
+          >
+            Open AI setup
+          </Button>
+        </div>
+      </SettingRow>
     </SettingsGroup>
   );
 }

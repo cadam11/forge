@@ -7,9 +7,10 @@
  * preferences (the query editor hardcoded its Monaco options past them) plus `defaultTimeout`,
  * `showExecutionTime` and `confirmBeforeExecute` (nothing read them at all). Every one of them looked
  * like it worked. So the headline test below is not about any single control: it walks every interactive
- * control in all four groups and requires each to be **either enabled, or disabled with its owner named
+ * control in every group and requires each to be **either enabled, or disabled with its owner named
  * in the hint the user can read**. A new decorative toggle fails it without anyone remembering to add an
- * assertion for that toggle.
+ * assertion for that toggle. J-92's AI group is in that walk too, and its one control is a button whose
+ * effect — the hop to the AI setup dialog — is asserted in its own block at the foot of this file.
  *
  * ── Where each control's consumer is asserted ──────────────────────────────────────────────
  *
@@ -39,7 +40,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS } from '@joinery/shared';
 
-import { dispatchCommand } from '../../commands';
+import { dispatchCommand, subscribeCommand } from '../../commands';
 import { textToExecute } from '../../editor/statements';
 import { createAppStateDouble } from '../../test/app-state-double';
 import { installJoineryMock, removeJoineryMock } from '../../test/joinery-mock';
@@ -50,7 +51,7 @@ import { THEME_OPTIONS } from '../../shell/status-bar';
 import { SettingsDialog } from './settings-dialog';
 import { THEME_CHOICES } from './settings-groups';
 
-const GROUPS = ['appearance', 'editor', 'query', 'grid'] as const;
+const GROUPS = ['appearance', 'editor', 'query', 'grid', 'ai'] as const;
 type GroupId = (typeof GROUPS)[number];
 
 const teardowns: (() => void)[] = [];
@@ -159,7 +160,7 @@ describe('the settings panel', () => {
     expect(settingsStore.getState().isOpen).toBe(false);
   });
 
-  it('reaches all four groups', async () => {
+  it('reaches all five groups', async () => {
     const user = await openPanel();
 
     for (const group of GROUPS) {
@@ -171,10 +172,47 @@ describe('the settings panel', () => {
   it('focuses the group switcher rather than the close button', async () => {
     await openPanel();
     // Radix's default is the first tabbable node in the content — the header's ✕. A keyboard user who
-    // just pressed ⌘, wants the four groups.
+    // just pressed ⌘, wants the group strip.
     await waitFor(() =>
       expect(document.activeElement).toBe(screen.getByTestId('settings-tab-appearance'))
     );
+  });
+});
+
+// ── The AI door (J-92) ─────────────────────────────────────────────────────────────────────
+
+/**
+ * ⌘, is where a user looks for "where do I put my API key", and until J-92 the answer was "nowhere
+ * here" — the AI setup dialog's only unconditional entry point was the command palette. The group
+ * holds no preference of its own, so what these assert is the hop and the ordering it needs.
+ */
+describe('the AI group', () => {
+  it('offers a door to AI setup, and takes it without leaving two dialogs open', async () => {
+    const dispatched: string[] = [];
+    teardowns.push(
+      subscribeCommand('open-ai-setup', () => {
+        dispatched.push('open-ai-setup');
+      })
+    );
+    const user = await openPanel('ai');
+
+    await user.click(screen.getByTestId('settings-open-ai-setup'));
+
+    // Closed FIRST, then the command: two Radix modals stacked would fight over the focus trap, and
+    // the user asked to go to AI setup rather than to put it on top of the settings they were done
+    // with. The store flag is the shell's own read, so this is the real dismissal, not a hidden one.
+    expect(dispatched).toEqual(['open-ai-setup']);
+    await waitFor(() => expect(screen.queryByTestId('settings-dialog')).toBeNull());
+    expect(settingsStore.getState().isOpen).toBe(false);
+  });
+
+  it('states whether a provider is configured, without claiming to be the place to fix it', async () => {
+    await openPanel('ai');
+
+    // `aiStore` is at its initial state here: no vendor has a key.
+    const state = screen.getByTestId('settings-ai-state');
+    expect(state.getAttribute('data-state')).toBe('none');
+    expect(state.textContent).toContain('No provider is configured yet');
   });
 });
 

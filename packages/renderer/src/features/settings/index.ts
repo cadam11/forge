@@ -11,12 +11,14 @@
 
 export { SettingsDialog } from './settings-dialog';
 export {
+  AiGroup,
   AppearanceGroup,
   EditorGroup,
   GridGroup,
   QueryGroup,
   ResetToDefaults,
   THEME_CHOICES,
+  type AiGroupProps,
 } from './settings-groups';
 export {
   NumberSetting,
