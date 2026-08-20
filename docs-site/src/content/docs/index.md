@@ -2,6 +2,16 @@
 title: Joinery
 description: A desktop database workbench for SQL Server, PostgreSQL and MySQL, with an assistant that reads your schema and shows its work.
 template: splash
+# Starlight builds every page's `<title>` as "<frontmatter title> <delimiter> <site title>", which
+# on this page — whose title IS the site title — renders "Joinery | Joinery". A `title` entry in a
+# page's `head` replaces that default outright rather than adding a second one: `getHead` merges
+# the frontmatter head last, and its `hasTag` treats any `title` as matching any other, so the
+# default is filtered out (`@astrojs/starlight/utils/head.ts`, `createHead` / `mergeHead` /
+# `hasTag`). Verified against the built `dist/index.html`. `og:title` is unaffected — it is built
+# from the frontmatter title, and "Joinery" is the right value there.
+head:
+  - tag: title
+    content: Joinery — a desktop database workbench
 hero:
   tagline: Your database, fitted to the way you work.
   actions:
@@ -44,10 +54,11 @@ the app performs on your behalf.
   generated from the app's own source, plus settings, supported engines, AI providers, and where
   Joinery keeps your data.
 
-## Still being written
+## When something goes wrong
 
-Getting Started, Features and Reference are complete. The troubleshooting pages are being written
-next — see [Troubleshooting](./troubleshooting/) for what that section will hold.
+- **[Troubleshooting](./troubleshooting/)** — Docker detection, the keychain, the backup
+  command-line tools, Python for SQL conversion, and connections that fail or drop. Each page
+  starts from the sentence the app showed you.
 
 ## Open source
 
