@@ -482,9 +482,11 @@ describe('the catalogue is complete and says something', () => {
 });
 
 describe('formatAccelerator', () => {
-  // jsdom's user agent contains no "Mac", so `IS_MAC` is false in this suite and the non-Mac branch is
-  // what runs. Both branches are still asserted: the Mac one through the glyph mapping of a spec-built
-  // accelerator, which does not depend on the platform flag.
+  // jsdom's user agent contains no "Mac", so `IS_MAC` is false in this suite and only the non-Mac
+  // branch runs. `IS_MAC` is a module-load constant read from `navigator.userAgent`, so the Mac glyph
+  // branch cannot be reached from here without re-importing the module under a faked user agent —
+  // which is exactly what `docs-site/scripts/lib/app-source.mjs` does to build the Mac column of the
+  // generated keyboard reference.
   it('renders the platform branch of a split accelerator', () => {
     expect(acceleratorKeysForPlatform({ mac: 'Cmd+Shift+Return', other: 'Ctrl+Shift+E' })).toBe(
       'Ctrl+Shift+E'
@@ -493,9 +495,17 @@ describe('formatAccelerator', () => {
   });
 
   it('joins non-Mac keys with plus signs and upper-cases the final key', () => {
-    expect(formatAccelerator({ source: 'menu', keys: 'CmdOrCtrl+Shift+n' })).toBe(
-      'CmdOrCtrl+Shift+N'
-    );
+    expect(formatAccelerator({ source: 'menu', keys: 'CmdOrCtrl+Shift+n' })).toBe('Ctrl+Shift+N');
+  });
+
+  it('resolves every Electron Cmd alias to Ctrl off macOS', () => {
+    // Electron accepts several spellings of the same modifier; off macOS they all mean Ctrl, and a
+    // cheat-sheet row that prints the accelerator's spelling instead of the key is a lie (J-114).
+    for (const alias of ['CmdOrCtrl', 'CommandOrControl', 'Cmd', 'Command', 'Control', 'Ctrl']) {
+      expect(formatAccelerator({ source: 'menu', keys: `${alias}+k` }), alias).toBe('Ctrl+K');
+    }
+    // Modifiers that are not aliases of Ctrl keep their own names.
+    expect(formatAccelerator({ source: 'menu', keys: 'Alt+Shift+k' })).toBe('Alt+Shift+K');
   });
 
   it('returns null when there is no binding', () => {

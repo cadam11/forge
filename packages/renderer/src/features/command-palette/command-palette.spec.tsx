@@ -399,9 +399,10 @@ describe('the command palette', () => {
           ?.includes('toggle-sidebar')
       );
     expect(sidebarRow).toBeDefined();
-    // jsdom is not a Mac, so the non-Mac spelling is what renders.
+    // jsdom is not a Mac, so the non-Mac keystroke is what renders — `CmdOrCtrl` is the accelerator's
+    // spelling, not a key anyone can press (J-114).
     expect(within(sidebarRow as HTMLElement).getByTestId('palette-row-keys').textContent).toBe(
-      'CmdOrCtrl+\\'
+      'Ctrl+\\'
     );
   });
 
