@@ -263,9 +263,9 @@ Full tree, one line of content per page. Derived from what ships: the twenty dir
 
 ### Home — 1 page
 
-| Page | Content                                                                                                                                                                                                  |
-| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/`  | Positioning line ("Your database, fitted to the way you work."), the three engines, three CTAs: Install, Features, Reference. Starlight splash in Phase 1; brand-expressive Astro route in Phase 3 (D7). |
+| Page | Content                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/`  | Positioning line ("Your database, fitted to the way you work."), the three engines, three hero CTAs. **Shipped:** Starlight splash in Phase 1, replaced in Phase 3 (D7) by the brand-expressive **non-Starlight** route `docs-site/src/pages/index.astro` — the site's one `src/pages/` entry and the sole claimant of `/`. The hero CTA trio is **Install / Prerequisites / Workspace tour** (the "reality wins" ruling: shipped pages only); Features and Reference moved to the masthead nav. |
 
 ### Getting Started — 8 pages
 

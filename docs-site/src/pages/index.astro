@@ -1,0 +1,1032 @@
+---
+/**
+ * The landing route — plans/docs-site/PROPOSAL.md D7, Phase 3.
+ *
+ * This is the ONE non-Starlight route on the site, and it is the only claimant of `/`:
+ * the Phase 1 `template: splash` page at `src/content/docs/index.md` was deleted in the same
+ * change, because Astro cannot serve two files at one path. Everything under `/` other than
+ * this file is still Starlight's (astro.config.mjs D6 note).
+ *
+ * Why a bare route at all, rather than more CSS on the splash: PROPOSAL §2.1 records that
+ * Starlight's DOM limits brand expression to custom-property overrides, while
+ * `docs/brand/README.md` asks marketing surfaces for "editorial, asymmetric layouts… larger
+ * compressed typography and more negative space". That is hard inside the docs shell and easy
+ * beside it.
+ *
+ * Rules this page holds itself to:
+ *
+ *  - **No new colour.** Every value below resolves through `src/styles/brand.css`, which is the
+ *    site's single palette and carries the measured contrast ratios for both canvases. This file
+ *    introduces no hex literal of its own.
+ *  - **No new asset and no remote request.** The mark is the three-bar geometry from
+ *    `docs/brand/assets/mark-on-{light,dark}.svg`, inlined so one element can carry both
+ *    variants (the brand kit's rule is that the middle bar is ink on light surfaces and drafting
+ *    ivory on dark — here that is a themed custom property, not a second file). Type is the
+ *    self-hosted @fontsource families brand.css already imports. The site keeps building, and
+ *    rendering, offline.
+ *  - **Every claim is checked.** The copy is drawn from pages that already ship, and the report
+ *    for this change lists each claim against its source. No unshipped page is linked and no
+ *    capability is described that the docs do not already document.
+ *
+ * Links are written root-absolute. `starlight-links-validator` does NOT see this file — it
+ * collects links from the Markdown processor and from Starlight frontmatter only, so nothing
+ * here is machine-checked and every href was resolved against the built `dist/` by hand.
+ */
+import '../styles/brand.css';
+
+const site = Astro.site?.href ?? 'https://usejoinery.com/';
+
+const title = 'Joinery — a desktop database workbench';
+const description =
+  'A desktop database workbench for SQL Server, PostgreSQL and MySQL, with an assistant that reads your schema and shows its work.';
+
+/** The three engines, as `reference/supported-engines.md` states them. */
+const engines: { name: string; versions: string; also: string }[] = [
+  { name: 'SQL Server', versions: '2017 and later', also: 'Azure SQL Database' },
+  { name: 'PostgreSQL', versions: '12 and later', also: 'Aurora DSQL' },
+  { name: 'MySQL', versions: '5.7, 8.0 and later', also: 'MariaDB containers' },
+];
+
+/** The brand kit's supporting product sequence (docs/brand/README.md), each step a shipped page. */
+const sequence: { step: string; name: string; body: string; href: string; link: string }[] = [
+  {
+    step: '01',
+    name: 'Connect',
+    body: 'Any of the three engines, directly or through an SSH tunnel. Passwords and keys go to the operating system credential store, never to a file in the profile.',
+    href: '/getting-started/connect-ssh/',
+    link: 'Connect over a tunnel',
+  },
+  {
+    step: '02',
+    name: 'Understand',
+    body: 'A lazy object explorer, an ER diagram built from the schema you are looking at, and — on SQL Server and MySQL — a comparison that hands you a query instead of a black box.',
+    href: '/features/erd/',
+    link: 'Diagram a schema',
+  },
+  {
+    step: '03',
+    name: 'Query',
+    body: 'An editor that knows which dialect it is in, a grid built for large result sets, and execution plans from each engine’s own planner.',
+    href: '/features/query-editor/',
+    link: 'The query editor',
+  },
+  {
+    step: '04',
+    name: 'Verify',
+    body: 'Joinery surfaces the exact statement the server ran, and puts a confirmation in front of the operations that would overwrite something.',
+    href: '/features/databases/',
+    link: 'Create and rename',
+  },
+];
+
+/** Eight of the seventeen feature guides. `features/index.md` is the whole list. */
+const surfaces: { name: string; body: string; href: string }[] = [
+  {
+    name: 'Query editor',
+    body: 'Three execute keystrokes, statement scope, formatting, placeholders and .sql files.',
+    href: '/features/query-editor/',
+  },
+  {
+    name: 'Results grid',
+    body: 'Sorting, filtering, copy and export, a row inspector, and foreign-key lookups.',
+    href: '/features/results-grid/',
+  },
+  {
+    name: 'Execution plans',
+    body: 'How each engine is asked for a plan, and why SQL Server runs your statement to give one.',
+    href: '/features/execution-plans/',
+  },
+  {
+    name: 'Object explorer',
+    body: 'The sidebar tree, its keyboard model, and what Refresh actually re-reads.',
+    href: '/features/object-explorer/',
+  },
+  {
+    name: 'ERD',
+    body: 'Relationship diagrams, what a box shows, and the details rail beside it.',
+    href: '/features/erd/',
+  },
+  {
+    name: 'Schema diff',
+    body: 'Compare two databases on one server — the server does the comparing, and you keep the rows. On SQL Server and MySQL; PostgreSQL cannot query across databases, and is refused.',
+    href: '/features/schema-diff/',
+  },
+  {
+    name: 'Backup and restore',
+    body: 'What each engine actually runs, the host tools it needs, and the guard on a restore.',
+    href: '/features/backup-and-restore/',
+  },
+  {
+    name: 'Docker containers',
+    body: 'Local database containers, detected and listed, with start, stop and connect.',
+    href: '/features/docker-containers/',
+  },
+];
+
+const footerGroups: { heading: string; links: { text: string; href: string }[] }[] = [
+  {
+    heading: 'Getting started',
+    links: [
+      { text: 'Install', href: '/getting-started/install/' },
+      { text: 'Prerequisites', href: '/getting-started/prerequisites/' },
+      { text: 'First run', href: '/getting-started/first-run/' },
+      { text: 'Workspace tour', href: '/getting-started/workspace-tour/' },
+    ],
+  },
+  {
+    heading: 'Connect',
+    links: [
+      { text: 'SQL Server', href: '/getting-started/connect-sql-server/' },
+      { text: 'PostgreSQL', href: '/getting-started/connect-postgresql/' },
+      { text: 'MySQL', href: '/getting-started/connect-mysql/' },
+      { text: 'Over an SSH tunnel', href: '/getting-started/connect-ssh/' },
+    ],
+  },
+  {
+    heading: 'Reference',
+    links: [
+      { text: 'Keyboard shortcuts', href: '/reference/keyboard-shortcuts/' },
+      { text: 'Commands', href: '/reference/commands/' },
+      { text: 'Settings', href: '/reference/settings/' },
+      { text: 'Where data is kept', href: '/reference/storage-locations/' },
+    ],
+  },
+  {
+    heading: 'Elsewhere',
+    links: [
+      { text: 'Troubleshooting', href: '/troubleshooting/' },
+      { text: 'About', href: '/about/' },
+      { text: 'Source on GitHub', href: 'https://github.com/cadam11/joinery' },
+      { text: 'Report a problem', href: 'https://github.com/cadam11/joinery/issues' },
+    ],
+  },
+];
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="canonical" href={site} />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Joinery" />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={site} />
+    <meta name="twitter:card" content="summary" />
+    <meta name="generator" content={Astro.generator} />
+
+    {/*
+      The ink-first bootstrap, inlined before first paint exactly as `ThemeProvider.astro` does
+      it for the Starlight pages. Same storage key, same three legal values, same fallback: an
+      absent or corrupted preference means ink (plans/ui-overhaul/PROPOSAL.md D2), and
+      `prefers-color-scheme` is consulted only when the reader has explicitly stored 'auto'.
+      Read that file first — it is the source of truth for this contract; this is the second
+      consumer of it, because a plain Astro route gets none of Starlight's components.
+    */}
+    <script is:inline>
+      (() => {
+        const stored =
+          typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme');
+        const preference =
+          stored === 'auto' || stored === 'light' || stored === 'dark' ? stored : 'dark';
+        const resolved =
+          preference === 'auto'
+            ? window.matchMedia('(prefers-color-scheme: light)').matches
+              ? 'light'
+              : 'dark'
+            : preference;
+        document.documentElement.dataset.theme = resolved;
+      })();
+    </script>
+  </head>
+
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+
+    <header class="masthead">
+      <div class="shell masthead-inner">
+        <p class="lockup">
+          <svg class="mark" viewBox="0 0 64 64" aria-hidden="true">
+            <path d="M14 8H56L51 19H9Z" class="bar-oxide"></path>
+            <path d="M14 26H46L41 37H9Z" class="bar-canvas"></path>
+            <path d="M14 44H37L32 55H9Z" class="bar-signal"></path>
+          </svg>
+          <span class="wordmark">Joinery</span>
+        </p>
+
+        <nav class="masthead-nav" aria-label="Site">
+          <a href="/getting-started/install/">Install</a>
+          <a class="wide-only" href="/features/">Features</a>
+          <a class="wide-only" href="/reference/">Reference</a>
+          <a href="https://github.com/cadam11/joinery">GitHub</a>
+          {/*
+            Ships `hidden`; the module script below unhides it. With JS off the control would be a
+            focusable no-op, and the JS-off canvas is always ink anyway (the bootstrap never runs,
+            so `:root` paints), so there is nothing for it to do.
+          */}
+          <button class="canvas-toggle" type="button" hidden data-canvas-toggle>
+            <span class="swatch" aria-hidden="true"></span>
+            <span data-canvas-toggle-label>Ivory</span>
+          </button>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="shell lede">
+        <div class="lede-copy">
+          <p class="eyebrow">SQL Server &middot; PostgreSQL &middot; MySQL</p>
+          <h1 class="display">Your database, fitted to the way you work.</h1>
+          <p class="lead">
+            Joinery is a desktop workbench for three relational engines, with one set of workflows
+            across all three. Connect directly or through an SSH tunnel, read the schema, write and
+            run SQL, and see the exact statement behind every operation the app performs on your
+            behalf.
+          </p>
+
+          <p class="actions">
+            <a class="button-primary" href="/getting-started/install/">Install Joinery</a>
+            <a class="button-link" href="/getting-started/prerequisites/">What you need first</a>
+            <a class="button-link" href="/getting-started/workspace-tour/">A tour of the workspace</a>
+          </p>
+
+          {/*
+            The `{' '}` are load-bearing. Astro drops the whitespace between a text node that ends
+            a line and an element that opens the next, which welds "the" onto "source is on
+            GitHub" — visible in the built HTML, not in the source.
+          */}
+          <p class="note">
+            Open source under the MIT license, and the{' '}
+            <a href="https://github.com/cadam11/joinery">source is on GitHub</a>. There are no
+            packaged installers yet — they arrive with v1, and until then you{' '}
+            <a href="/getting-started/install/">build from source</a>, which is four commands.
+          </p>
+        </div>
+
+        <aside class="spec" aria-labelledby="spec-heading">
+          <p class="spec-heading eyebrow" id="spec-heading">Supported</p>
+          <dl class="spec-list">
+            {
+              engines.map((engine) => (
+                <div class="spec-row">
+                  <dt>{engine.name}</dt>
+                  <dd>
+                    {engine.versions}
+                    <span class="spec-also">{engine.also}</span>
+                  </dd>
+                </div>
+              ))
+            }
+            <div class="spec-row">
+              <dt>Desktop</dt>
+              <dd>
+                macOS 13 and later, Windows 10 and 11
+                <span class="spec-also">Apple Silicon, Intel, x64, ARM64</span>
+              </dd>
+            </div>
+          </dl>
+          <p class="spec-foot">
+            <a href="/reference/supported-engines/">What each engine can do</a>
+          </p>
+        </aside>
+      </section>
+
+      <section class="shell band">
+        <div class="band-head">
+          <p class="eyebrow">How it goes</p>
+          <h2 class="display heading">Connect. Understand. Query. Verify.</h2>
+          <p class="body">
+            Four steps, and the app is built in that order. Every one of them is documented, and
+            every page carries its citations.
+          </p>
+        </div>
+
+        {/*
+          The step number lives inside the `dt`, not beside it: a `div` grouping inside a `dl` may
+          hold only `dt` and `dd` children, so it cannot take a paragraph of its own.
+        */}
+        <dl class="sequence">
+          {
+            sequence.map((item) => (
+              <div class="sequence-item">
+                <dt>
+                  <span class="step">{item.step}</span>
+                  {item.name}
+                </dt>
+                <dd>
+                  {item.body}
+                  <a class="inline-link" href={item.href}>
+                    {item.link}
+                  </a>
+                </dd>
+              </div>
+            ))
+          }
+        </dl>
+      </section>
+
+      <section class="shell band">
+        <div class="band-head">
+          <p class="eyebrow">In the workbench</p>
+          <h2 class="display heading">One guide per shipped surface.</h2>
+          <p class="body">
+            Eight of them below. There are <a href="/features/">seventeen in all</a>, plus the
+            generated reference tables the guides link to rather than repeat.
+          </p>
+        </div>
+
+        <dl class="surfaces">
+          {
+            surfaces.map((surface) => (
+              <div class="surface-item">
+                <dt>
+                  <a href={surface.href}>{surface.name}</a>
+                </dt>
+                <dd>{surface.body}</dd>
+              </div>
+            ))
+          }
+        </dl>
+      </section>
+
+      <section class="shell band">
+        <div class="band-head">
+          <p class="eyebrow">The assistant</p>
+          <h2 class="display heading">It reads your schema, and it shows its work.</h2>
+        </div>
+
+        <div class="split">
+          <div>
+            <p class="body">
+              The assistant opens beside your work, or as a tab of its own. It is told the
+              connection and its engine, the selected database, and the SQL in the editor in front
+              of you — and the line under its header states that context, read from the same source
+              the message is, so it cannot claim context the model never got.
+            </p>
+            <p class="body">
+              <a class="inline-link" href="/features/ai-assistant/">How the assistant works</a>
+            </p>
+          </div>
+          <div>
+            <p class="body">
+              Bring your own key. Joinery ships no keys and proxies nothing: the main process talks
+              to the vendor directly from your machine, with a key you supply, and that key goes to
+              the operating system credential store rather than to a file in the profile.
+            </p>
+            <p class="body">
+              <a class="inline-link" href="/reference/ai-providers/">Providers and models</a>
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="shell band close">
+        <h2 class="display heading">Built in the open, under the MIT license.</h2>
+        <p class="lead">
+          The whole application is on GitHub — the Electron main process, the React renderer, the
+          multi-engine SQL layer, and this site.
+        </p>
+        <p class="actions">
+          <a class="button-link" href="/getting-started/install/">Build it from source</a>
+          <a class="button-link" href="https://github.com/cadam11/joinery">Read the source</a>
+          {/* Issues, not Discussions: Discussions is disabled on the repo, so /discussions 404s. */}
+          <a class="button-link" href="https://github.com/cadam11/joinery/issues">Open an issue</a>
+        </p>
+      </section>
+    </main>
+
+    <footer class="site-foot">
+      <div class="shell foot-inner">
+        <div class="foot-brand">
+          <svg class="mark" viewBox="0 0 64 64" aria-hidden="true">
+            <path d="M14 8H56L51 19H9Z" class="bar-oxide"></path>
+            <path d="M14 26H46L41 37H9Z" class="bar-canvas"></path>
+            <path d="M14 44H37L32 55H9Z" class="bar-signal"></path>
+          </svg>
+          <p class="foot-note">
+            Joinery is a desktop database workbench for SQL Server, PostgreSQL and MySQL, built
+            with Electron and React. MIT licensed.
+          </p>
+        </div>
+
+        <nav class="foot-nav" aria-label="Documentation">
+          {
+            footerGroups.map((group) => (
+              <div>
+                <p class="eyebrow">{group.heading}</p>
+                <ul role="list">
+                  {group.links.map((link) => (
+                    <li>
+                      <a href={link.href}>{link.text}</a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))
+          }
+        </nav>
+      </div>
+    </footer>
+
+    <script>
+      /**
+       * The canvas toggle. Starlight's own picker is not on this route, so without this a reader
+       * who arrives at `/` first has no way to reach the ivory canvas.
+       *
+       * It writes the SAME key and the SAME literal values as `src/components/ThemeSelect.astro`
+       * ('dark' | 'light' | 'auto'), so a choice made here survives into the docs and back. It
+       * only ever writes 'dark' or 'light' — 'auto' stays settable from the docs picker, and is
+       * honoured on read by the inline bootstrap in this page's head.
+       */
+      const STORAGE_KEY = 'starlight-theme';
+
+      const root = document.documentElement;
+      const toggle = document.querySelector<HTMLButtonElement>('[data-canvas-toggle]');
+      const label = document.querySelector<HTMLElement>('[data-canvas-toggle-label]');
+
+      if (!toggle || !label) {
+        throw new Error('Canvas toggle markup is missing from the landing page.');
+      }
+
+      /** Name the canvas the reader would move TO, so the button text and the action agree. */
+      function syncToggle(button: HTMLButtonElement, text: HTMLElement): void {
+        const isLight = root.dataset.theme === 'light';
+        text.textContent = isLight ? 'Ink' : 'Ivory';
+        button.setAttribute('aria-label', isLight ? 'Switch to the ink canvas' : 'Switch to the ivory canvas');
+      }
+
+      toggle.hidden = false;
+      syncToggle(toggle, label);
+
+      toggle.addEventListener('click', () => {
+        const next = root.dataset.theme === 'light' ? 'dark' : 'light';
+        root.dataset.theme = next;
+        localStorage.setItem(STORAGE_KEY, next);
+        syncToggle(toggle, label);
+      });
+
+      /*
+       * Parity with `ThemeSelect.astro`'s listener: repaint when the SYSTEM canvas moves, but only
+       * while 'auto' is the stored choice — an unset preference means ink, not "follow the system".
+       * Writes nothing, because the system moving is not the reader choosing.
+       */
+      matchMedia('(prefers-color-scheme: light)').addEventListener('change', (event) => {
+        if (localStorage.getItem(STORAGE_KEY) !== 'auto') return;
+        root.dataset.theme = event.matches ? 'light' : 'dark';
+        syncToggle(toggle, label);
+      });
+    </script>
+
+    {/*
+      `is:global` because this stylesheet is the whole document's, not one component's: it sets
+      `:root`, `html` and `body`, none of which Astro's scoping attribute reaches reliably. It is
+      still emitted for this page only — Astro bundles a page's CSS per page, and no Starlight
+      route loads it.
+    */}
+    <style is:global>
+      /*
+       * Layout tokens, local to this route. Colour tokens are never redefined here — they all
+       * resolve through `src/styles/brand.css`, whose two blocks carry the measured contrast
+       * ratios for ink and ivory. One gap value and one page gutter are used by every section,
+       * so the column edges line up down the whole page.
+       */
+      :root {
+        --j-shell: 76rem;
+        --j-gutter: clamp(1.25rem, 5vw, 3.5rem);
+        --j-gap: 2rem;
+        --j-band: clamp(3.5rem, 8vw, 6rem);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        -webkit-text-size-adjust: 100%;
+      }
+
+      body {
+        margin: 0;
+        background: var(--sl-color-bg);
+        color: var(--sl-color-white);
+        font-family: var(--sl-font);
+        font-size: 1rem;
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+      }
+
+      .shell {
+        max-width: var(--j-shell);
+        margin-inline: auto;
+        padding-inline: var(--j-gutter);
+      }
+
+      a {
+        color: var(--sl-color-text-accent);
+      }
+
+      :where(a, button):focus-visible {
+        outline: 2px solid var(--sl-color-text-accent);
+        outline-offset: 2px;
+        border-radius: 2px;
+      }
+
+      /*
+       * Pinned to the same pair as `.button-primary`, for the same reason: Starlight's
+       * `bg-accent` / `text-invert` pair resolves under ink to Joinery ink on the oxide fill,
+       * which measures 3.14:1 and fails AA. Paper white on `--j-oxide-deep` is 5.42:1 in both
+       * canvases.
+       */
+      .skip {
+        position: absolute;
+        inset-inline-start: -100vw;
+        top: 0.5rem;
+        z-index: 2;
+        background: var(--j-oxide-deep);
+        color: var(--j-paper);
+        padding: 0.5rem 0.75rem;
+        border-radius: var(--sl-border-radius);
+        text-decoration: none;
+      }
+
+      .skip:focus {
+        inset-inline-start: 0.5rem;
+      }
+
+      /* ── The mark ───────────────────────────────────────────────────────────────────── */
+
+      /*
+       * `docs/brand/assets/mark-on-{light,dark}.svg`, inlined. The geometry is the asset's,
+       * path for path; the only change is that the middle bar takes its fill from a themed
+       * token instead of being frozen per file — which is precisely the brand kit's own rule
+       * (docs/brand/README.md: ink on light surfaces, drafting ivory on dark). Clear space is
+       * the height of the smallest bar, and the mark never renders below its 20px minimum.
+       */
+      .mark {
+        width: 1.75rem;
+        height: 1.75rem;
+        flex-shrink: 0;
+      }
+
+      .bar-oxide {
+        fill: var(--j-oxide);
+      }
+
+      .bar-canvas {
+        fill: var(--sl-color-white);
+      }
+
+      .bar-signal {
+        fill: var(--j-chartreuse);
+      }
+
+      /* ── Masthead ───────────────────────────────────────────────────────────────────── */
+
+      .masthead {
+        border-bottom: 1px solid var(--sl-color-hairline);
+      }
+
+      .masthead-inner {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding-block: 1.125rem;
+      }
+
+      .lockup {
+        display: flex;
+        align-items: center;
+        gap: 0.625rem;
+        margin: 0;
+      }
+
+      .wordmark {
+        font-size: 1.375rem;
+        font-weight: 700;
+        letter-spacing: -0.04em;
+      }
+
+      .masthead-nav {
+        display: flex;
+        align-items: center;
+        gap: clamp(1rem, 3vw, 1.75rem);
+        font-size: 1rem;
+      }
+
+      .masthead-nav a {
+        color: var(--sl-color-gray-2);
+        text-decoration: none;
+      }
+
+      .masthead-nav a:hover {
+        color: var(--sl-color-white);
+      }
+
+      .canvas-toggle {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        min-height: 2.25rem;
+        padding: 0.375rem 0.75rem 0.375rem 0.5rem;
+        border: 1px solid var(--sl-color-hairline-light);
+        border-radius: var(--sl-border-radius);
+        background: transparent;
+        color: var(--sl-color-gray-2);
+        font: inherit;
+        font-size: 0.9375rem;
+        cursor: pointer;
+      }
+
+      /* `display: flex` above outranks the UA's `[hidden] { display: none }`. Put it back. */
+      .canvas-toggle[hidden] {
+        display: none;
+      }
+
+      .canvas-toggle:hover {
+        color: var(--sl-color-white);
+      }
+
+      .swatch {
+        width: 0.75rem;
+        height: 0.75rem;
+        border: 1px solid var(--sl-color-hairline-light);
+        background: var(--sl-color-white);
+      }
+
+      /* ── Shared type ────────────────────────────────────────────────────────────────── */
+
+      .display {
+        font-family: var(--j-font-display);
+        font-variation-settings: var(--j-font-display-axes);
+        letter-spacing: -0.03em;
+        line-height: 0.94;
+        font-weight: 400;
+        text-wrap: balance;
+        margin: 0;
+      }
+
+      h1.display {
+        font-size: clamp(2.75rem, 8.5vw, 5.25rem);
+        max-width: 20ch;
+      }
+
+      .heading {
+        font-size: clamp(1.875rem, 4.5vw, 3rem);
+        max-width: 24ch;
+      }
+
+      /*
+       * Eyebrows recede on size, tracking and case — NOT on colour. `--sl-color-gray-3` is
+       * labelled "metadata, never prose" in brand.css because it measures 3.65:1 on ivory, which
+       * fails AA at this size; gray-2 is 8.46:1 on ink and 5.82:1 on ivory and passes on both.
+       * Same reasoning everywhere gray-3 would have been the obvious pick on this page.
+       */
+      .eyebrow {
+        margin: 0;
+        font-family: var(--sl-font-mono);
+        font-size: 0.8125rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--sl-color-gray-2);
+      }
+
+      .lead {
+        margin: 1.5rem 0 0;
+        font-size: clamp(1.0625rem, 1.4vw, 1.25rem);
+        max-width: 46ch;
+        color: var(--sl-color-gray-2);
+        text-wrap: pretty;
+      }
+
+      .body {
+        margin: 1rem 0 0;
+        max-width: 56ch;
+        color: var(--sl-color-gray-2);
+        text-wrap: pretty;
+      }
+
+      .note {
+        margin: 2rem 0 0;
+        max-width: 52ch;
+        color: var(--sl-color-gray-2);
+        text-wrap: pretty;
+      }
+
+      /* ── Buttons ────────────────────────────────────────────────────────────────────── */
+
+      /*
+       * One filled button on the page — Install, in the hero. Every other action, here and in
+       * the closing band, is the same link-style secondary, so nothing competes with it.
+       */
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 1rem 1.75rem;
+        margin: 2.25rem 0 0;
+      }
+
+      /*
+       * The one pair on this page that is deliberately NOT theme-derived. Oxide is a fill here,
+       * not a foreground, so it needs no per-canvas lift — and Starlight's own `bg-accent` /
+       * `text-invert` pair cannot be used: under ink `--sl-color-text-invert` resolves to
+       * Joinery ink, which measures 3.14:1 on the oxide fill and fails AA. Paper white on
+       * `--j-oxide-deep` is 5.42:1 and on `--j-oxide-press` (the hover) 8.02:1, in both canvases.
+       */
+      .button-primary {
+        padding: 0.6875rem 1.125rem;
+        border-radius: var(--sl-border-radius);
+        background: var(--j-oxide-deep);
+        color: var(--j-paper);
+        font-weight: 600;
+        text-decoration: none;
+      }
+
+      .button-primary:hover {
+        background: var(--j-oxide-press);
+      }
+
+      .button-link {
+        font-weight: 500;
+        text-decoration: underline;
+        text-underline-offset: 0.25em;
+        text-decoration-thickness: 1px;
+      }
+
+      /* ── Hero ───────────────────────────────────────────────────────────────────────── */
+
+      /*
+       * Asymmetric by design (docs/brand/README.md, "editorial, asymmetric layouts with visible
+       * rules"): the copy takes roughly three fifths, the spec panel two, and the rule between
+       * them is the drafting line. Below 60rem the panel drops under the copy and the rule moves
+       * to the top edge, so the two never compete for width.
+       */
+      .lede {
+        display: grid;
+        gap: var(--j-gap);
+        padding-block: clamp(3rem, 9vw, 6.5rem) var(--j-band);
+      }
+
+      .lede-copy {
+        min-width: 0;
+      }
+
+      .spec {
+        min-width: 0;
+        border-top: 1px solid var(--sl-color-hairline);
+        padding-top: 1.5rem;
+      }
+
+      .spec-heading {
+        margin-bottom: 0.5rem;
+      }
+
+      .spec-list {
+        margin: 0;
+      }
+
+      .spec-row {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 0.25rem 1.5rem;
+        padding-block: 0.875rem;
+        border-bottom: 1px solid var(--sl-color-hairline);
+      }
+
+      .spec-row dt {
+        font-weight: 600;
+      }
+
+      .spec-row dd {
+        margin: 0;
+        text-align: end;
+        font-size: 0.9375rem;
+        color: var(--sl-color-gray-2);
+      }
+
+      .spec-also {
+        display: block;
+        font-family: var(--sl-font-mono);
+        font-size: 0.8125rem;
+        letter-spacing: 0.04em;
+        color: var(--sl-color-gray-2);
+      }
+
+      .spec-foot {
+        margin: 1rem 0 0;
+        font-size: 0.9375rem;
+      }
+
+      /* ── Bands ──────────────────────────────────────────────────────────────────────── */
+
+      .band {
+        padding-block: 0 var(--j-band);
+      }
+
+      .band-head > .eyebrow {
+        margin-bottom: 1rem;
+      }
+
+      /* ── The sequence ───────────────────────────────────────────────────────────────── */
+
+      /*
+       * Rules, not cards (plans/ui-overhaul/PROPOSAL.md §2.1, and the same order of preference
+       * `src/styles/brand.css` follows for callouts): sibling items in one context get a hairline
+       * above them and nothing else.
+       */
+      .sequence,
+      .surfaces {
+        display: grid;
+        gap: var(--j-gap);
+        margin: 2.5rem 0 0;
+      }
+
+      .sequence-item,
+      .surface-item {
+        min-width: 0;
+        border-top: 1px solid var(--sl-color-hairline-light);
+        padding-top: 1rem;
+      }
+
+      /* The derived oxide, not the raw one: raw #D6492F is 3.77:1 on ivory. */
+      .step {
+        display: block;
+        margin-bottom: 0.75rem;
+        font-family: var(--sl-font-mono);
+        font-size: 0.8125rem;
+        font-weight: 400;
+        letter-spacing: 0.08em;
+        color: var(--sl-color-text-accent);
+      }
+
+      .sequence-item dt,
+      .surface-item dt {
+        font-size: 1.125rem;
+        font-weight: 600;
+      }
+
+      .sequence-item dd,
+      .surface-item dd {
+        margin: 0.5rem 0 0;
+        color: var(--sl-color-gray-2);
+        text-wrap: pretty;
+      }
+
+      .sequence-item dd .inline-link {
+        display: block;
+        margin-top: 0.75rem;
+        font-size: 0.9375rem;
+      }
+
+      .surface-item dt a {
+        text-decoration: none;
+        color: var(--sl-color-white);
+        border-bottom: 1px solid var(--sl-color-accent);
+      }
+
+      .surface-item dt a:hover {
+        color: var(--sl-color-text-accent);
+      }
+
+      /* ── Assistant ──────────────────────────────────────────────────────────────────── */
+
+      .split {
+        display: grid;
+        gap: var(--j-gap);
+        margin-top: 2rem;
+      }
+
+      .split > div {
+        min-width: 0;
+        border-top: 1px solid var(--sl-color-hairline-light);
+        padding-top: 1rem;
+      }
+
+      .split .body {
+        margin-top: 0.75rem;
+      }
+
+      /* ── Close ──────────────────────────────────────────────────────────────────────── */
+
+      .close {
+        border-top: 1px solid var(--sl-color-hairline);
+        padding-top: var(--j-band);
+      }
+
+      /* ── Footer ─────────────────────────────────────────────────────────────────────── */
+
+      .site-foot {
+        border-top: 1px solid var(--sl-color-hairline);
+        background: var(--sl-color-gray-6);
+      }
+
+      .foot-inner {
+        display: grid;
+        gap: var(--j-gap);
+        padding-block: clamp(2.5rem, 5vw, 3.5rem);
+      }
+
+      .foot-brand .mark {
+        width: 1.5rem;
+        height: 1.5rem;
+      }
+
+      .foot-note {
+        margin: 1rem 0 0;
+        max-width: 34ch;
+        font-size: 0.9375rem;
+        color: var(--sl-color-gray-2);
+        text-wrap: pretty;
+      }
+
+      .foot-nav {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--j-gap);
+      }
+
+      .foot-nav ul {
+        list-style: none;
+        margin: 0.75rem 0 0;
+        padding: 0;
+      }
+
+      .foot-nav li + li {
+        margin-top: 0.375rem;
+      }
+
+      .foot-nav a {
+        font-weight: 400;
+        font-size: 0.9375rem;
+        color: var(--sl-color-gray-2);
+        text-decoration: none;
+      }
+
+      .foot-nav a:hover {
+        color: var(--sl-color-white);
+      }
+
+      /* ── Breakpoints ────────────────────────────────────────────────────────────────── */
+
+      @media (min-width: 34rem) {
+        .surfaces {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .foot-nav {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+      }
+
+      @media (min-width: 48rem) {
+        .sequence {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .split {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (min-width: 60rem) {
+        .lede {
+          grid-template-columns: 3fr 2fr;
+          gap: clamp(2rem, 5vw, 4.5rem);
+        }
+
+        .spec {
+          border-top: 0;
+          border-inline-start: 1px solid var(--sl-color-hairline);
+          padding-top: 0.5rem;
+          padding-inline-start: clamp(1.5rem, 3vw, 2.5rem);
+        }
+
+        .sequence {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+
+        .surfaces {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+
+        .foot-inner {
+          grid-template-columns: 1fr 2fr;
+        }
+      }
+
+      @media (max-width: 33.9375rem) {
+        .wide-only {
+          display: none;
+        }
+      }
+
+    </style>
+  </body>
+</html>
