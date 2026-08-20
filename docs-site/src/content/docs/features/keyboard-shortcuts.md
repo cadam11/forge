@@ -53,9 +53,11 @@ Most bindings swap ⌘ for Ctrl and are otherwise the same. **Six are genuinely 
 | Previous tab      | ⇧⌘[   | Ctrl+Shift+Tab |
 | Snippet library   | ⌥⌘S   | Ctrl+Alt+S     |
 
-The sheet always shows the bindings for the platform you are running on, with macOS glyphs on macOS
-and `Ctrl+Shift+E`-style words elsewhere. Modifiers are printed in the macOS order — ⌃ ⌥ ⇧ ⌘ — no
-matter how the binding was written.
+The sheet always shows the bindings for the platform you are running on. On macOS it renders them as
+glyphs, in the macOS modifier order — ⌃ ⌥ ⇧ ⌘ — no matter how the binding was written. Elsewhere it
+prints the binding's own spelling, which for the six above is `Ctrl+Shift+E`-style words but for the
+rest is the cross-platform `CmdOrCtrl+N` form rather than `Ctrl+N`. The key you press is Ctrl either
+way; the [reference table](../../reference/keyboard-shortcuts/) prints it that way.
 
 > **Note** — the [keyboard shortcuts reference](../../reference/keyboard-shortcuts/) is the same
 > list on this site, generated from the same table, with the macOS and Windows bindings side by
@@ -82,5 +84,7 @@ matter how the binding was written.
 | ⌥⌘S rather than ⇧⌘S, because ⇧⌘S is Save Query As                                | `packages/renderer/src/commands/catalogue.ts:637-639`, `packages/main/src/menu.ts:101`                                               |
 | The six commands with a genuinely different non-macOS binding                    | `packages/renderer/src/commands/catalogue.ts:349, 413, 421, 574, 582, 639`                                                           |
 | Accelerators are formatted for the running platform, with macOS modifier order   | `packages/renderer/src/commands/catalogue.ts:849-884`                                                                                |
+| Off macOS the formatter prints the binding's own spelling, `CmdOrCtrl` included  | `packages/renderer/src/commands/catalogue.ts:871-873`                                                                                |
+| Electron maps `CmdOrCtrl` to Command on macOS and Control elsewhere              | [Electron accelerator reference](https://www.electronjs.org/docs/latest/api/accelerator)                                             |
 
 </details>
