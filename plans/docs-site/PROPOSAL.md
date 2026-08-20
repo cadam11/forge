@@ -386,7 +386,7 @@ Two hard requirements on the generator:
   into the docs build. Read and parse the data, the way `catalogue.spec.ts` reads `menu.ts`.
 
 Cost, stated plainly: this couples the docs build to the repo's file layout. That is a real coupling,
-and it is worth it — the alternative is 58 hand-typed accelerators that go wrong the first time
+and it is worth it — the alternative is 58 hand-typed commands that go wrong the first time
 someone changes a menu.
 
 ### 5.4 AI-generated prose is allowed; unverified prose is not

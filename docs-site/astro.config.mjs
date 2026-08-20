@@ -115,9 +115,10 @@ export default defineConfig({
         },
         {
           label: 'Features',
-          // The section overview first, then the guides in the order the section page groups
-          // them. Batch 2 (ERD, schema diff, backup/restore, databases, Docker, dialect
-          // conversion, the assistant and AI setup) appends here as those pages land.
+          // The section overview first, then all seventeen guides in the order
+          // plans/docs-site/PROPOSAL.md §4 lists them. The section page groups the same set by
+          // task rather than by that order — the one divergence is SQL dialect conversion, which
+          // the proposal lists late and the section page files with the editor, where it belongs.
           items: [
             { slug: 'features' },
             { slug: 'features/query-editor' },
@@ -129,6 +130,14 @@ export default defineConfig({
             { slug: 'features/keyboard-shortcuts' },
             { slug: 'features/snippets' },
             { slug: 'features/query-history' },
+            { slug: 'features/erd' },
+            { slug: 'features/schema-diff' },
+            { slug: 'features/backup-and-restore' },
+            { slug: 'features/databases' },
+            { slug: 'features/docker-containers' },
+            { slug: 'features/sql-dialect-conversion' },
+            { slug: 'features/ai-assistant' },
+            { slug: 'features/ai-setup' },
           ],
         },
         // The remaining three stay single links rather than groups, on the Phase 1 rule that a
