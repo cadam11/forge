@@ -4,6 +4,7 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
       - 'packages/**'
@@ -11,6 +12,10 @@ on:
       - 'vitest.config.ts'
       - 'tsconfig.tests.json'
       - 'playwright.config.ts'
+      # This file, so a change to CI runs the CI it changed — without it a pull request that
+      # only edits a job (or adds one, as `docs-reference-drift` below was) never runs it, and
+      # the first proof it works arrives after merge.
+      - '.github/workflows/ci.yml'
   push:
     branches: [main]
 

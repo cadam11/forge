@@ -170,9 +170,10 @@ export default defineConfig({
         },
         {
           label: 'Troubleshooting',
-          // Section page first, then the five pages in `sidebar.order` — the order
-          // plans/docs-site/PROPOSAL.md §1 lists them in, which is also roughly the order a new
-          // user hits them.
+          // Section page first, then the five pages in the order plans/docs-site/PROPOSAL.md §1
+          // lists them, which is also roughly the order a new user hits them. This array IS the
+          // order — an explicit `items` list overrides `sidebar.order`, which the pages carry
+          // anyway so that a page moved out of this list still sorts sensibly.
           items: [
             { slug: 'troubleshooting' },
             { slug: 'troubleshooting/docker-not-detected' },
