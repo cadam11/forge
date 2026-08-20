@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/cadam11/joinery/releases/latest"><strong>⬇️ Download Latest Release</strong></a>
+  <a href="#from-source"><strong>🛠️ Build from Source</strong></a> — packaged releases arrive with v1
 </p>
 
 <p align="center">
@@ -26,8 +26,6 @@
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-blue?style=flat-square" alt="Platform">
   <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License">
   <img src="https://img.shields.io/badge/engines-MSSQL%20%7C%20PostgreSQL%20%7C%20MySQL-orange?style=flat-square" alt="Engines">
-  <img src="https://img.shields.io/github/v/release/cadam11/joinery?style=flat-square&color=purple" alt="Release">
-  <img src="https://img.shields.io/github/actions/workflow/status/cadam11/joinery/build-release.yml?style=flat-square&label=build" alt="Build">
 </p>
 
 ---
@@ -177,31 +175,14 @@ The AI has access to these tools — each one is schema-aware and engine-aware:
 
 ## Download
 
-<p align="center">
-  <a href="https://github.com/cadam11/joinery/releases/latest">
-    <img src="https://img.shields.io/badge/⬇_Download_Latest-v0.4.0-purple?style=for-the-badge&logo=github" alt="Download Latest">
-  </a>
-</p>
+Joinery doesn't have packaged installers yet — there have been no tagged releases, and v1
+planning hasn't started. Packaged builds (macOS DMG, Windows installer) will arrive with the
+v1 release. Until then, [build from source](#from-source) — it's three commands (see Quick
+Start below).
 
-### macOS
-
-| Chip          | Installer                                                                           | Portable                                                   |
-| ------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| Apple Silicon | [Joinery-\<version\>-arm64.dmg](https://github.com/cadam11/joinery/releases/latest) | [.zip](https://github.com/cadam11/joinery/releases/latest) |
-| Intel         | [Joinery-\<version\>-x64.dmg](https://github.com/cadam11/joinery/releases/latest)   | [.zip](https://github.com/cadam11/joinery/releases/latest) |
-
-### Windows
-
-| Architecture   | Installer                                                                                 | Portable                                                   |
-| -------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| x64 (most PCs) | [Joinery-\<version\>-x64-setup.exe](https://github.com/cadam11/joinery/releases/latest)   | [.zip](https://github.com/cadam11/joinery/releases/latest) |
-| ARM64          | [Joinery-\<version\>-arm64-setup.exe](https://github.com/cadam11/joinery/releases/latest) | [.zip](https://github.com/cadam11/joinery/releases/latest) |
-
-All downloads available on the **[Releases page](https://github.com/cadam11/joinery/releases/latest)**.
-
-> **macOS:** On first launch, right-click → Open to bypass Gatekeeper (not yet notarized).
+> **macOS (once packaged):** right-click → Open to bypass Gatekeeper (not yet notarized).
 >
-> **Windows:** If SmartScreen warns you, click "More info" → "Run anyway" (not yet code-signed).
+> **Windows (once packaged):** if SmartScreen warns you, click "More info" → "Run anyway" (not yet code-signed).
 
 ### Requirements
 
@@ -238,13 +219,6 @@ All downloads available on the **[Releases page](https://github.com/cadam11/join
 
 ## Quick Start
 
-### From Release
-
-1. Download the installer for your platform from [Releases](https://github.com/cadam11/joinery/releases/latest)
-2. Install and launch Joinery
-3. Click **"Detect Docker Containers"** or **"Add Connection"**
-4. Pick your engine (SQL Server / PostgreSQL / MySQL) and start querying
-
 ### From Source
 
 ```bash
@@ -254,6 +228,11 @@ pnpm install
 pnpm run dev          # Development mode with hot reload
 ```
 
+Once Joinery launches:
+
+1. Click **"Detect Docker Containers"** or **"Add Connection"**
+2. Pick your engine (SQL Server / PostgreSQL / MySQL) and start querying
+
 ### Build Installers
 
 ```bash
@@ -261,7 +240,8 @@ pnpm run package:mac  # Build macOS DMG (arm64 + x64)
 pnpm run package      # Build for current platform
 ```
 
-Windows builds are produced automatically by [GitHub Actions](.github/workflows/build-release.yml) on every tagged release.
+[GitHub Actions](.github/workflows/build-release.yml) will build Windows and macOS installers
+automatically once a tagged release is pushed — no tag has been pushed yet.
 
 ### Set Up AI
 
@@ -450,6 +430,5 @@ MIT License — see [LICENSE](LICENSE) for details.
 </p>
 
 <p align="center">
-  <a href="https://github.com/cadam11/joinery/stargazers">⭐ Star us on GitHub</a> ·
-  <a href="https://github.com/cadam11/joinery/releases/latest">Download Latest Release</a>
+  <a href="https://github.com/cadam11/joinery/stargazers">⭐ Star us on GitHub</a>
 </p>
