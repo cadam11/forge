@@ -353,10 +353,11 @@ function CreateContainerForm({
     event.preventDefault();
     setAttempted(true);
     if (problem !== null || busy) return;
-    void onSubmit({ name: name.trim(), password, port: parsedPort }).then(ok => {
+    void onSubmit({ name: name.trim(), password, port: parsedPort }).then(() => {
       // The password is dropped as soon as it has been sent, whether or not it worked: it is a secret
-      // and this component outlives the submit.
-      if (ok) setPassword('');
+      // and this component outlives the submit — a refused create leaves the form mounted, so the
+      // failure path is the one that matters most here.
+      setPassword('');
     });
   };
 

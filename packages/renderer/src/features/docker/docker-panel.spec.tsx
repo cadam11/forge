@@ -317,6 +317,21 @@ describe('DockerPanel — the create form', () => {
     expect(screen.queryByTestId('docker-create-form')).not.toBeNull();
   });
 
+  it('forgets the password even when the create is refused', async () => {
+    // The refused form stays mounted so the user can fix the name — which is exactly why the secret
+    // must not stay mounted with it. The password is dropped as soon as it has been sent (J-110).
+    createContainer.mockResolvedValueOnce({ success: false, error: 'name already in use' });
+    await openForm();
+    await userEvent.type(screen.getByTestId('docker-create-password'), 'Strong!Pass123');
+    await userEvent.click(screen.getByTestId('docker-create-submit'));
+
+    await waitFor(() => expect(toasts).toContain('error:name already in use'));
+    expect(screen.queryByTestId('docker-create-form')).not.toBeNull();
+    await waitFor(() =>
+      expect((screen.getByTestId('docker-create-password') as HTMLInputElement).value).toBe('')
+    );
+  });
+
   it('never offers an image field, because main hardcodes SQL Server’s environment', async () => {
     await openForm();
     // `createContainer` sets ACCEPT_EULA and MSSQL_SA_PASSWORD and publishes 1433 whatever image it is

@@ -90,7 +90,8 @@ so the honest place to catch it is the form.
 Above the button, in words: creating the container **accepts the Microsoft SQL Server EULA** and pulls
 `mcr.microsoft.com/mssql/server:2022-latest` if it is not already present.
 
-The password is cleared from the form once the container has been created.
+The password is cleared from the form as soon as it has been sent — on success and on failure alike.
+A refused create leaves the form open so you can fix the name, but not the secret you typed into it.
 
 ## When Docker is not there
 
@@ -138,8 +139,8 @@ Docker and why the answer can differ from your terminal's.
 | The create form is SQL Server only, and the panel says so              | `packages/renderer/src/features/docker/docker-panel.tsx:90-99, 311-318`                                               |
 | The three fields, their defaults and their rules                       | `packages/renderer/src/features/docker/docker-panel.tsx:41, 335-337`, `docker-model.ts:200-233`                       |
 | Why the password is checked before the round trip                      | `packages/renderer/src/features/docker/docker-model.ts:190-199`                                                       |
-| The EULA sentence and the image it pulls                               | `packages/renderer/src/features/docker/docker-panel.tsx:411-415`                                                      |
-| The password is cleared once the create succeeds                       | `packages/renderer/src/features/docker/docker-panel.tsx:355-360`                                                      |
+| The EULA sentence and the image it pulls                               | `packages/renderer/src/features/docker/docker-panel.tsx:413-417`                                                      |
+| The password is cleared on success and on failure alike                | `packages/renderer/src/features/docker/docker-panel.tsx:356-361`                                                      |
 | The three empty states and their copy                                  | `packages/renderer/src/features/docker/docker-panel.tsx:117-160`                                                      |
 | The New container footer is hidden when Docker is absent or stopped    | `packages/renderer/src/features/docker/docker-panel.tsx:74-103`                                                       |
 
