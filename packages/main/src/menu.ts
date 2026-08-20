@@ -24,6 +24,18 @@ export function createMenu(): void {
                   win?.webContents.send('menu:open-settings');
                 },
               },
+              // Beside Settings, in both menus Settings appears in (J-92). Until this existed the AI
+              // setup dialog had exactly one unconditional door — the command palette — because the
+              // welcome card and the chat empty state both disappear once a provider is configured.
+              // No accelerator: this is a rarely-repeated configuration step, and the palette entry
+              // already covers the keyboard.
+              {
+                label: 'AI Setup...',
+                click: () => {
+                  const win = BrowserWindow.getFocusedWindow();
+                  win?.webContents.send('menu:open-ai-setup');
+                },
+              },
               { type: 'separator' as const },
               { role: 'services' as const },
               { type: 'separator' as const },
@@ -177,6 +189,15 @@ export function createMenu(): void {
           click: () => {
             const win = BrowserWindow.getFocusedWindow();
             win?.webContents.send('menu:open-settings');
+          },
+        },
+        // The second copy, for the same reason Settings has one: this submenu is where Windows and
+        // Linux users find preferences, and the macOS app menu above is where macOS users do.
+        {
+          label: 'AI Setup...',
+          click: () => {
+            const win = BrowserWindow.getFocusedWindow();
+            win?.webContents.send('menu:open-ai-setup');
           },
         },
       ],

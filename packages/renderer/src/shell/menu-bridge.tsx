@@ -22,9 +22,11 @@
  *
  * ── The channel count ─────────────────────────────────────────────────────────────────────
  *
- * **31**, not the 34 the task brief says. Counted in `packages/preload/src/index.ts` (the `menu`
- * block) and cross-checked against `menu.service.ts`, which has exactly 31 `menu.on*` calls. The
- * type above is what makes the number checkable rather than asserted.
+ * **32.** It was 31 at Task 24 — not the 34 that task's brief said — counted in
+ * `packages/preload/src/index.ts` (the `menu` block) and cross-checked against `menu.service.ts`,
+ * which had exactly 31 `menu.on*` calls. J-92 added the thirty-second, `onOpenAiSetup`, for the
+ * `AI Setup…` item beside Settings in both menus that carry Settings. The type above is what makes
+ * the number checkable rather than asserted.
  *
  * ── `menu-copy` is the one channel with logic ─────────────────────────────────────────────
  *
@@ -93,6 +95,7 @@ export const MENU_COMMANDS: Record<IpcEventName<'menu'>, PayloadlessCommandId> =
 
   // Joinery / Help
   onOpenSettings: 'open-settings',
+  onOpenAiSetup: 'open-ai-setup',
   onShowShortcuts: 'show-shortcuts',
 };
 
@@ -126,9 +129,9 @@ function MenuChannel({ channel }: { readonly channel: IpcEventName<'menu'> }) {
 /**
  * Mount once, from the shell.
  *
- * A component per channel rather than 31 hook calls in one component, because `useIpcEvent`'s
+ * A component per channel rather than one hook call per channel in one component, because `useIpcEvent`'s
  * subscription is keyed on its arguments and one component per channel keeps each subscription's
- * identity obvious in the React tree — and because the alternative is a 31-line hand-written list
+ * identity obvious in the React tree — and because the alternative is a hand-written list
  * that has to be kept in step with `MENU_COMMANDS` by hand. Renders nothing.
  */
 export function MenuBridge() {

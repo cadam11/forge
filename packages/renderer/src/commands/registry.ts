@@ -437,8 +437,10 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
 
   'open-ai-setup':
     'Task 19a features/ai-setup/AiSetupHost, mounted by the shell — which is also the one caller of ' +
-    'aiStore.initialize() now (J-55). Producers: the Task 16 palette, the welcome tab’s AI entry, and ' +
-    'the chat panel’s no-provider empty state, which used to be able only to name the missing surface.',
+    'aiStore.initialize() now (J-55). Producers: the Task 16 palette, the welcome tab’s AI entry, ' +
+    'the chat panel’s no-provider empty state, and — added by J-92, because the previous three were ' +
+    'either palette-only or gated on NOT being configured yet — the native menu bridge (AI Setup…, ' +
+    'beside Settings in both menus that carry it) and the Settings dialog’s AI group.',
 
   // The sidebar's eight targeted entry points. Producer for all of them: Task 8 sidebar
   // (`shell/sidebar/node-menu.tsx` and `connection-picker.tsx`).
