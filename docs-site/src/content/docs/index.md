@@ -35,9 +35,18 @@ the app performs on your behalf.
   [MySQL](./getting-started/connect-mysql/), or
   [over an SSH tunnel](./getting-started/connect-ssh/).
 
+## Then keep going
+
+- **[Features](./features/)** — a guide per shipped surface: the editor, the results grid, the
+  explorer, diagrams, schema comparison, backup and restore, containers, and the assistant.
+
 ## Still being written
 
-The Getting Started section above is complete. Feature guides, the generated command and
-keyboard-shortcut reference, and troubleshooting are being written next — see
-[Features](./features/), [Reference](./reference/) and
+Getting Started and Features are complete. The generated command and keyboard-shortcut reference,
+and the troubleshooting pages, are being written next — see [Reference](./reference/) and
 [Troubleshooting](./troubleshooting/) for what each section will hold.
+
+## Open source
+
+Joinery is open source under the **MIT license**. The source is on
+[GitHub](https://github.com/cadam11/joinery).

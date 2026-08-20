@@ -5,9 +5,11 @@ sidebar:
   order: 1
 ---
 
-Joinery has no tagged releases and no packaged installers today. Packaged builds — a macOS DMG
-and a Windows installer — arrive with v1. Until then you build from source, which is four
-commands.
+Joinery is open source under the **MIT license**, and its source is on
+[GitHub](https://github.com/cadam11/joinery).
+
+It has no tagged releases and no packaged installers today. Packaged builds — a macOS DMG and a
+Windows installer — arrive with v1. Until then you build from source, which is four commands.
 
 ## Build from source
 
@@ -65,6 +67,7 @@ Every claim above was checked against the repository at the commit this page was
 
 | Claim                                                                         | Source                                                             |
 | ----------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Joinery is MIT licensed                                                       | `LICENSE:1`, `package.json:5` (`"license": "MIT"`)                 |
 | No tagged releases, no packaged installers; packaged builds arrive with v1    | `README.md:180-189`                                                |
 | `git clone` → `cd` → `pnpm install` → `pnpm run dev`                          | `README.md:226-233`, `CONTRIBUTING.md:31-37`                       |
 | `pnpm run dev` builds first, then runs renderer and main concurrently         | `package.json:14` (`"dev": "pnpm run build && concurrently -k …"`) |
