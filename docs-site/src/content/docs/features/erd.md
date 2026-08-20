@@ -63,15 +63,15 @@ Hovering a box gives you its qualified name and its key counts as a native toolt
 
 ## Moving around
 
-| Input                                        | Effect                                     |
-| -------------------------------------------- | ------------------------------------------ |
-| Drag the background                          | Pans                                       |
-| Wheel / two-finger scroll                    | Zooms about the pointer                    |
-| Pinch (a ctrl-wheel, on a trackpad)          | Zooms about the pointer, five times faster |
-| Click a box                                  | Selects it and opens the details rail      |
-| Double-click a box, or Enter with it focused | Opens that table's object tab              |
-| Space with a box focused                     | Selects only                               |
-| Press the background                         | Clears the selection                       |
+| Input                                        | Effect                                             |
+| -------------------------------------------- | -------------------------------------------------- |
+| Drag the background                          | Pans                                               |
+| Wheel / two-finger scroll                    | Zooms about the pointer                            |
+| Pinch (a ctrl-wheel, on a trackpad)          | Zooms about the pointer, five times more sensitive |
+| Click a box                                  | Selects it and opens the details rail              |
+| Double-click a box, or Enter with it focused | Opens that table's object tab                      |
+| Space with a box focused                     | Selects only                                       |
+| Press the background                         | Clears the selection                               |
 
 A drag that starts **on a box** belongs to that box, not to the canvas — only a press into empty
 space pans.
@@ -85,8 +85,8 @@ The diagram fits itself to the pane when it first draws, and keeps refitting as 
 **until you move it yourself**. After your first pan or zoom, resizing leaves your view alone. Fit
 opts back in; every other control opts out.
 
-Only the boxes near the viewport exist in the page at any moment, so a 400-table diagram pans at the
-same cost as a four-table one.
+Only the boxes near the viewport exist in the page at any moment, so panning a 400-table diagram
+costs far less than the table count suggests.
 
 ## The details rail
 

@@ -209,7 +209,7 @@ the form rather than letting the restore reject it after you have worked through
 | The typed name must match exactly, including case                                      | `packages/renderer/src/features/restore/restore-model.ts:222-243`                                 |
 | PostgreSQL's target is created by Joinery before the restore                           | `packages/renderer/src/features/restore/restore-model.ts:90-102`, `restore-dialog.tsx:1167-1177`  |
 | A failed PostgreSQL restore leaves the created database behind, and says so            | `packages/renderer/src/features/restore/restore-model.ts:487-518`, `restore-dialog.tsx:1267-1297` |
-| The refusal when the connection cannot create databases                                | `packages/renderer/src/features/restore/restore-model.ts:429-434`                                 |
+| The refusal when the connection cannot create databases                                | `packages/renderer/src/features/restore/restore-model.ts:441-443`                                 |
 | MySQL target names are limited to letters, digits and underscores                      | `packages/renderer/src/features/restore/restore-model.ts:245-258`                                 |
 
 </details>
