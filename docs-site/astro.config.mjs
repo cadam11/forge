@@ -2,6 +2,7 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import starlightLinksValidator from 'starlight-links-validator';
+import { joineryEcThemes } from './src/styles/expressive-code-themes.mjs';
 
 /**
  * Joinery's user documentation site.
@@ -67,22 +68,36 @@ export default defineConfig({
       favicon: '/favicon.svg',
       customCss: ['./src/styles/brand.css'],
       /*
-       * Fenced code blocks. Starlight already routes Expressive Code's frame chrome through
-       * `--sl-color-gray-*` and `--sl-color-accent`, which `src/styles/brand.css` themes — but
-       * the code canvas itself and the frame border are hard-coded by the bundled syntax
-       * themes, and ship as #23262F (dark) and #F6F7F9 (light). Both are blue-slate, which
-       * plans/ui-overhaul/PROPOSAL.md §2.5 bans outright.
+       * Fenced code blocks.
        *
-       * Canvas and border only. Retheming the six syntax roles against the app's Monaco palette
-       * is Phase 3; the stock token colours clear AA on both canvases below (measured), so this
-       * is the whole of the brand defect.
-       *
-       * One §2.5 violation therefore survives — the light theme's #3B61B0 keyword/string blue,
-       * which `styleOverrides` structurally cannot reach. `src/styles/brand.css` carries the
-       * tracked note: what it is, where it renders, what it measures, and why it needs the Phase 3
-       * theme work rather than another line here.
+       * `themes` replaces Starlight's bundled Night Owl pair with `joinery-ink` /
+       * `joinery-ivory`, whose six syntax roles are the app editor's own
+       * (`src/styles/expressive-code-themes.mjs` explains the fork and carries every measured
+       * contrast ratio). This is the only lever that reaches a syntax colour at all: Expressive
+       * Code inlines them on each span from the active theme's `tokenColors`, and
+       * `styleOverrides` reaches `CoreStyleSettings` — border, canvas, fonts, gutter,
+       * selection — and nothing else. It retires the tracked #3B61B0 note that
+       * `src/styles/brand.css` used to carry, and with it the last blue on the site.
        */
       expressiveCode: {
+        themes: joineryEcThemes,
+        /*
+         * Starlight defaults this to `themes === undefined`, so supplying themes would silently
+         * turn it off and take the frame chrome — title bar, tab bar, borders, scrollbars, code
+         * canvas — back to whatever the theme objects declare. Keep it on: brand.css already
+         * themes every `--sl-color-*` this integration writes, so it IS the brand chrome, and
+         * the alternative is restating those values a second time inside the theme files.
+         */
+        useStarlightUiThemeColors: true,
+        /*
+         * Off, from a default of 5.5. This is the setting that invented #3B61B0: it darkened
+         * Night Owl Light's #4876D6 until it cleared 5.5:1, against a background
+         * (`theme.bg`, which Starlight pins to #23262F/#F6F7F9) that is not the one the block
+         * actually paints on. With a hand-measured palette that guess is not wanted — every one
+         * of the twelve values is checked against the real canvas in the theme file, and leaving
+         * this on would let it move them afterwards.
+         */
+        minSyntaxHighlightingColorContrast: 0,
         styleOverrides: {
           // One themed custom property rather than a per-theme function: the two values live
           // beside every other colour decision in brand.css. See that file for each one.

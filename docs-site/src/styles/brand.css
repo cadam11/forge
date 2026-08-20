@@ -170,29 +170,10 @@
   --j-code-bg: var(--sl-color-gray-7);
 
   /*
-   * ── TRACKED: the light-theme syntax blue #3B61B0 (Phase 3) ────────────────────────────────
-   *
-   * One blue survives on this site, and it is not reachable from here. Under the light theme
-   * Expressive Code emits its per-token colours as INLINE custom properties on each span
-   * (`style="--0:#82AAFF;--1:#3B61B0"` — `--0` dark, `--1` light), from the Starlight theme pair's
-   * own `tokenColors`. #3B61B0 is the light half's colour for keywords and strings, and it appears
-   * in the built pages today: `dist/getting-started/install/index.html` and
-   * `dist/getting-started/prerequisites/index.html`.
-   *
-   * It is a plans/ui-overhaul/PROPOSAL.md §2.5 violation (no blue) but NOT a contrast one: it
-   * measures 5.32:1 against `--j-code-bg` (#F4F2EA as it actually paints — see above), which
-   * clears AA for body text.
-   *
-   * It cannot be fixed with a one-line override. `expressiveCode.styleOverrides` reaches
-   * `CoreStyleSettings` only — border, canvas, fonts, gutter, selection — and that interface has
-   * no per-syntax-role colour (`@expressive-code/core` `dist/index.d.ts`, `interface
-   * CoreStyleSettings`). Changing this token means supplying customised theme objects to
-   * `expressiveCode.themes`, and once a theme is being authored, all six roles have to be decided
-   * together — which is exactly the Phase 3 retheme that astro.config.mjs's `expressiveCode` block
-   * defers. A CSS rule cannot reach it either: the value is inline on every span, and the spans
-   * carry no role class to target.
-   *
-   * Deferred to Phase 3 deliberately, and recorded here rather than left to be rediscovered.
+   * The six syntax roles are NOT here, and cannot be: Expressive Code inlines them on every span
+   * from the active theme's own `tokenColors`. They live in
+   * `src/styles/expressive-code-themes.mjs`, with every measured ratio beside its value. That
+   * file is what retired the #3B61B0 keyword/string blue this block used to track.
    */
 
   --sl-shadow-sm: 0 1px 2px rgb(23 24 23 / 0.06);
