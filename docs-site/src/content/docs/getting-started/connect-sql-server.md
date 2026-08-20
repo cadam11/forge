@@ -23,7 +23,7 @@ on.
 | Encrypt the connection       | on                        |                                                                                                                            |
 | Trust the server certificate | on                        |                                                                                                                            |
 | Timeout (seconds)            | 30                        | Emptying the field falls back to 30                                                                                        |
-| Default database             | blank → `master`          | Blank means "let the driver decide"                                                                                        |
+| Default database             | blank → `master`          | Joinery substitutes `master` when the field is blank, so the greyed placeholder is what you actually get                   |
 | SSH tunnel                   | off                       | See [Connect over an SSH tunnel](../connect-ssh/)                                                                          |
 
 ### Server accepts a pasted host and port together
@@ -95,7 +95,7 @@ already filled in.
 | Default port 1433                                                                                                                 | `packages/shared/src/types/connection.types.ts:10-14`                                                                                                         |
 | Auth modes offered for mssql, and their labels                                                                                    | `packages/renderer/src/features/connections/form-model.ts:86-90`                                                                                              |
 | Username/password collected for `sql` auth only on mssql                                                                          | `packages/renderer/src/features/connections/form-model.ts:179-191`                                                                                            |
-| Default-database placeholder is `master`; blank means "let the driver decide"                                                     | `packages/renderer/src/features/connections/form-model.ts:98-106`                                                                                             |
+| `master` is the field's placeholder, and a blank field is substituted with `master` at connect time                               | `packages/renderer/src/features/connections/form-model.ts:98-106`, `packages/main/src/services/sql/connection-pool.ts:816-817`                                |
 | Timeout falls back to 30 when the field is emptied                                                                                | `packages/renderer/src/features/connections/form-model.ts:141, 373-375`                                                                                       |
 | Eight preset colours                                                                                                              | `packages/renderer/src/features/connections/form-model.ts:126-135`                                                                                            |
 | The colour paints a strip on the status bar                                                                                       | `packages/renderer/src/shell/status-bar.tsx:292-299`                                                                                                          |
