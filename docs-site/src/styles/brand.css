@@ -47,11 +47,28 @@
   /* Derived, contrast-driven. See the header. */
   --j-oxide-deep: #b83c22;
   --j-oxide-lift: #e8654a;
+  /*
+   * Oxide one step darker again. Not a new colour — this is the value the ivory theme already
+   * carries as `--sl-color-accent-high` below, named so the landing route can reach it. It is the
+   * hover fill for a filled oxide button, and it is a hover state that has to hold its own
+   * contrast: paper white measures 8.01:1 on it, against 5.42:1 on `--j-oxide-deep` and only
+   * 4.14:1 on raw oxide, which is why the hover darkens rather than brightening.
+   */
+  --j-oxide-press: #8c2d19;
   --j-amber-deep: #8a5a10;
   --j-verify-deep: #4d7811;
 
   --sl-font: 'Instrument Sans Variable', 'Instrument Sans', 'Inter', sans-serif;
   --sl-font-mono: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace;
+
+  /*
+   * The display face, as tokens rather than as a literal repeated per rule. Two consumers now:
+   * the Starlight display rule at the bottom of this file, and the landing route
+   * (`src/pages/index.astro`), which is not a Starlight page and so inherits none of its
+   * selectors. Both axes must go through `font-variation-settings` — see that rule for why.
+   */
+  --j-font-display: 'Archivo Variable', 'Archivo Narrow', 'Arial Narrow', sans-serif;
+  --j-font-display-axes: 'wdth' 75, 'wght' 800;
 
   /* PROPOSAL §2.1: corners stay restrained. */
   --sl-border-radius: 0.375rem;
@@ -132,7 +149,7 @@
 
   --sl-color-accent-low: #f2d6cf;
   --sl-color-accent: var(--j-oxide-deep); /* 4.93:1 on ivory */
-  --sl-color-accent-high: #8c2d19;
+  --sl-color-accent-high: var(--j-oxide-press);
 
   --sl-color-white: var(--j-ink); /* Starlight inverts the ramp under light */
   --sl-color-gray-1: var(--j-ink);
@@ -219,10 +236,8 @@
 .content-panel h1,
 .content-panel h2,
 .hero h1 {
-  font-family: 'Archivo Variable', 'Archivo Narrow', 'Arial Narrow', sans-serif;
-  font-variation-settings:
-    'wdth' 75,
-    'wght' 800;
+  font-family: var(--j-font-display);
+  font-variation-settings: var(--j-font-display-axes);
   letter-spacing: -0.03em;
   line-height: 0.92;
 }
