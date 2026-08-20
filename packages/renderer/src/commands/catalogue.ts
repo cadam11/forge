@@ -794,7 +794,11 @@ export const COMMAND_CATALOGUE: { [Id in CommandId]: CatalogueEntry<Id> } = {
     hint: 'Columns, keys and indexes of a named object',
     group: 'database',
     icon: Table2,
-    // ⌥↩ inside the tree, owned by the sidebar's own key handling rather than by a menu item.
+    // No keystroke, because nothing binds one. All four Angular Properties… items advertised ⌥↩
+    // (`sidebar.component.ts:1364,1492,1573,1675`) and neither a menu item nor a renderer keydown
+    // handler ever claimed it; J-104 then removed the items themselves. Plain ↩ is not a
+    // substitute either: on an object row the tree activates the node into its object DETAIL tab
+    // (`shell/sidebar/explorer-tree.tsx:216-225`), a different surface reached by a different path.
     accelerator: null,
     palette: NEEDS_A_TARGET,
   },
