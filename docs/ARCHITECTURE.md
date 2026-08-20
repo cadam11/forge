@@ -2,7 +2,7 @@
 
 ## Overview
 
-Joinery is a native desktop database IDE supporting SQL Server and PostgreSQL. Built with **Electron** (desktop shell), **React 19 + Tailwind v4** (UI), and **Node.js** (backend services).
+Joinery is a native desktop database IDE supporting SQL Server, PostgreSQL, and MySQL. Built with **Electron** (desktop shell), **React 19 + Tailwind v4** (UI), and **Node.js** (backend services).
 
 ```
                  ┌──────────────────────────────────────────┐
@@ -35,7 +35,7 @@ packages/
 │       │   ├── query.ipc.ts        # Execute, cancel, history, export
 │       │   ├── explorer.ipc.ts     # Object tree metadata
 │       │   ├── database.ipc.ts     # Create, rename, drop databases
-│       │   ├── backup.ipc.ts       # Backup/restore (MSSQL only)
+│       │   ├── backup.ipc.ts       # Backup/restore (SQL Server, PostgreSQL, MySQL)
 │       │   ├── chat.ipc.ts         # AI chat conversations
 │       │   ├── ai.ipc.ts           # AI features (tab rename, analysis)
 │       │   └── workspace.ipc.ts    # File/folder operations
@@ -44,10 +44,12 @@ packages/
 │       │   │   ├── dialect/        # SQL dialect abstraction
 │       │   │   ├── provider/       # Database provider abstraction
 │       │   │   ├── connection-pool.ts   # Multi-engine pool manager
-│       │   │   ├── query-executor.ts    # Query execution + PG routing
+│       │   │   ├── query-executor.ts    # Query execution, routed per engine
 │       │   │   ├── metadata.ts          # Schema introspection
-│       │   │   ├── backup-restore.ts    # Backup/restore (MSSQL)
-│       │   │   └── server-filesystem.ts # Server file browsing (MSSQL)
+│       │   │   ├── backup-restore.ts    # Backup/restore (SQL Server, native T-SQL)
+│       │   │   ├── pg-backup.ts         # Backup/restore (PostgreSQL, pg_dump/pg_restore)
+│       │   │   ├── mysql-backup.ts      # Backup/restore (MySQL, mysqldump/mysql)
+│       │   │   └── server-filesystem.ts # Server file browsing (MSSQL only)
 │       │   ├── ai/                # AI services
 │       │   │   ├── llm-providers.ts    # Multi-vendor LLM abstraction
 │       │   │   ├── ai-service.ts       # Tab rename, SQL generation
@@ -55,7 +57,9 @@ packages/
 │       │   │   └── tool-registry.ts    # AI tool calling definitions
 │       │   ├── config/            # Persistent storage (electron-store)
 │       │   ├── docker/            # Docker container detection
-│       │   └── keychain/          # macOS Keychain credential storage
+│       │   ├── ssh/               # SSH tunnel manager (idle reconnect)
+│       │   ├── azure/             # Microsoft Entra ID auth (Azure SQL)
+│       │   └── keychain/          # macOS Keychain / Windows Credential Store
 │       └── utils/
 │           ├── tsql-builder.ts    # T-SQL statement generation (951 lines)
 │           ├── logger.ts          # Structured logging
@@ -104,6 +108,7 @@ dialect/
 ├── sql-dialect.ts      # Abstract base class
 ├── mssql-dialect.ts    # SQL Server: [brackets], sys.*, GO, BACKUP/RESTORE
 ├── pg-dialect.ts       # PostgreSQL: "double-quotes", pg_catalog, information_schema
+├── mysql-dialect.ts    # MySQL: `backticks`, information_schema, mysqldump/mysql CLI
 └── index.ts            # Factory: getDialect(engine) → dialect instance
 ```
 
@@ -120,10 +125,12 @@ dialect/
 ```
 provider/
 ├── database-provider.ts  # Abstract base class
-└── pg-provider.ts        # PostgreSQL provider using node-postgres
+├── pg-provider.ts        # PostgreSQL provider using node-postgres
+└── mysql-provider.ts     # MySQL provider using mysql2
 ```
 
-The `ConnectionPoolManager` (connection-pool.ts) manages both MSSQL and PG pools in parallel maps and routes operations based on `profile.engine`.
+The `ConnectionPoolManager` (connection-pool.ts) manages MSSQL, PostgreSQL, and MySQL pools in
+parallel maps and routes operations based on `profile.engine`.
 
 ### Connection Profile
 
@@ -140,8 +147,10 @@ Legacy profiles without `engine` are backfilled to `'mssql'` at read time.
 
 ### Adding a New Engine
 
-1. Create `dialect/mysql-dialect.ts` extending `SQLDialect`
-2. Create `provider/mysql-provider.ts` extending `DatabaseProvider`
+Joinery ships three engines (SQL Server, PostgreSQL, MySQL) today. To add a fourth:
+
+1. Create `dialect/<engine>-dialect.ts` extending `SQLDialect`
+2. Create `provider/<engine>-provider.ts` extending `DatabaseProvider`
 3. Register in `dialect/index.ts`
 4. Add pool management in `connection-pool.ts`
 5. Add routing in `query-executor.ts`
@@ -230,7 +239,7 @@ When executing SQL containing `${placeholder}` tokens (Flyway syntax), Joinery p
 ## Security Model
 
 1. **Context Isolation:** Always enabled. Renderer has no direct Node.js access.
-2. **Credentials:** Stored in macOS Keychain via `keytar`. Never in files or memory longer than necessary.
+2. **Credentials:** Stored in macOS Keychain / Windows Credential Store via `keytar`. Never in files or memory longer than necessary.
 3. **SQL Safety:** Identifiers escaped via dialect-specific quoting. String literals escaped.
 4. **IPC Validation:** All IPC handlers wrapped in `safeHandle` for error boundaries.
 5. **No eval/new Function:** Strictly forbidden in all contexts.

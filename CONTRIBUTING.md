@@ -26,7 +26,7 @@ Thank you for your interest in contributing to Joinery! This document provides g
 - **Node.js** 20 or later
 - **pnpm** 11 or later (`corepack enable pnpm`)
 - **Xcode Command Line Tools** (macOS, for native modules)
-- **Docker** (optional, for local SQL Server testing)
+- **Docker** (optional, for local SQL Server/PostgreSQL/MySQL testing)
 
 ### Installation
 
@@ -62,7 +62,7 @@ joinery/
 │   │       ├── ipc/       # IPC handler registration
 │   │       └── services/
 │   │           ├── ai/    # LLM providers, chat service, tool registry
-│   │           ├── sql/   # SQL Server operations (mssql)
+│   │           ├── sql/   # Multi-engine SQL: dialect/, provider/ (mssql, postgresql, mysql)
 │   │           ├── docker/# Container detection (dockerode)
 │   │           ├── keychain/ # Credential storage (keytar)
 │   │           └── config/   # App state persistence (electron-store)
@@ -188,12 +188,12 @@ Same as commit format: `type(scope): description`
 
 ### File Naming
 
-| Type       | Pattern                                   |
-| ---------- | ----------------------------------------- |
-| Components | `kebab-case.component.ts`                 |
-| Services   | `kebab-case.service.ts` / `kebab-case.ts` |
-| Types      | `kebab-case.types.ts`                     |
-| Tests      | `*.spec.ts`                               |
+| Type                        | Pattern               |
+| --------------------------- | --------------------- |
+| Components (renderer)       | `kebab-case.tsx`      |
+| Services / utilities (main) | `kebab-case.ts`       |
+| Types                       | `kebab-case.types.ts` |
+| Tests                       | `*.spec.ts`           |
 
 ### Forbidden Patterns
 
