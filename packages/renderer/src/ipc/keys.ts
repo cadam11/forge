@@ -56,6 +56,7 @@ export const ipcKeys: { readonly [N in IpcNamespace]: IpcKeyFactory<N> } = {
   backup: keyFactory('backup'),
   chat: keyFactory('chat'),
   connection: keyFactory('connection'),
+  credentials: keyFactory('credentials'),
   database: keyFactory('database'),
   docker: keyFactory('docker'),
   explorer: keyFactory('explorer'),

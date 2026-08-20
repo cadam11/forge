@@ -64,6 +64,12 @@ function installShellBridge(double: AppStateDouble): void {
         onEntry: inertSubscription,
       },
       theme: { getNative: () => Promise.resolve('dark'), onChanged: inertSubscription },
+      // The status bar asks once and then listens (J-118). `available: true` is the quiet
+      // case: the keychain indicator renders nothing, which is what the tests here expect.
+      credentials: {
+        getKeychainStatus: () => Promise.resolve({ available: true }),
+        onKeychainStatusChanged: inertSubscription,
+      },
       menu: menu as never,
     })
   );

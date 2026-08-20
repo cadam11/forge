@@ -41,6 +41,7 @@ import {
   Monitor,
   Moon,
   RefreshCw,
+  ShieldAlert,
   Sparkles,
   Sun,
   Terminal,
@@ -72,10 +73,12 @@ import {
   selectRunningCount,
   useQueryExecutionStore,
 } from '../state/query-execution';
+import { diagnostics } from '../state/diagnostics';
+import { useKeychainDegraded } from '../state/keychain';
 import { logStore, selectErrorCount, useLogStore } from '../state/logs';
 import { selectTabCount, useTabStore } from '../state/tab';
 import { settingsStore, selectTheme, useSettingsStore } from '../state/settings';
-import { isIpcAvailable, useIpcQuery } from '../ipc';
+import { ipc, isIpcAvailable, useIpcQuery } from '../ipc';
 import { DockerPip } from '../features/docker';
 
 /**
@@ -246,6 +249,51 @@ function ConnectionSegment() {
   );
 }
 
+/** The page that explains what happened and how to fix it. Opened in the host browser. */
+const KEYCHAIN_HELP_URL = 'https://usejoinery.com/troubleshooting/credentials-and-keychain/';
+
+/**
+ * The keychain-degraded indicator (J-118).
+ *
+ * Rendered only while the credential store is refusing — there is no "keychain fine" state in
+ * the bar, because a permanently lit reassurance is a permanently ignored one. Until this
+ * existed, the only trace of the failure was a `CredentialStore` line in the output panel, and
+ * the user's version of the story was "my passwords keep disappearing".
+ *
+ * A `<button>` rather than a `Segment`: the copy that matters is in the tooltip, and a tooltip
+ * on a non-interactive div is reachable by hover and by nothing else. The button carries the
+ * same sentence as its `aria-label`, so a screen reader gets it without hovering, and pressing
+ * it opens the troubleshooting page through `app.openExternal` — never as an in-window
+ * navigation (see `welcome-panel.tsx` for why the app has no `<a href>` to the outside).
+ */
+function KeychainIndicator() {
+  const degraded = useKeychainDegraded();
+
+  if (!degraded) return null;
+
+  const openHelp = (): void => {
+    if (!isIpcAvailable()) return;
+    void ipc()
+      .app.openExternal(KEYCHAIN_HELP_URL)
+      .catch(error => diagnostics.error('failed to open the keychain troubleshooting page', error));
+  };
+
+  return (
+    <Tooltip content="Passwords won't be saved this session — the keychain refused access. Open the troubleshooting guide.">
+      <button
+        type="button"
+        aria-label="Keychain unavailable — passwords will not be saved this session. Open the troubleshooting guide."
+        data-testid="status-keychain"
+        onClick={openHelp}
+        className={cn(CONTROL_CLASSES, 'text-warning hover:text-warning')}
+      >
+        <Icon icon={ShieldAlert} size="sm" className="stroke-warning" />
+        <span>Keychain unavailable</span>
+      </button>
+    </Tooltip>
+  );
+}
+
 export function StatusBar() {
   const connectionId = useMostRecentConnectionId();
   const profile = useConnectionStore(selectProfileFor(connectionId));
@@ -305,6 +353,11 @@ export function StatusBar() {
       <span className="grow" />
 
       <div className="flex shrink-0 items-center gap-1">
+        {/* First in the right-hand cluster: it is the only thing here that reports a fault the
+            user cannot otherwise see, and `shrink-0` means the connection name truncates
+            before this does. */}
+        <KeychainIndicator />
+
         <Segment testId="status-tab-count">
           <span className="tabular-nums">{tabCount}</span>
           <span>{tabCount === 1 ? 'tab' : 'tabs'}</span>

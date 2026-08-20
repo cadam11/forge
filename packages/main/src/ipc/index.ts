@@ -17,9 +17,13 @@ import { registerWorkspaceHandlers } from './workspace.ipc';
 import { registerSettingsHandlers } from './settings.ipc';
 import { registerChatHandlers } from './chat.ipc';
 import { registerLogHandlers } from './log.ipc';
+import { registerCredentialHandlers } from './credentials.ipc';
 
 export function registerAllHandlers(): void {
   registerLogHandlers();
+  // Before the vault preload in `index.ts` kicks off, so a startup keychain refusal is
+  // already being listened for when it happens (J-118).
+  registerCredentialHandlers();
   registerConnectionHandlers();
   registerDockerHandlers();
   registerDatabaseHandlers();

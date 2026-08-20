@@ -4,7 +4,7 @@
  */
 
 import * as keytar from 'keytar';
-import { APP_ID } from '@joinery/shared';
+import { APP_ID, type KeychainStatus } from '@joinery/shared';
 import { BaseSingleton } from '../../utils/singleton';
 import { createLogger } from '../../utils/logger';
 
@@ -17,6 +17,9 @@ interface CredentialsVault {
   [key: string]: string;
 }
 
+/** What an availability listener is handed. Availability state only — never a credential. */
+export type KeychainStatusListener = (status: KeychainStatus) => void;
+
 export class CredentialStore extends BaseSingleton {
   // In-memory cache - all credentials loaded from single keychain entry
   private cache: Map<string, string> = new Map();
@@ -24,6 +27,11 @@ export class CredentialStore extends BaseSingleton {
   private keychainAvailable = true;
   /** In-flight load, so concurrent callers share one keychain read. */
   private loadInFlight: Promise<void> | null = null;
+  /**
+   * Who wants to be told when the keychain stops working. The IPC layer subscribes here
+   * rather than polling or reaching into this class's fields (J-118).
+   */
+  private statusListeners: Set<KeychainStatusListener> = new Set();
 
   /**
    * Load all credentials from keychain into memory cache. Startup kicks this
@@ -77,8 +85,9 @@ export class CredentialStore extends BaseSingleton {
 
       this.cacheLoaded = true;
     } catch (error) {
-      // Keychain access denied or unavailable - app will continue without saved credentials
-      this.keychainAvailable = false;
+      // Keychain access denied or unavailable - app will continue without saved credentials,
+      // and the status bar says so for the rest of the session (J-118).
+      this.markKeychainUnavailable();
       this.cacheLoaded = true;
       log.warn(
         'Keychain access unavailable - saved credentials will not be loaded. Grant keychain access to enable credential storage.'
@@ -120,7 +129,7 @@ export class CredentialStore extends BaseSingleton {
       }
     } catch (error) {
       // Keychain became unavailable - mark it and keep in memory cache
-      this.keychainAvailable = false;
+      this.markKeychainUnavailable();
       log.warn(
         `Failed to persist credential for ${connectionId} - keychain access denied. Cached in memory for this session.`
       );
@@ -170,8 +179,9 @@ export class CredentialStore extends BaseSingleton {
       return existed;
     } catch (error) {
       // Keychain became unavailable - still removed from memory cache
-      this.keychainAvailable = false;
+      this.markKeychainUnavailable();
       log.warn('Failed to persist deletion - keychain unavailable');
+      log.debug('Keychain error details:', error);
       return true; // Still removed from memory
     }
   }
@@ -181,6 +191,43 @@ export class CredentialStore extends BaseSingleton {
    */
   isKeychainAvailable(): boolean {
     return this.keychainAvailable;
+  }
+
+  /**
+   * Subscribe to availability changes; returns the unsubscribe.
+   *
+   * Only the degradation edge is ever emitted, and only once per session — see
+   * {@link markKeychainUnavailable}. Callers that mount after the edge has already passed
+   * must read {@link isKeychainAvailable} instead of waiting for an event.
+   */
+  onStatusChanged(listener: KeychainStatusListener): () => void {
+    this.statusListeners.add(listener);
+    return () => {
+      this.statusListeners.delete(listener);
+    };
+  }
+
+  /**
+   * Record that the keychain has stopped working, and tell subscribers once.
+   *
+   * Idempotent by design: every later failure in the same session finds the flag already
+   * down and emits nothing, so a renderer cannot be woken per failed write.
+   */
+  private markKeychainUnavailable(): void {
+    if (!this.keychainAvailable) return;
+    this.keychainAvailable = false;
+
+    const status: KeychainStatus = { available: false };
+    for (const listener of this.statusListeners) {
+      try {
+        listener(status);
+      } catch (error) {
+        // A broken listener must not take the credential path down with it, but it is a
+        // real defect, so it is logged rather than dropped.
+        log.warn('A keychain status listener threw; continuing without it');
+        log.debug('Keychain status listener error:', error);
+      }
+    }
   }
 
   /**

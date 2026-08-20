@@ -73,6 +73,8 @@ import type {
   ServerDefaultPaths,
   LogEntry,
   ActiveConnection,
+  // Keychain availability (never a credential — see the `credentials` namespace below)
+  KeychainStatus,
 } from '@joinery/shared';
 
 /**
@@ -389,6 +391,15 @@ export interface JoineryAPI {
   theme: {
     getNative: () => Promise<'dark' | 'light'>;
     onChanged: (callback: (theme: 'dark' | 'light') => void) => () => void;
+  };
+
+  /**
+   * Keychain availability, and nothing else. There is deliberately no read, write or list
+   * of credentials on the bridge: secrets stay in the main process (J-118).
+   */
+  credentials: {
+    getKeychainStatus: () => Promise<KeychainStatus>;
+    onKeychainStatusChanged: (callback: (status: KeychainStatus) => void) => () => void;
   };
 
   menu: {
@@ -801,6 +812,12 @@ const joineryAPI: JoineryAPI = {
   theme: {
     getNative: () => ipcRenderer.invoke(IPC_CHANNELS.THEME.GET_NATIVE),
     onChanged: callback => createEventListener(IPC_CHANNELS.THEME.CHANGED, callback),
+  },
+
+  credentials: {
+    getKeychainStatus: () => ipcRenderer.invoke(IPC_CHANNELS.CREDENTIALS.GET_KEYCHAIN_STATUS),
+    onKeychainStatusChanged: callback =>
+      createEventListener(IPC_CHANNELS.CREDENTIALS.KEYCHAIN_STATUS_CHANGED, callback),
   },
 
   menu: {
