@@ -51,7 +51,7 @@
    * Oxide one step darker again. Not a new colour — this is the value the ivory theme already
    * carries as `--sl-color-accent-high` below, named so the landing route can reach it. It is the
    * hover fill for a filled oxide button, and it is a hover state that has to hold its own
-   * contrast: paper white measures 8.01:1 on it, against 5.42:1 on `--j-oxide-deep` and only
+   * contrast: paper white measures 8.02:1 on it, against 5.42:1 on `--j-oxide-deep` and only
    * 4.14:1 on raw oxide, which is why the hover darkens rather than brightening.
    */
   --j-oxide-press: #8c2d19;

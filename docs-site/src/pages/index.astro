@@ -59,7 +59,7 @@ const sequence: { step: string; name: string; body: string; href: string; link: 
   {
     step: '02',
     name: 'Understand',
-    body: 'A lazy object explorer, an ER diagram built from the schema you are looking at, and a comparison that hands you a query instead of a black box.',
+    body: 'A lazy object explorer, an ER diagram built from the schema you are looking at, and — on SQL Server and MySQL — a comparison that hands you a query instead of a black box.',
     href: '/features/erd/',
     link: 'Diagram a schema',
   },
@@ -108,7 +108,7 @@ const surfaces: { name: string; body: string; href: string }[] = [
   },
   {
     name: 'Schema diff',
-    body: 'Compare two databases on one server — the server does the comparing, and you keep the rows.',
+    body: 'Compare two databases on one server — the server does the comparing, and you keep the rows. On SQL Server and MySQL; PostgreSQL cannot query across databases, and is refused.',
     href: '/features/schema-diff/',
   },
   {
@@ -222,7 +222,12 @@ const footerGroups: { heading: string; links: { text: string; href: string }[] }
           <a class="wide-only" href="/features/">Features</a>
           <a class="wide-only" href="/reference/">Reference</a>
           <a href="https://github.com/cadam11/joinery">GitHub</a>
-          <button class="canvas-toggle" type="button" data-canvas-toggle>
+          {/*
+            Ships `hidden`; the module script below unhides it. With JS off the control would be a
+            focusable no-op, and the JS-off canvas is always ink anyway (the bootstrap never runs,
+            so `:root` paints), so there is nothing for it to do.
+          */}
+          <button class="canvas-toggle" type="button" hidden data-canvas-toggle>
             <span class="swatch" aria-hidden="true"></span>
             <span data-canvas-toggle-label>Ivory</span>
           </button>
@@ -387,9 +392,8 @@ const footerGroups: { heading: string; links: { text: string; href: string }[] }
         <p class="actions">
           <a class="button-link" href="/getting-started/install/">Build it from source</a>
           <a class="button-link" href="https://github.com/cadam11/joinery">Read the source</a>
-          <a class="button-link" href="https://github.com/cadam11/joinery/discussions">
-            Start a discussion
-          </a>
+          {/* Issues, not Discussions: Discussions is disabled on the repo, so /discussions 404s. */}
+          <a class="button-link" href="https://github.com/cadam11/joinery/issues">Open an issue</a>
         </p>
       </section>
     </main>
@@ -454,12 +458,24 @@ const footerGroups: { heading: string; links: { text: string; href: string }[] }
         button.setAttribute('aria-label', isLight ? 'Switch to the ink canvas' : 'Switch to the ivory canvas');
       }
 
+      toggle.hidden = false;
       syncToggle(toggle, label);
 
       toggle.addEventListener('click', () => {
         const next = root.dataset.theme === 'light' ? 'dark' : 'light';
         root.dataset.theme = next;
         localStorage.setItem(STORAGE_KEY, next);
+        syncToggle(toggle, label);
+      });
+
+      /*
+       * Parity with `ThemeSelect.astro`'s listener: repaint when the SYSTEM canvas moves, but only
+       * while 'auto' is the stored choice — an unset preference means ink, not "follow the system".
+       * Writes nothing, because the system moving is not the reader choosing.
+       */
+      matchMedia('(prefers-color-scheme: light)').addEventListener('change', (event) => {
+        if (localStorage.getItem(STORAGE_KEY) !== 'auto') return;
+        root.dataset.theme = event.matches ? 'light' : 'dark';
         syncToggle(toggle, label);
       });
     </script>
@@ -519,13 +535,19 @@ const footerGroups: { heading: string; links: { text: string; href: string }[] }
         border-radius: 2px;
       }
 
+      /*
+       * Pinned to the same pair as `.button-primary`, for the same reason: Starlight's
+       * `bg-accent` / `text-invert` pair resolves under ink to Joinery ink on the oxide fill,
+       * which measures 3.14:1 and fails AA. Paper white on `--j-oxide-deep` is 5.42:1 in both
+       * canvases.
+       */
       .skip {
         position: absolute;
         inset-inline-start: -100vw;
         top: 0.5rem;
         z-index: 2;
-        background: var(--sl-color-bg-accent);
-        color: var(--sl-color-text-invert);
+        background: var(--j-oxide-deep);
+        color: var(--j-paper);
         padding: 0.5rem 0.75rem;
         border-radius: var(--sl-border-radius);
         text-decoration: none;
@@ -621,6 +643,11 @@ const footerGroups: { heading: string; links: { text: string; href: string }[] }
         cursor: pointer;
       }
 
+      /* `display: flex` above outranks the UA's `[hidden] { display: none }`. Put it back. */
+      .canvas-toggle[hidden] {
+        display: none;
+      }
+
       .canvas-toggle:hover {
         color: var(--sl-color-white);
       }
@@ -710,7 +737,7 @@ const footerGroups: { heading: string; links: { text: string; href: string }[] }
        * not a foreground, so it needs no per-canvas lift — and Starlight's own `bg-accent` /
        * `text-invert` pair cannot be used: under ink `--sl-color-text-invert` resolves to
        * Joinery ink, which measures 3.14:1 on the oxide fill and fails AA. Paper white on
-       * `--j-oxide-deep` is 5.42:1 and on `--j-oxide-press` (the hover) 8.01:1, in both canvases.
+       * `--j-oxide-deep` is 5.42:1 and on `--j-oxide-press` (the hover) 8.02:1, in both canvases.
        */
       .button-primary {
         padding: 0.6875rem 1.125rem;
