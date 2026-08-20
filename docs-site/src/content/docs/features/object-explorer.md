@@ -71,9 +71,10 @@ its DDL.
 Seven node types have a menu — server, database, folder, table, view, procedure, function. Columns,
 indexes and keys have none.
 
-An action the engine cannot do is **disabled with the reason**, not hidden and not offered-then-
-refused: on a server that hosts one fixed database, _New Database…_ is greyed out, and the keyboard
-path refuses it too.
+An action the engine cannot do is **greyed out** rather than offered and then refused after the
+click: on a server that hosts one fixed database, _New Database…_ is disabled, and Radix skips it on
+the keyboard path too. The row itself does not say why — the [command
+palette](../command-palette/) is the surface that states reasons.
 
 | Node      | Menu                                                                                                                             |
 | --------- | -------------------------------------------------------------------------------------------------------------------------------- |
@@ -98,10 +99,11 @@ server while a tab on another has focus cannot route the operation to the wrong 
 query from a database node also moves the database picker to that database, so the footer's actions
 follow.
 
-> **Note** — **Properties…**, on all four object menus, and **Delete…** on a database, dispatch to
-> surfaces that have not shipped. They are visible and clickable and nothing happens. The command
-> palette is honest about the same gap: _Server properties_, _Database properties_ and their
-> siblings render greyed out there, naming what owns them.
+> **Note** — **Properties…**, on all four object menus, dispatches to a surface that has not shipped:
+> it is clickable and nothing happens. **Delete…** is the same, on the databases where it is enabled
+> at all — it stays greyed out on a system database and on an engine that does not support database
+> management. The command palette is honest about the neighbouring gap: _Server properties_ and
+> _Database properties_ render greyed out there, naming what owns them.
 
 ## Refresh
 
@@ -137,41 +139,44 @@ stops and says so.
 <details>
 <summary>Where this page's facts come from</summary>
 
-| Claim                                                                                    | Source                                                                                                     |
-| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| The sidebar is headed "Explorer" and holds picker, picker, tree, action strip            | `packages/renderer/src/shell/sidebar/sidebar.tsx:105-138`                                                  |
-| ⌘\ toggles the sidebar                                                                   | `packages/renderer/src/commands/catalogue.ts:525-532`                                                      |
-| Node hierarchy server → database → schema → folder → object → column/index/key           | `packages/renderer/src/state/explorer.ts:2, 486-517`                                                       |
-| Table sub-folders: Columns, Indexes, Keys, Constraints, Triggers                         | `packages/renderer/src/state/explorer-folders.ts:37-48`                                                    |
-| Procedures, Functions and Triggers folders are capability-gated                          | `packages/renderer/src/state/explorer-folders.ts:25-48`                                                    |
-| Children load on expand; `hasChildren` and unfetched children are separate facts         | `packages/renderer/src/shell/sidebar/explorer-tree.tsx:9-16, 141-177`, `ui/tree.tsx:16-22`                 |
-| A spinner replaces the twisty while a fetch is in flight                                 | `packages/renderer/src/ui/tree.tsx:20-22`, `shell/sidebar/explorer-tree.tsx:148-149`                       |
-| Folder-ish nodes show a child count; tables deliberately do not                          | `packages/renderer/src/shell/sidebar/explorer-tree.tsx:88-100, 163-168`                                    |
-| Key columns get their own glyph                                                          | `packages/renderer/src/shell/sidebar/explorer-tree.tsx:102-113`                                            |
-| The tree is virtualised                                                                  | `packages/renderer/src/ui/tree.tsx:23-27`                                                                  |
-| Click selects, twisty or double-click expands, Enter activates                           | `packages/renderer/src/shell/sidebar/explorer-tree.tsx:17-23, 202-227`                                     |
-| Arrow / Home / End / Enter / Space behaviour, including "step into" and "jump to parent" | `packages/renderer/src/ui/tree.tsx:396-449`                                                                |
-| Focus and selection are separate                                                         | `packages/renderer/src/ui/tree.tsx:32-37`                                                                  |
-| Right-click selects the row it opened on                                                 | `packages/renderer/src/shell/sidebar/node-menu.tsx:17-21, 115-130`                                         |
-| Double-clicking a table opens its object tab                                             | `packages/renderer/src/shell/sidebar/explorer-tree.tsx:206-227`, `node-actions.ts:218-231`                 |
-| The object tab's sections, and that a table has no Definition section                    | `packages/renderer/src/features/object-detail/object-panel.tsx:23-29, 106-116, 253-274`                    |
-| Seven node types have a menu; columns, indexes and keys have none                        | `packages/renderer/src/shell/sidebar/node-menu.tsx:79-100`                                                 |
-| Unsupported actions are disabled with a reason rather than refused after the click       | `packages/renderer/src/shell/sidebar/node-menu.tsx:8-15, 187-194`                                          |
-| The seven menus' items                                                                   | `packages/renderer/src/shell/sidebar/node-menu.tsx:159-470`                                                |
-| Only "Select Top 1000 Rows" auto-executes                                                | `packages/renderer/src/shell/sidebar/node-actions.ts:11-18, 45-47, 131-135`                                |
-| "Execute Stored Procedure…" writes the call and does not run it                          | `packages/renderer/src/shell/sidebar/node-actions.ts:146-153`                                              |
-| Generated SQL is per engine, including MySQL's missing schema layer                      | `packages/renderer/src/shell/sidebar/node-actions.ts:56-95`, `features/object-search/object-model.ts:5-16` |
-| A menu action carries its own node's target rather than "the focused connection"         | `packages/renderer/src/shell/sidebar/node-menu.tsx:15-20`                                                  |
-| Opening a query from a database node moves the database picker                           | `packages/renderer/src/shell/sidebar/node-actions.ts:96-111`                                               |
-| Properties… on all four object menus dispatches to an unowned command                    | `packages/renderer/src/shell/sidebar/node-actions.ts:241-250`, `commands/registry.ts:237-243`              |
-| No handler is subscribed to the properties or delete-database commands                   | `packages/renderer/src/commands/registry.ts:387, 404, 471-473`                                             |
-| The palette shows an unowned command greyed out, naming its owner                        | `packages/renderer/src/features/command-palette/palette-model.ts:17-25, 144-154`                           |
-| A menu Refresh drops main's caches first, then re-reads the node                         | `packages/renderer/src/shell/sidebar/node-actions.ts:290-315`                                              |
-| The footer's refresh re-reads the database list and the selected node                    | `packages/renderer/src/shell/sidebar/node-actions.ts:357-377`                                              |
-| ⌘R also refreshes the server node                                                        | `packages/renderer/src/commands/catalogue.ts:453-461`, `shell/sidebar/node-actions.ts:358-363`             |
-| Main's list metadata is cached for 60 seconds, which is why the drop comes first         | `packages/renderer/src/shell/sidebar/node-actions.ts:290-300`                                              |
-| The footer's five actions and their disabled conditions                                  | `packages/renderer/src/shell/sidebar/sidebar.tsx:146-228`                                                  |
-| New query resolves the database in three stages                                          | `packages/renderer/src/shell/sidebar/node-actions.ts:113-129`                                              |
-| Reveal expands ancestors one at a time, focuses the row, and reports a missing ancestor  | `packages/renderer/src/shell/sidebar/node-actions.ts:252-288`, `shell/sidebar/sidebar.tsx:68-88`           |
+| Claim                                                                                                                                 | Source                                                                                                                                       |
+| ------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| The sidebar is headed "Explorer" and holds picker, picker, tree, action strip                                                         | `packages/renderer/src/shell/sidebar/sidebar.tsx:105-138`                                                                                    |
+| ⌘\ toggles the sidebar                                                                                                                | `packages/renderer/src/commands/catalogue.ts:525-532`                                                                                        |
+| Node hierarchy server → database → schema → folder → object → column/index/key                                                        | `packages/renderer/src/state/explorer.ts:2, 486-517`                                                                                         |
+| Table sub-folders: Columns, Indexes, Keys, Constraints, Triggers                                                                      | `packages/renderer/src/state/explorer-folders.ts:37-48`                                                                                      |
+| Procedures, Functions and Triggers folders are capability-gated                                                                       | `packages/renderer/src/state/explorer-folders.ts:25-48`                                                                                      |
+| Children load on expand; `hasChildren` and unfetched children are separate facts                                                      | `packages/renderer/src/shell/sidebar/explorer-tree.tsx:9-16, 141-177`, `ui/tree.tsx:16-22`                                                   |
+| A spinner replaces the twisty while a fetch is in flight                                                                              | `packages/renderer/src/ui/tree.tsx:20-22`, `shell/sidebar/explorer-tree.tsx:148-149`                                                         |
+| Folder-ish nodes show a child count; tables deliberately do not                                                                       | `packages/renderer/src/shell/sidebar/explorer-tree.tsx:88-100, 163-168`                                                                      |
+| Key columns get their own glyph                                                                                                       | `packages/renderer/src/shell/sidebar/explorer-tree.tsx:102-113`                                                                              |
+| The tree is virtualised                                                                                                               | `packages/renderer/src/ui/tree.tsx:23-27`                                                                                                    |
+| Click selects, twisty or double-click expands, Enter activates                                                                        | `packages/renderer/src/shell/sidebar/explorer-tree.tsx:17-23, 202-227`                                                                       |
+| Arrow / Home / End / Enter / Space behaviour, including "step into" and "jump to parent"                                              | `packages/renderer/src/ui/tree.tsx:396-449`                                                                                                  |
+| Focus and selection are separate                                                                                                      | `packages/renderer/src/ui/tree.tsx:32-37`                                                                                                    |
+| Right-click selects the row it opened on                                                                                              | `packages/renderer/src/shell/sidebar/node-menu.tsx:17-21, 115-130`                                                                           |
+| Double-clicking a table opens its object tab                                                                                          | `packages/renderer/src/shell/sidebar/explorer-tree.tsx:206-227`, `node-actions.ts:218-231`                                                   |
+| The object tab's sections, and that a table has no Definition section                                                                 | `packages/renderer/src/features/object-detail/object-panel.tsx:23-29, 106-116, 253-274`                                                      |
+| Seven node types have a menu; columns, indexes and keys have none                                                                     | `packages/renderer/src/shell/sidebar/node-menu.tsx:79-100`                                                                                   |
+| Unsupported actions are a plain `disabled` item, refused on the keyboard path too                                                     | `packages/renderer/src/shell/sidebar/node-menu.tsx:8-15, 187-194`                                                                            |
+| A context-menu row has no affordance for stating a reason                                                                             | `packages/renderer/src/ui/context-menu.tsx:54-68`                                                                                            |
+| The seven menus' items                                                                                                                | `packages/renderer/src/shell/sidebar/node-menu.tsx:159-470`                                                                                  |
+| Only "Select Top 1000 Rows" auto-executes                                                                                             | `packages/renderer/src/shell/sidebar/node-actions.ts:11-18, 45-47, 131-135`                                                                  |
+| "Execute Stored Procedure…" writes the call and does not run it                                                                       | `packages/renderer/src/shell/sidebar/node-actions.ts:146-153`                                                                                |
+| Generated SQL is per engine, including MySQL's missing schema layer                                                                   | `packages/renderer/src/shell/sidebar/node-actions.ts:56-95`, `features/object-search/object-model.ts:5-16`                                   |
+| A menu action carries its own node's target rather than "the focused connection"                                                      | `packages/renderer/src/shell/sidebar/node-menu.tsx:15-20`                                                                                    |
+| Opening a query from a database node moves the database picker                                                                        | `packages/renderer/src/shell/sidebar/node-actions.ts:96-111`                                                                                 |
+| Properties… on all four object menus dispatches to an unowned command                                                                 | `packages/renderer/src/shell/sidebar/node-actions.ts:241-250`, `commands/registry.ts:237-243`                                                |
+| No handler is subscribed to the properties or delete-database commands                                                                | `packages/renderer/src/commands/registry.ts:387, 404, 471-473`                                                                               |
+| Delete… is disabled on a system database and where management is unsupported                                                          | `packages/renderer/src/shell/sidebar/node-menu.tsx:227-291`                                                                                  |
+| The palette greys out an unowned command and names its owner — but only lists Server / Database properties, not the sidebar-only pair | `packages/renderer/src/features/command-palette/palette-model.ts:17-25, 144-154`, `commands/catalogue.ts:462-469, 507-514, 762-769, 786-794` |
+| A menu Refresh drops main's caches first, then re-reads the node                                                                      | `packages/renderer/src/shell/sidebar/node-actions.ts:290-315`                                                                                |
+| The footer's refresh re-reads the database list and the selected node                                                                 | `packages/renderer/src/shell/sidebar/node-actions.ts:357-377`                                                                                |
+| ⌘R also refreshes the server node                                                                                                     | `packages/renderer/src/commands/catalogue.ts:453-461`, `shell/sidebar/node-actions.ts:358-363`                                               |
+| Main's list metadata is cached for 60 seconds, which is why the drop comes first                                                      | `packages/main/src/services/sql/metadata.ts:83-89`                                                                                           |
+| The footer's five actions and their disabled conditions                                                                               | `packages/renderer/src/shell/sidebar/sidebar.tsx:146-228`                                                                                    |
+| New query resolves the database in three stages                                                                                       | `packages/renderer/src/shell/sidebar/node-actions.ts:113-129`                                                                                |
+| Reveal expands ancestors one at a time, focuses the row, and reports a missing ancestor                                               | `packages/renderer/src/shell/sidebar/node-actions.ts:252-288`, `shell/sidebar/sidebar.tsx:68-88`                                             |
+| Reveal uncollapses the sidebar first, which is why it works from a collapsed pane                                                     | `packages/renderer/src/shell/shell-commands.tsx:162-169`                                                                                     |
 
 </details>

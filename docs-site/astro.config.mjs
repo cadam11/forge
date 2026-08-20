@@ -131,9 +131,10 @@ export default defineConfig({
             { slug: 'features/query-history' },
           ],
         },
-        // Single links, not groups: each of these sections holds exactly one page today, and a
-        // group whose only child repeats its own label reads as a bug. They become groups as
-        // their pages land.
+        // The remaining three stay single links rather than groups, on the Phase 1 rule that a
+        // group whose only child repeats its own label reads as a bug: each still holds exactly
+        // one page. Features became a group above the moment it held ten. Reference and
+        // Troubleshooting follow when their pages land.
         { slug: 'reference' },
         { slug: 'troubleshooting' },
         { slug: 'about' },

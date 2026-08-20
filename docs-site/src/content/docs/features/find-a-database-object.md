@@ -35,8 +35,10 @@ collapsed — it opens.
 
 ## Matching
 
-Typing ranks rather than filters, against the qualified name (`sales.orders`), the bare name
-(`orders`), and the object's kind, in that order of weight. The ladder is:
+Typing ranks rather than filters. Three fields are scored and the best one wins: the qualified name
+(`sales.orders`) and the bare name (`orders`) at full weight, and the object's kind at 0.4 — so
+typing `orders` finds the table rather than a schema whose name happens to match. Within a field the
+ladder is:
 
 1. the text **is** what you typed;
 2. it **starts with** what you typed;
@@ -75,7 +77,7 @@ does not get to look like an empty database. The failure is also written to the 
 | MySQL objects are not given an invented `dbo` schema                                 | `packages/renderer/src/features/object-search/object-model.ts:12-16, 65-89`                             |
 | ⌘⏎ reveals; the row's button does the same; ordinary Enter still opens               | `packages/renderer/src/features/object-search/object-search.tsx:166-174, 251-266`                       |
 | Reveal works with the sidebar collapsed                                              | `packages/renderer/src/shell/sidebar/sidebar.tsx:68-88`                                                 |
-| Ranking fields and their weights: qualified name, bare name, kind                    | `packages/renderer/src/features/object-search/object-search.tsx:98-115`                                 |
+| Qualified name and bare name at full weight, kind at 0.4; the best field wins        | `packages/renderer/src/features/object-search/object-search.tsx:98-115`, `utils/fuzzy.ts:29-43`         |
 | The score ladder, and that a non-subsequence is dropped                              | `packages/renderer/src/utils/fuzzy.ts:29-43`                                                            |
 | At most 50 rows are rendered                                                         | `packages/renderer/src/features/object-search/object-search.tsx:55-56`                                  |
 | Four folder reads, enabled only while the overlay is open, routines capability-gated | `packages/renderer/src/features/object-search/object-search.tsx:300-341`                                |

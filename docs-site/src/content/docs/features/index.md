@@ -3,8 +3,9 @@ title: Features
 description: One guide per shipped surface — the query editor, the results grid, the explorer, search, the palette, snippets and history.
 ---
 
-One guide per surface Joinery ships. Every claim on these pages is checked against the app's own
-source, and each page carries its citations at the bottom.
+A guide per shipped surface. Nine are written; the rest are listed at the bottom of this page and
+are on their way. Every claim on these pages is checked against the app's own source, and each page
+carries its citations at the bottom.
 
 ## Writing and running SQL
 

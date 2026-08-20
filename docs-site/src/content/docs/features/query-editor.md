@@ -28,8 +28,9 @@ Three keystrokes run the editor, and they differ only in what they ask you first
 | ⇧⌘↩      | The selection only             | None                                                              |
 
 **A selection always wins.** If any text is highlighted, all three run exactly that text and the
-Execute scope setting is not consulted at all. Highlighting whitespace counts as a selection —
-Joinery then refuses with "No query to execute" rather than quietly running the whole buffer.
+Execute scope setting is not consulted at all. Highlighting nothing but whitespace still counts as a
+selection, so ⌘E, ⌘↩ and F5 refuse with "No query to execute" rather than quietly running the whole
+buffer; ⇧⌘↩ refuses the same case with "Select some SQL to execute".
 
 **Execute scope** lives in **Settings ▸ Query** and ships as _The whole editor_. The other option
 is _The statement at the caret_, which scans outwards from the caret line for a boundary: a
@@ -143,7 +144,9 @@ put through the Confirm-before-execute gate, because you asked for it by name.
 | ⌘↩ and F5 are ungated                                                                         | `packages/renderer/src/editor/sql-editor.tsx:350-356`, `query-panel.tsx:161-168`                                        |
 | ⇧⌘↩ runs only the selection and refuses when there is none                                    | `packages/renderer/src/features/query/query-panel.tsx:186-206`, `commands/catalogue.ts:408-415`                         |
 | A non-empty selection wins over the scope setting                                             | `packages/renderer/src/editor/statements.ts:91-97`                                                                      |
-| A whitespace-only selection is a real selection and is then refused                           | `packages/renderer/src/editor/statements.ts:82-92`, `query-panel.tsx:195-198`                                           |
+| A whitespace-only selection is a real selection to Monaco                                     | `packages/renderer/src/editor/statements.ts:82-92`                                                                      |
+| ⌘E / ⌘↩ / F5 then refuse with "No query to execute"                                           | `packages/renderer/src/features/query/use-run-query.ts:131-134`                                                         |
+| ⇧⌘↩ refuses with "Select some SQL to execute"                                                 | `packages/renderer/src/features/query/query-panel.tsx:189-198`                                                          |
 | Execute scope options, and `all` as the shipped default                                       | `packages/renderer/src/features/settings/settings-groups.tsx:293-294`, `packages/shared/src/types/settings.types.ts:70` |
 | Statement boundaries are a semicolon on a line or `GO` alone on a line, and are line-granular | `packages/renderer/src/editor/statements.ts:14-19, 25, 38-70`                                                           |
 | `confirmBeforeExecute` ships off and applies to every execute path                            | `packages/shared/src/types/settings.types.ts:69`, `query-panel.tsx:163-166, 201-204, 218-221`                           |
