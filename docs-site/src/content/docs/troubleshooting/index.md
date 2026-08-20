@@ -1,28 +1,45 @@
 ---
 title: Troubleshooting
-description: What the troubleshooting pages will cover, and the two problems that already have answers elsewhere in these docs.
+description: The five things that go wrong most often — Docker detection, the keychain, the backup command-line tools, Python for SQL conversion, and connections that fail or drop.
 ---
 
-This section will hold five pages: Docker not being detected, credential and keychain problems,
-the "a required command-line tool is missing" message, SQL conversion failing when Python is not
-found, and connection failures or dropped SSH tunnels.
+Five pages, each one a symptom rather than a subsystem. Start with whichever sentence the app
+showed you.
 
-They are not written yet. Two of the five already have their answers elsewhere in these docs:
+| Page                                                                         | Start here when                                                                 |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| [Docker is not detected](./docker-not-detected/)                             | The container pip says _not available_ or _not running_, or the list is empty   |
+| [Credential and keychain problems](./credentials-and-keychain/)              | Passwords do not stick, or you see _password not found in Keychain_             |
+| [A required command-line tool is missing](./missing-cli-tools/)              | A backup or restore shows setup instructions instead of a form                  |
+| [SQL conversion fails, or Python is not found](./sql-conversion-and-python/) | A dialect conversion refuses, or asks for Python you already have               |
+| [Connection failures and dropped tunnels](./connections-and-tunnels/)        | A connection will not open, drops mid-session, or rides an SSH tunnel that dies |
 
-- **"A required command-line tool is missing."** Joinery's PostgreSQL and MySQL backup and
-  restore shell out to `pg_dump`, `pg_restore`, `mysqldump` and `mysql`, which are not bundled.
-  The per-platform install commands are on
-  [Prerequisites](../getting-started/prerequisites/#host-cli-tools-for-postgresql-and-mysql-backup-and-restore).
-  Restart Joinery afterwards — it inherits its PATH from the process that launched it.
-- **SQL conversion fails, or Python is not found.** Dialect conversion spawns `python3` and needs
-  four packages installed; see
-  [Prerequisites](../getting-started/prerequisites/#python-and-sqlglot-for-sql-dialect-conversion).
-  On Windows this currently fails with a startup error rather than a "install Python" message.
+## Two things worth knowing first
 
-For a dropped SSH tunnel, [Connect over an SSH
-tunnel](../getting-started/connect-ssh/#dropped-connections-and-idle-timeouts) explains the
-keepalive behaviour and what Joinery does when a tunnel dies.
+**Install commands live on one page.** The PostgreSQL and MySQL backup tools, and Python with
+sqlglot, are both installed from
+[Prerequisites](../getting-started/prerequisites/). Nothing here repeats those commands — two
+copies of an install command is one copy that will be wrong. Restart Joinery after installing
+anything: the app inherits its PATH from the process that launched it.
 
-If none of that helps, the output panel (**⌘J**) logs every statement Joinery runs with its SQL,
-and its toolbar can reveal the log file on disk. Attach that to a
+**The output panel has the real error.** **⌘J** opens it. It is a single timeline of what the
+main process and the window logged, and it is the only place the engine-specific error fields
+survive — a SQL Server error number, a PostgreSQL `hint`, a driver's stack — because the message
+is all that crosses to the window. It has an errors-only filter, per-entry copy, and a toolbar
+button that reveals the log file on disk.
+
+If a page here does not solve it, that log file is what to attach to a
 [bug report](https://github.com/cadam11/joinery/issues).
+
+<details>
+<summary>Where this page's facts come from</summary>
+
+| Claim                                                                         | Source                                                                         |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| ⌘J toggles the output panel                                                   | `packages/renderer/src/commands/catalogue.ts:559-566`                          |
+| One timeline of main-process and window entries, with an errors-only filter   | `packages/renderer/src/shell/workspace/output-panel.tsx:1-3, 180-229, 236-241` |
+| Per-entry copy, and a toolbar button that reveals the log file                | `packages/renderer/src/shell/workspace/output-panel.tsx:207-217, 253-264`      |
+| Engine-specific error fields are logged rather than sent over IPC             | `packages/main/src/ipc/safe-handle.ts:14-46`                                   |
+| Install instructions tell you to restart Joinery so the new PATH is picked up | `packages/shared/src/config/cli-install-instructions.ts:38, 65, 90, 118`       |
+
+</details>

@@ -71,6 +71,11 @@ export default defineConfig({
        * Canvas and border only. Retheming the six syntax roles against the app's Monaco palette
        * is Phase 3; the stock token colours clear AA on both canvases below (measured), so this
        * is the whole of the brand defect.
+       *
+       * One §2.5 violation therefore survives — the light theme's #3B61B0 keyword/string blue,
+       * which `styleOverrides` structurally cannot reach. `src/styles/brand.css` carries the
+       * tracked note: what it is, where it renders, what it measures, and why it needs the Phase 3
+       * theme work rather than another line here.
        */
       expressiveCode: {
         styleOverrides: {
@@ -84,6 +89,13 @@ export default defineConfig({
       // from plans/ui-overhaul/PROPOSAL.md D2. Both files are needed, not just the provider —
       // their headers explain why. If a Starlight major breaks them, the documented fallback
       // is to delete both and accept Starlight's `auto`.
+      //
+      // TRACKED: these two `.astro` files are the only source in the repository that no format
+      // gate covers. The root `format:check` glob was widened to `.mdx` in Phase 2; `.astro`
+      // was NOT added, because Prettier has no built-in Astro parser and errors with "No parser
+      // could be inferred" on both files. Covering them needs `prettier-plugin-astro` in the
+      // ROOT devDependencies plus a `plugins` entry in `.prettierrc.json` — a root dependency
+      // and root lockfile change, which is a separate piece of work from the docs content.
       components: {
         ThemeProvider: './src/components/ThemeProvider.astro',
         ThemeSelect: './src/components/ThemeSelect.astro',
@@ -156,11 +168,24 @@ export default defineConfig({
             { slug: 'reference/storage-locations' },
           ],
         },
-        // The remaining two stay single links rather than groups, on the Phase 1 rule that a
-        // group whose only child repeats its own label reads as a bug: each still holds exactly
-        // one page. Features became a group the moment it held ten, and Reference above did the
-        // same. Troubleshooting follows when its pages land.
-        { slug: 'troubleshooting' },
+        {
+          label: 'Troubleshooting',
+          // Section page first, then the five pages in `sidebar.order` — the order
+          // plans/docs-site/PROPOSAL.md §1 lists them in, which is also roughly the order a new
+          // user hits them.
+          items: [
+            { slug: 'troubleshooting' },
+            { slug: 'troubleshooting/docker-not-detected' },
+            { slug: 'troubleshooting/credentials-and-keychain' },
+            { slug: 'troubleshooting/missing-cli-tools' },
+            { slug: 'troubleshooting/sql-conversion-and-python' },
+            { slug: 'troubleshooting/connections-and-tunnels' },
+          ],
+        },
+        // About stays a single link rather than a group, on the Phase 1 rule that a group whose
+        // only child repeats its own label reads as a bug: it still holds exactly one page.
+        // Features became a group the moment it held ten, and Reference and Troubleshooting
+        // above did the same.
         { slug: 'about' },
       ],
       plugins: [
