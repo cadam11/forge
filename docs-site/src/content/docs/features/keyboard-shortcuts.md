@@ -57,8 +57,9 @@ The sheet always shows the bindings for the platform you are running on, with ma
 and `Ctrl+Shift+E`-style words elsewhere. Modifiers are printed in the macOS order — ⌃ ⌥ ⇧ ⌘ — no
 matter how the binding was written.
 
-> **Note** — a printable [reference table](../../reference/) of every shortcut is generated from the
-> same source and is the next piece of work on this site. Until it lands, ⇧⌘/ is the complete list.
+> **Note** — the [keyboard shortcuts reference](../../reference/keyboard-shortcuts/) is the same
+> list on this site, generated from the same table, with the macOS and Windows bindings side by
+> side rather than one platform at a time.
 
 <details>
 <summary>Where this page's facts come from</summary>

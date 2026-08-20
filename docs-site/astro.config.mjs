@@ -140,11 +140,26 @@ export default defineConfig({
             { slug: 'features/ai-setup' },
           ],
         },
-        // The remaining three stay single links rather than groups, on the Phase 1 rule that a
+        {
+          label: 'Reference',
+          // Section page first, then the six pages in `sidebar.order`. Three of them are written
+          // by `scripts/generate-reference.mjs` from the app's own source — do not hand-edit
+          // `reference/keyboard-shortcuts.md`, `reference/commands.md` or
+          // `reference/ai-providers.md`; `pnpm run check` and `pnpm run build` verify them.
+          items: [
+            { slug: 'reference' },
+            { slug: 'reference/keyboard-shortcuts' },
+            { slug: 'reference/commands' },
+            { slug: 'reference/settings' },
+            { slug: 'reference/supported-engines' },
+            { slug: 'reference/ai-providers' },
+            { slug: 'reference/storage-locations' },
+          ],
+        },
+        // The remaining two stay single links rather than groups, on the Phase 1 rule that a
         // group whose only child repeats its own label reads as a bug: each still holds exactly
-        // one page. Features became a group above the moment it held ten. Reference and
-        // Troubleshooting follow when their pages land.
-        { slug: 'reference' },
+        // one page. Features became a group the moment it held ten, and Reference above did the
+        // same. Troubleshooting follows when its pages land.
         { slug: 'troubleshooting' },
         { slug: 'about' },
       ],

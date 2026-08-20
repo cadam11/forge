@@ -1,22 +1,20 @@
 ---
 title: Reference
-description: What the reference pages will cover — keyboard shortcuts, commands, settings, supported engines, AI providers, and where Joinery stores things.
+description: Keyboard shortcuts, the full command list, every setting, the supported engines, the AI providers, and where Joinery stores things.
 ---
 
-This section will hold six pages: the keyboard-shortcut table, the full command reference, the
-settings reference, supported engines and versions, the AI provider and model table, and a page
-on where Joinery stores things.
+Six pages of the details the guides link to rather than repeat. Three of them are **generated from
+the app's own source** when this site is built, so they cannot drift from what Joinery actually
+binds and ships.
 
-Three of them will be **generated from the app's own source** rather than typed out — the
-shortcut table and the command reference from the command catalogue, and the provider table from
-the vendor configuration file — so they cannot drift from what the app actually binds. That
-generator is the next piece of work, and it is why these pages are not here yet.
+| Page                                                   | What it holds                                                                                  |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| [Keyboard shortcuts](./keyboard-shortcuts/)            | Every binding, on macOS and on Windows, and what holds each keystroke. **Generated**           |
+| [Command reference](./commands/)                       | Every command by group, with descriptions, keystrokes and palette availability. **Generated**  |
+| [Settings](./settings/)                                | Every control in the Settings dialog, its default, and the one that ships disabled             |
+| [Supported engines and versions](./supported-engines/) | The three engines, what is tested, and what each one can do inside the app                     |
+| [AI providers and models](./ai-providers/)             | The shipped vendor list, where to get a key, and what the configuration records. **Generated** |
+| [Where Joinery stores things](./storage-locations/)    | The files, the credential store, and the one browser key the window may touch                  |
 
-Until then:
-
-- **⇧⌘/** in the app opens the keyboard-shortcut cheat sheet, and **⌘K** opens the command
-  palette. Both read the same catalogue the generated pages will.
-- Supported engines and versions are on
-  [Prerequisites](../getting-started/prerequisites/#database-engines).
-- Where credentials are stored is on
-  [Prerequisites](../getting-started/prerequisites/#where-credentials-go).
+Looking for how something works rather than what it is called? The
+[feature guides](../features/) explain the surfaces; these pages are the tables behind them.

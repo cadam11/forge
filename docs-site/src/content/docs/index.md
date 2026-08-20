@@ -39,12 +39,15 @@ the app performs on your behalf.
 
 - **[Features](./features/)** — a guide per shipped surface: the editor, the results grid, the
   explorer, diagrams, schema comparison, backup and restore, containers, and the assistant.
+- **[Reference](./reference/)** — the tables the guides link to rather than repeat: every
+  [keyboard shortcut](./reference/keyboard-shortcuts/) and [command](./reference/commands/),
+  generated from the app's own source, plus settings, supported engines, AI providers, and where
+  Joinery keeps your data.
 
 ## Still being written
 
-Getting Started and Features are complete. The generated command and keyboard-shortcut reference,
-and the troubleshooting pages, are being written next — see [Reference](./reference/) and
-[Troubleshooting](./troubleshooting/) for what each section will hold.
+Getting Started, Features and Reference are complete. The troubleshooting pages are being written
+next — see [Troubleshooting](./troubleshooting/) for what that section will hold.
 
 ## Open source
 

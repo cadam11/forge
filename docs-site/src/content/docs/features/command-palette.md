@@ -86,7 +86,8 @@ than shown at the bottom. At most 60 rows are drawn; the footer counts what is s
 whole list.
 
 A row shows **one** keystroke — its primary binding. The full set, including alternates, is on the
-[keyboard shortcuts](../keyboard-shortcuts/) cheat sheet.
+[keyboard shortcuts](../keyboard-shortcuts/) cheat sheet. Every command, with its description and
+whether the palette lists it, is in the [command reference](../../reference/commands/).
 
 ## The palette and the menus
 
