@@ -33,9 +33,10 @@
 export interface CommandPayloads {
   // ── The native menu (Task 7) ───────────────────────────────────────────────────────────────
   //
-  // `packages/preload/src/index.ts` exposes 31 `menu.on*` channels (counted in the file and
-  // cross-checked against the 31 subscriptions in the Angular `menu.service.ts`; the task brief's
-  // "34" is a miscount, recorded in the Task 7 report). Every one of them is subscribed by
+  // `packages/preload/src/index.ts` exposes 30 `menu.on*` channels (31 at Task 7, counted in the
+  // file and cross-checked against the 31 subscriptions in the Angular `menu.service.ts` — the
+  // task brief's "34" is a miscount, recorded in the Task 7 report; J-92 added one and J-104
+  // removed the two dead Properties channels). Every one of them is subscribed by
   // `shell/menu-bridge.tsx` and routed to exactly one command below, so the bridge is a
   // translation table and the question "what does this menu item do?" is answered by grepping one
   // id. `menu-copy` is the only channel with logic in the bridge, because it is the only one with
@@ -117,7 +118,11 @@ export interface CommandPayloads {
   'disconnect-connection': void;
   /** Server ▸ Refresh (⌘R). */
   'refresh-explorer': void;
-  /** Server ▸ Properties. */
+  /**
+   * The server-properties surface. Registered, unowned, and — since J-104 — with no producer
+   * either: Server ▸ Properties… was removed from the native menu because nothing subscribes to
+   * this id. The palette still offers it as a visibly not-wired row.
+   */
   'show-server-properties': void;
 
   /** Database ▸ New Database. */
@@ -126,7 +131,7 @@ export interface CommandPayloads {
   'open-backup-dialog': void;
   /** Database ▸ Restore. The third of 0.1's three broken items. */
   'open-restore-dialog': void;
-  /** Database ▸ Properties. */
+  /** The database-properties surface. Registered, unowned and producerless, as its server twin. */
   'show-database-properties': void;
 
   /** View ▸ Welcome. */
@@ -384,7 +389,12 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
   'refresh-explorer':
     'Task 7 shell (the three-step refresh of menu.service.ts:356-386: database list, server ' +
     'node, selected node).',
-  'show-server-properties': 'Task 19 server-properties surface.',
+  'show-server-properties':
+    'Task 19 server-properties surface. No producer: J-104 removed Server ▸ Properties… from ' +
+    'the native menu (`packages/main/src/menu.ts`) and its `onServerProperties` channel with it, ' +
+    'because it dispatched into a handler that never shipped and `bus.ts:warnUnhandled` is ' +
+    'DEV-only. The palette still lists this id, disabled, naming this task — which is the ' +
+    'affordance a native menu item cannot offer.',
 
   'create-database':
     'Task 19a features/databases/DatabaseDialogs, mounted by the shell. Like the backup twin it ' +
@@ -401,7 +411,9 @@ export const COMMAND_CONSUMERS: Record<CommandId, string> = {
     'mostRecentConnectionId() — not focus — because the native menu carries no payload, and it needs ' +
     'no database name at all: a restore creates its target (PLAN.md 0.1 item 3 — the last of the ' +
     'three silent router no-ops, and no longer the Task 7 placeholder either).',
-  'show-database-properties': 'Task 19 database-properties surface.',
+  'show-database-properties':
+    'Task 19 database-properties surface. No producer: J-104 removed Database ▸ Properties… and ' +
+    'its `onDatabaseProperties` channel, for the reason given under show-server-properties.',
 
   'show-welcome': 'Task 7 shell (tabStore.showWelcome).',
   'toggle-sidebar': 'Task 7 shell (workbenchStore.toggleSidebar).',

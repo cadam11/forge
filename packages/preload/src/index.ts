@@ -417,13 +417,11 @@ export interface JoineryAPI {
     // Server menu
     onDisconnect: (callback: () => void) => () => void;
     onRefresh: (callback: () => void) => () => void;
-    onServerProperties: (callback: () => void) => () => void;
 
     // Database menu
     onNewDatabase: (callback: () => void) => () => void;
     onBackup: (callback: () => void) => () => void;
     onRestore: (callback: () => void) => () => void;
-    onDatabaseProperties: (callback: () => void) => () => void;
 
     // View menu
     onShowWelcome: (callback: () => void) => () => void;
@@ -476,13 +474,11 @@ const MENU_CHANNELS = {
   // Server menu
   DISCONNECT: 'menu:disconnect',
   REFRESH: 'menu:refresh',
-  SERVER_PROPERTIES: 'menu:server-properties',
 
   // Database menu
   NEW_DATABASE: 'menu:new-database',
   BACKUP: 'menu:backup',
   RESTORE: 'menu:restore',
-  DATABASE_PROPERTIES: 'menu:database-properties',
 
   // View menu
   SHOW_WELCOME: 'menu:show-welcome',
@@ -829,14 +825,11 @@ const joineryAPI: JoineryAPI = {
     // Server menu
     onDisconnect: callback => createEventListener(MENU_CHANNELS.DISCONNECT, callback),
     onRefresh: callback => createEventListener(MENU_CHANNELS.REFRESH, callback),
-    onServerProperties: callback => createEventListener(MENU_CHANNELS.SERVER_PROPERTIES, callback),
 
     // Database menu
     onNewDatabase: callback => createEventListener(MENU_CHANNELS.NEW_DATABASE, callback),
     onBackup: callback => createEventListener(MENU_CHANNELS.BACKUP, callback),
     onRestore: callback => createEventListener(MENU_CHANNELS.RESTORE, callback),
-    onDatabaseProperties: callback =>
-      createEventListener(MENU_CHANNELS.DATABASE_PROPERTIES, callback),
 
     // View menu
     onShowWelcome: callback => createEventListener(MENU_CHANNELS.SHOW_WELCOME, callback),
