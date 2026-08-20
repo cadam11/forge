@@ -13,9 +13,10 @@
  * already up — that case is the push.
  */
 
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { isIpcAvailable, useIpcEvent, useIpcQuery, useInvalidateIpc } from '../ipc';
+import { diagnostics } from './diagnostics';
 
 /**
  * `true` only when main has positively reported the keychain as unavailable.
@@ -23,6 +24,10 @@ import { isIpcAvailable, useIpcEvent, useIpcQuery, useInvalidateIpc } from '../i
  * Every other state — still loading, no bridge at all (a plain browser tab), the call
  * failed — reads as `false`. The indicator this drives is an alarm, and an alarm that fires
  * on "don't know yet" is one users learn to ignore.
+ *
+ * Fail-open on the *display* is not the same as failing silently: a rejected invoke is
+ * reported through `diagnostics` below, so it lands in the output panel rather than existing
+ * only in the main-process log.
  */
 export function useKeychainDegraded(): boolean {
   const status = useIpcQuery({
@@ -30,6 +35,22 @@ export function useKeychainDegraded(): boolean {
     operation: 'getKeychainStatus',
     enabled: isIpcAvailable(),
   });
+
+  /**
+   * The queries run under `retry: false` (`ipc/query-provider.tsx`), so a rejection here is
+   * final: the handler is unregistered, or main is tearing down. The bar stays quiet either
+   * way — that decision is above — but the error is reported rather than discarded.
+   *
+   * Keyed on the error's identity rather than on `isError`, so one failure is reported once
+   * instead of once per render, and a later distinct failure is still reported.
+   */
+  useEffect(() => {
+    if (status.error === null) return;
+    diagnostics.warn(
+      'could not read keychain availability; the indicator stays hidden',
+      status.error
+    );
+  }, [status.error]);
 
   const invalidate = useInvalidateIpc();
   const reread = useCallback(() => {

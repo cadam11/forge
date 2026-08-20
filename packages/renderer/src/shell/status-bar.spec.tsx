@@ -26,13 +26,18 @@ const TROUBLESHOOTING_URL = 'https://usejoinery.com/troubleshooting/credentials-
 
 const teardowns: (() => void)[] = [];
 
+/** Every developer-facing warning raised during a test, so nothing can be swallowed unnoticed. */
+let warnings: { context: string; cause: unknown }[] = [];
+
 /**
  * Installs the bridge with the keychain answering `status`, and hands back the push channel so
  * a test can degrade the app mid-session the way a failed save does.
+ *
+ * `status` may throw, which is how a rejected invoke is expressed here.
  */
 function installBridge(status: () => KeychainStatus) {
   const pushes = recordSubscription<KeychainStatus>();
-  const getKeychainStatus = vi.fn(() => Promise.resolve(status()));
+  const getKeychainStatus = vi.fn(() => Promise.resolve().then(status));
   const openExternal = vi.fn(() => Promise.resolve(undefined));
 
   teardowns.push(
@@ -56,7 +61,13 @@ function mountBar(): void {
 }
 
 beforeEach(() => {
-  teardowns.push(setDiagnosticsSink({ error: () => undefined, warn: () => undefined }));
+  warnings = [];
+  teardowns.push(
+    setDiagnosticsSink({
+      error: () => undefined,
+      warn: (context, cause) => warnings.push({ context, cause }),
+    })
+  );
 });
 
 afterEach(() => {
@@ -71,7 +82,12 @@ describe('status bar keychain indicator', () => {
     mountBar();
 
     await waitFor(() => expect(getKeychainStatus).toHaveBeenCalled());
-    await screen.findByTestId('status-bar');
+    // The positive control, and the reason it is a different query: waiting on the call proves
+    // only that the request went out. `Joinery v1.2.3` is bridge data that has come back
+    // through the same query layer and been COMMITTED, so by the time it is on screen a
+    // resolved `{ available: true }` has been committed too. Without it, this case would
+    // discriminate by timing rather than by construction.
+    await screen.findByText('Joinery v1.2.3');
     expect(screen.queryByTestId('status-keychain')).toBeNull();
   });
 
@@ -96,6 +112,9 @@ describe('status bar keychain indicator', () => {
 
     mountBar();
     await waitFor(() => expect(getKeychainStatus).toHaveBeenCalled());
+    // Same positive control as above: the bar has committed bridge data, so "no indicator" is
+    // a statement about the committed render rather than about a race.
+    await screen.findByText('Joinery v1.2.3');
     expect(screen.queryByTestId('status-keychain')).toBeNull();
 
     // What a failed save looks like from here: main flips, then pushes.
@@ -112,6 +131,21 @@ describe('status bar keychain indicator', () => {
     await userEvent.click(await screen.findByTestId('status-keychain'));
 
     expect(openExternal).toHaveBeenCalledWith(TROUBLESHOOTING_URL);
+  });
+
+  it('reports a rejected status read instead of showing an alarm for it', async () => {
+    const failure = new Error('no handler registered for credentials:get-keychain-status');
+    installBridge(() => {
+      throw failure;
+    });
+
+    mountBar();
+
+    // Fail open: an IPC hiccup is not evidence that the keychain refused, so the bar stays
+    // quiet — but the failure has to exist somewhere the user's output panel can show it.
+    await waitFor(() => expect(warnings).toHaveLength(1));
+    expect(warnings[0]?.cause).toBe(failure);
+    expect(screen.queryByTestId('status-keychain')).toBeNull();
   });
 
   it('stays hidden with no bridge at all — a plain browser is not a degraded keychain', async () => {

@@ -1,7 +1,7 @@
 /**
  * Installs a partial `window.joinery` for tests.
  *
- * Partial on purpose. `JoineryAPI` has 16 namespaces and well over a hundred members, and a
+ * Partial on purpose. `JoineryAPI` has 17 namespaces and well over a hundred members, and a
  * mock that implemented all of them would be the very 1:1 re-declaration `src/ipc/` exists
  * to delete — it would need editing every time preload changed. A test declares only the
  * members it exercises, and the single cast below is the one place that admits the object is
