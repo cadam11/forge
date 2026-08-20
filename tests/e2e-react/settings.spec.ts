@@ -72,12 +72,12 @@ async function withSettings(
 }
 
 test.describe('Joinery — the settings panel', () => {
-  test('opens from ⌘, and shows all four groups', async () => {
+  test('opens from ⌘, and shows all five groups', async () => {
     await withJoineryReact(async ({ app, window }) => {
       const dialog = await openSettings(app, window);
 
       // One group per tab, and each one really mounts its controls — an inactive Radix tab panel is not
-      // in the DOM, so this is a stronger statement than "four buttons exist".
+      // in the DOM, so this is a stronger statement than "five buttons exist".
       await openSettingsGroup(window, 'appearance');
       await expect(dialog.getByTestId('settings-theme-system')).toBeAttached();
       await openSettingsGroup(window, 'editor');
@@ -86,6 +86,10 @@ test.describe('Joinery — the settings panel', () => {
       await expect(dialog.getByTestId('settings-query-max-rows')).toBeVisible();
       await openSettingsGroup(window, 'grid');
       await expect(dialog.getByTestId('settings-grid-row-height')).toBeVisible();
+      // The fifth is J-92's, and holds a door rather than a preference — `ai-entry-points.spec.ts`
+      // owns where that door leads.
+      await openSettingsGroup(window, 'ai');
+      await expect(dialog.getByTestId('settings-open-ai-setup')).toBeVisible();
 
       await closeSettings(window);
       await expect(settingsDialog(window)).toBeHidden();

@@ -19,8 +19,12 @@ import { UI_TIMEOUT_MS, sendMenuCommand } from './app';
 import { openNodeMenu } from './explorer';
 import { openPalette, runPaletteCommand } from './overlays';
 
-/** The four groups, which are Radix tabs — an inactive one is not in the DOM. */
-export type SettingsGroup = 'appearance' | 'editor' | 'query' | 'grid';
+/**
+ * The five groups, which are Radix tabs — an inactive one is not in the DOM.
+ *
+ * Four hold preferences; `ai` holds a door to the AI setup dialog and no preference at all (J-92).
+ */
+export type SettingsGroup = 'appearance' | 'editor' | 'query' | 'grid' | 'ai';
 
 /** The panel, if it is open. */
 export function settingsDialog(window: Page): Locator {

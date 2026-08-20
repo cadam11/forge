@@ -35,6 +35,8 @@ export {
   TEST_MYSQL,
   TEST_PG,
   UI_TIMEOUT_MS,
+  applicationMenuPaths,
+  clickMenuItem,
   dismissToasts,
   ensureJoineryTestSeeded,
   exactly,
@@ -185,15 +187,19 @@ export {
 
 export {
   chatConversationRow,
+  chatCostTier,
   chatPanel,
   chatTab,
   chatTitle,
+  chooseChatCostTier,
   closeChatPanel,
   createChatConversation,
   deleteChatConversation,
   openChatConversations,
   openChatPanel,
+  pinChatModel,
   renameChatConversation,
+  seedAiProvider,
 } from './react/chat';
 
 export {

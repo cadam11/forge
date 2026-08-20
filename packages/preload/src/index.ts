@@ -437,6 +437,7 @@ export interface JoineryAPI {
 
     // Settings/Help
     onOpenSettings: (callback: () => void) => () => void;
+    onOpenAiSetup: (callback: () => void) => () => void;
     onShowShortcuts: (callback: () => void) => () => void;
   };
 }
@@ -495,6 +496,7 @@ const MENU_CHANNELS = {
 
   // Settings/Help
   OPEN_SETTINGS: 'menu:open-settings',
+  OPEN_AI_SETUP: 'menu:open-ai-setup',
   SHOW_SHORTCUTS: 'menu:show-shortcuts',
 } as const;
 
@@ -848,6 +850,7 @@ const joineryAPI: JoineryAPI = {
 
     // Settings/Help
     onOpenSettings: callback => createEventListener(MENU_CHANNELS.OPEN_SETTINGS, callback),
+    onOpenAiSetup: callback => createEventListener(MENU_CHANNELS.OPEN_AI_SETUP, callback),
     onShowShortcuts: callback => createEventListener(MENU_CHANNELS.SHOW_SHORTCUTS, callback),
   },
 };

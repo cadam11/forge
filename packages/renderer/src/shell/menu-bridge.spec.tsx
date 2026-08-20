@@ -92,14 +92,16 @@ describe('the native-menu bridge', () => {
     recorder.stop();
   });
 
-  it('covers all 31 channels the preload bridge exposes', () => {
-    // 31, not the 34 the task brief states. Cross-checked two ways: the `menu` block in
+  it('covers all 32 channels the preload bridge exposes', () => {
+    // 31 at Task 24 — not the 34 that brief stated — cross-checked two ways: the `menu` block in
     // `packages/preload/src/index.ts`, and the 31 `menu.on*` subscriptions in the Angular
-    // `menu.service.ts`. The type of `MENU_COMMANDS` is what keeps this honest — it is a `Record`
-    // over `IpcEventName<'menu'>`, so a channel added to preload and not routed here is a compile
-    // error, and this assertion is the count that goes with it.
-    expect(MENU_CHANNELS).toHaveLength(31);
-    expect(new Set(MENU_CHANNELS).size).toBe(31);
+    // `menu.service.ts`. J-92 added `onOpenAiSetup` for the `AI Setup…` item, making it 32. The type
+    // of `MENU_COMMANDS` is what keeps this honest — it is a `Record` over `IpcEventName<'menu'>`,
+    // so a channel added to preload and not routed here is a compile error, and this assertion is
+    // the count that goes with it.
+    expect(MENU_CHANNELS).toHaveLength(32);
+    expect(new Set(MENU_CHANNELS).size).toBe(32);
+    expect(MENU_CHANNELS).toContain('onOpenAiSetup');
   });
 
   it('names a registered command for every channel, with no duplicates but menu-copy', () => {

@@ -11,7 +11,7 @@
  * setting `aria-modal` (`ui/dialog.tsx`, and `dialog.spec.tsx` pins the lot). The two z-indexes were
  * also the app's highest, competing with the toast layer for no reason.
  *
- * A drawer would additionally be the wrong shape for the content: four groups of controls that must be
+ * A drawer would additionally be the wrong shape for the content: several groups of controls that must be
  * switchable, which is a tab strip, and a 420px column is too narrow for a labelled field plus its
  * hint. `size="lg"` (736px) fits inside the 800px minimum window (`main/src/window.ts:53`).
  *
@@ -33,9 +33,9 @@
  * `NumberSetting`, and its header explains why a number field is the exception.
  */
 
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
-import { useCommand } from '../../commands';
+import { dispatchCommand, useCommand } from '../../commands';
 import {
   Dialog,
   DialogActions,
@@ -51,6 +51,7 @@ import {
 } from '../../ui';
 import { settingsStore, useSettingsStore } from '../../state/settings';
 import {
+  AiGroup,
   AppearanceGroup,
   EditorGroup,
   GridGroup,
@@ -59,8 +60,13 @@ import {
 } from './settings-groups';
 import { PendingDraftsProvider, usePendingDrafts } from './setting-controls';
 
-/** The four groups, in the order the strip lists them. */
-const GROUPS = ['appearance', 'editor', 'query', 'grid'] as const;
+/**
+ * The five groups, in the order the strip lists them.
+ *
+ * `ai` is last and is the one group that holds no preference of its own — it is a door to the AI
+ * setup dialog (J-92). See `AiGroup` for why the keychain-backed settings are not inlined here.
+ */
+const GROUPS = ['appearance', 'editor', 'query', 'grid', 'ai'] as const;
 
 type SettingsGroupId = (typeof GROUPS)[number];
 
@@ -69,6 +75,7 @@ const GROUP_LABELS: Record<SettingsGroupId, string> = {
   editor: 'Editor',
   query: 'Query',
   grid: 'Results grid',
+  ai: 'AI',
 };
 
 export function SettingsDialog() {
@@ -82,6 +89,30 @@ export function SettingsDialog() {
   // user is looking at — from a menu item that says "Settings…". Escape closes, visibly.
   useCommand('open-settings', () => settingsStore.getState().open());
 
+  /**
+   * The one dismissal path, used by Escape, the scrim, the ✕ and the AI group's button.
+   *
+   * `commitPendingDrafts` runs BEFORE the store closes and the fields unmount: a `NumberSetting`
+   * holding an uncommitted draft loses it on Escape otherwise, because React hears blur at the root
+   * container and Escape detaches the focused field first. Measured in the real app, and
+   * `settings-dialog.spec.tsx` pins all the dismissal paths. Idempotent — an untouched field commits
+   * nothing.
+   */
+  const dismiss = useCallback((): void => {
+    commitPendingDrafts();
+    settingsStore.getState().close();
+  }, [commitPendingDrafts]);
+
+  /**
+   * Close, then open the other dialog — never both at once. Two Radix modals stacked would fight
+   * over the focus trap and the scroll lock, and the user asked to go *to* AI setup, not to put it
+   * on top of the settings they were already done with.
+   */
+  const openAiSetup = useCallback((): void => {
+    dismiss();
+    dispatchCommand('open-ai-setup');
+  }, [dismiss]);
+
   if (!isOpen) return null;
 
   return (
@@ -89,19 +120,14 @@ export function SettingsDialog() {
       open
       onOpenChange={next => {
         if (next) return;
-        // BEFORE the store closes and the fields unmount: a `NumberSetting` holding an uncommitted draft
-        // loses it on Escape otherwise, because React hears blur at the root container and Escape detaches
-        // the focused field first. Measured in the real app, and `settings-dialog.spec.tsx` pins all three
-        // dismissal paths. Idempotent — an untouched field commits nothing.
-        commitPendingDrafts();
-        settingsStore.getState().close();
+        dismiss();
       }}
     >
       <DialogContent
         size="lg"
         data-testid="settings-dialog"
         // The group switcher, not the close button Radix would otherwise focus as the first tabbable
-        // node — a keyboard user arriving here wants the four groups, and Escape is already the way out.
+        // node — a keyboard user arriving here wants the group strip, and Escape is already the way out.
         onOpenAutoFocus={event => {
           event.preventDefault();
           firstTab.current?.focus();
@@ -149,6 +175,9 @@ export function SettingsDialog() {
               </TabsContent>
               <TabsContent value="grid">
                 <GridGroup />
+              </TabsContent>
+              <TabsContent value="ai">
+                <AiGroup onOpenAiSetup={openAiSetup} />
               </TabsContent>
             </DialogBody>
           </Tabs>

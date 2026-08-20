@@ -151,9 +151,13 @@ function keySet(keys: readonly ParsedKeys[]): string[] {
 
 describe('the source scan found what it is checking', () => {
   it('parsed the menu definition', () => {
-    // 31 channels, and most of them carry an accelerator. A parse that degraded to nothing would make
+    // 32 channels, and most of them carry an accelerator. A parse that degraded to nothing would make
     // every comparison below pass silently.
-    expect(MENU_ACCELERATORS.size).toBe(31);
+    //
+    // It was 31 until J-92 added `menu:open-ai-setup`. That channel is registered by TWO items — the
+    // macOS app menu's and the Edit menu's, exactly as Settings is — and this map is keyed by
+    // CHANNEL, so it contributes one entry with an empty accelerator list, asserted below.
+    expect(MENU_ACCELERATORS.size).toBe(32);
     expect([...MENU_ACCELERATORS.values()].filter(keys => keys.length > 0).length).toBeGreaterThan(
       20
     );
@@ -169,6 +173,9 @@ describe('the source scan found what it is checking', () => {
     // An item with no accelerator must come back empty rather than inheriting its neighbour's.
     expect(MENU_ACCELERATORS.get('menu:backup')).toEqual([]);
     expect(MENU_ACCELERATORS.get('menu:disconnect')).toEqual([]);
+    // AI Setup… sits directly under Settings in both menus, and Settings has ⌘,. Two items, still no
+    // accelerator — this is the case that would break first if the parse leaked across siblings.
+    expect(MENU_ACCELERATORS.get('menu:open-ai-setup')).toEqual([]);
   });
 
   it('parsed preload and joined the two, one accelerator per routed channel', () => {

@@ -52,6 +52,14 @@ export interface ChatDouble {
   readonly sends: () => readonly { conversationId: string; message: string; vendorId?: string }[];
   readonly cancels: () => readonly string[];
   readonly getToolsCalls: () => number;
+  /**
+   * The AI settings as the main process now holds them — i.e. after every `ai.setSettings` write.
+   *
+   * Held mutably here rather than answered from `options.settings` for the same reason
+   * `conversations` is: a double that answered a write with the unchanged seed would make any
+   * settings round-trip untestable, and the cost-tier control (J-92) is exactly such a round-trip.
+   */
+  readonly aiSettings: () => AISettings;
   readonly teardown: () => void;
 }
 
@@ -66,12 +74,18 @@ export function makeConversation(overrides: Partial<Conversation> = {}): Convers
   };
 }
 
-/** An AI settings object with one vendor holding a key, i.e. the provider-configured state. */
-export function configuredSettings(): AISettings {
+/**
+ * An AI settings object with one vendor holding a key, i.e. the provider-configured state.
+ *
+ * `vendorId` is a parameter rather than a constant so a spec can configure OpenRouter instead —
+ * `selectEnabledVendors` filters the catalogue by this list, so the model picker only offers a
+ * vendor that appears here.
+ */
+export function configuredSettings(vendorId = 'anthropic'): AISettings {
   return {
     ...DEFAULT_AI_SETTINGS,
     enabled: true,
-    vendorSettings: [{ vendorId: 'anthropic', enabled: true, apiKeyConfigured: true, priority: 1 }],
+    vendorSettings: [{ vendorId, enabled: true, apiKeyConfigured: true, priority: 1 }],
   };
 }
 
@@ -100,10 +114,42 @@ export function anthropicVendor(): AIVendor {
   };
 }
 
+/**
+ * OpenRouter as the catalogue has it, trimmed to the two models that matter to a test: one concrete,
+ * one auto-router. The router's `apiName` is what the shared `OPENROUTER_AUTO_ROUTERS` map keys on,
+ * so a surface gated on that map behaves here exactly as it does against the real vendor list.
+ */
+export function openRouterVendor(): AIVendor {
+  return {
+    id: 'openrouter',
+    name: 'OpenRouter',
+    requiresApiKey: true,
+    models: [
+      {
+        id: 'openrouter-sonnet',
+        name: 'Claude Sonnet 4.5',
+        apiName: 'anthropic/claude-sonnet-4.5',
+        powerRank: 16,
+        costTier: 'standard',
+        default: true,
+      },
+      {
+        id: 'openrouter-auto-beta',
+        name: 'Auto Router (Beta)',
+        apiName: 'openrouter/auto-beta',
+        powerRank: 17,
+        costTier: 'premium',
+        excludeFromAutoSelect: true,
+      },
+    ],
+  };
+}
+
 /** Installs the bridge. Call before creating any store — a store subscribes at construction. */
 export function installChatDouble(options: ChatDoubleOptions = {}): ChatDouble {
   const chunks = recordSubscription<ChatStreamChunk>();
   let conversations = [...(options.conversations ?? [])];
+  let aiSettings: AISettings = options.settings ?? { ...DEFAULT_AI_SETTINGS };
   const confirmations: { toolCallId: string; confirmed: boolean }[] = [];
   const sends: { conversationId: string; message: string; vendorId?: string }[] = [];
   const cancels: string[] = [];
@@ -157,7 +203,15 @@ export function installChatDouble(options: ChatDoubleOptions = {}): ChatDouble {
     },
     ai: {
       getVendors: async () => [...(options.vendors ?? [])],
-      getSettings: async () => options.settings ?? { ...DEFAULT_AI_SETTINGS },
+      getSettings: async () => aiSettings,
+      // The main process merges shallowly and answers with what it now holds
+      // (`services/ai/ai-service.ts:setSettings`), and `state/ai.ts` stores the answer rather than
+      // its own optimistic guess — so this double has to merge too, or every write would appear to
+      // be discarded.
+      setSettings: async (partial: Partial<AISettings>) => {
+        aiSettings = { ...aiSettings, ...partial };
+        return aiSettings;
+      },
     },
     app: {
       openExternal: async () => undefined,
@@ -174,6 +228,7 @@ export function installChatDouble(options: ChatDoubleOptions = {}): ChatDouble {
     sends: () => sends,
     cancels: () => cancels,
     getToolsCalls: () => getToolsCalls,
+    aiSettings: () => aiSettings,
     teardown: removeMock,
   };
 }
