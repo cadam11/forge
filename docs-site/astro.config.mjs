@@ -6,18 +6,23 @@ import starlightLinksValidator from 'starlight-links-validator';
 /**
  * Joinery's user documentation site.
  *
- * `site` + `base` are the GitHub Pages project-page pair (plans/docs-site/PROPOSAL.md §3.2).
- * Everything the site serves therefore lives under `/joinery/`, which is the single most
- * likely way this site ships broken: a hand-written root-absolute link such as
- * `[Install](/getting-started/install/)` resolves to `cadam11.github.io/getting-started/…`
- * and 404s. `starlight-links-validator` below is the guard — `errorOnRelativeLinks: false`
- * because relative links between docs pages are exactly what authors are told to write, and
- * the validator resolves them against `base` before checking.
+ * Served from the `usejoinery.com` apex (J-108, revisiting plans/docs-site/PROPOSAL.md D1),
+ * so there is deliberately NO `base`: the site sits at the domain root and a root-absolute
+ * link such as `[Install](/getting-started/install/)` now resolves correctly. That is the
+ * whole point of the move. Under the previous `cadam11.github.io/joinery` project-page pair
+ * every root-absolute link silently 404'd, and the `/joinery` prefix had to be threaded
+ * through by hand anywhere a link could not be relative.
+ *
+ * The domain is pinned by `public/CNAME`, which ships inside the Pages artifact so that each
+ * deploy reasserts it rather than clearing the repository's Pages custom-domain setting.
+ *
+ * `starlight-links-validator` below remains the guard on internal links —
+ * `errorOnRelativeLinks: false` because relative links between docs pages are exactly what
+ * authors are told to write, and both link styles now resolve against the same root.
  */
 export default defineConfig({
-  site: 'https://cadam11.github.io',
-  base: '/joinery',
-  // Emit `/joinery/getting-started/install/index.html`, so a link written as
+  site: 'https://usejoinery.com',
+  // Emit `/getting-started/install/index.html`, so a link written as
   // `../install/` resolves the same way in `astro preview` as it does on Pages.
   trailingSlash: 'always',
   build: { format: 'directory' },

@@ -46,8 +46,10 @@ jobs:
   # Runs on every trigger, including pull requests. A PR gets exactly this and nothing else:
   # GitHub Pages has one environment per repository, so there is no per-PR preview URL to give
   # (§3.5). What a PR does get is proof that the site builds and that every internal link
-  # resolves under the `/joinery` base path — `starlight-links-validator` runs inside
-  # `astro build` and fails it, so a root-absolute link cannot reach main.
+  # resolves — `starlight-links-validator` runs inside `astro build` and fails it, so a link to a
+  # page that does not exist cannot reach main. Since J-108 the site is served from the
+  # `usejoinery.com` apex with no `base`, so root-absolute and relative links resolve alike; the
+  # validator is still what proves the target exists.
   build:
     name: Build
     runs-on: ubuntu-latest
