@@ -75,7 +75,7 @@ press: a binding written `CmdOrCtrl+N` reads as `Ctrl+N`. The
 | A test compares those accelerators with what `menu.ts` registers                 | `packages/renderer/src/commands/catalogue.ts:31-45`, `commands/catalogue.spec.ts`                                                    |
 | 27 commands carry a binding, and the palette opener adds one row                 | `packages/renderer/src/commands/catalogue.ts:272-803`, `features/command-palette/palette-actions.ts:112-121`                         |
 | Rows are grouped the same eight ways, and empty groups are not drawn             | `packages/renderer/src/features/shortcuts-dialog/shortcuts-dialog.tsx:110-115`                                                       |
-| Every binding is shown, not just the primary                                     | `packages/renderer/src/features/shortcuts-dialog/shortcuts-dialog.tsx:79-93`, `commands/catalogue.ts:905-915`                        |
+| Every binding is shown, not just the primary                                     | `packages/renderer/src/features/shortcuts-dialog/shortcuts-dialog.tsx:79-93`, `commands/catalogue.ts:904-914`                        |
 | New connection is ⇧⌘N and ⇧⌘C                                                    | `packages/renderer/src/commands/catalogue.ts:274-283`, `packages/main/src/menu.ts:58, 254`                                           |
 | The three sources and their meanings                                             | `packages/renderer/src/commands/catalogue.ts:144-157`                                                                                |
 | 23 menu-sourced commands, 3 renderer-sourced, 1 editor-sourced                   | `packages/renderer/src/commands/catalogue.ts:239-242, 272-803`                                                                       |
@@ -86,8 +86,8 @@ press: a binding written `CmdOrCtrl+N` reads as `Ctrl+N`. The
 | ⌥⌘S rather than ⇧⌘S, because ⇧⌘S is Save Query As                                | `packages/renderer/src/commands/catalogue.ts:637-639`, `packages/main/src/menu.ts:101`                                               |
 | The five commands with a genuinely different non-macOS binding                   | `packages/renderer/src/commands/catalogue.ts:349, 413, 421, 574, 582`                                                                |
 | The sixth per-platform binding is the same key: `Cmd+Option+S` / `Ctrl+Alt+S`    | `packages/renderer/src/commands/catalogue.ts:639`                                                                                    |
-| Accelerators are formatted for the running platform, with macOS modifier order   | `packages/renderer/src/commands/catalogue.ts:849-903`                                                                                |
-| Off macOS the formatter resolves every Cmd alias to `Ctrl` before printing       | `packages/renderer/src/commands/catalogue.ts:857-864, 885-892`                                                                       |
+| Accelerators are formatted for the running platform, with macOS modifier order   | `packages/renderer/src/commands/catalogue.ts:849-902`                                                                                |
+| Off macOS the formatter prints `Ctrl` for the cross-platform spellings           | `packages/renderer/src/commands/catalogue.ts:852-863, 884-891`                                                                       |
 | Electron maps `CmdOrCtrl` to Command on macOS and Control elsewhere              | [Electron accelerator reference](https://www.electronjs.org/docs/latest/api/accelerator)                                             |
 
 </details>

@@ -218,15 +218,15 @@ function shortcutsPage(sources) {
       ],
       [
         "Keystrokes are formatted by the app's own formatter, per platform",
-        '`packages/renderer/src/commands/catalogue.ts:866-915`, `utils/platform.ts:18`',
+        '`packages/renderer/src/commands/catalogue.ts:865-914`, `utils/platform.ts:18`',
       ],
       [
         'Five bindings name a different key off macOS; the sixth platform-specific one is ⌥⌘S / Ctrl+Alt+S',
         '`packages/renderer/src/commands/catalogue.ts:349, 413, 421, 574, 582` and `:639`',
       ],
       [
-        'The non-macOS branch resolves every Cmd alias to `Ctrl` before printing',
-        '`packages/renderer/src/commands/catalogue.ts:857-864, 885-892`',
+        'The non-macOS branch prints `Ctrl` for `CmdOrCtrl`, `CommandOrControl` and `Control`; bare `Cmd` is left alone, being macOS-only',
+        '`packages/renderer/src/commands/catalogue.ts:852-863, 884-891`',
       ],
       [
         'Electron maps `CmdOrCtrl` to Command on macOS and Control elsewhere',
