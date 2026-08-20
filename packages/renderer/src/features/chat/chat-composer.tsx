@@ -145,10 +145,17 @@ function CostTierPicker({
   return (
     <DropdownMenu>
       {/* The trigger is abbreviated to fit the strip, so the tooltip is where the setting is named
-          in full — including which of the six states it is in. */}
+          in full — including which of the six states it is in.
+
+          `aria-label` says the same thing for a screen reader, which does NOT get the tooltip: the
+          visible text is one word ("Default", "High"), and a word with no noun is not a control.
+          The band is in the label as well as the name, so the announcement is complete on its own —
+          the model picker beside it gets away with a bare tooltip because its text is a model name,
+          which is self-describing, and this one is not. */}
       <Tooltip content={`Auto-router cost tier: ${name.toLowerCase()}`}>
         <DropdownMenuTrigger
           data-testid="chat-cost-tier-trigger"
+          aria-label={`Auto-router cost tier: ${name.toLowerCase()}`}
           className={cn(STRIP_TRIGGER_CLASSES, 'min-w-0')}
         >
           <Icon icon={Gauge} size="sm" className="shrink-0 stroke-fg-muted" />

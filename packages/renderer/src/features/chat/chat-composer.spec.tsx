@@ -23,7 +23,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { AIVendor, OpenRouterCostTier } from '@joinery/shared';
-import { OPENROUTER_AUTO_ROUTERS, OPENROUTER_COST_TIERS } from '@joinery/shared';
+import {
+  OPENROUTER_AUTO_ROUTERS,
+  OPENROUTER_COST_TIERS,
+  OPENROUTER_COST_TIER_LABELS,
+} from '@joinery/shared';
 
 import { TooltipProvider } from '../../ui';
 import { ChatComposer, offersCostTier, type SelectedModel } from './chat-composer';
@@ -104,6 +108,35 @@ function mount(options: MountOptions = {}): {
 
 afterEach(() => {
   vi.restoreAllMocks();
+});
+
+/**
+ * The strip's trigger shows the HEAD of the shared label — `'Low — cheapest models'` → `'Low'` — so
+ * that a band is named in exactly one file rather than in a second short-name table that could
+ * drift. The price of that is a coupling to the label's *shape*, and this is what pins it.
+ *
+ * The coupling breaks in two directions, and both are silent without this test: a label rewritten to
+ * lead with the em dash would render an empty trigger, and one that switched to a hyphen or a colon
+ * would render the whole sentence into a 20px strip. So the assertions are on the shape, not on the
+ * five current strings — a reworded band still passes, a restructured one does not.
+ */
+describe('the short band names the trigger shows', () => {
+  it('are non-empty and carry no em dash, for every band', () => {
+    for (const tier of OPENROUTER_COST_TIERS) {
+      const { unmount } = mount({ costTier: tier });
+      const shown = screen.getByTestId('chat-cost-tier-label').textContent ?? '';
+
+      expect(shown.trim(), `${tier} rendered an empty trigger`).not.toBe('');
+      expect(shown, `${tier} leaked the em-dash tail into the strip`).not.toContain('—');
+      // And it is the head of the shared label, not something invented here.
+      expect(OPENROUTER_COST_TIER_LABELS[tier].startsWith(shown)).toBe(true);
+      // `'xhigh'` is a wire value and must never reach a user — the one band whose short name is not
+      // simply its key with a capital letter.
+      expect(shown).not.toBe(tier);
+
+      unmount();
+    }
+  });
 });
 
 describe('offersCostTier', () => {

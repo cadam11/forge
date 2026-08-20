@@ -15,9 +15,11 @@
  *
  * ── No LLM, and no key ─────────────────────────────────────────────────────────────────────
  *
- * Nothing here calls a provider. `seedAiProvider` writes the `apiKeyConfigured` boolean the renderer
- * gates on and nothing else — see its header for why the UI path cannot be used and why writing no
- * key is the safe half of that trade.
+ * Nothing here sends a message. `seedAiProvider` writes the `apiKeyConfigured` boolean the renderer
+ * gates on and no key at all — but read its header before adding a test: not writing a key is not
+ * the same as being unable to reach a provider, because the credential store's service name is
+ * shared with the real app (J-96). Every test below stops at the UI, which is what keeps that
+ * academic.
  */
 
 import { expect, test } from '@playwright/test';
@@ -55,10 +57,12 @@ test.describe('Joinery — the ways into AI setup', () => {
       expect(aiSetup).toHaveLength(settings.length);
       expect(aiSetup.length).toBeGreaterThan(0);
 
-      // And the item's own handler sends the channel the renderer routes — the half `sendMenuCommand`
-      // cannot reach, because it fires the channel itself.
+      // And EVERY copy's own handler sends the channel the renderer routes — the half
+      // `sendMenuCommand` cannot reach, because it fires the channel itself. One send per item, so a
+      // second copy wired to the wrong channel (or to nothing) fails here rather than hiding behind
+      // the first one.
       const sent = await clickMenuItem(app, 'AI Setup...');
-      expect(sent).toContain('menu:open-ai-setup');
+      expect(sent).toEqual(aiSetup.map(() => 'menu:open-ai-setup'));
       await expect(aiSetupDialog(window)).toBeVisible();
     });
   });

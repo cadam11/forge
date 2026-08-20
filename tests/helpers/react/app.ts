@@ -229,21 +229,28 @@ export async function applicationMenuPaths(app: ElectronApplication): Promise<st
 }
 
 /**
- * Clicks a menu item by label, in the main process, and answers every channel its handler sent.
+ * Clicks **every** menu item carrying `label`, in the main process, and answers the channels their
+ * handlers sent — one entry per send, in click order.
  *
  * `item.click()` runs the template's own handler, so this exercises the half `sendMenuCommand` skips
  * — that helper fires the channel itself and so cannot tell a wired menu item from a missing one.
+ *
+ * **All matches, not the first.** `menu.ts` deliberately duplicates some items across submenus —
+ * Settings is in the macOS app menu *and* in Edit, and J-92's `AI Setup…` follows it into both. A
+ * `find()` here would only ever have clicked the app-menu copy, so a second copy wired to the wrong
+ * channel (or to nothing) would have passed. The caller compares the returned list against the
+ * number of items it found in `applicationMenuPaths`, which makes every copy load-bearing.
  *
  * ── The two things this stands in for, and why each is honest ───────────────────────────────
  *
  *  - **`BrowserWindow.getFocusedWindow()`**. Every handler in `menu.ts` resolves its target that
  *    way, and under a headless Playwright launch nothing is focused, so the real handler would
- *    silently send to nobody. It is stubbed to the app's only window for the duration of the click —
+ *    silently send to nobody. It is stubbed to the app's only window for the duration of the clicks —
  *    which is precisely what the OS reports when a user clicks the menu of the app they are in. The
  *    stub is a lambda over one window, not a general fake, and it is restored in `finally`.
  *  - **`webContents.send`**. Wrapped to record, and it still forwards, so the renderer really does
- *    receive the event. A handler that reached no window returns an empty list and fails the
- *    caller's assertion rather than passing quietly.
+ *    receive the event. A handler that reached no window contributes nothing to the list and fails
+ *    the caller's assertion rather than passing quietly.
  */
 export async function clickMenuItem(app: ElectronApplication, label: string): Promise<string[]> {
   return app.evaluate(({ Menu, BrowserWindow }, wanted) => {
@@ -252,10 +259,10 @@ export async function clickMenuItem(app: ElectronApplication, label: string): Pr
 
     const menu = Menu.getApplicationMenu();
     if (menu === null) throw new Error('no application menu is set');
-    const item = menu.items
+    const items = menu.items
       .flatMap(top => top.submenu?.items ?? [])
-      .find(candidate => candidate.label === wanted);
-    if (item === undefined) throw new Error(`no menu item labelled ${JSON.stringify(wanted)}`);
+      .filter(candidate => candidate.label === wanted);
+    if (items.length === 0) throw new Error(`no menu item labelled ${JSON.stringify(wanted)}`);
 
     const sent: string[] = [];
     const contents = window.webContents;
@@ -268,7 +275,8 @@ export async function clickMenuItem(app: ElectronApplication, label: string): Pr
     };
     BrowserWindow.getFocusedWindow = () => window;
     try {
-      item.click();
+      // Bounded by the number of matching items, which is a property of the static template.
+      for (const item of items) item.click();
     } finally {
       contents.send = originalSend;
       BrowserWindow.getFocusedWindow = originalFocused;
