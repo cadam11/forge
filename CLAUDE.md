@@ -193,7 +193,7 @@ The user docs live in `docs-site/` (Astro + Starlight, its own lockfile, outside
 
 1. **Any change that alters user-facing behaviour MUST update the matching `docs-site/` page in the same PR** — features, commands, keyboard shortcuts, settings, connection flows, prerequisites, error surfaces. If no docs change is needed, say so in the PR description and say why.
 2. **Docs pages are held to the same standard as code**: every factual claim is verified against source, and pages carry their citations. Do not document unshipped behaviour.
-3. Build and gates: `cd docs-site && pnpm install && pnpm run check && pnpm run build`. The build fails on a broken internal link, and root-absolute links are always broken — the site is served under the `/joinery` base path, so write relative links between pages.
+3. Build and gates: `cd docs-site && pnpm install && pnpm run check && pnpm run build`. The build fails on a broken internal link. The site is served under the `/joinery` base path, so a root-absolute link that omits the base (`/getting-started/…`) 404s — write relative links between pages. (`404.md` is the one exception: it is served at any depth, so its links carry the base explicitly.)
 4. Plan and phasing: `plans/docs-site/PROPOSAL.md`.
 
 ## Common Commands

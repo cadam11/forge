@@ -3,12 +3,11 @@ name: Docs site
 # Astro's GitHub Pages recipe (plans/docs-site/PROPOSAL.md §3.1): build the site, then
 # `actions/upload-pages-artifact` → `actions/deploy-pages`.
 #
-# §3.1 names `withastro/action` for the build half. This file spells those steps out instead,
-# for two reasons: the site is a nested project outside the app's pnpm workspace, with its own
-# lockfile and its own `pnpm-workspace.yaml`, so every step needs an explicit working directory
-# and an explicit cache key — and the type-check gate (`astro check`) has to run between install
-# and build, which the action has no slot for. The steps below are exactly what the action would
-# do, plus that gate, and they are readable without opening a third-party action's source.
+# §3.1 names `withastro/action` for the build half. This file spells those steps out instead.
+# The action could do the job — it takes `path`, `package-manager` and `build-cmd`, and a
+# separate `astro check` step could sit beside it. The reasons are preference, not capability:
+# the sequence here is legible without opening a third-party action's source, and it is one
+# fewer third-party action inside the job that holds `pages: write` and `id-token: write`.
 #
 # Path-filtered on purpose (§3.3). A Pages deploy on a renderer-only commit is minutes spent
 # republishing identical bytes, so only changes under `docs-site/` — or to this file — trigger
@@ -47,6 +46,13 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Per-ref and cancelling, unlike the deploy job's: pushing twice to the same PR should
+    # abandon the first build rather than pay for it. Keyed on `github.ref` so two different
+    # PRs never cancel each other, and deliberately NOT the `pages` group — a superseded build
+    # must not interrupt a deploy that is already publishing.
+    concurrency:
+      group: docs-build-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -102,7 +108,11 @@ jobs:
     concurrency:
       group: 'pages'
       cancel-in-progress: false
+    # A job-level `permissions` block REPLACES the workflow-level one rather than extending it,
+    # so `contents: read` is restated here. Without it this job would run with no `contents`
+    # scope at all.
     permissions:
+      contents: read
       pages: write
       id-token: write
     environment:
