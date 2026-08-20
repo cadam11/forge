@@ -7,7 +7,7 @@ sidebar:
 
 Ask the engine how it intends to run a statement. The query toolbar's plan button does it, and so
 does _Show execution plan_ in the [command palette](../command-palette/). The result opens as a
-**Plan** tab in the [results pane](../results-grid/) beside the rows.
+**Plan** tab in the [results panel](../results-grid/) beside the rows.
 
 Like Execute, the plan is taken for **the selection if there is one**, and for whatever
 **Execute scope** selects otherwise.
@@ -90,7 +90,7 @@ rename the tab.
 | Claim                                                                                      | Source                                                                                            |
 | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
 | Reached from the toolbar button and from the palette                                       | `packages/renderer/src/features/query/query-toolbar.tsx:177-192`, `commands/catalogue.ts:644-656` |
-| It opens as a Plan tab in the results pane                                                 | `packages/renderer/src/features/query/query-results.tsx:366-375, 413-417`                         |
+| It opens as a Plan tab in the results panel                                                | `packages/renderer/src/features/query/query-results.tsx:366-375, 413-417`                         |
 | The selection wins, else Execute scope decides                                             | `packages/renderer/src/features/query/query-panel.tsx:343-359`, `editor/statements.ts:91-97`      |
 | The three statements Joinery sends, per engine                                             | `packages/renderer/src/features/query/execution-plan.ts:107-120`                                  |
 | Only MSSQL executes; `SET SHOWPLAN_*` cannot share a batch                                 | `packages/renderer/src/features/query/execution-plan.ts:10-33, 83-99`                             |

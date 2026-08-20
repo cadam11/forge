@@ -33,6 +33,10 @@ check.
 > the probe at all it opens the form anyway and states the reason above the button: the tools may
 > well be there, and the backup is yours to attempt.
 
+Installed the tools and still seeing the setup view?
+[A required command-line tool is missing](../../troubleshooting/missing-cli-tools/) covers the
+reasons that happens — the PATH an app is launched with being the usual one.
+
 ## Opening the wizards
 
 | Where                         | Backup               | Restore               |

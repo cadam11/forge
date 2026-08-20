@@ -72,7 +72,7 @@ clear, and a failure to clear is reported rather than looking like it worked.
 
 Clearing one entry is not available from this dialog.
 
-> **Note** — this is not the same thing as the **History** tab inside the results pane. That one
+> **Note** — this is not the same thing as the **History** tab inside the results panel. That one
 > holds _snapshots of what queries returned_, per query tab, and is described on
 > [Results grid](../results-grid/).
 

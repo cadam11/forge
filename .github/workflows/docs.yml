@@ -14,12 +14,21 @@ name: Docs site
 # or to this file — trigger one. `workflow_dispatch` covers a manual redeploy, including the first
 # one after Pages was switched to the GitHub Actions source.
 #
-# The two `packages/` entries are the reference generator's INPUTS
-# (`docs-site/scripts/generate-reference.mjs`): the command catalogue, from which the keyboard
-# shortcut and command pages are written, and the AI vendor configuration, from which the provider
-# page is. `pnpm run check` and `pnpm run build` both run the generator in `--check` mode and fail
-# on drift, so those paths must trigger this workflow or a catalogue change ships a reference page
-# that quietly disagrees with the app — and the redeployed site would keep serving the old table.
+# The `packages/` entries are the reference generator's five INPUTS, and the list must stay in
+# step with `SOURCE_FILES` in `docs-site/scripts/lib/app-source.mjs` plus the vendor config the
+# generator reads directly:
+#
+#   commands/catalogue.ts                     the command data itself
+#   utils/platform.ts                         executed for the REAL `IS_MAC`
+#   features/command-palette/palette-actions.ts   the palette-only rows
+#   shell/status-bar.tsx                      one constant (`THEME_OPTIONS`) reached from the above
+#   packages/shared/src/config/ai-vendors.json    the AI provider page
+#
+# `pnpm run check` and `pnpm run build` both run the generator in `--check` mode and fail on
+# drift, so every one of those paths must trigger this workflow — otherwise a change to one of
+# them ships a reference page that quietly disagrees with the app, and the redeployed site keeps
+# serving the old table. `.github/workflows/ci.yml`'s `docs-reference-drift` job is the second
+# net: it runs the same check on every CI trigger, which catches these bundled with other work.
 
 on:
   push:
@@ -27,6 +36,9 @@ on:
     paths:
       - 'docs-site/**'
       - 'packages/renderer/src/commands/**'
+      - 'packages/renderer/src/utils/platform.ts'
+      - 'packages/renderer/src/features/command-palette/palette-actions.ts'
+      - 'packages/renderer/src/shell/status-bar.tsx'
       - 'packages/shared/src/config/ai-vendors.json'
       - '.github/workflows/docs.yml'
   pull_request:
@@ -34,6 +46,9 @@ on:
     paths:
       - 'docs-site/**'
       - 'packages/renderer/src/commands/**'
+      - 'packages/renderer/src/utils/platform.ts'
+      - 'packages/renderer/src/features/command-palette/palette-actions.ts'
+      - 'packages/renderer/src/shell/status-bar.tsx'
       - 'packages/shared/src/config/ai-vendors.json'
       - '.github/workflows/docs.yml'
   workflow_dispatch:

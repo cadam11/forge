@@ -55,6 +55,11 @@ off.
 
 Where to get a key is per provider — each vendor in the catalogue carries its own key page.
 
+Because the key lives in the keychain, a key that will not save — or that stops being found
+between launches — is a keychain problem rather than a provider one:
+[Credential and keychain problems](../../troubleshooting/credentials-and-keychain/) has the
+symptoms and what to check.
+
 ## Preferred model
 
 **Preferred model** picks which of that vendor's models Joinery reaches for by default. Left alone,

@@ -9,7 +9,7 @@ A **query tab** is a SQL editor with its results underneath. ⌘N opens an empty
 current database; the explorer, the object search and the query history all open one already
 filled in.
 
-The tab is three bands: a toolbar, the editor, and the results pane. The divider between the
+The tab is three bands: a toolbar, the editor, and the results panel. The divider between the
 last two is draggable, and where you leave it is remembered for every query tab — it is one
 setting, not one per tab. ⇧⌘\ collapses the results away entirely and gives the editor the whole
 pane.
@@ -55,7 +55,7 @@ and is enabled only while something is running.
 A successful run **renames the tab** from the SQL — or, when the AI tab-namer is switched on,
 from a model's one-line summary of it. Everything Joinery executes is also written to the
 [query history](../query-history/), and a snapshot of the result is filed under the tab for the
-results pane's own History tab.
+results panel's own History tab.
 
 ## Placeholders
 

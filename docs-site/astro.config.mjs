@@ -159,7 +159,9 @@ export default defineConfig({
         },
         {
           label: 'Reference',
-          // Section page first, then the six pages in `sidebar.order`. Three of them are written
+          // Section page first, then the six pages. This array IS the order — an explicit `items`
+          // list overrides `sidebar.order`, which the pages carry anyway so that a page moved out
+          // of this list still sorts sensibly. Three of them are written
           // by `scripts/generate-reference.mjs` from the app's own source — do not hand-edit
           // `reference/keyboard-shortcuts.md`, `reference/commands.md` or
           // `reference/ai-providers.md`; `pnpm run check` and `pnpm run build` verify them.

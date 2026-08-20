@@ -109,7 +109,7 @@ are offered — the values render as plain text rather than as links that could 
 
 ## Saved results
 
-The **History** tab in the results pane is per-tab, and it is not the same thing as
+The **History** tab in the results panel is per-tab, and it is not the same thing as
 [query history](../query-history/): it holds **snapshots of what queries returned**, written by
 the main process on every execute.
 

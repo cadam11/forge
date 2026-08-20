@@ -103,6 +103,10 @@ The password is cleared from the form once the container has been created.
 In either of the first two states the **New container** footer is hidden — there is nothing to create
 it with.
 
+If Docker is running for you and Joinery says otherwise,
+[Docker is not detected](../../troubleshooting/docker-not-detected/) explains what the app asks
+Docker and why the answer can differ from your terminal's.
+
 <details>
 <summary>Where this page's facts come from</summary>
 

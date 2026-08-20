@@ -69,17 +69,19 @@ No password reaches the JSON files above: the profile store is explicitly a stor
 without passwords, and the password travels straight to the credential store when a profile is
 saved.
 
-## The one browser key
+## The one key Joinery writes
 
 The renderer is allowed to touch `localStorage` in exactly two modules, and a structural test fails
-the build if any other file does:
+the build if any other file does. Only one key is **kept** there:
 
-- **`joinery:theme-preference`** is written by the theme mirror. A small script in the page head
-  needs the theme **before** the app starts, to paint the right canvas rather than flashing the
-  wrong one, and it cannot wait for an asynchronous IPC round trip.
+- **`joinery:theme-preference`** is written by the theme mirror, and it is the only browser key
+  Joinery maintains. A small script in the page head needs the theme **before** the app starts, to
+  paint the right canvas rather than flashing the wrong one, and it cannot wait for an asynchronous
+  IPC round trip.
 - **Six keys from the Angular renderer** are read once, migrated into the main process, and then
-  removed — each only after the main process has acknowledged the write, and never for a key that
-  failed to parse.
+  **removed** — each only after the main process has acknowledged the write, and never for a key
+  that failed to parse. They are a one-way migration, not storage: after the first launch on this
+  renderer, none of them is left.
 
 ## AWS profiles
 

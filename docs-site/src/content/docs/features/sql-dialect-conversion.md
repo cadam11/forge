@@ -70,7 +70,7 @@ Every refusal arrives as a message in the app — none of them throw, and none o
 | The service script is missing from the build | _SQL conversion is unavailable: the sqlglot server script is missing from this build._                   |
 | The service did not come up in time          | _SQL conversion service timed out. The microservice may still be starting — try again._                  |
 | sqlglot could not parse or rewrite the SQL   | The transpiler's own error                                                                               |
-| Anything else                                | _Could not convert this SQL to …_, with the cause written to the Output panel                            |
+| Anything else                                | _Could not convert this SQL to …_, with the cause written to the output panel                            |
 
 > **Careful** — Joinery spawns the interpreter as **`python3`**. On Windows, where the launcher is
 > usually `python` or `py`, that name may not resolve and you will get the "Python 3 is required"
@@ -80,6 +80,11 @@ Every refusal arrives as a message in the app — none of them throw, and none o
 There is no setup-instructions view for this feature the way there is for the
 [backup and restore CLI tools](../backup-and-restore/) — a failed conversion is a message, and the
 fix is on the Prerequisites page.
+
+If one of those messages is what brought you here — particularly _Python 3 is required_ on a
+machine that has Python —
+[SQL conversion fails, or Python is not found](../../troubleshooting/sql-conversion-and-python/)
+works through each of them.
 
 <details>
 <summary>Where this page's facts come from</summary>

@@ -74,14 +74,14 @@ the button.
 
 The server's own message is shown in a band above the buttons, and the field's reason clears as soon
 as you edit the name. A failure with no message at all reads _The server refused the change and gave
-no reason_, and the underlying cause is written to the Output panel rather than dropped.
+no reason_, and the underlying cause is written to the output panel rather than dropped.
 
 ## What happens after it works
 
 A success does four things, and it does them before the dialog closes so the sidebar behind it is
 already right:
 
-1. announces itself, and writes **the statement the main process ran** into the Output panel — a
+1. announces itself, and writes **the statement the main process ran** into the output panel — a
    `CREATE DATABASE` is not the one write in this app whose SQL you cannot read;
 2. drops the main process's cached metadata for that connection, then re-reads the database list and
    the server's node from the server itself;
@@ -133,7 +133,7 @@ with _… does not support creating or renaming databases._
 | An untouched empty field is not scolded                                             | `packages/renderer/src/features/databases/database-name-dialog.tsx:80-86`                                         |
 | The server's message lands in the answer band; editing clears it                    | `packages/renderer/src/features/databases/database-name-dialog.tsx:148-152, 160`, `database-operations.ts:39-46`  |
 | A rejection with no message, and that the cause is logged                           | `packages/renderer/src/features/databases/database-name-dialog.tsx:105-111`, `database-operations.ts:48-54`       |
-| Success announces itself and writes the statement to the Output panel               | `packages/renderer/src/features/databases/database-dialogs.tsx:179-194`                                           |
+| Success announces itself and writes the statement to the output panel               | `packages/renderer/src/features/databases/database-dialogs.tsx:179-194`                                           |
 | Main's caches are dropped first, then the list and the server node re-read          | `packages/renderer/src/features/databases/database-invalidation.ts:121-152`                                       |
 | The ERD cache is dropped, in both directions on a rename                            | `packages/renderer/src/features/databases/database-invalidation.ts:61-110`                                        |
 | The invalidation is awaited before the dialog closes                                | `packages/renderer/src/features/databases/database-dialogs.tsx:130-137`                                           |
