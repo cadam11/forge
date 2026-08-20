@@ -175,6 +175,6 @@ Regenerate from `docs-site/` with `pnpm run generate:reference`.
 | The three palette preconditions the "needs …" column reports                         | `packages/renderer/src/commands/catalogue.ts:196-207`, `features/command-palette/palette-model.ts:98-115` |
 | A row that cannot run right now is disabled with its reason, never hidden            | `packages/renderer/src/features/command-palette/palette-model.ts:11-25, 131-154`                          |
 | The palette's local actions, and why they are not commands                           | `packages/renderer/src/features/command-palette/palette-actions.ts:1-32, 72-95`                           |
-| Theme names come from the status bar's own table, so both surfaces say Ink and Ivory | `packages/renderer/src/shell/status-bar.tsx:124-131`                                                      |
+| Theme names come from the status bar's own table, so both surfaces say Ink and Ivory | `packages/renderer/src/shell/status-bar.tsx:127-134`                                                      |
 
 </details>
