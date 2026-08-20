@@ -35,8 +35,13 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { ChevronDown, Square, SendHorizontal } from 'lucide-react';
-import type { AIVendor } from '@joinery/shared';
+import { ChevronDown, Gauge, Square, SendHorizontal } from 'lucide-react';
+import type { AIVendor, OpenRouterCostTier } from '@joinery/shared';
+import {
+  OPENROUTER_AUTO_ROUTERS,
+  OPENROUTER_COST_TIERS,
+  OPENROUTER_COST_TIER_LABELS,
+} from '@joinery/shared';
 
 import {
   Button,
@@ -72,8 +77,112 @@ export interface ChatComposerProps {
   readonly vendors: readonly AIVendor[];
   readonly model: SelectedModel | null;
   readonly onModelChange: (model: SelectedModel | null) => void;
+  /**
+   * The selected model's vendor's persisted routing band, or `undefined` for "send no preference".
+   *
+   * Read from and written back to `AIVendorSettings.autoRouterCostTier` by the caller — the same
+   * per-vendor field the AI setup dialog's selector edits, because it *is* the same setting. This
+   * component holds no copy of it (J-92).
+   */
+  readonly costTier: OpenRouterCostTier | undefined;
+  readonly onCostTierChange: (costTier: OpenRouterCostTier | undefined) => void;
   readonly onSend: (text: string) => void;
   readonly onStop: () => void;
+}
+
+/**
+ * Whether a routing band means anything for the next message.
+ *
+ * Reads the SAME shared map the main process's request builder looks the outgoing model up in, and
+ * that the setup dialog gates its own selector on (`shared/types/ai.types.ts`), so the three places
+ * cannot disagree about which models take a band.
+ *
+ * `Auto` (`model === null`) is excluded deliberately: the main process chooses the model then, and
+ * it may well not choose a router — a band shown there would be a claim about a decision that has
+ * not been made yet.
+ */
+export function offersCostTier(model: SelectedModel | null): model is SelectedModel {
+  return model !== null && OPENROUTER_AUTO_ROUTERS.has(model.modelApiName);
+}
+
+/**
+ * A band's name, short enough for a 20px strip.
+ *
+ * Derived from the shared label table rather than written out a second time, so a band is still
+ * named in exactly one place: the menu rows carry the full label ("Low — cheapest models"), the
+ * trigger carries its head ("Low").
+ */
+function shortTierName(costTier: OpenRouterCostTier): string {
+  return OPENROUTER_COST_TIER_LABELS[costTier].split('—')[0]?.trim() ?? costTier;
+}
+
+/**
+ * The strip's trigger treatment. Both pickers use it, so a change to the chrome cannot move one and
+ * leave the other behind.
+ */
+const STRIP_TRIGGER_CLASSES = cn(
+  'flex h-5 items-center gap-1 rounded-xs px-1',
+  'font-mono text-2xs tracking-eyebrow text-fg-muted uppercase',
+  'hover:bg-hover hover:text-fg',
+  'focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-focus'
+);
+
+/**
+ * The routing band, where the auto-router is chosen (J-92).
+ *
+ * The band is a per-vendor *setting*, and it lived only in the AI setup dialog — a surface with no
+ * menu item and no Settings entry at the time — while the place a user actually pins
+ * `openrouter/auto-beta` is this strip. Pinning a router therefore gave no hint that a band existed
+ * at all. This control writes through the same store action the dialog's selector does, so the two
+ * are the same setting seen twice rather than two settings that have to be kept in step.
+ */
+function CostTierPicker({
+  costTier,
+  onCostTierChange,
+}: Pick<ChatComposerProps, 'costTier' | 'onCostTierChange'>) {
+  const name = costTier === undefined ? 'Default' : shortTierName(costTier);
+
+  return (
+    <DropdownMenu>
+      {/* The trigger is abbreviated to fit the strip, so the tooltip is where the setting is named
+          in full — including which of the six states it is in. */}
+      <Tooltip content={`Auto-router cost tier: ${name.toLowerCase()}`}>
+        <DropdownMenuTrigger
+          data-testid="chat-cost-tier-trigger"
+          className={cn(STRIP_TRIGGER_CLASSES, 'min-w-0')}
+        >
+          <Icon icon={Gauge} size="sm" className="shrink-0 stroke-fg-muted" />
+          <span data-testid="chat-cost-tier-label" className="min-w-0 truncate">
+            {name}
+          </span>
+          <Icon icon={ChevronDown} size="sm" className="shrink-0 stroke-fg-muted" />
+        </DropdownMenuTrigger>
+      </Tooltip>
+      <DropdownMenuContent align="start" side="top" data-testid="chat-cost-tier-menu">
+        <DropdownMenuLabel>Auto-router cost tier</DropdownMenuLabel>
+        {/* Unset is a distinct instruction, not a synonym for the cheapest band: with no preference
+            OpenRouter chooses the band itself. Same sentence as the dialog's sentinel row. */}
+        <DropdownMenuCheckboxItem
+          checked={costTier === undefined}
+          data-testid="chat-cost-tier-unset"
+          onSelect={() => onCostTierChange(undefined)}
+        >
+          Provider default
+        </DropdownMenuCheckboxItem>
+        {OPENROUTER_COST_TIERS.map(tier => (
+          <DropdownMenuCheckboxItem
+            key={tier}
+            checked={costTier === tier}
+            data-testid="chat-cost-tier-option"
+            data-tier={tier}
+            onSelect={() => onCostTierChange(tier)}
+          >
+            {OPENROUTER_COST_TIER_LABELS[tier]}
+          </DropdownMenuCheckboxItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 function ModelPicker({
@@ -90,20 +199,18 @@ function ModelPicker({
       <Tooltip content="The model this message goes to">
         <DropdownMenuTrigger
           data-testid="chat-model-trigger"
-          className={cn(
-            'flex h-5 shrink-0 items-center gap-1 rounded-xs px-1',
-            'font-mono text-2xs tracking-eyebrow text-fg-muted uppercase',
-            'hover:bg-hover hover:text-fg',
-            'focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-focus'
-          )}
+          className={cn(STRIP_TRIGGER_CLASSES, 'shrink-0')}
         >
           <span data-testid="chat-model-label">{model?.label ?? 'Auto'}</span>
           <Icon icon={ChevronDown} size="sm" className="stroke-fg-muted" />
         </DropdownMenuTrigger>
       </Tooltip>
       {/* Checkbox items, like the status bar's theme menu: the states are mutually exclusive AND the
-          current one has to be visible. The cost tier each model carries is deliberately not shown —
-          it is a settings-surface fact (Task 19), and a `<kbd>` reading "economy" is not a keystroke. */}
+          current one has to be visible. The `CostTier` band each model carries (economy / standard /
+          premium, a catalogue fact) is deliberately not shown — it is a settings-surface fact
+          (Task 19), and a `<kbd>` reading "economy" is not a keystroke. That is a different setting
+          from OpenRouter's `autoRouterCostTier`, which `CostTierPicker` above does surface here
+          because it changes where the *next message* is routed. */}
       <DropdownMenuContent align="start" side="top" data-testid="chat-model-menu">
         <DropdownMenuCheckboxItem
           checked={model === null}
@@ -155,6 +262,8 @@ export function ChatComposer({
   vendors,
   model,
   onModelChange,
+  costTier,
+  onCostTierChange,
   onSend,
   onStop,
 }: ChatComposerProps) {
@@ -196,6 +305,11 @@ export function ChatComposer({
         {vendors.length === 0 ? null : (
           <div className="flex min-w-0 items-center gap-1">
             <ModelPicker vendors={vendors} model={model} onModelChange={onModelChange} />
+            {/* Only beside a pinned auto-router — see `offersCostTier`. Nothing else OpenRouter
+                offers takes a band, and no other vendor has a router at all. */}
+            {offersCostTier(model) ? (
+              <CostTierPicker costTier={costTier} onCostTierChange={onCostTierChange} />
+            ) : null}
           </div>
         )}
 

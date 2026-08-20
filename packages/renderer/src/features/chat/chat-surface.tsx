@@ -35,10 +35,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useStore } from 'zustand';
 import { useShallow } from 'zustand/shallow';
 import { ChevronDown, PanelRightClose, Plus, SquareArrowOutUpRight, Sparkles } from 'lucide-react';
-import type { ToolDefinition } from '@joinery/shared';
+import type { OpenRouterCostTier, ToolDefinition } from '@joinery/shared';
 
 import { dispatchCommand } from '../../commands';
-import { selectEnabledVendors, selectHasConfiguredVendors, useAIStore } from '../../state/ai';
+import {
+  selectEnabledVendors,
+  selectHasConfiguredVendors,
+  selectVendorSettings,
+  useAIStore,
+} from '../../state/ai';
 import {
   selectFocusedConnectionId,
   selectFocusedDatabaseName,
@@ -119,6 +124,33 @@ export function ChatSurface({ store, mode }: ChatSurfaceProps) {
   const theme = useSettingsStore(selectEffectiveTheme);
 
   const [model, setModel] = useState<SelectedModel | null>(null);
+
+  /**
+   * The pinned model's vendor's routing band — read straight out of `aiStore`, never copied into
+   * this component (J-92).
+   *
+   * That is the whole shared-state claim: the composer's picker and the AI setup dialog's selector
+   * both render `AIVendorSettings.autoRouterCostTier` for the same vendor and both write it through
+   * `setAutoRouterCostTier`, so a change in either is a change in the other, and the main process
+   * reads the one field either way (`ai-service.ts`'s `autoRouterCostTierFor`).
+   *
+   * A scalar subscription, not one that returns the settings object: `selectVendorSettings` may
+   * answer `undefined` for a vendor with no entry, and subscribing to the record would hand zustand
+   * a new identity on every store write (`state/capabilities.ts` rule 3).
+   */
+  const costTier = useAIStore(state =>
+    model === null ? undefined : selectVendorSettings(model.vendorId)(state)?.autoRouterCostTier
+  );
+
+  const changeCostTier = useCallback(
+    (next: OpenRouterCostTier | undefined): void => {
+      // Guarded rather than asserted non-null: the picker only renders beside a pinned model, but a
+      // menu selection resolving after the model was cleared must write nothing rather than throw.
+      if (model === null) return;
+      void useAIStore.getState().setAutoRouterCostTier(model.vendorId, next);
+    },
+    [model]
+  );
 
   /**
    * The chat store, on every mount — **except while a stream is open.**
@@ -281,6 +313,8 @@ export function ChatSurface({ store, mode }: ChatSurfaceProps) {
         vendors={vendors}
         model={model}
         onModelChange={setModel}
+        costTier={costTier}
+        onCostTierChange={changeCostTier}
         onSend={send}
         onStop={stop}
       />

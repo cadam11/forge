@@ -35,6 +35,7 @@ import {
   installChatDouble,
   makeChatStore,
   makeConversation,
+  openRouterVendor,
   type ChatDouble,
   type ChatDoubleOptions,
 } from '../../test/chat-double';
@@ -239,6 +240,103 @@ describe('with a provider configured', () => {
     const reopened = await screen.findAllByTestId('chat-model-option');
     await userEvent.click(reopened[0] as HTMLElement);
     expect(screen.getByTestId('chat-model-label').textContent).toContain('Auto');
+  });
+});
+
+/**
+ * J-92. The routing band was reachable only from the AI setup dialog, while the place a user pins
+ * `openrouter/auto-beta` is the strip above the box — so pinning a router gave no hint that a band
+ * existed at all.
+ *
+ * What matters here is not that a menu opens. It is that the control is a **second view of one
+ * setting**: `AIVendorSettings.autoRouterCostTier`, per vendor, written through the store action the
+ * dialog's own selector calls, and round-tripped through `ai.setSettings` exactly as the dialog's is.
+ * The composer holds no copy — `chat-composer.spec.tsx` owns the component-level behaviour.
+ */
+describe('the auto-router cost tier in the model strip', () => {
+  const OPENROUTER_SEED: ChatDoubleOptions = {
+    conversations: [makeConversation({ id: CONVERSATION_ID, title: 'Schema chat' })],
+    tools: [RUN_QUERY_TOOL],
+    settings: configuredSettings('openrouter'),
+    vendors: [openRouterVendor()],
+  };
+
+  /** Pins the model whose visible name is `label` in the strip's picker. */
+  async function pinModel(label: string): Promise<void> {
+    await userEvent.click(screen.getByTestId('chat-model-trigger'));
+    const options = await screen.findAllByTestId('chat-model-option');
+    const wanted = options.find(option => option.textContent?.includes(label));
+    expect(wanted, `no model option named ${label}`).toBeTruthy();
+    await userEvent.click(wanted as HTMLElement);
+    expect(screen.getByTestId('chat-model-label').textContent).toContain(label);
+  }
+
+  function savedTier(): string | undefined {
+    return double.aiSettings().vendorSettings.find(entry => entry.vendorId === 'openrouter')
+      ?.autoRouterCostTier;
+  }
+
+  it('is offered for a pinned auto-router and not for a concrete model', async () => {
+    await mount(OPENROUTER_SEED);
+
+    // Auto is the resting state, and the main process picks the model on that path.
+    expect(screen.queryByTestId('chat-cost-tier-trigger')).toBeNull();
+
+    await pinModel('Claude Sonnet 4.5');
+    expect(screen.queryByTestId('chat-cost-tier-trigger')).toBeNull();
+
+    await pinModel('Auto Router (Beta)');
+    expect(screen.queryByTestId('chat-cost-tier-trigger')).not.toBeNull();
+  });
+
+  it('writes the band through the same store field the setup dialog edits', async () => {
+    await mount(OPENROUTER_SEED);
+    await pinModel('Auto Router (Beta)');
+
+    await userEvent.click(screen.getByTestId('chat-cost-tier-trigger'));
+    const rows = await screen.findAllByTestId('chat-cost-tier-option');
+    const high = rows.find(row => row.getAttribute('data-tier') === 'high');
+    await userEvent.click(high as HTMLElement);
+
+    // Through the bridge, per vendor, into `AIVendorSettings.autoRouterCostTier` — which is what
+    // `ai-service.ts`'s `autoRouterCostTierFor` reads and what `ai-setup-dialog.tsx` renders.
+    await waitFor(() => expect(savedTier()).toBe('high'));
+    await waitFor(() =>
+      expect(
+        aiStore.getState().settings.vendorSettings.find(entry => entry.vendorId === 'openrouter')
+          ?.autoRouterCostTier
+      ).toBe('high')
+    );
+    // And the strip now shows it, because it renders the store rather than a local copy.
+    expect(screen.getByTestId('chat-cost-tier-label').textContent).toBe('High');
+  });
+
+  it('shows a band written anywhere else, without being told', async () => {
+    // The dialog's half of the same field. Writing it through the store is exactly what
+    // `AutoRouterCostTier` does, and the strip has to follow — that is the "one source of truth"
+    // claim, stated as a test rather than as a comment.
+    await mount(OPENROUTER_SEED);
+    await pinModel('Auto Router (Beta)');
+    expect(screen.getByTestId('chat-cost-tier-label').textContent).toBe('Default');
+
+    await aiStore.getState().setAutoRouterCostTier('openrouter', 'max');
+
+    await waitFor(() => expect(screen.getByTestId('chat-cost-tier-label').textContent).toBe('Max'));
+    expect(savedTier()).toBe('max');
+  });
+
+  it('clears back to no preference rather than to the cheapest band', async () => {
+    await mount(OPENROUTER_SEED);
+    await pinModel('Auto Router (Beta)');
+    await aiStore.getState().setAutoRouterCostTier('openrouter', 'max');
+    await waitFor(() => expect(screen.getByTestId('chat-cost-tier-label').textContent).toBe('Max'));
+
+    await userEvent.click(screen.getByTestId('chat-cost-tier-trigger'));
+    await userEvent.click(await screen.findByTestId('chat-cost-tier-unset'));
+
+    // `undefined`, not `'low'`: with no preference OpenRouter chooses the band itself.
+    await waitFor(() => expect(savedTier()).toBeUndefined());
+    expect(screen.getByTestId('chat-cost-tier-label').textContent).toBe('Default');
   });
 });
 
