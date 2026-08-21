@@ -290,3 +290,22 @@
 .sl-markdown-content blockquote > :last-child {
   margin-block-end: 0;
 }
+
+/* ── Screenshots (J-99 Phase 3) ─────────────────────────────────────────────────────── */
+
+/*
+ * Every screenshot on the site is captured on the app's INK canvas
+ * (plans/docs-site/PROPOSAL.md §6.3: both canvases for the hero pair, ink alone for the rest), so
+ * on the ivory page canvas a shot is a dark block against a light one. The hairline is the same
+ * rule the h2s and the code frames wear — it gives the block an edge instead of letting it float,
+ * and it is the same treatment in both canvases so there is nothing to swap.
+ *
+ * `max-width: 100%` is Starlight's already; the value here is the border, the radius, and killing
+ * the inline-element baseline gap under the image.
+ */
+.sl-markdown-content img {
+  display: block;
+  height: auto;
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: var(--sl-border-radius);
+}

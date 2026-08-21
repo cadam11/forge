@@ -15,6 +15,8 @@ disagrees fails the build.
 
 ## What it shows
 
+![The keyboard shortcuts sheet: bindings laid out in two columns under group headings such as File and tabs, Query, Editor and View, each row giving a command name, its source — Menu, App or Editor — and its keystroke.](../../../assets/screenshots/keyboard-shortcuts-dark.png)
+
 **28 rows** — the 27 commands that carry a keystroke, plus the palette's own opener, which belongs
 to no command. They are grouped the same eight ways the palette groups its entries, and empty groups
 are not drawn.

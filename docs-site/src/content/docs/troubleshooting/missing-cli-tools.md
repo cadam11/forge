@@ -25,6 +25,8 @@ cases where following them does not appear to work.
 
 ## What the view is telling you
 
+![The backup wizard on a PostgreSQL connection with no client tools on PATH: a warning heading, a probe list marking pg_dump and pg_restore missing, and a numbered install sequence with copy buttons where the form would be.](../../../assets/screenshots/missing-cli-tools-dark.png)
+
 The setup view lists **every tool that was probed**, marks each _found_ or _missing_, and prints
 the version string of the ones it found. Read that list before anything else — it is the
 difference between "neither tool is installed" and "`pg_dump` is there but `pg_restore` is not",

@@ -28,6 +28,8 @@ dialog.
 
 ## Appearance
 
+![The settings dialog on its Appearance tab, with Editor, Query, Results grid and AI beside it: the Theme radios — System, Ink and Ivory, each with a one-line explanation — Ink selected, a line naming how the choice currently resolves, and Reset to defaults along the foot.](../../../assets/screenshots/settings-appearance-dark.png)
+
 | Setting | Default | What it changes                                                                               |
 | ------- | ------- | --------------------------------------------------------------------------------------------- |
 | Theme   | System  | **System**, **Ink** (the dark canvas) or **Ivory** (the light one), applied to the whole app. |

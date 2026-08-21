@@ -15,6 +15,8 @@ different kind of connection.
 The connection editor's last section is **SSH tunnel**, with a single checkbox: **Connect
 through an SSH tunnel**. Tick it and six more fields appear.
 
+![The connection editor scrolled to its SSH tunnel section, the checkbox ticked: SSH host and port, SSH username, SSH authentication set to Private key, and the private key path and passphrase fields below it.](../../../assets/screenshots/connect-ssh-dark.png)
+
 | Field                 | Default  | Notes                                                           |
 | --------------------- | -------- | --------------------------------------------------------------- |
 | SSH host              | —        | The bastion's hostname or IP, e.g. `bastion.example.com`        |

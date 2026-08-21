@@ -43,6 +43,8 @@ list of forty columns.
 The tree is virtualised — only the rows in view exist in the page — so a server with hundreds of
 databases costs the same as one with two.
 
+![The Explorer sidebar: the connection and database pickers at the top, then a tree expanded from server to database to schema to Tables, four tables listed with the folder's child count beside it, and the Views, Stored Procedures and Functions folders still collapsed.](../../../assets/screenshots/object-explorer-dark.png)
+
 ### Clicking and typing
 
 | Input            | Effect                                                                  |
@@ -65,6 +67,8 @@ Double-clicking a **table** opens its object tab, not just its twisty. That tab 
 Indexes and Keys sections; views, procedures and functions get a **Definition** section instead of
 (or as well as) those. A table has no definition to fetch — _Script Table as CREATE_ is how you get
 its DDL.
+
+![A table's object tab, headed public.products, on its Columns section: Columns, Indexes and Keys tabs each carrying a count, and one row per column giving name, type, nullability, key role, default and what it references.](../../../assets/screenshots/object-detail-dark.png)
 
 ## The right-click menus
 

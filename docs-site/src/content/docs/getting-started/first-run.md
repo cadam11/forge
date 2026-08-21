@@ -10,6 +10,8 @@ is entirely made of doors.
 
 ## The welcome tab
 
+![Joinery on first run: a positioning line above the Fit a connection and See how it joins buttons, with the four numbered cards — Connect, Understand, Query, Verify — laid out beneath them.](../../../assets/screenshots/hero-welcome-dark.png)
+
 **The hero.** The positioning line, and two buttons:
 
 - **Fit a connection** opens the connection editor. This is the main path — pick it and continue

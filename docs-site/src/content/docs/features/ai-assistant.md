@@ -8,6 +8,12 @@ sidebar:
 The assistant is a chat surface that can read your schema, run queries and explain what comes back.
 It needs a provider with an API key first — see [AI setup](../ai-setup/).
 
+![The assistant panel: the connection and database named under the conversation title, a question, an answer with the SQL it ran in a copyable block, the resulting table, and a caveat about where the numbers came from.](../../../assets/screenshots/hero-ai-assistant-dark.png)
+
+That transcript is a fixture, not a recording: the screenshot tooling seeds a conversation into the
+panel rather than calling a model, so nothing in these docs depends on what a vendor happened to
+reply on the day the shot was taken.
+
 ## Two places it lives
 
 **⇧⌘I** toggles the assistant as a **side panel**. ⌘K ▸ _Open assistant as a tab_ opens a

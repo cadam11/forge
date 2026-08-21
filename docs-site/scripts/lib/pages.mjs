@@ -38,6 +38,24 @@ export const GENERATED_PAGES = {
   aiProviders: 'reference/ai-providers.md',
 };
 
+/**
+ * The committed screenshots a generated page embeds, as finished Markdown.
+ *
+ * These are the ONLY part of a generated page that is not derived from the app's source: the
+ * images come from `docs-site/src/assets/screenshots/` (captured by `pnpm run docs:shots`, declared
+ * in `tests/docs-shots/catalogue.ts`), and the catalogue already maps each shot to the pages that
+ * want it. They live here rather than in the pages because these two files are generated and must
+ * not be hand-edited — J-99 Phase 3.
+ *
+ * Paths are relative to `src/content/docs/reference/`, which is where both pages are written.
+ */
+const SHOT = {
+  keyboardShortcuts:
+    '![The keyboard shortcuts sheet in the app: bindings in two columns under group headings such as File and tabs, Query, Editor and View, each row giving a command name, its source — Menu, App or Editor — and its keystroke.](../../../assets/screenshots/keyboard-shortcuts-dark.png)',
+  aiSetup:
+    '![The AI setup dialog: a provider picker, an API key field with Save key beneath it, a preferred-model picker listing model names only, and the AI features switches below a divider.](../../../assets/screenshots/ai-setup-dark.png)',
+};
+
 /** A short, stable digest of exactly the data a page renders. */
 function digest(data) {
   return createHash('sha256').update(JSON.stringify(data)).digest('hex').slice(0, 12);
@@ -143,6 +161,11 @@ function shortcutsPage(sources) {
       "keystroke. With the command palette's own opener — which belongs to no command — that is",
       `**${rows.length} rows**, the same set the in-app cheat sheet shows under **⇧⌘/**.`
     ),
+    '',
+    // The cheat sheet this table is generated alongside. Static: the shot is a committed asset
+    // (`docs-site/src/assets/screenshots/`, captured by `pnpm run docs:shots`), so it is a literal
+    // here rather than anything derived from `sources` — J-99 Phase 3.
+    SHOT.keyboardShortcuts,
     '',
     paragraph(
       'Every binding is listed, not only the primary one: _New connection_ answers to two menu',
@@ -502,6 +525,8 @@ function aiProvidersPage(vendorConfig) {
       'The model picker in AI setup lists model names only; the numbers here are what the shipped',
       'configuration records behind them.'
     ),
+    '',
+    SHOT.aiSetup,
     '',
     '## Providers',
     '',

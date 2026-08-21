@@ -17,6 +17,8 @@ pane.
 Every tab carries **its own connection and database**. Two tabs open against two servers stay
 that way, and the toolbar's context chip shows which is which.
 
+![A query tab in three bands: the toolbar with its connection and database chip, a four-line SELECT in the editor, and the results panel underneath with its Result, Messages, History and Analysis tabs above ten rows of data.](../../../assets/screenshots/hero-query-results-dark.png)
+
 ## Running SQL
 
 Three keystrokes run the editor, and they differ only in what they ask you first.
@@ -78,6 +80,8 @@ open editor immediately. Indentation is always spaces.
 
 Turning autocomplete off stops the suggestion list appearing as you type; ⌃Space still asks for
 it on demand.
+
+![The completion list open after `SELECT * FROM`, offering the connected database's tables qualified by schema, the first row highlighted and labelled Table.](../../../assets/screenshots/query-completions-dark.png)
 
 | Action           | Keys | Also                        |
 | ---------------- | ---- | --------------------------- |

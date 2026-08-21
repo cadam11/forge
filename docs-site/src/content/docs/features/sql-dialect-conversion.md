@@ -20,6 +20,8 @@ Two ways in, and they behave slightly differently.
 _Convert to_ and lists the **two engines that are not this tab's**. The button is only there when the
 tab has a connection, because without one there is no source dialect to convert out of.
 
+![A PostgreSQL query tab with the toolbar's Convert SQL dialect menu open above the statement, headed "Convert to" and offering SQL Server and MySQL — the tab's own engine is not in the list.](../../../assets/screenshots/sql-dialect-conversion-dark.png)
+
 **⌘K** offers all three by name — _Convert SQL to SQL Server_, _Convert SQL to PostgreSQL_, _Convert
 SQL to MySQL_ — because a palette row has no engine to hide. Asking for the one you are already on is
 answered with a sentence rather than a silently missing row: _This tab is already PostgreSQL._

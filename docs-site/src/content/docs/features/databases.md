@@ -30,6 +30,8 @@ picker:
 The picker is not rendered at all on PostgreSQL and MySQL, because a recovery model is a SQL Server
 concept and the field would change nothing on the other two.
 
+![The New database dialog on a PostgreSQL connection: a single Name field with a name typed into it, the letters-numbers-and-underscores rule beneath, and Cancel and Create buttons — no recovery-model picker.](../../../assets/screenshots/create-database-dark.png)
+
 ## Renaming one
 
 A database's right-click menu ▸ **Rename…**. The dialog shows the current name as context, pre-fills

@@ -14,6 +14,8 @@ A statement that returns no rows at all — an `INSERT`, a `CREATE` — lands on
 that returns zero rows lands on its grid, which says so in words rather than showing an empty
 header row.
 
+![The results panel below a query: the Result, Messages, History and Analysis tabs, a row-and-column count with a filter box beside the export controls, and ten rows under sortable, individually filterable column headers.](../../../assets/screenshots/hero-query-results-dark.png)
+
 ## The row cap
 
 **Settings ▸ Query ▸ Maximum rows to fetch** ships at 10,000, and it is enforced in the main
@@ -92,6 +94,8 @@ stays visible and usable beside it the whole time.
 A field expands in place to show an untruncated value plus what the catalogue knows about the
 column — nullability, its default, and what it references. Copy buttons cover one value or the
 whole row.
+
+![The row inspector rail, headed "Row 1 of 10": each column stacked with its name, its SQL type and a pk or id marker above the value, a copy button per field, and Previous and Next along the foot.](../../../assets/screenshots/row-detail-dark.png)
 
 ### Following a foreign key
 

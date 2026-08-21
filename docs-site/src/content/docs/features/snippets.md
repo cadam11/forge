@@ -43,6 +43,8 @@ Each row shows the name (or _Untitled snippet_), its tags, a one-line collapsed 
 capped at 100 characters, and a relative date: _Today_, _Yesterday_, _4d ago_, then a plain date
 past a week.
 
+![The snippet library with one saved snippet: a search box and a New button above a row carrying the snippet's name, its two tags, a one-line preview of its SQL and a relative date, with edit and delete buttons on the right. With no query tab open the row is disabled and says "Open a query tab to insert into".](../../../assets/screenshots/snippets-dark.png)
+
 Deleting is immediate — there is no confirmation and no undo.
 
 ## Where they are stored
