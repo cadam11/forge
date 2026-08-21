@@ -34,6 +34,9 @@ dialog.
 | ------- | ------- | --------------------------------------------------------------------------------------------- |
 | Theme   | System  | **System**, **Ink** (the dark canvas) or **Ivory** (the light one), applied to the whole app. |
 
+The Ink option's own description still calls itself "Joinery's default" — that text predates this
+table and is stale (tracked as J-107); the shipped default is **System**.
+
 **System** follows the operating system, and the control says which way it currently resolves. When
 the app cannot read a system preference at all it paints ink.
 
