@@ -203,5 +203,83 @@ export default defineConfig({
         },
       },
     },
+    // ── The documentation capture tier (J-99 Phase 3) ──────────────────────────
+    //
+    // A CAPTURE project, not a comparison one. Nothing in `tests/docs-shots/`
+    // calls `toHaveScreenshot`; each spec drives the app to one surface and
+    // writes a PNG into `docs-site/src/assets/screenshots/`, which is committed
+    // and consumed by the docs site through Astro's asset pipeline
+    // (`plans/docs-site/PROPOSAL.md` §6.3). So it has no `snapshotDir`, no
+    // baselines and no `--update-snapshots` path — it cannot touch the visual
+    // tier's committed tree above.
+    //
+    // **Why it cannot be more specs in `visual-react`** (§6.1's own reasoning):
+    // the two want OPPOSITE device pixel ratios. That tier pins 1 so its
+    // baselines compare at the size they were captured (the J-21 geometry trap);
+    // the docs want 2 so the images are crisp on retina. The scroller pin is
+    // shared for the reason it exists there — legacy scrollbars take 15 CSS px of
+    // layout width out of every scrolling panel and macOS resolves its default
+    // from the attached pointing device, so unpinned, every panel in every shot
+    // reflows depending on whose desk the capture ran on.
+    //
+    // `contentWidth`/`contentHeight` are the third pin and are this tier's own.
+    // `window.ts` asks for 1400x900, but Electron clamps a window to the work
+    // area of the display it opens on — which is why the visual tier's committed
+    // baselines are 1115x798 rather than 1400x900 — so the size an unpinned
+    // capture gets is a fact about the developer's monitor.
+    // `tests/docs-shots/fixtures.ts` applies these through `setContentSize` and
+    // then asserts the renderer's own `innerWidth`/`innerHeight` agree, so a
+    // clamp or a DIP/CSS-pixel disagreement fails with both numbers named.
+    // 1280x800 fits inside the work area of a 13" MacBook, the smallest display
+    // this is expected to run on; at DPR 2 the files are 2560x1600.
+    //
+    // `timeout` is raised from the root's 60s because several shots build real
+    // state before their capture — a connect, a schema walk, a query and a plan.
+    // Measured on a full run: the slowest passing capture was 45s (the welcome
+    // panel, behind a Docker probe, on a loaded machine), so 120s is ~2.7x the
+    // worst observed and still bounds a hang at two minutes rather than three.
+    //
+    // ── `retries: 1`, and why this tier may have them when no other may ────────
+    //
+    // The root sets `retries: 0` and states the reason: "a retried Electron
+    // launch would hide exactly the flake this suite exists to find". That
+    // reasoning is about the FUNCTIONAL tiers, and it does not transfer here.
+    // This project exists to produce images, not to find flake, and every
+    // capture in it is deterministic by construction — a retry re-produces the
+    // same PNG rather than rolling the dice on an assertion.
+    //
+    // What it is sized against is measured, not hypothetical: a full 29-shot run
+    // on a loaded machine lost two captures to `ElectronApplication.close()`
+    // hanging in `tests/helpers/electron-app.ts`'s teardown — the picture had
+    // already been written in both cases, and both tests passed in 33s when
+    // re-run on a quiet machine. That is a defect in the shared launcher's
+    // teardown under load, it is not this tier's to fix, and losing a 15-minute
+    // capture run to it is a bad trade. Recorded in the J-99 Phase 3 report.
+    //
+    // `teardown` runs the manifest project after the captures, inside the same
+    // `playwright test` invocation, so `pnpm run docs:shots` is one command and
+    // the manifest is never written from a partial set: it fails on any declared
+    // file the run did not produce.
+    {
+      name: 'docs-shots',
+      testDir: './tests/docs-shots',
+      metadata: {
+        deviceScaleFactor: 2,
+        macScrollBarStyle: 'Always',
+        contentWidth: 1280,
+        contentHeight: 800,
+      },
+      timeout: 120_000,
+      retries: 1,
+      teardown: 'docs-shots-manifest',
+    },
+    // The sidecar writer. A SIBLING directory rather than a file inside
+    // `tests/docs-shots/`, for the reason the perf and visual tiers are siblings
+    // too: `docs-shots` discovers by a plain `testDir`, so a nested file would be
+    // swept into the capture run and take a picture of nothing.
+    {
+      name: 'docs-shots-manifest',
+      testDir: './tests/docs-shots-manifest',
+    },
   ],
 });
