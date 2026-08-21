@@ -8,6 +8,11 @@ coverage
 # `astro dev` / `astro build` / `astro check`, gitignored, and full of .json and .d.ts that the
 # root format glob would otherwise sweep up (plans/docs-site/PROPOSAL.md §2.3).
 .astro
+# The documentation screenshot set. `screenshots.manifest.json` is written by the docs-shots
+# Playwright project (`pnpm run docs:shots`), so formatting it here would mean every capture run
+# produced a file the pre-commit hook immediately rewrote — churn with no reader.
+docs-site/src/assets/screenshots
+
 pnpm-lock.yaml
 *.min.js
 *.min.css
