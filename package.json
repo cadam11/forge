@@ -33,6 +33,8 @@
     "test:visual:react": "playwright test --project=visual-react",
     "pretest:perf:react": "pnpm run build",
     "test:perf:react": "playwright test --project=perf-react",
+    "predocs:shots": "pnpm run build",
+    "docs:shots": "node -e \"require('node:fs').rmSync('tests/reports/.cache/docs-shots-records',{recursive:true,force:true})\" && playwright test --project=docs-shots",
     "test:e2e:react:ui": "playwright test --project=e2e-react --ui",
     "test:e2e:react:live": "JOINERY_LIVE_REPORTER_URL=http://127.0.0.1:5188/_event playwright test --project=e2e-react",
     "test:visual:react:live": "JOINERY_LIVE_REPORTER_URL=http://127.0.0.1:5188/_event playwright test --project=visual-react",

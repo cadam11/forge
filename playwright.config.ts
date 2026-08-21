@@ -4,11 +4,15 @@ import { defineConfig } from '@playwright/test';
 //
 // Each test launches its own Electron instance via tests/helpers/electron-app.ts.
 //
-// Three projects, one per tier, each with its own testDir:
+// Five projects, each with its own testDir:
 //   - e2e-react: functional specs (tests/e2e-react/)
 //   - perf-react: the slow-by-construction performance specs (tests/e2e-react-perf/)
 //   - visual-react: snapshot baselines, with the two host variables pinned —
 //     device pixel ratio and macOS scroller style (tests/e2e-react-visual/)
+//   - docs-shots: the documentation CAPTURE tier (tests/docs-shots/) — it writes
+//     PNGs for the docs site and has no baselines at all; see its own block below
+//   - docs-shots-manifest: docs-shots' `teardown`, which records the set
+//     (tests/docs-shots-manifest/)
 //
 // Each has a `pnpm run test:*:react` script so the static report and the live
 // dashboard can show them as distinct tiers.
@@ -202,6 +206,90 @@ export default defineConfig({
           threshold: 0.2,
         },
       },
+    },
+    // ── The documentation capture tier (J-99 Phase 3) ──────────────────────────
+    //
+    // A CAPTURE project, not a comparison one. Nothing in `tests/docs-shots/`
+    // calls `toHaveScreenshot`; each spec drives the app to one surface and
+    // writes a PNG into `docs-site/src/assets/screenshots/`, which is committed
+    // and consumed by the docs site through Astro's asset pipeline
+    // (`plans/docs-site/PROPOSAL.md` §6.3). So it has no `snapshotDir`, no
+    // baselines and no `--update-snapshots` path — it cannot touch the visual
+    // tier's committed tree above.
+    //
+    // **Why it cannot be more specs in `visual-react`** (§6.1's own reasoning):
+    // the two want OPPOSITE device pixel ratios. That tier pins 1 so its
+    // baselines compare at the size they were captured (the J-21 geometry trap);
+    // the docs want 2 so the images are crisp on retina. The scroller pin is
+    // shared for the reason it exists there — legacy scrollbars take 15 CSS px of
+    // layout width out of every scrolling panel and macOS resolves its default
+    // from the attached pointing device, so unpinned, every panel in every shot
+    // reflows depending on whose desk the capture ran on.
+    //
+    // `contentWidth`/`contentHeight` are the third pin and are this tier's own.
+    // `window.ts` asks for 1400x900, but Electron clamps a window to the work
+    // area of the display it opens on — which is why the visual tier's committed
+    // baselines are 1115x798 rather than 1400x900 — so the size an unpinned
+    // capture gets is a fact about the developer's monitor.
+    // `tests/docs-shots/fixtures.ts` applies these through `setContentSize` and
+    // then asserts the renderer's own `innerWidth`/`innerHeight` agree, so a
+    // clamp or a DIP/CSS-pixel disagreement fails with both numbers named.
+    // 1280x800 fits inside the work area of a 13" MacBook, the smallest display
+    // this is expected to run on; at DPR 2 the files are 2560x1600.
+    //
+    // `timeout` is raised from the root's 60s because several shots build real
+    // state before their capture — a connect, a schema walk, a query and a plan.
+    // Sized from measurement rather than taste: on a host whose load average sat
+    // between 120 and 220, the slowest LEGITIMATELY passing captures were 1.7m
+    // (object search) and 1.2m (the welcome panel behind a Docker probe). 120s
+    // was below both and turned a slow machine into a red run, so the bound is
+    // 150s — above every honest measurement, and still short enough that a wedged
+    // launch is reported in two and a half minutes rather than never.
+    //
+    // ── `retries: 2`, and why this tier may have them when no other may ────────
+    //
+    // The root sets `retries: 0` and states the reason: "a retried Electron
+    // launch would hide exactly the flake this suite exists to find". That
+    // reasoning is about the FUNCTIONAL tiers, and it does not transfer here.
+    // This project exists to produce images, not to find flake, and every
+    // capture in it is deterministic by construction — a retry re-produces the
+    // same PNG rather than rolling the dice on an assertion.
+    //
+    // What it is sized against is measured, not hypothetical:
+    // `ElectronApplication.close()` in the shared launcher can hang without
+    // bound, and on a host at load 120-220 it cost this task more than a dozen
+    // tests across its runs — the picture written, the test red. That is a defect
+    // in `tests/helpers/electron-app.ts`'s teardown, it is not this tier's to fix
+    // (ticketed in the J-99 Phase 3 report), and losing a whole capture run to it
+    // is a bad trade. `tests/docs-shots/fixtures.ts` now ends the process itself
+    // in a bounded three-stage teardown, which should remove the hang; `2` rather
+    // than `1` is the belt to that braces, because a run where BOTH attempts hung
+    // is exactly what was observed before the teardown was made a guarantee.
+    //
+    // `teardown` runs the manifest project after the captures, inside the same
+    // `playwright test` invocation, so `pnpm run docs:shots` is one command and
+    // the manifest is never written from a partial set: it fails on any declared
+    // file the run did not produce.
+    {
+      name: 'docs-shots',
+      testDir: './tests/docs-shots',
+      metadata: {
+        deviceScaleFactor: 2,
+        macScrollBarStyle: 'Always',
+        contentWidth: 1280,
+        contentHeight: 800,
+      },
+      timeout: 150_000,
+      retries: 2,
+      teardown: 'docs-shots-manifest',
+    },
+    // The sidecar writer. A SIBLING directory rather than a file inside
+    // `tests/docs-shots/`, for the reason the perf and visual tiers are siblings
+    // too: `docs-shots` discovers by a plain `testDir`, so a nested file would be
+    // swept into the capture run and take a picture of nothing.
+    {
+      name: 'docs-shots-manifest',
+      testDir: './tests/docs-shots-manifest',
     },
   ],
 });
