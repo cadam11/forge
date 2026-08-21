@@ -38,7 +38,7 @@ An estimate-only plan on SQL Server is not available yet.
 
 ## Reading the plan
 
-![A PostgreSQL estimated plan for a two-table join, opened on the Plan tab: a total cost in the header, then Sort, Hash Join and Seq Scan rows, each with its cost range, estimated rows and a cost-share bar, and a warning marker on the sequential scan.](../../../assets/screenshots/execution-plan-dark.png)
+![A PostgreSQL estimated plan for a two-table join, opened on the Plan tab: a total cost in the header, then Sort, Hash Join and Seq Scan rows, each with its cost range, estimated rows and a cost-share bar, and the sequential-scan glyph on the `orders` scan.](../../../assets/screenshots/execution-plan-dark.png)
 
 The pane's header says **Estimated plan** or **Actual plan** first, because they are different
 claims, then the plan's total cost — and, on PostgreSQL, the planning and execution times when the

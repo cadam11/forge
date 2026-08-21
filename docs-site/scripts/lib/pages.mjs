@@ -53,7 +53,7 @@ const SHOT = {
   keyboardShortcuts:
     '![The keyboard shortcuts sheet in the app: bindings in two columns under group headings such as File and tabs, Query, Editor and View, each row giving a command name, its source — Menu, App or Editor — and its keystroke.](../../../assets/screenshots/keyboard-shortcuts-dark.png)',
   aiSetup:
-    '![The AI setup dialog: a provider picker, an API key field with Save key beneath it, a preferred-model picker listing model names only, and the AI features switches below a divider.](../../../assets/screenshots/ai-setup-dark.png)',
+    '![The AI setup dialog: a provider picker, an API key field with Save key beneath it, a preferred-model picker, a "Use this provider" switch, and the AI features switches below a divider.](../../../assets/screenshots/ai-setup-dark.png)',
 };
 
 /** A short, stable digest of exactly the data a page renders. */

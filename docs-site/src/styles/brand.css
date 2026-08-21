@@ -300,12 +300,10 @@
  * rule the h2s and the code frames wear — it gives the block an edge instead of letting it float,
  * and it is the same treatment in both canvases so there is nothing to swap.
  *
- * `max-width: 100%` is Starlight's already; the value here is the border, the radius, and killing
- * the inline-element baseline gap under the image.
+ * Starlight already sets `max-width: 100%; height: auto; display: block` on markdown images —
+ * only the border and radius here are load-bearing.
  */
 .sl-markdown-content img {
-  display: block;
-  height: auto;
   border: 1px solid var(--sl-color-hairline);
   border-radius: var(--sl-border-radius);
 }

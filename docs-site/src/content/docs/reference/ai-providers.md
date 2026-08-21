@@ -40,7 +40,7 @@ in AI setup, and override it for a single message in the composer.
 The model picker in AI setup lists model names only; the numbers here are what the shipped
 configuration records behind them.
 
-![The AI setup dialog: a provider picker, an API key field with Save key beneath it, a preferred-model picker listing model names only, and the AI features switches below a divider.](../../../assets/screenshots/ai-setup-dark.png)
+![The AI setup dialog: a provider picker, an API key field with Save key beneath it, a preferred-model picker, a "Use this provider" switch, and the AI features switches below a divider.](../../../assets/screenshots/ai-setup-dark.png)
 
 ## Providers
 

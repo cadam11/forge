@@ -21,7 +21,7 @@ page to skim first.
 └──────────────────────────────────────────────────────────┘
 ```
 
-![The same five regions in the running app: the explorer tree down the left, a query tab in the middle with SQL above and a populated results grid below, and the status bar along the bottom.](../../../assets/screenshots/hero-workspace-dark.png)
+![Four of those five regions in the running app — the assistant panel is closed here; ⇧⌘I opens it — the explorer tree down the left, a query tab in the middle with SQL above and a populated results grid below, and the status bar along the bottom.](../../../assets/screenshots/hero-workspace-dark.png)
 
 ## The sidebar
 
