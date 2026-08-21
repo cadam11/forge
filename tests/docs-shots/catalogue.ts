@@ -33,9 +33,22 @@
  * (`tests/e2e-react-visual/overlays.spec.ts` header). `troubleshooting/docker-not-detected.md`
  * therefore gets no picture until `docker.detect` has a deterministic container source behind it.
  *
- * **Anything that needs an LLM.** No tier in this repo calls one (`tests/helpers/react/chat.ts`
- * states the rule), so the assistant is documented in the two states that are real without a key.
- * A streamed-transcript shot belongs with whatever task builds a provider fake.
+ * **A LIVE AI transcript.** No tier in this repo calls an LLM (`tests/helpers/react/chat.ts` states
+ * the rule) and this one does not become the first. `hero-ai-assistant` shows a conversation seeded
+ * into the launch's own user-data directory — real component, fixture content, no request — and its
+ * `surface` string says so. A *streamed* transcript, mid-answer, still needs a provider fake and
+ * still belongs to whatever task builds one.
+ *
+ * **A converted statement.** `sql-dialect-conversion` captures the toolbar's menu rather than its
+ * output, because the conversion shells out to Python + sqlglot: a shot of the result would be a
+ * picture of whether the capturing machine had that installed.
+ *
+ * **`troubleshooting/docker-not-detected`, `troubleshooting/credentials-and-keychain` and
+ * `troubleshooting/sql-conversion-and-python`.** The first is the Docker panel, above. The other two
+ * document failures that need a broken host to reproduce — a locked keychain, a missing interpreter
+ * — and neither has a surface that a fixture can put on screen honestly. `missing-cli-tools` is the
+ * one troubleshooting page whose failure IS reproducible from a fixture (a stripped `PATH`), and it
+ * has a shot.
  */
 
 /** The two canvases. Named after `[data-theme]`; the UI calls them Ink and Ivory. */
@@ -106,7 +119,8 @@ export const DOCS_SHOTS: readonly DocsShot[] = [
   },
   {
     name: 'hero-ai-assistant',
-    surface: 'The AI assistant panel with a conversation and the conversation list open',
+    surface:
+      'The AI assistant panel showing a seeded demo conversation (fixture content, no LLM called)',
     themes: HERO_THEMES,
     pages: ['features/ai-assistant', 'README'],
   },
@@ -148,7 +162,19 @@ export const DOCS_SHOTS: readonly DocsShot[] = [
     name: 'object-detail',
     surface: "A table's object-detail panel, columns section",
     themes: PAGE_THEMES,
-    pages: ['features/object-explorer', 'features/databases'],
+    pages: ['features/object-explorer'],
+  },
+  {
+    name: 'create-database',
+    surface: 'The create-database dialog, name entered',
+    themes: PAGE_THEMES,
+    pages: ['features/databases'],
+  },
+  {
+    name: 'sql-dialect-conversion',
+    surface: 'The query toolbar’s dialect conversion menu, open over a statement',
+    themes: PAGE_THEMES,
+    pages: ['features/sql-dialect-conversion'],
   },
   {
     name: 'query-completions',
@@ -215,6 +241,12 @@ export const DOCS_SHOTS: readonly DocsShot[] = [
     surface: 'The restore wizard at its overwrite confirmation',
     themes: PAGE_THEMES,
     pages: ['features/backup-and-restore'],
+  },
+  {
+    name: 'missing-cli-tools',
+    surface: 'The backup wizard when pg_dump is not on PATH, showing the setup instructions',
+    themes: PAGE_THEMES,
+    pages: ['troubleshooting/missing-cli-tools', 'getting-started/prerequisites'],
   },
   {
     name: 'ai-setup',

@@ -22,7 +22,15 @@
 
 import { expect, type Page } from '@playwright/test';
 
-import { blurFocus, capture, test, withDocsApp } from './fixtures';
+import {
+  assertFullyFramed,
+  blurFocus,
+  capture,
+  scrollToFrameTop,
+  scrollToTop,
+  test,
+  withDocsApp,
+} from './fixtures';
 import { PAGE_THEMES } from './catalogue';
 import {
   TEST_MYSQL,
@@ -91,17 +99,31 @@ async function fillSqlServerForm(window: Page, profileName: string): Promise<voi
 }
 
 /**
- * Put the editor's scroll position back at the top before the picture is taken.
+ * Put the editor's scroll position back at the very top, and prove the first field is not clipped.
+ *
+ * ── The bug this replaces, because "scroll to the top" is not what the first version did ────────
  *
  * Filling a field scrolls it into view, so an editor photographed straight after the last `fill` is
- * scrolled to wherever that field was — which clipped the "Connection name" label off the top of the
- * first capture of these three. The engine-specific pages want the form from its first field down,
- * so the scroll position is set rather than inherited from the order the test typed in.
+ * scrolled to wherever that field was. The first fix called `scrollIntoViewIfNeeded()` on the
+ * connection-name input — and that scrolls the MINIMUM distance to reveal the *input*, which leaves
+ * its own `<label>` above the top edge of the scroll box. All four Getting Started ▸ Connect shots
+ * shipped with a horizontally bisected first label (review M3): "Connection name" sliced in half on
+ * two of them, "Database engine" on a third, the colour-swatch row on the fourth.
+ *
+ * `scrollToTop` sets every scrolling box in the dialog back to zero instead, which is the property
+ * the comment always claimed. The assertion is the other half: a label clipped by an ancestor's
+ * `overflow` is still `toBeVisible` as far as Playwright is concerned — visibility is about layout
+ * and opacity, not about being inside the box that will be photographed — so nothing the tier had
+ * before would have caught this. `assertFullyFramed` compares the boxes.
  */
-async function scrollEditorToTop(window: Page): Promise<void> {
-  await connectionEditor(window)
-    .getByLabel('Connection name', { exact: true })
-    .scrollIntoViewIfNeeded();
+async function frameEditorFromTheTop(window: Page, firstLabel: string): Promise<void> {
+  const editor = connectionEditor(window);
+  await scrollToTop(editor);
+  await assertFullyFramed(
+    editor.getByText(firstLabel, { exact: true }),
+    editor,
+    `the connection editor's "${firstLabel}" label`
+  );
 }
 
 for (const theme of PAGE_THEMES) {
@@ -111,7 +133,7 @@ for (const theme of PAGE_THEMES) {
         const editor = await openConnectionEditor(window);
         await fillPostgresForm(window, 'Local Postgres');
         await expect(editor.getByLabel('Server', { exact: true })).toHaveValue(TEST_PG.host);
-        await scrollEditorToTop(window);
+        await frameEditorFromTheTop(window, 'Database engine');
         await blurFocus(window);
         await capture(
           editor,
@@ -129,7 +151,7 @@ for (const theme of PAGE_THEMES) {
         await expect(editor.getByLabel('Port', { exact: true })).toHaveValue(
           String(TEST_MYSQL.port)
         );
-        await scrollEditorToTop(window);
+        await frameEditorFromTheTop(window, 'Database engine');
         await blurFocus(window);
         await capture(
           editor,
@@ -147,7 +169,7 @@ for (const theme of PAGE_THEMES) {
         await expect(editor.getByLabel('Port', { exact: true })).toHaveValue(
           String(TEST_MSSQL.port)
         );
-        await scrollEditorToTop(window);
+        await frameEditorFromTheTop(window, 'Database engine');
         await blurFocus(window);
         await capture(
           editor,
@@ -178,8 +200,16 @@ for (const theme of PAGE_THEMES) {
 
         // The tunnel fields are below the fold of a filled editor, and an element screenshot frames
         // the element's visible box — so without this the shot is of the part of the form the page
-        // is NOT about.
-        await editor.getByTestId('connection-ssh-host').scrollIntoViewIfNeeded();
+        // is NOT about. The SECTION's own top edge is put at the frame's top edge rather than
+        // scrolling a field into view, which is what left this shot opening on a sliced colour-swatch
+        // row (review M3).
+        const section = editor.getByTestId('connection-section-ssh');
+        await scrollToFrameTop(section);
+        await assertFullyFramed(
+          section.getByText('SSH tunnel', { exact: true }),
+          editor,
+          "the connection editor's SSH tunnel heading"
+        );
         await blurFocus(window);
         await capture(
           editor,

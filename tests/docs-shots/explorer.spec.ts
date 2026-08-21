@@ -31,6 +31,7 @@ import {
   erdPanel,
   expandTreeRow,
   objectDetailRows,
+  openNodeMenu,
   openObjectDetail,
   openObjectSection,
   openRelationships,
@@ -88,6 +89,30 @@ for (const theme of PAGE_THEMES) {
           theme,
           "A table's object-detail panel, columns section"
         );
+      });
+    });
+
+    test('creating a database', async () => {
+      await withDocsApp(theme, async ({ window }) => {
+        await openTableList(window);
+
+        // The picture `features/databases` needs. It used to be pointed at `object-detail`, which is
+        // a table's column list — a mis-mapping that would have sent the page-integration task to
+        // the wrong image (review m4). This is the create/rename dialog that page documents.
+        const menu = await openNodeMenu(window, PROFILE);
+        await menu.getByTestId('sidebar-menu-new-database').click();
+        const dialog = window.getByTestId('create-database-dialog');
+        await expect(dialog).toBeVisible();
+
+        // Filled but NEVER submitted — the assertion below is what makes that a checked claim rather
+        // than a hope, and it is why this shot leaves no database behind on the shared container.
+        await window.getByTestId('database-name-input').fill('analytics_staging');
+        await expect(window.getByTestId('database-dialog-submit')).toBeEnabled();
+        await blurFocus(window);
+
+        await capture(dialog, 'create-database', theme, 'The create-database dialog, name entered');
+
+        await expect(dialog).toBeVisible();
       });
     });
   });

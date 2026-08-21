@@ -1,0 +1,5 @@
+{
+  "$comment": "Which commit `pnpm run docs:shots` last ran against. Churns on every capture by design — screenshots.manifest.json is the artefact that must not.",
+  "gitSha": "4a0101d79f8e4d7e049204daf98b4dc9abb06187",
+  "gitDirty": true
+}

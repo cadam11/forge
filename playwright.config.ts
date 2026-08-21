@@ -4,11 +4,15 @@ import { defineConfig } from '@playwright/test';
 //
 // Each test launches its own Electron instance via tests/helpers/electron-app.ts.
 //
-// Three projects, one per tier, each with its own testDir:
+// Five projects, each with its own testDir:
 //   - e2e-react: functional specs (tests/e2e-react/)
 //   - perf-react: the slow-by-construction performance specs (tests/e2e-react-perf/)
 //   - visual-react: snapshot baselines, with the two host variables pinned —
 //     device pixel ratio and macOS scroller style (tests/e2e-react-visual/)
+//   - docs-shots: the documentation CAPTURE tier (tests/docs-shots/) — it writes
+//     PNGs for the docs site and has no baselines at all; see its own block below
+//   - docs-shots-manifest: docs-shots' `teardown`, which records the set
+//     (tests/docs-shots-manifest/)
 //
 // Each has a `pnpm run test:*:react` script so the static report and the live
 // dashboard can show them as distinct tiers.
@@ -235,11 +239,14 @@ export default defineConfig({
     //
     // `timeout` is raised from the root's 60s because several shots build real
     // state before their capture — a connect, a schema walk, a query and a plan.
-    // Measured on a full run: the slowest passing capture was 45s (the welcome
-    // panel, behind a Docker probe, on a loaded machine), so 120s is ~2.7x the
-    // worst observed and still bounds a hang at two minutes rather than three.
+    // Sized from measurement rather than taste: on a host whose load average sat
+    // between 120 and 220, the slowest LEGITIMATELY passing captures were 1.7m
+    // (object search) and 1.2m (the welcome panel behind a Docker probe). 120s
+    // was below both and turned a slow machine into a red run, so the bound is
+    // 150s — above every honest measurement, and still short enough that a wedged
+    // launch is reported in two and a half minutes rather than never.
     //
-    // ── `retries: 1`, and why this tier may have them when no other may ────────
+    // ── `retries: 2`, and why this tier may have them when no other may ────────
     //
     // The root sets `retries: 0` and states the reason: "a retried Electron
     // launch would hide exactly the flake this suite exists to find". That
@@ -248,13 +255,16 @@ export default defineConfig({
     // capture in it is deterministic by construction — a retry re-produces the
     // same PNG rather than rolling the dice on an assertion.
     //
-    // What it is sized against is measured, not hypothetical: a full 29-shot run
-    // on a loaded machine lost two captures to `ElectronApplication.close()`
-    // hanging in `tests/helpers/electron-app.ts`'s teardown — the picture had
-    // already been written in both cases, and both tests passed in 33s when
-    // re-run on a quiet machine. That is a defect in the shared launcher's
-    // teardown under load, it is not this tier's to fix, and losing a 15-minute
-    // capture run to it is a bad trade. Recorded in the J-99 Phase 3 report.
+    // What it is sized against is measured, not hypothetical:
+    // `ElectronApplication.close()` in the shared launcher can hang without
+    // bound, and on a host at load 120-220 it cost this task more than a dozen
+    // tests across its runs — the picture written, the test red. That is a defect
+    // in `tests/helpers/electron-app.ts`'s teardown, it is not this tier's to fix
+    // (ticketed in the J-99 Phase 3 report), and losing a whole capture run to it
+    // is a bad trade. `tests/docs-shots/fixtures.ts` now ends the process itself
+    // in a bounded three-stage teardown, which should remove the hang; `2` rather
+    // than `1` is the belt to that braces, because a run where BOTH attempts hung
+    // is exactly what was observed before the teardown was made a guarantee.
     //
     // `teardown` runs the manifest project after the captures, inside the same
     // `playwright test` invocation, so `pnpm run docs:shots` is one command and
@@ -269,8 +279,8 @@ export default defineConfig({
         contentWidth: 1280,
         contentHeight: 800,
       },
-      timeout: 120_000,
-      retries: 1,
+      timeout: 150_000,
+      retries: 2,
       teardown: 'docs-shots-manifest',
     },
     // The sidecar writer. A SIBLING directory rather than a file inside

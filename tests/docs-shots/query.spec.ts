@@ -224,5 +224,41 @@ for (const theme of PAGE_THEMES) {
         await expect(queryEditor(window)).toBeVisible();
       });
     });
+
+    test('the dialect conversion menu', async () => {
+      await withDocsApp(theme, async ({ window }) => {
+        await connectAndSelect(window);
+        await openQueryTab(window);
+        await typeSql(window, LIST_PRODUCTS);
+        await dismissToasts(window);
+        await blurFocus(window);
+
+        // The MENU rather than a converted tab, and that is a determinism decision as much as a
+        // framing one: the conversion itself shells out to Python + sqlglot
+        // (`getting-started/prerequisites`), so a shot of its output would be a picture of whether
+        // the capturing machine had that installed. The menu is what the feature page has to show a
+        // reader anyway — where the control is, and which dialects it offers.
+        await window.getByTestId('query-convert').click();
+        const menu = window.getByRole('menu');
+        await expect(menu).toBeVisible();
+        // Connected to PostgreSQL, so the list is the other two engines: the toolbar omits the
+        // current one (`query-toolbar.tsx:214`).
+        await expect(window.getByTestId('query-convert-mssql')).toBeVisible();
+        await expect(window.getByTestId('query-convert-mysql')).toBeVisible();
+        await expect(window.getByTestId('query-convert-postgresql')).toHaveCount(0);
+
+        // The whole window: a portalled dropdown is not inside `query-panel`, and the picture has to
+        // show which toolbar button opened it.
+        await capture(
+          window,
+          'sql-dialect-conversion',
+          theme,
+          'The query toolbar’s dialect conversion menu, open over a statement'
+        );
+
+        // Nothing was converted: no second tab, and the menu is still the menu.
+        await expect(menu).toBeVisible();
+      });
+    });
   });
 }

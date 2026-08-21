@@ -36,5 +36,13 @@ export interface ShotRecord {
   readonly spec: string;
   readonly viewport: { readonly width: number; readonly height: number };
   readonly deviceScaleFactor: number;
+  /**
+   * The PNG's own pixel dimensions, read from its IHDR chunk.
+   *
+   * Not derivable from `viewport` x `deviceScaleFactor`: only the two full-window shots are the size
+   * of the window, and the rest are elements ranging from 560x1468 to 2560x1600.
+   */
+  readonly width: number;
+  readonly height: number;
   readonly bytes: number;
 }

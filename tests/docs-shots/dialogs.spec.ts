@@ -18,18 +18,21 @@
  *     nothing.
  */
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 
 import { blurFocus, capture, expect, test, withDocsApp } from './fixtures';
 import { PAGE_THEMES } from './catalogue';
 import {
+  CONNECT_TIMEOUT_MS,
   TEST_MYSQL,
+  backupDialog,
   connectFromSidebar,
   createAndConnectMysql,
   createPostgresProfile,
   dismissToasts,
   ensureJoineryTestSeeded,
   fillRestoreForm,
+  missingCliTools,
   openBackupDialog,
   openRestoreDialog,
   openSchemaDiffFromNode,
@@ -69,6 +72,15 @@ const RESTORE_SOURCE = `${FIXTURE_DIR}/joinery_test.dump`;
  */
 const DIFF_TARGET = 'joinery_docs_target';
 
+/**
+ * `PATH` with `/opt/homebrew/*` removed — where `pg_dump` and `pg_restore` live in dev — but the
+ * system bins kept so Electron itself still launches.
+ *
+ * Lifted from `tests/e2e-react/backup-cli-deps.spec.ts`, which documents it: macOS-only, which
+ * matches this tier (the scroller pin is a Cocoa argument domain).
+ */
+const RESTRICTED_PATH = '/usr/bin:/bin:/usr/sbin:/sbin';
+
 async function withMysql<T>(fn: (conn: mysql.Connection) => Promise<T>): Promise<T> {
   const conn = await mysql.createConnection({
     host: TEST_MYSQL.host,
@@ -106,6 +118,12 @@ test.afterAll(async () => {
   await withMysql(conn => conn.query(`DROP DATABASE IF EXISTS \`${DIFF_TARGET}\``));
 });
 
+// Symmetry with the two `beforeAll`s above: the comparison target is dropped, so the placeholder
+// archive is removed too rather than left in `/tmp` for the next developer to find (review n12).
+test.afterAll(() => {
+  rmSync(FIXTURE_DIR, { recursive: true, force: true });
+});
+
 for (const theme of PAGE_THEMES) {
   test.describe(`docs shots — dialogs, ${theme}`, () => {
     test('the settings panel, appearance', async () => {
@@ -134,7 +152,8 @@ for (const theme of PAGE_THEMES) {
 
         const dialog = await openBackupDialog(window);
         // Without `pg_dump` the wizard renders its remediation view instead, and this shot would
-        // silently become a picture of that. Asserted, so a missing tool is reported as one.
+        // silently become a picture of that. Asserted, so a missing tool is reported as one — and
+        // the shot below is the deliberate capture of the same view.
         await expect(window.getByTestId('missing-cli-tools')).toHaveCount(0);
 
         const path = dialog.getByTestId('backup-path');
@@ -207,6 +226,48 @@ for (const theme of PAGE_THEMES) {
         // Nothing was generated: the dialog is still the dialog, not a query tab.
         await expect(schemaDiffDialog(window)).toBeVisible();
       });
+    });
+
+    test('the missing-CLI-tools remediation view', async () => {
+      // The picture `troubleshooting/missing-cli-tools` needs, and the only shot in the set that
+      // perturbs the host. The mechanism is `tests/e2e-react/backup-cli-deps.spec.ts`'s and is the
+      // only one that works: launch with `PATH` stripped of the directories the brew-installed
+      // tools live in, so the main process's own probe genuinely fails. Nothing is stubbed — the
+      // view in the image is the one a user without `pg_dump` really sees.
+      //
+      // Deterministic and fixture-free: the card lists tool names and install commands from
+      // `packages/main`, not from the host.
+      await withDocsApp(
+        theme,
+        async ({ window }) => {
+          // The `pg` driver is JavaScript, so connecting is unaffected by the stripped PATH — only
+          // the shelled-out dump tools are.
+          await createPostgresProfile(window, PG_PROFILE);
+          await connectFromSidebar(window, PG_PROFILE);
+          await selectDatabase(window, DATABASE);
+          await dismissToasts(window);
+
+          // Not `openBackupDialog`: that helper waits for `backup-path`, and the whole point of
+          // this view is that the form — and therefore that field — is not rendered. The dialog is
+          // opened the way the sidebar does it and the CARD is what is waited for.
+          await window.getByTestId('sidebar-backup').click();
+          const dialog = backupDialog(window);
+          await expect(dialog).toBeVisible();
+          await expect(missingCliTools(window)).toBeVisible({ timeout: CONNECT_TIMEOUT_MS });
+          // The form is what the card REPLACES; asserting its absence is what makes this a shot of
+          // the remediation view rather than of a dialog that happens to show a warning.
+          await expect(dialog.getByTestId('backup-path')).toHaveCount(0);
+          await blurFocus(window);
+
+          await capture(
+            dialog,
+            'missing-cli-tools',
+            theme,
+            'The backup wizard when pg_dump is not on PATH, showing the setup instructions'
+          );
+        },
+        { envOverrides: { PATH: RESTRICTED_PATH } }
+      );
     });
   });
 }
