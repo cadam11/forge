@@ -13,6 +13,8 @@ It searches **one database** — the one the sidebar's picker is on, for the mos
 connection. With nothing connected, or no database picked, it says so rather than showing an empty
 list.
 
+![The object search overlay: a search box above the loaded database's objects, each row giving the schema-qualified name, its kind, a "Top 1000" hint and a reveal button, with a match count and the Enter-key hints along the foot.](../../../assets/screenshots/object-search-dark.png)
+
 ## What Enter does
 
 | Object kind      | What opens                                | Does it run? |

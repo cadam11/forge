@@ -10,6 +10,8 @@ sidebar:
 Both bindings exist because both are muscle memory — ⌘K from Slack and Linear, ⇧⌘P from VS Code —
 and neither is a menu accelerator, which is why they work everywhere in the window.
 
+![The command palette over the app: a search box, rows grouped under a "File and tabs" heading with each command's description and keystroke, two rows greyed out with "Open a query tab first" in place of their description, and a match count and key hints along the foot.](../../../assets/screenshots/command-palette-dark.png)
+
 ## What is in it
 
 Joinery has **58 commands**. **45** of them are in the palette; the other thirteen are absent for a

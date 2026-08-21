@@ -53,6 +53,8 @@ tools. They are **not bundled with the app**, and the app will tell you so: when
 missing, the Backup and Restore dialogs render setup instructions instead of a form, rather than
 letting you fill the form in and fail with a spawn error.
 
+![The backup wizard standing in for its form: a probe list marking pg_dump and pg_restore missing, above the same numbered install steps this page gives, each with a copy button.](../../../assets/screenshots/missing-cli-tools-dark.png)
+
 | Engine     | Binaries Joinery looks for |
 | ---------- | -------------------------- |
 | PostgreSQL | `pg_dump`, `pg_restore`    |

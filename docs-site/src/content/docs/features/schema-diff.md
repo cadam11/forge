@@ -27,6 +27,8 @@ The comparison is always **within one server**. There is no cross-server compare
 
 ## The dialog
 
+![The Compare schemas dialog on a MySQL server: Source and Target database pickers side by side with an arrow between them, the four Compare checkboxes all ticked, and a Generate comparison query button.](../../../assets/screenshots/schema-diff-dark.png)
+
 Two pickers — **Source** and **Target** — over the databases loaded for that server, and four
 checkboxes, all on by default:
 

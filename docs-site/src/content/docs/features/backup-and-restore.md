@@ -66,6 +66,8 @@ choice of it:
 - _pg_dump writes a compressed custom-format archive. Restore it with Joinery, or with pg_restore._
 - _mysqldump writes a plain SQL script. Restore it with Joinery, or with the mysql client._
 
+![The backup wizard on a PostgreSQL database: one "Backup file on this machine" field with a Choose… button, the note about the archive format underneath, and a Start backup button — no backup type, compression box or statement preview.](../../../assets/screenshots/backup-wizard-dark.png)
+
 Neither engine gets a backup type, a compression box, a description, a statement preview or a
 history, because none of those reach the tool: the format is fixed in the arguments Joinery passes,
 and neither engine keeps backup metadata for a history to read.
@@ -148,6 +150,8 @@ it cannot be stopped once it starts._ It lists the file, the target and whether 
 asks you to **type the target database's name** to proceed. The match is exact, including case —
 accepting `SALES` for `sales` would teach you the two are the same name on the one screen where that
 could be false.
+
+![The restore wizard's review screen, titled "Overwrite joinery_test?": a red-ruled warning that the target already exists and the write cannot be undone, a summary of the file, the target and whether overwrite is on, and a field asking for the database's name typed exactly before the Restore button becomes usable.](../../../assets/screenshots/restore-wizard-dark.png)
 
 ### PostgreSQL creates the target first
 

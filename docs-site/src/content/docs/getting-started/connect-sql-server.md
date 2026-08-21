@@ -11,6 +11,8 @@ on.
 
 ## The fields
 
+![The connection editor filled in for a SQL Server instance — engine, connection name, server and port, the authentication picker, and the encryption checkbox below them.](../../../assets/screenshots/connect-sql-server-dark.png)
+
 | Field                        | Default                   | Notes                                                                                                                      |
 | ---------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | Database engine              | SQL Server                | Changing it resets the port and the authentication type, and replaces a username that is still another engine's convention |

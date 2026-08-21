@@ -28,9 +28,14 @@ dialog.
 
 ## Appearance
 
+![The settings dialog on its Appearance tab, with Editor, Query, Results grid and AI beside it: the Theme radios — System, Ink and Ivory, each with the app's own one-line description of the mode — Ink selected, a line naming how the choice currently resolves, and Reset to defaults along the foot.](../../../assets/screenshots/settings-appearance-dark.png)
+
 | Setting | Default | What it changes                                                                               |
 | ------- | ------- | --------------------------------------------------------------------------------------------- |
 | Theme   | System  | **System**, **Ink** (the dark canvas) or **Ivory** (the light one), applied to the whole app. |
+
+The Ink option's own description still calls itself "Joinery's default" — that text predates this
+table and is stale (tracked as J-107); the shipped default is **System**.
 
 **System** follows the operating system, and the control says which way it currently resolves. When
 the app cannot read a system preference at all it paints ink.

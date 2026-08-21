@@ -27,6 +27,8 @@ History survives quitting the app. It is written to disk on a short delay and fl
 
 ## The list
 
+![The Query history dialog: a search box with the total query count and a clear button beside it, then three rows, each showing a statement's first line above its database, how long ago it ran, its duration and its row count, with a run button on the right and the Enter-key hints along the foot.](../../../assets/screenshots/query-history-dark.png)
+
 Each row is the statement's first line (capped, with the whole thing as a tooltip), then its
 database, how long ago it ran, how long it took, and its row count — or, when it failed, a warning
 glyph and the start of the error message in red.

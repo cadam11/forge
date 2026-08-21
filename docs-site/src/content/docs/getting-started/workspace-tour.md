@@ -21,6 +21,8 @@ page to skim first.
 └──────────────────────────────────────────────────────────┘
 ```
 
+![Four of those five regions in the running app — the assistant panel is closed here; ⇧⌘I opens it — the explorer tree down the left, a query tab in the middle with SQL above and a populated results grid below, and the status bar along the bottom.](../../../assets/screenshots/hero-workspace-dark.png)
+
 ## The sidebar
 
 Labelled **Explorer**. Top to bottom:

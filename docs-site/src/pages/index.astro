@@ -18,12 +18,14 @@
  *  - **No new colour.** Every value below resolves through `src/styles/brand.css`, which is the
  *    site's single palette and carries the measured contrast ratios for both canvases. This file
  *    introduces no hex literal of its own.
- *  - **No new asset and no remote request.** The mark is the three-bar geometry from
+ *  - **No new colour asset and no remote request.** The mark is the three-bar geometry from
  *    `docs/brand/assets/mark-on-{light,dark}.svg`, inlined so one element can carry both
  *    variants (the brand kit's rule is that the middle bar is ink on light surfaces and drafting
  *    ivory on dark — here that is a themed custom property, not a second file). Type is the
  *    self-hosted @fontsource families brand.css already imports. The site keeps building, and
- *    rendering, offline.
+ *    rendering, offline. The one raster pair below (J-99 Phase 3) is the committed
+ *    `hero-workspace` shot from `src/assets/screenshots/`, served through `astro:assets` — still
+ *    local, still offline, and content-hashed by the same pipeline the docs pages use.
  *  - **Every claim is checked.** The copy is drawn from pages that already ship, and the report
  *    for this change lists each claim against its source. No unshipped page is linked and no
  *    capability is described that the docs do not already document.
@@ -32,7 +34,21 @@
  * collects links from the Markdown processor and from Starlight frontmatter only, so nothing
  * here is machine-checked and every href was resolved against the built `dist/` by hand.
  */
+import { Image } from 'astro:assets';
+
 import '../styles/brand.css';
+
+/**
+ * The one hero pair on this route. `plans/docs-site/PROPOSAL.md` §6.3 captures hero shots in both
+ * canvases precisely so a page with a visible canvas toggle can swap them; the CSS at the bottom of
+ * this file does that on `[data-theme]`, the same attribute the bootstrap in `<head>` writes.
+ */
+import workspaceInk from '../assets/screenshots/hero-workspace-dark.png';
+import workspaceIvory from '../assets/screenshots/hero-workspace-light.png';
+
+/** One description for both canvases — the two shots differ in colour and in nothing else. */
+const workspaceAlt =
+  'The Joinery window connected to a PostgreSQL database: the explorer tree down the left, a query tab in the middle with a SELECT above its results grid, and the connection and database named in the status bar.';
 
 const site = Astro.site?.href ?? 'https://usejoinery.com/';
 
@@ -292,6 +308,41 @@ const footerGroups: { heading: string; links: { text: string; href: string }[] }
             <a href="/reference/supported-engines/">What each engine can do</a>
           </p>
         </aside>
+      </section>
+
+      {/*
+        The workspace as it ships, in whichever canvas the reader is on. Both files are rendered
+        and one is hidden, rather than a `<picture>` with `prefers-color-scheme`: the masthead's
+        own toggle writes `[data-theme]` and does NOT touch the system preference, so a media query
+        would leave the shot ink while the page around it went ivory. Both carry `loading="lazy"`,
+        which keeps the hidden one off the wire in browsers that skip lazy images that are not
+        rendered; the visible one sits below the fold on every viewport the hero fills.
+      */}
+      <section class="shell shot" aria-label="The Joinery workspace">
+        <Image
+          class="shot-image shot-ink"
+          src={workspaceInk}
+          alt={workspaceAlt}
+          widths={[720, 1280, 1920, 2560]}
+          sizes="(min-width: 76rem) 69rem, calc(100vw - 2 * var(--j-gutter))"
+          loading="lazy"
+          decoding="async"
+        />
+        <Image
+          class="shot-image shot-ivory"
+          src={workspaceIvory}
+          alt={workspaceAlt}
+          widths={[720, 1280, 1920, 2560]}
+          sizes="(min-width: 76rem) 69rem, calc(100vw - 2 * var(--j-gutter))"
+          loading="lazy"
+          decoding="async"
+        />
+        <p class="shot-caption">
+          One window: the explorer on the left, the editor and its results in the middle, and the
+          connection you are on named in the status bar. <a href="/getting-started/workspace-tour/"
+            >A tour of the workspace</a
+          > names every region.
+        </p>
       </section>
 
       <section class="shell band">
@@ -822,6 +873,42 @@ const footerGroups: { heading: string; links: { text: string; href: string }[] }
       .spec-foot {
         margin: 1rem 0 0;
         font-size: 0.9375rem;
+      }
+
+      /* ── The workspace shot ─────────────────────────────────────────────────────────── */
+
+      /*
+       * The pair is swapped on `[data-theme]`, not on `prefers-color-scheme` — see the markup's
+       * comment. Ink is the unqualified default so that the JS-off canvas (which never gets a
+       * `data-theme` at all) shows the shot that matches it.
+       */
+      .shot {
+        padding-block: 0 var(--j-band);
+      }
+
+      .shot-image {
+        display: block;
+        width: 100%;
+        height: auto;
+        border: 1px solid var(--sl-color-hairline);
+        border-radius: var(--sl-border-radius);
+      }
+
+      .shot-ivory,
+      :root[data-theme='light'] .shot-ink {
+        display: none;
+      }
+
+      :root[data-theme='light'] .shot-ivory {
+        display: block;
+      }
+
+      .shot-caption {
+        margin: 1rem 0 0;
+        max-width: 60ch;
+        font-size: 0.9375rem;
+        color: var(--sl-color-gray-2);
+        text-wrap: pretty;
       }
 
       /* ── Bands ──────────────────────────────────────────────────────────────────────── */

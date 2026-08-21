@@ -11,6 +11,8 @@ sets it to `postgres`.
 
 ## The fields
 
+![The connection editor filled in for a PostgreSQL server — the engine set to PostgreSQL, a non-default port (15432, from the docs' test harness), a username, and the encryption checkbox below.](../../../assets/screenshots/connect-postgresql-dark.png)
+
 | Field                        | Default                 | Notes                                                                         |
 | ---------------------------- | ----------------------- | ----------------------------------------------------------------------------- |
 | Connection name              | —                       | Required to save; not required to test                                        |

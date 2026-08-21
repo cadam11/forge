@@ -109,6 +109,10 @@ ones whose own `connected` flag still says true — the local socket is dead and
 system has not noticed yet. The next operation opens a fresh tunnel and fresh pools. There is one
 tunnel per connection profile, reused by every database on it.
 
+The fields these errors are about are the ones in the editor's SSH tunnel section:
+
+![The connection editor's SSH tunnel section, filled in: SSH host and port, SSH username, SSH authentication set to Private key, and the private key path below it.](../../../assets/screenshots/connect-ssh-dark.png)
+
 ### SSH errors and what they mean
 
 Most of what the SSH library reports is rewritten into a sentence before you see it. Two of the

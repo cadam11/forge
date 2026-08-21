@@ -14,6 +14,7 @@
 </p>
 
 <p align="center">
+  <a href="#screenshots">Screenshots</a> •
   <a href="#features">Features</a> •
   <a href="#ai-assistant">AI Assistant</a> •
   <a href="#download">Download</a> •
@@ -35,6 +36,35 @@
 Joinery is a desktop database IDE with a built-in AI assistant that can query your data, explain schemas, generate SQL, and execute actions — all through natural conversation. It speaks **SQL Server**, **PostgreSQL**, and **MySQL** natively, with engine-aware tools, dialect-aware SQL conversion, and unified workflows across all three.
 
 Think of it as **SSMS / pgAdmin / Workbench meets Cursor** — a multi-engine database management environment where AI understands your schema and can take action.
+
+---
+
+## Screenshots
+
+Every shot below is captured from the app by `pnpm run docs:shots`, driven against the throwaway
+fixture database the test harness creates — no real host, no real credential, no real row.
+[usejoinery.com](https://usejoinery.com/) shows the rest of them in context.
+
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="docs-site/src/assets/screenshots/hero-workspace-light.png">
+  <img src="docs-site/src/assets/screenshots/hero-workspace-dark.png" alt="The Joinery window connected to a PostgreSQL database: the explorer tree down the left, a query tab in the middle with a SELECT above its results grid, and the connection and database named in the status bar.">
+</picture>
+
+**The query tab** — an editor over its results, with the connection and database it runs against named in the toolbar.
+
+<img src="docs-site/src/assets/screenshots/hero-query-results-dark.png" alt="A query tab: a four-line SELECT in the editor above a results panel carrying Result, Messages, History and Analysis tabs, a filter box, and ten rows under sortable column headers.">
+
+**Relationship diagrams** — built from the schema you are looking at, with a details rail beside the canvas.
+
+<img src="docs-site/src/assets/screenshots/hero-erd-dark.png" alt="An ERD tab headed Relationships: order_items — four table boxes joined by foreign-key arrows, with a rail on the right listing the focused table's columns and its two relationships.">
+
+**The assistant** — it is told your connection, database and editor contents, and it shows the SQL it ran.
+
+<img src="docs-site/src/assets/screenshots/hero-ai-assistant-dark.png" width="360" alt="The assistant panel: the connection and database named under the conversation title, a question, an answer with the SQL it ran in a copyable block, the resulting table, and a caveat about where the numbers came from.">
+
+**The command palette** — ⌘K or ⇧⌘P, with every command's keystroke beside it and unavailable rows saying why.
+
+<img src="docs-site/src/assets/screenshots/command-palette-dark.png" width="576" alt="The command palette: a search box above rows grouped under a File and tabs heading, each with a description and keystroke, and two rows greyed out reading Open a query tab first.">
 
 ---
 

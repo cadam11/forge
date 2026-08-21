@@ -13,6 +13,8 @@ Joinery binds **27** of its **58** commands to a keystroke. With the command pal
 which belongs to no command — that is **28 rows**, the same set the in-app cheat sheet shows under
 **⇧⌘/**.
 
+![The keyboard shortcuts sheet in the app: bindings in two columns under group headings such as File and tabs, Query, Editor and View, each row giving a command name, its source — Menu, App or Editor — and its keystroke.](../../../assets/screenshots/keyboard-shortcuts-dark.png)
+
 Every binding is listed, not only the primary one: _New connection_ answers to two menu items, and a
 table that showed one of them would be wrong about the other.
 

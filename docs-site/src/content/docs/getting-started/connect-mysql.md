@@ -11,6 +11,8 @@ it to `root`.
 
 ## The fields
 
+![The connection editor filled in for a MySQL server — the engine set to MySQL, a non-default port (13306, from the docs' test harness), a username, and no authentication-type picker.](../../../assets/screenshots/connect-mysql-dark.png)
+
 | Field                        | Default                      | Notes                                                                         |
 | ---------------------------- | ---------------------------- | ----------------------------------------------------------------------------- |
 | Connection name              | —                            | Required to save; not required to test                                        |

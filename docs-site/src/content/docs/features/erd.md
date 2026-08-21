@@ -21,6 +21,8 @@ moves the database picker to that table's database.
 Reopening the same table (or the same database) focuses the tab you already have rather than opening
 a second one.
 
+![An ERD tab headed "Relationships: order_items": four table boxes joined by foreign-key arrows on the canvas, with the details rail open on the right listing that table's columns and its two relationships.](../../../assets/screenshots/hero-erd-dark.png)
+
 ## What ends up in the diagram
 
 **A focused diagram follows only _outgoing_ foreign keys.** Start on an order line and you get the

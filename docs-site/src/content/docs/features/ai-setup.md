@@ -23,6 +23,8 @@ already covers the keyboard.
 
 ## Providers
 
+![The AI setup dialog: a provider picker, an API key field with Save key beneath it, a preferred-model picker, a "Use this provider" switch, and the AI features switches below a divider.](../../../assets/screenshots/ai-setup-dark.png)
+
 The **Provider** picker lists every vendor in the build's own vendor catalogue, so the app can never
 fall behind the file. Today that is **Google AI, Anthropic, OpenAI, Groq, Cerebras and OpenRouter**.
 
